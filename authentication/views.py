@@ -10,12 +10,13 @@ def register(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             form.save()
-            return login(request)
+            return login_view(request)
     else:
         form = CustomUserCreationForm()
 
     context = {'form': form}
     return render(request, 'register.html', context)
+
 def login_view(request):
     if request.method == 'POST':
         form = LoginForm(request.POST)
@@ -27,7 +28,7 @@ def login_view(request):
                 login(request, user)
                 if not request.session.get('has_displayed_message'):
                     request.session['has_displayed_message'] = True
-                return redirect('index')
+                return render(request, 'index.html')
             else:
                 messages.error(request, 'Invalid username or password.')
     else:
@@ -43,4 +44,4 @@ def index(request):
 @login_required
 def logout_view(request):
     logout(request)
-    return redirect('login')
+    return render(request, 'logout.html')

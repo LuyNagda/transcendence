@@ -8,6 +8,7 @@
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit">Register</button>
+        <button type="button" hx-get="{% url 'login' %}" hx-target="#content" hx-swap="innerHTML">Login</button>
     </form>
 </div>
 {% endblock %}
