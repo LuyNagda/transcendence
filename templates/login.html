@@ -1,0 +1,11 @@
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div id="login-form">
+    <form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="innerHTML">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Login</button>
+    </form>
+</div>
+{% endblock %}
