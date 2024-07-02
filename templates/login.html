@@ -1,3 +1,5 @@
+{% extends 'base.html' %}
+
 {% block title %}Login{% endblock %}
 
 {% block content %}
@@ -7,5 +9,12 @@
         {{ form.as_p }}
         <button type="submit">Login</button>
     </form>
+    {% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+            <p>{{ message }}</p>
+        </div>
+    {% endfor %}
+    {% endif %}
 </div>
 {% endblock %}

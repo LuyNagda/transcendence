@@ -14,7 +14,7 @@ class CustomUserCreationForm(forms.ModelForm):
 
     class Meta:
         model = CustomUser
-        fields = ('email', 'first_name', 'last_name')
+        fields = ('username', 'email', 'nick_name', 'password1', 'password2')
 
     def clean_password1(self):
         password1 = self.cleaned_data.get('password1')
@@ -37,3 +37,7 @@ class CustomUserCreationForm(forms.ModelForm):
         if commit:
             user.save()
         return user
+
+class LoginForm(forms.Form):
+    username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username'}))
+    password = forms.CharField(label='Password', widget=forms.PasswordInput)
