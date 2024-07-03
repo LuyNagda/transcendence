@@ -1,8 +1,13 @@
 {% extends 'base.html' %}
 
-{% block title %}Register{% endblock %}
+{% block title %}Index{% endblock %}
 
 {% block content %}
+<header>
+    <ul>
+        <li><a href="#" hx-get="{% url 'logout' %}" hx-target="#content" hx-swap="outerHTML">Logout</a></li>
+    </ul>
+</header>
 <div id="index">
     <h1>I am Index File</h1>
 </div>
