@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div id="profile-form">
+    <h2>Profile</h2>
+    {% if profile_picture_url %}
+        <img src="{{ profile_picture }}" alt="Profile Picture" class="img-thumbnail" style="max-width: 200px;">
+    {% endif %}
+    <p>Update your profile information.</p>
+    <form method="post" hx-post="{% url 'profile' %}" hx-target="#content" hx-swap="outerHTML">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Update</button>
+    </form>
+    {% if messages %}
+        <ul>
+            {% for message in messages %}
+                <li>{{ message }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+</div>
+{% endblock %}

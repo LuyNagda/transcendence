@@ -25,7 +25,7 @@ def register(request):
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
             form.save()
-            return login_view(request)
+            return render(request, 'login.html', {'form': LoginForm()})
     else:
         form = CustomUserCreationForm()
 

@@ -5,6 +5,7 @@
 {% block content %}
 <header>
     <ul>
+        <li><a href="#" hx-get="{% url 'profile' %}" hx-target="#content" hx-swap="outerHTML">Profile</a></li>
         <li><a href="#" hx-get="{% url 'logout' %}" hx-target="#content" hx-swap="outerHTML">Logout</a></li>
     </ul>
 </header>
