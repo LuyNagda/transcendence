@@ -1,5 +1,5 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
@@ -41,3 +41,10 @@ class CustomUserCreationForm(forms.ModelForm):
 class LoginForm(forms.Form):
     username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username'}))
     password = forms.CharField(label='Password', widget=forms.PasswordInput)
+
+class ForgotPasswordForm(forms.Form):
+    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email'}))
+
+class ResetPasswordForm(SetPasswordForm):
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(user, *args, **kwargs)

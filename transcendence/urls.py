@@ -15,9 +15,21 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
-from authentication.views import register, login_view, index, logout_view, check_username
+from django.urls import path, register_converter
+from django.contrib.auth import views as auth_views
+from authentication.views import register, login_view, index, logout_view, check_username, forgot_password
 from home.views import profile
+
+class UIDTokenConverter:
+    regex = '[^/]+'
+
+    def to_python(self, value):
+        return value
+
+    def to_url(self, value):
+        return value
+    
+register_converter(UIDTokenConverter, 'uid_token')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -27,4 +39,5 @@ urlpatterns = [
     path('profile', profile, name='profile'),
     path('index', index, name='index'),
     path('check_username', check_username, name='check_username'),
+    path('forgot_password', forgot_password, name='forgot_password'),
 ]
