@@ -20,14 +20,10 @@ RUN python -m pip install --upgrade pip
 RUN python3 -m venv /venv && \
 	/venv/bin/pip install -r /app/requirements.txt
 
-RUN . /venv/bin/activate && \
-	python /app/manage.py makemigrations && \
-	python /app/manage.py migrate
-
 WORKDIR /app/authentication
 
 HEALTHCHECK --interval=1s --timeout=30s --retries=30 \
 	CMD curl -f http://localhost:8000/ || exit 1
 
-ENTRYPOINT ["/venv/bin/python", "/app/manage.py", "runserver", "0.0.0.0:8000"]
+ENTRYPOINT ["/app/migrate.sh", "/venv/bin/python", "/app/manage.py", "runserver", "0.0.0.0:8000"]
 CMD ["--noreload"]

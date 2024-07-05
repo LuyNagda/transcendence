@@ -22,7 +22,6 @@ services:
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
       - EMAIL_HOST=${EMAIL_HOST}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
-    command: gunicorn authentication.wsgi:application --bind 0.0.0.0:8000
     networks:
       - net
 

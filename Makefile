@@ -10,15 +10,15 @@
 #                                                                              #
 # **************************************************************************** #
 
-NAME = transcendance
+NAME = transcendence
 
-include .env
+include transcendence/.env
 export MY_GID ?= $(id -g)
 export BUILD_TYPE ?= production
 export MY_UID ?= $(id -u)
 export NGINX_PORT_1 ?= 8000
 export NGINX_PORT_2 ?= 8001
-export CONTAINER ?= transcendance-production
+export CONTAINER ?= transcendence-production
 export PORT ?= 8080
 
 SRC = 
@@ -83,7 +83,7 @@ run_tests:
 	@./test_compare.sh
 
 wait-for-healthy:
-	@echo "Waiting for transcendance docker to be healthy..."
+	@echo "Waiting for transcendence docker to be healthy..."
 	@while ! docker inspect --format='{{json .State.Health.Status}}' django | grep -q '"healthy"'; do \
 		echo "Waiting for django to become healthy..."; \
 		sleep 2; \
