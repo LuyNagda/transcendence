@@ -23,7 +23,7 @@ RUN python3 -m venv /venv && \
 WORKDIR /app/
 
 HEALTHCHECK --interval=1s --timeout=30s --retries=30 \
-	CMD curl -f http://localhost:8000/ || exit 1
+	CMD [ -f /tmp/healthy ] || (curl -f http://localhost:8000/ && touch /tmp/healthy || exit 1)
 
-ENTRYPOINT ["/app/migrate.sh", "/venv/bin/python", "/app/manage.py", "runserver", "0.0.0.0:8000"]
-CMD ["--noreload"]
+ENTRYPOINT ["/app/migrate.sh", "/venv/bin/gunicorn"]
+CMD ["--bind", "0.0.0.0:8000", "myproject.wsgi:application"]
