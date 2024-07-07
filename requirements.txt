@@ -3,3 +3,5 @@ django-environ
 psycopg2-binary
 django-htmx
 django-truncate
+Pillow
+gunicorn
