@@ -10,20 +10,26 @@ services:
         condition: service_healthy
     environment:
       - DB_NAME=${DB_NAME}
-      - DB_HOST=${DB_HOST}
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_PORT=${DB_PORT}
-      - POSTGRES_HOST=${DB_HOST}
       - POSTGRES_DB=${DB_NAME}
+      - DB_HOST=db
+      - POSTGRES_HOST=db
+      - DB_USER=${DB_USER}
       - POSTGRES_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - EMAIL_HOST_USER=${EMAIL_HOST_USER}
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
-      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_HOST=mailhog
+      - EMAIL_PORT=1025
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./
+          target: /app/
     networks:
-      - net
+      - front
+      - back
 
   db:
     image: postgres:13
@@ -32,14 +38,33 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     networks:
-      - net
+      - back
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${DB_USER}", "-h", "localhost", "-d", "${DB_NAME}"]
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-U",
+          "${DB_USER}",
+          "-h",
+          "localhost",
+          "-d",
+          "${DB_NAME}"
+        ]
       interval: 1s
       retries: 30
       start_period: 40s
 
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "8025:8025"
+      - "1025:1025"
+    networks:
+      - front
+
 networks:
-  net:
+  front:
+  back:
 
 

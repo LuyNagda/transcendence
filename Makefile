@@ -44,7 +44,7 @@ watch:
 	done
 
 dev:
-	$(SET_ENV) BUILD_TYPE=debug docker compose up
+	$(SET_ENV) BUILD_TYPE=debug docker compose up --watch
 
 build:
 	$(SET_ENV) BUILD_TYPE=debug docker compose build
