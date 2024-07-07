@@ -12,7 +12,8 @@
 
 NAME = transcendence
 
-include transcendence/.env
+ENV = transcendence/.env
+
 export MY_GID ?= $(id -g)
 export BUILD_TYPE ?= production
 export MY_UID ?= $(id -u)
@@ -23,18 +24,18 @@ export PORT ?= 8080
 
 SRC = 
 
-VPATH = $(SRC_DIR)
+SET_ENV = set -a; source $(ENV); set +a;
 
-all: $(NAME)
+all: dev
 
-$(NAME): 
+$(NAME):
 
 run: daemon
 	$(MAKE) wait-for-healthy
 	@make logs
 
 daemon:
-	BUILD_TYPE=production docker compose up --build -d
+	$(SET_ENV) BUILD_TYPE=production docker compose up -d
 
 watch:
 	while true; do \
@@ -43,8 +44,10 @@ watch:
 	done
 
 dev:
-	export BUILD_TYPE=debug
-	docker compose up --build
+	$(SET_ENV) BUILD_TYPE=debug docker compose up
+
+build:
+	$(SET_ENV) BUILD_TYPE=debug docker compose build
 
 logs:
 	docker compose logs -f
@@ -124,6 +127,6 @@ re: fclean all
 debug_re: fclean debug
 
 .PHONY: all clean fclean re debug debug_re
-.PHONY: run daemon dev logs stop
+.PHONY: run daemon dev build logs stop
 .PHONY: test test-compare wait-for-healthy wait-for-nginx-healthy
 .PHONY: nginx nginxd docker-stop docker-fclean run_tests
