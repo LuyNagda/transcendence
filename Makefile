@@ -12,7 +12,7 @@
 
 NAME = transcendence
 
-ENV = transcendence/.env
+ENV_FILE = transcendence/.env
 
 export MY_GID ?= $(id -g)
 export BUILD_TYPE ?= production
@@ -22,9 +22,7 @@ export NGINX_PORT_2 ?= 8001
 export CONTAINER ?= transcendence-production
 export PORT ?= 8080
 
-SRC = 
-
-SET_ENV = set -a; source $(ENV); set +a;
+ENV = set -a; source $(ENV_FILE); set +a;
 
 all: dev
 
@@ -35,36 +33,30 @@ run: daemon
 	@make logs
 
 daemon:
-	$(SET_ENV) BUILD_TYPE=production docker compose up -d
-
-watch:
-	while true; do \
-		$(MAKE); \
-		inotifywait -qre close_write /app/src; \
-	done
+	$(ENV) BUILD_TYPE=production docker compose up -d
 
 dev:
-	$(SET_ENV) BUILD_TYPE=debug docker compose up --watch
+	$(ENV) BUILD_TYPE=debug docker compose up --watch
 
 build:
-	$(SET_ENV) BUILD_TYPE=debug docker compose build
+	$(ENV) BUILD_TYPE=debug docker compose build
 
 logs:
-	docker compose logs -f
+	$(ENV) docker compose logs -f
 
 stop:
-	docker compose stop
+	$(ENV) docker compose stop
 
 test: stop daemon
 	$(MAKE) wait-for-healthy
-	./test.sh
+	$(ENV) ./test.sh
 	@make clean
 
 test-compare: stop daemon
 	@$(MAKE) nginxd
 	$(MAKE) wait-for-healthy
 	$(MAKE) wait-for-nginx-healthy
-	./test_compare.sh
+	$(ENV) ./test_compare.sh
 	@make clean
 
 siege: stop daemon
@@ -82,8 +74,8 @@ siege-nginx: stop nginxd
 	cat siege.log
 
 run_tests:
-	@./test.sh
-	@./test_compare.sh
+	$(ENV) ./test.sh
+	$(ENV) ./test_compare.sh
 
 wait-for-healthy:
 	@echo "Waiting for transcendence docker to be healthy..."
@@ -127,6 +119,6 @@ re: fclean all
 debug_re: fclean debug
 
 .PHONY: all clean fclean re debug debug_re
-.PHONY: run daemon dev build logs stop
+.PHONY: env run daemon dev build logs stop
 .PHONY: test test-compare wait-for-healthy wait-for-nginx-healthy
 .PHONY: nginx nginxd docker-stop docker-fclean run_tests
