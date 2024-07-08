@@ -39,6 +39,9 @@ dev:
 	$(ENV) BUILD_TYPE=debug docker compose up --watch
 
 build:
+	$(ENV) docker build -t transcendence -f Dockerfile .
+
+rebuild:
 	$(ENV) BUILD_TYPE=debug docker compose build
 
 logs:
@@ -47,10 +50,8 @@ logs:
 stop:
 	$(ENV) docker compose stop
 
-test: stop daemon
-	$(MAKE) wait-for-healthy
-	$(ENV) ./test.sh
-	@make clean
+test: stop build
+	$(ENV) docker compose up auth-test
 
 test-compare: stop daemon
 	@$(MAKE) nginxd

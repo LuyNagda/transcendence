@@ -1,0 +1,4 @@
+FROM transcendence
+
+ENTRYPOINT ["/app/migrate.sh", "/venv/bin/python", "/app/manage.py"]
+CMD ["test", "-v"]

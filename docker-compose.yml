@@ -2,7 +2,7 @@ services:
   auth:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     depends_on:
@@ -27,6 +27,31 @@ services:
         - action: sync+restart
           path: ./
           target: /app/
+    networks:
+      - front
+      - back
+
+  auth-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DB_NAME=${DB_NAME}
+      - POSTGRES_DB=${DB_NAME}
+      - DB_HOST=db
+      - POSTGRES_HOST=db
+      - DB_USER=${DB_USER}
+      - POSTGRES_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - EMAIL_HOST=mailhog
+      - EMAIL_PORT=1025
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
     networks:
       - front
       - back
