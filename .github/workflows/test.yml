@@ -9,5 +9,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
+      - name: Setup env
+        run: cp transcendence/.exampleenv transcendence/.env
+
       - name: Run Tests
         run: make test
