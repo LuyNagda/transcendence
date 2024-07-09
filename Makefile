@@ -24,7 +24,7 @@ export PORT ?= 8080
 
 ENV = set -a; source $(ENV_FILE); set +a;
 
-all: dev
+all: build dev
 
 $(NAME):
 
