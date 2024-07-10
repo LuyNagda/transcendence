@@ -1,0 +1,5 @@
+{% autoescape off %}
+Hi {{ user.get_username }},
+Below is your OTP for 2FA:
+{{ otp }}
+{% endautoescape %}

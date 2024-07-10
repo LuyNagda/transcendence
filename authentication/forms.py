@@ -48,3 +48,19 @@ class ForgotPasswordForm(forms.Form):
 class ResetPasswordForm(SetPasswordForm):
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
+
+class TWOFAForm(forms.Form):
+    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email'}))
+
+class OTPForm(forms.Form):
+    otp = forms.CharField(label='OTP', max_length=8, widget=forms.TextInput(attrs={'placeholder': 'OTP'}))
+
+    def __init__(self, *args, **kwargs):
+        self.otp_length = 8
+        super(OTPForm, self).__init__(*args, **kwargs)
+
+    def clean_otp(self):
+        otp = self.cleaned_data.get('otp')
+        if len(otp) != self.otp_length:
+            raise forms.ValidationError(f'OTP must be exactly {self.otp_length} characters long.')
+        return otp

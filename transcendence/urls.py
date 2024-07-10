@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, register_converter
 from django.contrib.auth import views as auth_views
-from authentication.views import register, login_view, index, logout_view, forgot_password
+from authentication.views import register, login_view, index, logout_view, forgot_password, otp
 from home.views import profile, settings, change_password
 
 class UIDTokenConverter:
@@ -35,6 +35,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', register, name='register'),
     path('login', login_view, name='login'),
+    path('login-2fa', otp, name='login-2fa'),
     path('logout', logout_view, name='logout'),
     path('profile', profile, name='profile'),
     path('index', index, name='index'),
