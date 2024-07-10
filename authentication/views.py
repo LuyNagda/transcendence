@@ -10,7 +10,6 @@ from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
 from .forms import CustomUserCreationForm, LoginForm, ForgotPasswordForm, ResetPasswordForm
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, Http404
-from .decorators import htmx_required
 from django.contrib import messages
 from .models import User
 from django.urls import reverse
@@ -63,7 +62,6 @@ def register(request):
 
     return render(request, 'register.html', {'form': form})
 
-@htmx_required
 def login_view(request):
     if request.user.is_authenticated:
         return render(request, 'index.html')
@@ -86,18 +84,15 @@ def login_view(request):
     context = {'form': form}
     return render(request, 'login.html', context)
 
-@login_required
-@htmx_required
+@login_required(login_url='/login')
 def index(request):
     return render(request, 'index.html')
 
-@login_required
-@htmx_required
+@login_required(login_url='/login')
 def logout_view(request):
     logout(request)
     return HttpResponseRedirect(reverse('login'))
 
-@htmx_required 
 def forgot_password(request):
     if request.method == 'POST':
         if 'email' in request.POST:
