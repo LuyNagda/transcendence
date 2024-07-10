@@ -38,6 +38,5 @@ urlpatterns = [
     path('logout', logout_view, name='logout'),
     path('profile', profile, name='profile'),
     path('index', index, name='index'),
-    path('check_username', check_username, name='check_username'),
-    path('forgot_password', forgot_password, name='forgot_password'),
+    path('forgot-password', forgot_password, name='forgot-password'),
 ]
