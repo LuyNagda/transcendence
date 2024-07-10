@@ -4,11 +4,11 @@
 
 {% block content %}
 <div id="registration-form">
-    <form method="post" hx-post="{% url 'register' %}" hx-target="#content" hx-swap="outerHTML">
+    <form method="post" hx-post="{% url 'register' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit">Register</button>
-        <button type="button" hx-get="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML">Login</button>
+        <button type="button" hx-get="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Login</button>
     </form>
 </div>
 {% endblock %}

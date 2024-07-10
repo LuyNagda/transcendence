@@ -4,11 +4,11 @@
 
 {% block content %}
 <div id="login-form">
-    <form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML">
+    <form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="/index">
         {% csrf_token %}
         {{ form.as_p }}
         <button type="submit">Login</button>
-        <p><a href="#" hx-get="{% url 'forgot_password' %}" hx-target="#content" hx-swap="outerHTML">Forgot Password</a></p>
+        <p><a href="#" hx-get="{% url 'forgot_password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Forgot Password</a></p>
     </form>
     {% if messages %}
     {% for message in messages %}
