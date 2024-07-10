@@ -6,6 +6,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from .decorators import custom_login_required
 from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import render, redirect
 from .forms import CustomUserCreationForm, LoginForm, ForgotPasswordForm, ResetPasswordForm
@@ -84,11 +85,11 @@ def login_view(request):
     context = {'form': form}
     return render(request, 'login.html', context)
 
-@login_required(login_url='/login')
+@custom_login_required
 def index(request):
     return render(request, 'index.html')
 
-@login_required(login_url='/login')
+@custom_login_required
 def logout_view(request):
     logout(request)
     return HttpResponseRedirect(reverse('login'))

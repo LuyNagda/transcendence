@@ -1,10 +1,11 @@
 from django.contrib.auth.decorators import login_required
+from authentication.decorators import custom_login_required
 from authentication.models import User
 from django.contrib import messages
 from django.shortcuts import render, redirect
 from .forms import ProfileForm
 
-@login_required(login_url='/login')
+@custom_login_required
 def profile(request):
     user = request.user
     if request.method == 'POST':
