@@ -1,8 +1,10 @@
-from django.http import HttpResponseRedirect, HttpResponseNotFound, Http404
+from django.conf import settings
+from django.shortcuts import redirect
 
-def htmx_required(view_func):
-    def _wrapped_view(request, *args, **kwargs):
-        if not request.htmx:
-            raise Http404
+def custom_login_required(view_func):
+    def _wrapped_view_func(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            login_url = settings.LOGIN_URL
+            return redirect(login_url)
         return view_func(request, *args, **kwargs)
-    return _wrapped_view
+    return _wrapped_view_func
