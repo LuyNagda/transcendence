@@ -11,48 +11,4 @@
         <button type="button" hx-get="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML">Login</button>
     </form>
 </div>
-<script>
-$(document).ready(function() {
-    var typingTimer;  // Timer identifier
-    var doneTypingInterval = 1000;  // Time in ms
-
-    // Function to handle username validation
-    function validateUsername() {
-        var form = $('#registration-form');
-        var username = form.find('#id_username').val().trim(); // Get username from form field
-        var loginUrl = '{% url "login" %}';
-
-        if (username.length >= 3) { // Optional: Check minimum length
-            $.ajax({
-                url: '/check_username',
-                method: 'GET',
-                data: {
-                    'username': username
-                },
-                dataType: 'json',
-                success: function(data) {
-                    if (data.is_taken) {
-                        // Use HTMX to load login view and replace content
-                        // Corrected HTMX usage for loading login view
-                        htmx.ajax('GET', loginUrl, '#content', {
-                            headers: {'HX-Trigger': 'true'}
-                        });
-                        form.find('#id_username').val(username); // Populate username in the form
-                        console.log('Username is already taken');
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error checking username availability:', error);
-                }
-            });
-        }
-    }
-
-    // Call validateUsername function on keyup event in the username field
-    $('#id_username').keyup(function() {
-        clearTimeout(typingTimer);
-        typingTimer = setTimeout(validateUsername, doneTypingInterval);
-    });
-});
-</script>
 {% endblock %}
