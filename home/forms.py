@@ -2,7 +2,7 @@ from django import forms
 from authentication.models import User
 
 class ProfileForm(forms.Form):
-    name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'}))
     nick_name = forms.CharField(max_length=10, widget=forms.TextInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
     date_of_birth = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'placeholder': 'YYYY-MM-DD'}), input_formats=['%Y-%m-%d'], required=False)
@@ -26,7 +26,7 @@ class ProfileForm(forms.Form):
         user.nick_name = self.cleaned_data['nick_name']
         user.date_of_birth = self.cleaned_data['date_of_birth']
         user.bio = self.cleaned_data['bio']
-        if self.cleaned_data['profile_picture']:
+        if self.cleaned_data.get('profile_picture'):
             user.profile_picture = self.cleaned_data['profile_picture']
         if commit:
             user.save()
