@@ -37,16 +37,16 @@ daemon:
 	$(SRC_ENV) DEBUG=False BUILD_TYPE=prod docker compose up -d
 
 dev:
-	$(SRC_ENV) DEBUG=True BUILD_TYPE=debug docker compose up --watch
+	$(SRC_ENV) DEBUG=True BUILD_TYPE=dev docker compose up --watch
 
 build-dev:
-	$(SRC_ENV) docker build -t $(CONTAINER) -f Dockerfile .
+	$(SRC_ENV) docker build -t transcendence-dev -f Dockerfile .
 
 build:
-	$(SRC_ENV) docker build -t $(CONTAINER) -f Dockerfile .
+	$(SRC_ENV) docker build -t transcendence-prod -f Dockerfile .
 
 rebuild:
-	$(SRC_ENV) BUILD_TYPE=debug docker compose build
+	$(SRC_ENV) BUILD_TYPE=dev docker compose build
 
 logs:
 	$(SRC_ENV) docker compose logs -f
