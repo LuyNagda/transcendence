@@ -34,6 +34,7 @@ services:
       - "traefik.http.routers.auth-http.entrypoints=web"
       - "traefik.http.routers.auth-http.middlewares=auth-https-redirect"
       - "traefik.http.middlewares.auth-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.services.auth.loadbalancer.server.port=8000"
     develop:
       watch:
         - action: sync+restart
