@@ -25,6 +25,15 @@ services:
       - EMAIL_PORT=${BUILD_TYPE:-dev} == prod && ${EMAIL_PORT} || 1025
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
       - DEBUG=${DEBUG}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.auth.entrypoints=websecure"
+      - "traefik.http.routers.auth.tls.certresolver=myresolver"
+      - "traefik.http.routers.auth-http.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.auth-http.entrypoints=web"
+      - "traefik.http.routers.auth-http.middlewares=auth-https-redirect"
+      - "traefik.http.middlewares.auth-https-redirect.redirectscheme.scheme=https"
     develop:
       watch:
         - action: sync+restart
