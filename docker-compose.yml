@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    volumes:
+      - ./media:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -55,6 +57,8 @@ services:
     networks:
       - front
       - back
+    profiles:
+      - ${BUILD_TYPE:-dev}
 
   db:
     image: postgres:13
@@ -64,6 +68,8 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     networks:
       - back
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test:
         [
@@ -87,9 +93,13 @@ services:
       - "1025:1025"
     networks:
       - front
+    profiles:
+      - ${BUILD_TYPE:-dev}
 
 networks:
   front:
   back:
 
 
+volumes:
+  postgres_data:
