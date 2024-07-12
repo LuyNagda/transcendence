@@ -16,14 +16,14 @@ def profile(request):
             messages.success(request, 'Profile updated successfully.')
             return redirect('profile')
         else:
-            messages.error(request, 'Profile not updated. Please correct the errors below.')
+            messages.error(request, 'Profile not updated. Please correct the errors.')
     else:
         form = ProfileForm(item_id=user.username)
-    context = {'user': user, 'form': form, 'profile_picture': user.profile_picture.url if user.profile_picture else None}
+    context = {'user': user, 'form': form}
     return render(request, 'profile.html', context)
 
 @custom_login_required
-def settings(request):
+def settings_view(request):
     return render(request, 'settings.html')
 
 @custom_login_required

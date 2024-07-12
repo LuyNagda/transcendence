@@ -18,7 +18,9 @@ from django.contrib import admin
 from django.urls import path, register_converter
 from django.contrib.auth import views as auth_views
 from authentication.views import register, login_view, index, logout_view, forgot_password, otp
-from home.views import profile, settings, change_password
+from home.views import profile, settings_view, change_password
+from django.conf.urls.static import static
+from django.conf import settings
 
 class UIDTokenConverter:
     regex = '[^/]+'
@@ -40,6 +42,6 @@ urlpatterns = [
     path('profile', profile, name='profile'),
     path('index', index, name='index'),
     path('forgot-password', forgot_password, name='forgot-password'),
-    path('settings', settings, name='settings'),
+    path('settings', settings_view, name='settings'),
     path('change-password', change_password, name='change-password'),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
