@@ -25,6 +25,7 @@ services:
       - EMAIL_PORT=${BUILD_TYPE:-dev} == prod && ${EMAIL_PORT} || 1025
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
       - DEBUG=${DEBUG}
+      - DOMAIN=${DOMAIN}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.auth.rule=Host(`${DOMAIN}`)"
@@ -111,6 +112,7 @@ services:
   traefik:
     image: traefik:v2.9
     command:
+      - "--log.level=DEBUG"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
@@ -118,6 +120,8 @@ services:
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
       - "--certificatesresolvers.myresolver.acme.email=${DEFAULT_FROM_EMAIL}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
       - "443:443"
