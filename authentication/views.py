@@ -17,7 +17,7 @@ from .utils import generate_otp, send_otp
 
 def register(request):
     if request.user.is_authenticated:
-        return render(request, 'index.html')
+        return redirect('index')
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
@@ -31,7 +31,7 @@ def register(request):
 
 def login_view(request):
     if request.user.is_authenticated:
-        return render(request, 'index.html')
+        return redirect('index')
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
