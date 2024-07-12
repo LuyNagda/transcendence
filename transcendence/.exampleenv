@@ -2,6 +2,8 @@ DB_NAME=transcendence
 DB_USER=marvin
 DB_PASSWORD=marvin
 
+EMAIL_HOST=mailhog
+EMAIL_PORT=1025
 EMAIL_HOST_USER=marvin@42lyon.fr
 EMAIL_HOST_PASSWORD=marvin
 DEFAULT_FROM_EMAIL=marvin@42lyon.fr

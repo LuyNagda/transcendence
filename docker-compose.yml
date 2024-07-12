@@ -21,20 +21,19 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - EMAIL_HOST_USER=${EMAIL_HOST_USER}
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
-      - EMAIL_HOST=${BUILD_TYPE:-dev} == prod && ${EMAIL_HOST} || mailhog
-      - EMAIL_PORT=${BUILD_TYPE:-dev} == prod && ${EMAIL_PORT} || 1025
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
       - DEBUG=${DEBUG}
       - DOMAIN=${DOMAIN}
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=front"
       - "traefik.http.routers.auth.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.auth.entrypoints=websecure"
       - "traefik.http.routers.auth.tls.certresolver=myresolver"
       - "traefik.http.routers.auth-http.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.auth-http.entrypoints=web"
-      - "traefik.http.routers.auth-http.middlewares=auth-https-redirect"
-      - "traefik.http.middlewares.auth-https-redirect.redirectscheme.scheme=https"
       - "traefik.http.services.auth.loadbalancer.server.port=8000"
     develop:
       watch:
@@ -117,11 +116,11 @@ services:
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
       - "--certificatesresolvers.myresolver.acme.email=${DEFAULT_FROM_EMAIL}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
       - "443:443"

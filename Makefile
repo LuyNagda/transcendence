@@ -34,7 +34,7 @@ run: daemon
 	@make logs
 
 daemon:
-	$(SRC_ENV) DEBUG=False BUILD_TYPE=prod docker compose --profile prod up -d
+	$(SRC_ENV) BUILD_TYPE=prod docker compose --profile prod up -d
 
 dev:
 	$(SRC_ENV) DEBUG=True BUILD_TYPE=dev docker compose --profile dev up --watch
