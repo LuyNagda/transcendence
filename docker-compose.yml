@@ -24,6 +24,7 @@ services:
       - EMAIL_HOST=${BUILD_TYPE:-dev} == prod && ${EMAIL_HOST} || mailhog
       - EMAIL_PORT=${BUILD_TYPE:-dev} == prod && ${EMAIL_PORT} || 1025
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      - DEBUG=${DEBUG}
     develop:
       watch:
         - action: sync+restart
@@ -54,11 +55,12 @@ services:
       - EMAIL_HOST=mailhog
       - EMAIL_PORT=1025
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      - DEBUG=True
     networks:
       - front
       - back
     profiles:
-      - ${BUILD_TYPE:-dev}
+      - dev
 
   db:
     image: postgres:13
@@ -94,7 +96,7 @@ services:
     networks:
       - front
     profiles:
-      - ${BUILD_TYPE:-dev}
+      - dev
 
   traefik:
     image: traefik:v2.9
@@ -115,7 +117,7 @@ services:
     networks:
       - front
     profiles:
-      - ${BUILD_TYPE:-prod}
+      - prod
 
 networks:
   front:
@@ -124,3 +126,4 @@ networks:
 
 volumes:
   postgres_data:
+  letsencrypt:

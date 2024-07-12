@@ -34,19 +34,16 @@ run: daemon
 	@make logs
 
 daemon:
-	$(SRC_ENV) DEBUG=False BUILD_TYPE=prod docker compose up -d
+	$(SRC_ENV) DEBUG=False BUILD_TYPE=prod docker compose --profile prod up -d
 
 dev:
-	$(SRC_ENV) DEBUG=True BUILD_TYPE=dev docker compose up --watch
-
-build-dev:
-	$(SRC_ENV) docker build -t transcendence-dev -f Dockerfile .
+	$(SRC_ENV) DEBUG=True BUILD_TYPE=dev docker compose --profile dev up --watch
 
 build:
-	$(SRC_ENV) docker build -t transcendence-prod -f Dockerfile .
+	$(SRC_ENV) docker build -t transcendence -f Dockerfile .
 
 rebuild:
-	$(SRC_ENV) BUILD_TYPE=dev docker compose build
+	$(SRC_ENV) BUILD_TYPE=dev docker compose --profile dev build
 
 logs:
 	$(SRC_ENV) docker compose logs -f
