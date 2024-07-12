@@ -13,7 +13,7 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Deploy to remote server
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
