@@ -3,9 +3,12 @@
 {% block title %}Profile{% endblock %}
 
 {% block content %}
+
+{% block navbar %}{% include "navbar.html" %}{% endblock %}
+
 <div id="profile-form">
     <h2>Profile</h2>
-    <img src="{{ user.profile_picture.url }}" class="img-thumbnail" style="max-width: 200px;">
+    <img src="{{ user.profile_picture.url }}" class="img-thumbnail" style="width: 200px">
     <p>Update your profile information.</p>
     <form method="post" hx-post="{% url 'profile' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" enctype="multipart/form-data">
         {% csrf_token %}

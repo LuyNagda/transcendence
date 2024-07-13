@@ -3,20 +3,23 @@
 {% block title %}Login{% endblock %}
 
 {% block content %}
+
+{% block navbar %}{% include "navbar-login.html" %}{% endblock %}
+
 <div id="login-form">
-    <form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="/index" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Login</button>
-        <button type="button" hx-get="{% url 'login-2fa' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Login with 2FA</button>
-        <p><a href="#" hx-get="{% url 'forgot-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Forgot Password</a></p>
-    </form>
-    {% if messages %}
-    {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">
-            <p>{{ message }}</p>
-        </div>
-    {% endfor %}
-    {% endif %}
+	<form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="/index" enctype="multipart/form-data">
+		{% csrf_token %}
+		{{ form.as_p }}
+		<button type="submit">Login</button>
+		<button type="button" hx-get="{% url 'login-2fa' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Login with 2FA</button>
+		<p><a href="#" hx-get="{% url 'forgot-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Forgot Password</a></p>
+	</form>
+	{% if messages %}
+	{% for message in messages %}
+		<div class="alert alert-{{ message.tags }}">
+			<p>{{ message }}</p>
+		</div>
+	{% endfor %}
+	{% endif %}
 </div>
 {% endblock %}

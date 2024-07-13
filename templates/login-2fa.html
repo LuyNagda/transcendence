@@ -3,6 +3,9 @@
 {% block title %}Login{% endblock %}
 
 {% block content %}
+
+{% block navbar %}{% include "navbar-login.html" %}{% endblock %}
+
 <div id="login-2fa-form">
     <form method="post" hx-post="{% url 'login-2fa' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" enctype="multipart/form-data">
         {% csrf_token %}

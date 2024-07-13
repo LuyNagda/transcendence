@@ -10,6 +10,8 @@
 #                                                                              #
 # **************************************************************************** #
 
+SHELL := /bin/bash
+
 NAME = transcendence
 
 ENV_FILE = transcendence/.env
