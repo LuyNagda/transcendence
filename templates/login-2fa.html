@@ -6,11 +6,26 @@
 
 {% block navbar %}{% include "navbar-login.html" %}{% endblock %}
 
-<div id="login-2fa-form">
+<div class="container x-auto my-4" id="login-2fa-form">
+    <h1>2FA</h1>
     <form method="post" hx-post="{% url 'login-2fa' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" enctype="multipart/form-data">
         {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Login</button>
+        {% for field in form %}
+        <div class="form-floating my-3">
+                {{ field }}
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {% if field.errors %}
+                    <div class="alert alert-danger my-1">
+                        <ul class="m-0">
+                        {% for error in field.errors %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+        </div>
+        {% endfor %}
+        <button class="btn btn-outline-primary" type="submit">Login</button>
     </form>
     {% if messages %}
     {% for message in messages %}
