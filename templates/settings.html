@@ -7,10 +7,10 @@
 {% block navbar %}{% include "navbar.html" %}{% endblock %}
 
 
-<div id="settings">
+<div class="container x-auto my-4" id="settings">
     <h1>Settings</h1>
-    <ul>
-        <li><a href="#" hx-get="{% url 'change-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Change Password</a></li>
+    <ul class="m-0 p-0" style="list-style-type: none;">
+        <li><button class="btn btn-outline-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Change Password</button></li>
     </ul>
 </div>
 {% endblock %}
