@@ -14,17 +14,18 @@ SHELL := /bin/bash
 
 NAME = transcendence
 
+SHELL := /bin/bash
 ENV_FILE = transcendence/.env
 
 export MY_GID ?= $(id -g)
-export BUILD_TYPE ?= production
+export BUILD_TYPE ?= prod
 export MY_UID ?= $(id -u)
 export NGINX_PORT_1 ?= 8000
 export NGINX_PORT_2 ?= 8001
-export CONTAINER ?= transcendence-production
+export CONTAINER ?= transcendence-$(BUILD_TYPE)
 export PORT ?= 8080
 
-ENV = set -a; source $(ENV_FILE); set +a;
+SRC_ENV = set -a; source $(ENV_FILE); set +a;
 
 all: build dev
 
@@ -35,31 +36,31 @@ run: daemon
 	@make logs
 
 daemon:
-	$(ENV) BUILD_TYPE=production docker compose up -d
+	$(SRC_ENV) BUILD_TYPE=prod docker compose --profile prod up -d
 
 dev:
-	$(ENV) BUILD_TYPE=debug docker compose up --watch
+	$(SRC_ENV) DEBUG=True BUILD_TYPE=dev docker compose --profile dev up --watch
 
 build:
-	$(ENV) docker build -t transcendence -f Dockerfile .
+	$(SRC_ENV) docker build -t transcendence -f Dockerfile .
 
 rebuild:
-	$(ENV) BUILD_TYPE=debug docker compose build
+	$(SRC_ENV) BUILD_TYPE=dev docker compose --profile dev build
 
 logs:
-	$(ENV) docker compose logs -f
+	$(SRC_ENV) docker compose logs -f
 
 stop:
-	$(ENV) docker compose stop
+	$(SRC_ENV) docker compose stop
 
 test: stop build
-	$(ENV) docker compose up auth-test
+	$(SRC_ENV) docker compose up auth-test
 
 test-compare: stop daemon
 	@$(MAKE) nginxd
 	$(MAKE) wait-for-healthy
 	$(MAKE) wait-for-nginx-healthy
-	$(ENV) ./test_compare.sh
+	$(SRC_ENV) ./test_compare.sh
 	@make clean
 
 siege: stop daemon
@@ -77,8 +78,8 @@ siege-nginx: stop nginxd
 	cat siege.log
 
 run_tests:
-	$(ENV) ./test.sh
-	$(ENV) ./test_compare.sh
+	$(SRC_ENV) ./test.sh
+	$(SRC_ENV) ./test_compare.sh
 
 wait-for-healthy:
 	@echo "Waiting for transcendence docker to be healthy..."

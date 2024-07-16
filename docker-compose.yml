@@ -5,6 +5,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    volumes:
+      - ./media:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -19,9 +21,20 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - EMAIL_HOST_USER=${EMAIL_HOST_USER}
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
-      - EMAIL_HOST=mailhog
-      - EMAIL_PORT=1025
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_PORT=${EMAIL_PORT}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      - DEBUG=${DEBUG}
+      - DOMAIN=${DOMAIN}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=front"
+      - "traefik.http.routers.auth.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.auth.entrypoints=websecure"
+      - "traefik.http.routers.auth.tls.certresolver=myresolver"
+      - "traefik.http.routers.auth-http.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.auth-http.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=8000"
     develop:
       watch:
         - action: sync+restart
@@ -52,9 +65,12 @@ services:
       - EMAIL_HOST=mailhog
       - EMAIL_PORT=1025
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      - DEBUG=True
     networks:
       - front
       - back
+    profiles:
+      - dev
 
   db:
     image: postgres:13
@@ -64,6 +80,8 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     networks:
       - back
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test:
         [
@@ -87,9 +105,38 @@ services:
       - "1025:1025"
     networks:
       - front
+    profiles:
+      - dev
+
+  traefik:
+    image: traefik:v2.9
+    command:
+      - "--log.level=DEBUG"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=${DEFAULT_FROM_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "letsencrypt:/letsencrypt"
+    networks:
+      - front
+    profiles:
+      - prod
 
 networks:
   front:
   back:
 
 
+volumes:
+  postgres_data:
+  letsencrypt:
