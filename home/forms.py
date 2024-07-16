@@ -2,7 +2,7 @@ from django import forms
 from authentication.models import User
 
 class ProfileForm(forms.Form):
-    name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'disabled': ''}))
+    name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'}))
     nick_name = forms.CharField(max_length=10, widget=forms.TextInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
     date_of_birth = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'placeholder': 'YYYY-MM-DD'}), input_formats=['%Y-%m-%d'], required=False)
