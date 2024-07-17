@@ -36,10 +36,12 @@ const ball = {
     x: canvas.width / 2,
     y: canvas.height / 2,
     radius: 10,
-    speed: 4,
+    speed: 1,
     dx: 4,
     dy: 4
 };
+
+var ballAcceleration = 1.1;
 
 // Draw paddles and ball
 function drawPaddle(paddle) {
@@ -68,8 +70,8 @@ function movePaddles() {
 
 // Move ball
 function moveBall() {
-    ball.x += ball.dx;
-    ball.y += ball.dy;
+    ball.x += ball.dx * ball.speed;
+    ball.y += ball.dy * ball.speed;
 
     // Ball collision with top and bottom walls
     if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
@@ -81,12 +83,14 @@ function moveBall() {
         ball.y > leftPaddle.y && ball.y < leftPaddle.y + leftPaddle.height &&
 		ball.dx < 0) {
         ball.dx *= -1;
+		ball.speed *= ballAcceleration;
     }
     
     if (ball.x + ball.radius > rightPaddle.x && 
         ball.y > rightPaddle.y && ball.y < rightPaddle.y + rightPaddle.height &&
 		ball.dx > 0) {
         ball.dx *= -1;
+		ball.speed *= ballAcceleration; 
     }
 
     // Ball out of bounds
@@ -95,6 +99,7 @@ function moveBall() {
         ball.x = canvas.width / 2;
         ball.y = canvas.height / 2;
         ball.dx *= -1;
+		ball.speed = 1;
     }
 }
 
