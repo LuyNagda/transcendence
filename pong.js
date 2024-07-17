@@ -116,19 +116,26 @@ function render() {
 // Game loop
 function gameLoop() {
     update();
+	if (true)
+		aiOpponent(ball);
     render();
     requestAnimationFrame(gameLoop);
 }
 
+// Control paddles by AI
+function aiOpponent() {
+	if (rightPaddle.y + rightPaddle.height / 2 < ball.y)
+		rightPaddle.dy = paddleSpeed;
+	else if (rightPaddle.y + rightPaddle.height / 2> ball.y)
+		rightPaddle.dy = -paddleSpeed;
+	else
+		;
+}
+
+
 // Control paddles with keyboard
 document.addEventListener('keydown', function(e) {
     switch(e.key) {
-        case 'ArrowUp':
-            rightPaddle.dy = -paddleSpeed;
-            break;
-        case 'ArrowDown':
-            rightPaddle.dy = paddleSpeed;
-            break;
         case 'w':
             leftPaddle.dy = -paddleSpeed;
             break;
