@@ -1,8 +1,10 @@
 const canvas = document.getElementById('pong');
 const context = canvas.getContext('2d');
+const startButton = document.getElementById('startButton');
 
 const netWidth = 4;
 const netHeight = canvas.height;
+let gameRunning = false;
 
 // Draw the net
 function drawNet() {
@@ -105,6 +107,8 @@ function moveBall() {
 
 // Update game objects
 function update() {
+	if (!gameRunning)
+		return ;
     movePaddles();
     moveBall();
 }
@@ -122,7 +126,7 @@ function render() {
 function gameLoop() {
     update();
 	if (true)
-		aiOpponent(ball);
+		aiOpponent();
     render();
     requestAnimationFrame(gameLoop);
 }
@@ -161,6 +165,12 @@ document.addEventListener('keyup', function(e) {
             leftPaddle.dy = 0;
             break;
     }
+});
+
+// Start game button
+startButton.addEventListener('click', function() {
+    gameRunning = true;
+    startButton.style.display = 'none'; // Hide the start button after clicking
 });
 
 // Start the game
