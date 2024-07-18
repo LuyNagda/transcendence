@@ -125,7 +125,7 @@ function render() {
 // Game loop
 function gameLoop() {
     update();
-	if (true)
+	if ( true )
 		aiOpponent();
     render();
     requestAnimationFrame(gameLoop);
@@ -133,14 +133,34 @@ function gameLoop() {
 
 // Control paddles by AI
 function aiOpponent() {
-	if (rightPaddle.y + rightPaddle.height / 2 < ball.y)
-		rightPaddle.dy = paddleSpeed;
-	else if (rightPaddle.y + rightPaddle.height / 2> ball.y)
-		rightPaddle.dy = -paddleSpeed;
-	else
-		;
-}
+    if (ball.x < canvas.width / 2 || ball.dx <= 0) {
+        rightPaddle.dy = 0;
+        return ;
+    }
 
+    if (ball.x < rightPaddle.x - 200
+        && ball.y + difficulty * 100 > 0
+        && ball.y + difficulty * 100 < canvas.height)
+    {
+        if (rightPaddle.y + rightPaddle.height / 2 < ball.y + difficulty * 100)
+            rightPaddle.dy = paddleSpeed;
+        else if (rightPaddle.y + rightPaddle.height / 2 > ball.y + difficulty * 100)
+            rightPaddle.dy = -paddleSpeed;
+        else
+            rightPaddle.dy = 0;
+
+        return ;
+    }
+    else 
+    {
+        if (rightPaddle.y + rightPaddle.height / 2 < ball.y)
+            rightPaddle.dy = paddleSpeed;
+        else if (rightPaddle.y + rightPaddle.height / 2> ball.y)
+            rightPaddle.dy = -paddleSpeed;
+        else
+            rightPaddle.dy = 0;
+    }
+}
 
 // Control paddles with keyboard
 document.addEventListener('keydown', function(e) {
@@ -170,7 +190,15 @@ document.addEventListener('keyup', function(e) {
 // Start game button
 startButton.addEventListener('click', function() {
     gameRunning = true;
-    startButton.style.display = 'none'; // Hide the start button after clicking
+    document.getElementById("notpong").style.display = 'none';
+    document.getElementById("pauseButton").style.display = 'block';
+});
+
+// Pause game button
+pauseButton.addEventListener('click', function() {
+    gameRunning = false;
+    document.getElementById("notpong").style.display = 'block';
+    document.getElementById("pauseButton").style.display = 'none';
 });
 
 // Start the game
@@ -178,9 +206,30 @@ gameLoop();
 
 var slider = document.getElementById("myRange");
 var output = document.getElementById("demo");
+var difficulty = -1;
 output.innerHTML = slider.value; // Display the default slider value
 
 // Update the current slider value (each time you drag the slider handle)
 slider.oninput = function() {
   output.innerHTML = this.value;
+  switch(value) {
+    case "0":
+        difficulty = -1;
+        break;
+    case "1":
+        difficulty = 0;
+        break;
+    case "2":
+        difficulty = 1;
+        break;
+    case "3":
+        difficulty = 2;
+        break;
+    case "4":
+        difficulty = 3;
+        break;
+    case "5":
+        difficulty = 4;
+        break;
+  }
 }
