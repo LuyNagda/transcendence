@@ -1,5 +1,6 @@
 from django import forms
 from authentication.models import User
+from django.contrib.auth.forms import PasswordChangeForm
 
 class ProfileForm(forms.Form):
     name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'}))
@@ -31,3 +32,9 @@ class ProfileForm(forms.Form):
         if commit:
             user.save()
         return user
+
+class MyPasswordChangeForm(PasswordChangeForm):
+    def __init__(self, *args, **kwargs):
+        super(MyPasswordChangeForm, self).__init__(*args, **kwargs)
+        for fieldname in ['old_password', 'new_password1', 'new_password2']:
+            self.fields[fieldname].widget.attrs.update({'class': 'form-control'})
