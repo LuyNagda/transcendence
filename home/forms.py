@@ -37,4 +37,4 @@ class MyPasswordChangeForm(PasswordChangeForm):
     def __init__(self, *args, **kwargs):
         super(MyPasswordChangeForm, self).__init__(*args, **kwargs)
         for fieldname in ['old_password', 'new_password1', 'new_password2']:
-            self.fields[fieldname].widget.attrs.update({'class': 'form-control'})
+            self.fields[fieldname].widget.attrs.update({'class': 'form-control', 'placeholder': 'password'})
