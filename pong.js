@@ -81,9 +81,13 @@ function moveBall() {
     }
 
     // Ball collision with paddles
-    if (ball.x - ball.radius < leftPaddle.x + leftPaddle.width && 
-        ball.y > leftPaddle.y && ball.y < leftPaddle.y + leftPaddle.height &&
-		ball.dx < 0) {
+    // if (ball.x - ball.radius < leftPaddle.x + leftPaddle.width && 
+    //     ball.y > leftPaddle.y && ball.y < leftPaddle.y + leftPaddle.height &&
+	// 	ball.dx < 0) {
+    //     ball.dx *= -1;
+	// 	ball.speed *= ballAcceleration;
+    // }
+    if (ball.x < leftPaddle.x && ball.dx < 0) {
         ball.dx *= -1;
 		ball.speed *= ballAcceleration;
     }
