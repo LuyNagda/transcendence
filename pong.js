@@ -135,35 +135,37 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+const aiBall = {
+    x: ball.x,
+    y: ball.y,
+    radius: ball.radius,
+    speed: ball.speed,
+    dx: ball.dx,
+    dy: ball.dy
+};
+
+var intervalId = window.setInterval(function(){
+    aiBall.x = ball.x;
+    aiBall.y = ball.y;
+    aiBall.radius = ball.radius;
+    aiBall.speed = ball.speed;
+    aiBall.dx = ball.dx;
+    aiBall.dy = ball.dy;
+}, 1000);
+
 // Control paddles by AI
 function aiOpponent() {
-    if (ball.x < canvas.width / 2 || ball.dx <= 0) {
+    if (aiBall.x < canvas.width / 2 || aiBall.dx <= 0) {
         rightPaddle.dy = 0;
         return ;
     }
 
-    if (ball.x < rightPaddle.x - 200
-        && ball.y + difficulty * 100 > 0
-        && ball.y + difficulty * 100 < canvas.height)
-    {
-        if (rightPaddle.y + rightPaddle.height / 2 < ball.y + difficulty * 100)
-            rightPaddle.dy = paddleSpeed;
-        else if (rightPaddle.y + rightPaddle.height / 2 > ball.y + difficulty * 100)
-            rightPaddle.dy = -paddleSpeed;
-        else
-            rightPaddle.dy = 0;
-
-        return ;
-    }
-    else 
-    {
-        if (rightPaddle.y + rightPaddle.height / 2 < ball.y)
-            rightPaddle.dy = paddleSpeed;
-        else if (rightPaddle.y + rightPaddle.height / 2> ball.y)
-            rightPaddle.dy = -paddleSpeed;
-        else
-            rightPaddle.dy = 0;
-    }
+    if (rightPaddle.y + rightPaddle.height / 2 < aiBall.y)
+        rightPaddle.dy = paddleSpeed;
+    else if (rightPaddle.y + rightPaddle.height / 2> aiBall.y)
+        rightPaddle.dy = -paddleSpeed;
+    else
+        rightPaddle.dy = 0;
 }
 
 // Control paddles with keyboard
