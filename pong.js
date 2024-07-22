@@ -129,7 +129,7 @@ function render() {
 // Game loop
 function gameLoop() {
     update();
-	if ( true )
+	if ( gameRunning )
 		aiOpponent();
     render();
     requestAnimationFrame(gameLoop);
@@ -155,15 +155,20 @@ var intervalId = window.setInterval(function(){
 
 // Control paddles by AI
 function aiOpponent() {
-    if (aiBall.x < canvas.width / 2 || aiBall.dx <= 0) {
-        rightPaddle.dy = 0;
-        return ;
-    }
+    // if (aiBall.x < canvas.width / 2 || aiBall.dx <= 0) {
+    //     rightPaddle.dy = 0;
+    //     return ;
+    // }
 
-    if (rightPaddle.y + rightPaddle.height / 2 < aiBall.y)
+    var ballXPrediction = aiBall.x + aiBall.dx;
+    var ballYPrediction = aiBall.y + aiBall.dy;
+
+    if (rightPaddle.y + rightPaddle.height / 2 < ballYPrediction) {
         rightPaddle.dy = paddleSpeed;
-    else if (rightPaddle.y + rightPaddle.height / 2> aiBall.y)
+    }
+    else if (rightPaddle.y + rightPaddle.height / 2 > ballYPrediction) {
         rightPaddle.dy = -paddleSpeed;
+    }
     else
         rightPaddle.dy = 0;
 }
@@ -210,32 +215,32 @@ pauseButton.addEventListener('click', function() {
 // Start the game
 gameLoop();
 
-var slider = document.getElementById("myRange");
-var output = document.getElementById("demo");
-var difficulty = -1;
-output.innerHTML = slider.value; // Display the default slider value
+// var slider = document.getElementById("myRange");
+// var output = document.getElementById("demo");
+// var difficulty = 4;
+// output.innerHTML = slider.value; // Display the default slider value
 
 // Update the current slider value (each time you drag the slider handle)
-slider.oninput = function() {
-  output.innerHTML = this.value;
-  switch(value) {
-    case "0":
-        difficulty = -1;
-        break;
-    case "1":
-        difficulty = 0;
-        break;
-    case "2":
-        difficulty = 1;
-        break;
-    case "3":
-        difficulty = 2;
-        break;
-    case "4":
-        difficulty = 3;
-        break;
-    case "5":
-        difficulty = 4;
-        break;
-  }
-}
+// slider.oninput = function() {
+//   output.innerHTML = this.value;
+//   switch(value) {
+//     case "0":
+//         difficulty = -1;
+//         break;
+//     case "1":
+//         difficulty = 0;
+//         break;
+//     case "2":
+//         difficulty = 1;
+//         break;
+//     case "3":
+//         difficulty = 2;
+//         break;
+//     case "4":
+//         difficulty = 3;
+//         break;
+//     case "5":
+//         difficulty = 4;
+//         break;
+//   }
+// }
