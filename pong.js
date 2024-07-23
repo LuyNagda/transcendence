@@ -1,3 +1,5 @@
+import aiOpponent from "./pongAI.js";
+
 const canvas = document.getElementById('pong');
 const context = canvas.getContext('2d');
 const startButton = document.getElementById('startButton');
@@ -15,7 +17,7 @@ function drawNet() {
 // Create paddles
 const paddleWidth = 10;
 const paddleHeight = 100;
-const paddleSpeed = 8;
+export const paddleSpeed = 8;
 
 const leftPaddle = {
     x: 10,
@@ -25,7 +27,7 @@ const leftPaddle = {
     dy: 0
 };
 
-const rightPaddle = {
+export const rightPaddle = {
     x: canvas.width - paddleWidth - 10,
     y: (canvas.height - paddleHeight) / 2,
     width: paddleWidth,
@@ -34,7 +36,7 @@ const rightPaddle = {
 };
 
 // Create ball
-const ball = {
+export const ball = {
     x: canvas.width / 2,
     y: canvas.height / 2,
     radius: 10,
@@ -133,44 +135,6 @@ function gameLoop() {
 		aiOpponent();
     render();
     requestAnimationFrame(gameLoop);
-}
-
-const aiBall = {
-    x: ball.x,
-    y: ball.y,
-    radius: ball.radius,
-    speed: ball.speed,
-    dx: ball.dx,
-    dy: ball.dy
-};
-
-var intervalId = window.setInterval(function(){
-    aiBall.x = ball.x;
-    aiBall.y = ball.y;
-    aiBall.radius = ball.radius;
-    aiBall.speed = ball.speed;
-    aiBall.dx = ball.dx;
-    aiBall.dy = ball.dy;
-}, 1000);
-
-// Control paddles by AI
-function aiOpponent() {
-    // if (aiBall.x < canvas.width / 2 || aiBall.dx <= 0) {
-    //     rightPaddle.dy = 0;
-    //     return ;
-    // }
-
-    var ballXPrediction = aiBall.x + aiBall.dx;
-    var ballYPrediction = aiBall.y + aiBall.dy;
-
-    if (rightPaddle.y + rightPaddle.height / 2 < ballYPrediction) {
-        rightPaddle.dy = paddleSpeed;
-    }
-    else if (rightPaddle.y + rightPaddle.height / 2 > ballYPrediction) {
-        rightPaddle.dy = -paddleSpeed;
-    }
-    else
-        rightPaddle.dy = 0;
 }
 
 // Control paddles with keyboard
