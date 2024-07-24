@@ -1,6 +1,6 @@
 import aiOpponent from "./pongAI.js";
 
-const canvas = document.getElementById('pong');
+export const canvas = document.getElementById('pong');
 const context = canvas.getContext('2d');
 const startButton = document.getElementById('startButton');
 
