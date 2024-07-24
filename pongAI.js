@@ -1,4 +1,4 @@
-import {ball , paddleSpeed, rightPaddle} from "./pong.js";
+import {canvas, ball, paddleSpeed, rightPaddle} from "./pong.js";
 
 const aiBall = {
     x: 0,
@@ -27,17 +27,34 @@ var intervalId = window.setInterval(function() {
     aiBall.speed = ball.speed;
     aiBall.dx = ball.dx;
     aiBall.dy = ball.dy;
+    prediction();
 }, 1000);
 
 // Control paddles by AI
+var predictionDepth = 1;
+var ballXPrediction, ballYPrediction;
+
+function prediction() {
+    ballXPrediction = aiBall.x + aiBall.dx;
+    ballYPrediction = aiBall.y + aiBall.dy;
+
+    if ( ballYPrediction < 0 )
+        ballYPrediction *= -1;
+
+    if ( ballYPrediction > canvas.height)
+        ballYPrediction = canvas.height - ballYPrediction - canvas.height;
+
+    console.log("aiBall.y = ", aiBall.y);
+    console.log("ballYPrediction = ", ballYPrediction);
+}
+
 export default function aiOpponent() {
+
     // if (aiBall.x < canvas.width / 2 || aiBall.dx <= 0) {
     //     rightPaddle.dy = 0;
     //     return ;
     // }
 
-    var ballXPrediction = aiBall.x + aiBall.dx;
-    var ballYPrediction = aiBall.y + aiBall.dy;
 
     if (rightPaddle.y + rightPaddle.height / 2 < ballYPrediction) {
         rightPaddle.dy = paddleSpeed;
