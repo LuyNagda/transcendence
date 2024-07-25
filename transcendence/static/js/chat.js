@@ -1,6 +1,7 @@
 class ChatApp {
 	constructor() {
 		this.chatSocket = null;
+		this.messageQueue = [];
 		this.init();
 	}
 
@@ -19,6 +20,10 @@ class ChatApp {
 		this.chatSocket.onmessage = (e) => this.handleMessage(e);
 		this.chatSocket.onclose = (e) => this.handleClose(e);
 		this.chatSocket.onerror = (err) => this.handleError(err);
+		this.chatSocket.onopen = () => {
+			console.log('WebSocket connection established');
+			this.processMessageQueue();
+		};
 	}
 
 	handleMessage(e) {
@@ -80,7 +85,7 @@ class ChatApp {
 		}
 		const recipientId = activeUser.dataset.userId;
 		console.log("Sending message to:", recipientId);
-		this.chatSocket.send(JSON.stringify({
+		this.sendMessage(JSON.stringify({
 			'type': 'chat_message',
 			'message': message,
 			'recipient_id': recipientId
@@ -140,7 +145,24 @@ class ChatApp {
 			delete payload.recipient_id;
 			payload.user_id = userId;
 		}
-		this.chatSocket.send(JSON.stringify(payload));
+		this.sendMessage(payload);
+	}
+
+	sendMessage(payload) {
+		if (this.chatSocket && this.chatSocket.readyState === WebSocket.OPEN) {
+			this.chatSocket.send(JSON.stringify(payload));
+		} else {
+			console.log('WebSocket not connected. Queueing message and attempting to reconnect...');
+			this.messageQueue.push(payload);
+			this.createWebSocketConnection();
+		}
+	}
+
+	processMessageQueue() {
+		while (this.messageQueue.length > 0) {
+			const message = this.messageQueue.shift();
+			this.sendMessage(message);
+		}
 	}
 
 	updateUserStatus(userId, status) {

@@ -124,15 +124,12 @@ services:
       - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
       - "--certificatesresolvers.myresolver.acme.email=${DEFAULT_FROM_EMAIL}"
       - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
-      - "--providers.file.filename=/etc/traefik/traefik_dynamic.toml"
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "letsencrypt:/letsencrypt"
-      - "ssl_certs:/ssl_certs"
-      - "./traefik_dynamic.toml:/etc/traefik/traefik_dynamic.toml"
     networks:
       - front
     profiles:
