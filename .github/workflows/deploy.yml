@@ -1,9 +1,11 @@
 name: Deploy live
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["unit tests"]
+    branches: [main]
+    types:
+      - completed
 
 jobs:
   deploy:

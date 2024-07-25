@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, register_converter
+from django.urls import path, register_converter, include
 from django.contrib.auth import views as auth_views
 from authentication.views import register, login_view, index, logout_view, forgot_password, otp
 from home.views import profile, settings_view, change_password
@@ -44,4 +44,6 @@ urlpatterns = [
     path('forgot-password', forgot_password, name='forgot-password'),
     path('settings', settings_view, name='settings'),
     path('change-password', change_password, name='change-password'),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    path('chat/', include('chat.urls')),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) \
+  + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

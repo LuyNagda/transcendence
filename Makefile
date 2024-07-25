@@ -25,6 +25,10 @@ export PORT ?= 8080
 
 SRC_ENV = set -a; source $(ENV_FILE); set +a;
 
+VENV = .venv
+PYTHON = $(VENV)/bin/python
+PIP = $(VENV)/bin/pip
+
 all: build dev
 
 $(NAME):
@@ -36,8 +40,25 @@ run: daemon
 daemon:
 	$(SRC_ENV) BUILD_TYPE=prod docker compose --profile prod up -d
 
-dev:
+dev: build
 	$(SRC_ENV) DEBUG=True BUILD_TYPE=dev docker compose --profile dev up --watch
+
+$(VENV)/bin/activate: requirements.txt
+	python3 -m venv $(VENV)
+	$(PIP) install -r requirements.txt
+
+venv: $(VENV)/bin/activate
+
+makemigrations: venv
+	$(SRC_ENV) $(PYTHON) manage.py makemigrations
+
+migrate: venv
+	$(SRC_ENV) $(PYTHON) manage.py migrate
+
+db-update: makemigrations migrate
+
+db-clean:
+	$(SRC_ENV) docker compose down -v
 
 build:
 	$(SRC_ENV) docker build -t transcendence -f Dockerfile .
@@ -52,7 +73,7 @@ stop:
 	$(SRC_ENV) docker compose stop
 
 test: stop build
-	$(SRC_ENV) docker compose up auth-test
+	$(SRC_ENV) docker compose up --build auth-test
 
 test-compare: stop daemon
 	@$(MAKE) nginxd
