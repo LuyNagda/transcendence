@@ -1,143 +1,94 @@
 import json
+import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import ChatMessage, BlockedUser
-from django.contrib.auth.models import User
-
 from django.contrib.auth import get_user_model
+from .handler import ChatHandler
 
 User = get_user_model()
+
+log = logging.getLogger(__name__)
+
+all = 'all_users'
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         if not self.channel_layer:
-            raise ValueError("Channel layer is not initialized!")
+            log.error(f"{self.user.id} - Channel layer is not initialized!")
+            await self.close()
+            return
         self.user = self.scope["user"]
         self.user_group_name = f"chat_{self.user.id}"
+        self.handler = ChatHandler(self)
         
-        await self.channel_layer.group_add(
-            self.user_group_name,
-            self.channel_name
-        )
+        await self.channel_layer.group_add(all, self.channel_name)
+        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+        await self.set_user_online()
         await self.accept()
+        await self.broadcast_status('online')
+        log.info(f"{self.user.id} - WebSocket connected")
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(
-            self.user_group_name,
-            self.channel_name
-        )
-        
-    @database_sync_to_async
-    def is_blocked(self, recipient_id):
-        return BlockedUser.objects.filter(user_id=recipient_id, blocked_user=self.user).exists()
-
-    @database_sync_to_async
-    def get_user_profile(self, user_id):
-        user = User.objects.get(id=user_id)
-        return {
-            'id': user.id,
-            'username': user.username,
-            'email': user.email,
-            'bio': user.bio,
-            'name': user.name,
-            'nick_name': user.nick_name,
-            'profile_picture': user.profile_picture.url if user.profile_picture else None,
-            'online': user.online,
-        }
+        await self.broadcast_status('offline')
+        await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
+        await self.channel_layer.group_discard(all, self.channel_name)
+        await self.set_user_offline()
+        log.info(f"{self.user.id} - WebSocket disconnected")
 
     async def receive(self, text_data):
-        data = json.loads(text_data)
-        message_type = data['type']
+        log.debug(f"{self.user.id} - Received message: %s", text_data)
+        try:
+            data = json.loads(text_data)
+            message_type = data['type']
+            await self.handler.handle_message(message_type, data)
+        except json.JSONDecodeError:
+            log.error(f"{self.user.id} - Received invalid JSON data")
+            await self.send(text_data=json.dumps({'error': 'Invalid JSON data'}))
+        except KeyError as e:
+            log.error(f"{self.user.id} - Missing key in received data: {str(e)}")
+            await self.send(text_data=json.dumps({'error': 'Missing keys in received data'}))
+        except Exception as e:
+            log.error(f"{self.user.id} - Error processing received data: {str(e)}")
+            await self.send(text_data=json.dumps({'error': 'An error occurred while processing your request'}))
 
-        if message_type == 'chat_message':
-            print("Received chat message", data)
-            message = data['message']
-            recipient_id = data['recipient_id']
-            
-            if await self.is_blocked(recipient_id):
-                await self.send(text_data=json.dumps({
-                    'error': 'You are blocked...'
-                }))
-                return
+    @database_sync_to_async
+    def set_user_online(self):
+        self.user.online = True
+        self.user.save()
 
-            await self.save_message(message, recipient_id)
-            
-            recipient_group_name = f"chat_{recipient_id}"
-            
-            await self.channel_layer.group_send(
-                recipient_group_name,
-                {
-                    'type': 'chat_message',
-                    'message': message,
-                    'sender_id': self.user.id
-                }
-            )
-        elif message_type == 'game_invitation':
-            recipient_id = data['recipient_id']
-            game_id = data['game_id']
+    @database_sync_to_async
+    def set_user_offline(self):
+        self.user.online = False
+        self.user.save()
 
-            recipient_group_name = f"chat_{recipient_id}"
-            
-            await self.channel_layer.group_send(
-                recipient_group_name,
-                {
-                    'type': 'game_invitation',
-                    'game_id': game_id,
-                    'sender_id': self.user.id
-                }
-            )
-        elif message_type == 'get_profile':
-            user_id = data['user_id']
-            profile = await self.get_user_profile(user_id)
-            await self.send(text_data=json.dumps({
-                'type': 'user_profile',
-                'profile': profile
-            }))
-        elif message_type == 'tournament_warning':
-            # Handle incoming tournament warnings (if needed to be handled by WebSocket)
-            pass  # Implement if server needs to initiate tournament warnings
+    async def broadcast_status(self, status):
+        await self.channel_layer.group_send(
+            all,
+            {
+                "type": "user_status_change",
+                "user_id": self.user.id,
+                "status": status
+            }
+        )
 
     async def chat_message(self, event):
-        message = event['message']
-        sender_id = event['sender_id']
-
         await self.send(text_data=json.dumps({
-            'message': message,
-            'sender_id': sender_id
+            'type': 'chat_message',
+            'message': event['message'],
+            'sender_id': event['sender_id']
+        }))
+
+    async def user_status_change(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_status_change',
+            'user_id': event['user_id'],
+            'status': event['status']
         }))
 
     async def game_invitation(self, event):
-        game_id = event['game_id']
-        sender_id = event['sender_id']
-
+        log.debug(f"{self.user.id} - Received game invitation")
         await self.send(text_data=json.dumps({
             'type': 'game_invitation',
-            'game_id': game_id,
-            'sender_id': sender_id
+            'game_id': event['game_id'],
+            'sender_id': event['sender_id']
         }))
-
-    async def tournament_warning(self, event):
-        tournament_id = event['tournament_id']
-        match_time = event['match_time']
-
-        await self.send(text_data=json.dumps({
-            'type': 'tournament_warning',
-            'tournament_id': tournament_id,
-            'match_time': match_time
-        }))
-
-    async def user_profile(self, event):
-        profile = event['profile']
-        await self.send(text_data=json.dumps({
-            'type': 'user_profile',
-            'profile': profile
-        }))
-
-    @database_sync_to_async
-    def save_message(self, message, recipient_id):
-        recipient = User.objects.get(id=recipient_id)
-        ChatMessage.objects.create(
-            sender=self.user,
-            recipient=recipient,
-            content=message
-        )

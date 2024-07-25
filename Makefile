@@ -73,7 +73,7 @@ stop:
 	$(SRC_ENV) docker compose stop
 
 test: stop build
-	$(SRC_ENV) docker compose up auth-test
+	$(SRC_ENV) docker compose up --build auth-test
 
 test-compare: stop daemon
 	@$(MAKE) nginxd
