@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="chat-container">
+	<div class="user-list">
+		<h3>Users</h3>
+		<ul>
+			{% for user in users %}
+			<li>
+				<a href="#" class="user-chat" data-user-id="{{ user.id }}">{{ user.name|default:user.username }}</a>
+				{% if user.id not in blocked_users %}
+				<button class="block-user" data-user-id="{{ user.id }}">Block</button>
+				{% else %}
+				<button class="unblock-user" data-user-id="{{ user.id }}">Unblock</button>
+				{% endif %}
+				<button class="invite-pong" data-user-id="{{ user.id }}">Invite to Pong</button>
+				<button class="view-profile" data-user-id="{{ user.id }}">View Profile</button>
+			</li>
+			{% endfor %}
+		</ul>
+	</div>
+	<div class="chat-messages">
+		<div id="message-history"></div>
+		<form id="chat-form">
+			<input type="text" id="chat-message" placeholder="Type your message...">
+			<button type="submit">Send</button>
+		</form>
+	</div>
+</div>
+
+<script src="{% static '/js/chat.js' %}"></script>
+{% endblock %}
