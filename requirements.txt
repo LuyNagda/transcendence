@@ -2,6 +2,7 @@ django
 django-environ
 psycopg2-binary
 django-htmx
+django-cors-headers
 django-truncate
 Pillow
 daphne
