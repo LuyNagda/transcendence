@@ -30,16 +30,6 @@ SECRET_KEY = 'django-insecure-zw-ma$(zm6#8=njdjxk+@gd32fa&fd$-&tjxv-m#upwl(gt&ay
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG')
 
-# Update ALLOWED_HOSTS
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '42pong.live']
-
-# Update CSRF_TRUSTED_ORIGINS
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'https://42pong.live',
-]
-
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -207,11 +197,21 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
 LOGIN_URL = '/login'
 
-# Update CORS settings
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', env('DOMAIN')]
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://' + env('DOMAIN'),
+	'ws://' + env('DOMAIN'),
+	'wss://' + env('DOMAIN'),
+]
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
-    'https://42pong.live',
+    'https://' + env('DOMAIN'),
+	'ws://' + env('DOMAIN'),
+	'wss://' + env('DOMAIN'),
 ]
 CORS_ALLOW_CREDENTIALS = True
+CSRF_COOKIE_DOMAIN = env('DOMAIN')
