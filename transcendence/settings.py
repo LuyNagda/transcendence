@@ -30,7 +30,15 @@ SECRET_KEY = 'django-insecure-zw-ma$(zm6#8=njdjxk+@gd32fa&fd$-&tjxv-m#upwl(gt&ay
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG')
 
-ALLOWED_HOSTS = ['*']
+# Update ALLOWED_HOSTS
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '42pong.live']
+
+# Update CSRF_TRUSTED_ORIGINS
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://42pong.live',
+]
 
 LOGGING = {
     'version': 1,
@@ -73,9 +81,11 @@ INSTALLED_APPS = [
     'channels',
     'authentication',
     'chat',
+    'corsheaders',  # Added 'corsheaders' to INSTALLED_APPS
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # Added CorsMiddleware to MIDDLEWARE
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -196,3 +206,12 @@ EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
 LOGIN_URL = '/login'
+
+# Update CORS settings
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://42pong.live',
+]
+CORS_ALLOW_CREDENTIALS = True

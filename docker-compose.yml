@@ -29,14 +29,12 @@ services:
       - DOMAIN=${DOMAIN}
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=front"
       - "traefik.http.routers.auth.rule=Host(`${DOMAIN}`)"
       - "traefik.http.routers.auth.entrypoints=websecure"
-      - "traefik.http.routers.auth.tls=true"
       - "traefik.http.routers.auth.tls.certresolver=myresolver"
-      - "traefik.http.routers.auth.tls.domains[0].main=${DOMAIN}"
-      - "traefik.http.routers.auth-http.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.auth-http.entrypoints=web"
+      - "traefik.http.routers.auth-ws.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.auth-ws.entrypoints=websecure"
+      - "traefik.http.routers.auth-ws.tls.certresolver=myresolver"
       - "traefik.http.services.auth.loadbalancer.server.port=8000"
     develop:
       watch:
@@ -44,8 +42,7 @@ services:
           path: ./
           target: /app/
     networks:
-      - front
-      - back
+      - app
 
   auth-test:
     build:
@@ -70,8 +67,7 @@ services:
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
       - DEBUG=True
     networks:
-      - front
-      - back
+      - app
     profiles:
       - dev
 
@@ -82,7 +78,7 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     networks:
-      - back
+      - app
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -107,7 +103,7 @@ services:
       - "8025:8025"
       - "1025:1025"
     networks:
-      - front
+      - app
     profiles:
       - dev
 
@@ -131,13 +127,12 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "letsencrypt:/letsencrypt"
     networks:
-      - front
+      - app
     profiles:
       - prod
 
 networks:
-  front:
-  back:
+  app:
 
 
 volumes:
