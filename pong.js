@@ -83,7 +83,7 @@ function drawBallPositionCross() {
 
         context.beginPath();
         context.moveTo(crossX, crossY);
-        context.lineTo(crossX + crossDX, crossY + crossDY);
+        context.lineTo(crossX + crossDX * 10, crossY + crossDY * 10);
         context.stroke();
     }
 }
