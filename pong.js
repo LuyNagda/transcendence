@@ -9,6 +9,8 @@ const netHeight = canvas.height;
 let gameRunning = false;
 let crossX = null;
 let crossY = null;
+let crossDX = null;
+let crossDY = null;
 
 // Draw the net
 function drawNet() {
@@ -77,6 +79,11 @@ function drawBallPositionCross() {
         context.beginPath();
         context.moveTo(crossX, crossY - 10);
         context.lineTo(crossX, crossY + 10);
+        context.stroke();
+
+        context.beginPath();
+        context.moveTo(crossX, crossY);
+        context.lineTo(crossX + crossDX, crossY + crossDY);
         context.stroke();
     }
 }
@@ -199,6 +206,8 @@ pauseButton.addEventListener('click', function() {
 function updateBallPositionCross() {
     crossX = ball.x;
     crossY = ball.y;
+    crossDX = ball.dx;
+    crossDY = ball.dy;
 }
 
 // Refresh ball position cross every second
