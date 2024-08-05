@@ -1,12 +1,14 @@
 import aiOpponent from "./pongAI.js";
 
 export const canvas = document.getElementById('pong');
-const context = canvas.getContext('2d');
+export const context = canvas.getContext('2d');
 const startButton = document.getElementById('startButton');
 
 const netWidth = 4;
 const netHeight = canvas.height;
 let gameRunning = false;
+let crossX = null;
+let crossY = null;
 
 // Draw the net
 function drawNet() {
@@ -59,6 +61,24 @@ function drawBall() {
     context.beginPath();
     context.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
     context.fill();
+}
+
+// Draw ball position cross
+function drawBallPositionCross() {
+    if (crossX !== null && crossY !== null) {
+        context.strokeStyle = 'blue';
+        context.lineWidth = 2;
+
+        context.beginPath();
+        context.moveTo(crossX - 10, crossY);
+        context.lineTo(crossX + 10, crossY);
+        context.stroke();
+
+        context.beginPath();
+        context.moveTo(crossX, crossY - 10);
+        context.lineTo(crossX, crossY + 10);
+        context.stroke();
+    }
 }
 
 // Move paddles
@@ -123,6 +143,7 @@ function render() {
     drawPaddle(leftPaddle);
     drawPaddle(rightPaddle);
     drawBall();
+    drawBallPositionCross();
 }
 
 // Game loop
@@ -164,6 +185,7 @@ startButton.addEventListener('click', function() {
     gameRunning = true;
     document.getElementById("notpong").style.display = 'none';
     document.getElementById("pauseButton").style.display = 'block';
+    updateBallPositionCross(); // Update position display immediately after game starts
 });
 
 // Pause game button
@@ -172,6 +194,15 @@ pauseButton.addEventListener('click', function() {
     document.getElementById("notpong").style.display = 'block';
     document.getElementById("pauseButton").style.display = 'none';
 });
+
+// Update ball position cross every second
+function updateBallPositionCross() {
+    crossX = ball.x;
+    crossY = ball.y;
+}
+
+// Refresh ball position cross every second
+setInterval(updateBallPositionCross, 1000);
 
 // Start the game
 gameLoop();
