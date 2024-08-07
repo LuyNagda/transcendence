@@ -8,3 +8,7 @@ Pillow
 daphne
 twisted[tls,http2]
 channels
+gunicorn
+djangorestframework
+djangorestframework-simplejwt
+requests

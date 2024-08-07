@@ -1,40 +1,53 @@
-from authentication.decorators import custom_login_required
 from authentication.models import User
 from django.contrib import messages
 from django.shortcuts import render, redirect
-from .forms import ProfileForm
-from django.contrib.auth.forms import PasswordChangeForm
+from .forms import ProfileForm, MyPasswordChangeForm
 from django.contrib.auth import login
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
-@custom_login_required
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
 def profile(request):
+    access_token = request.COOKIES.get('access_token')
+    refresh_token = request.COOKIES.get('refresh_token')
     user = request.user
     if request.method == 'POST':
         form = ProfileForm(request.POST, request.FILES, item_id=user.username)
         if form.is_valid():
             form.save()
             messages.success(request, 'Profile updated successfully.')
-            return redirect('profile')
+            context = {'user': user, 'form': form, 'access_token': access_token, 'refresh_token': refresh_token}
+            return render(request, 'profile.html', context)
         else:
             messages.error(request, 'Profile not updated. Please correct the errors.')
     else:
         form = ProfileForm(item_id=user.username)
-    context = {'user': user, 'form': form}
+    context = {'user': user, 'form': form, 'access_token': access_token, 'refresh_token': refresh_token}
     return render(request, 'profile.html', context)
 
-@custom_login_required
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def settings_view(request):
-    return render(request, 'settings.html')
+    access_token = request.COOKIES.get('access_token')
+    refresh_token = request.COOKIES.get('refresh_token')
+    return render(request, 'settings.html', {'user': request.user, 'access_token': access_token, 'refresh_token': refresh_token})
 
-@custom_login_required
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
 def change_password(request):
+    access_token = request.COOKIES.get('access_token')
+    refresh_token = request.COOKIES.get('refresh_token')
+    user = request.user
     if request.method == 'POST':
-        form = PasswordChangeForm(user=request.user, data=request.POST)
+        form = MyPasswordChangeForm(user=request.user, data=request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
             messages.success(request, 'Password changed successfully.')
-            return render(request, 'change-password.html', {'form': form})
+            context = {'user': user, 'form': form, 'access_token': access_token, 'refresh_token': refresh_token}
+            return render(request, 'change-password.html', context)
     else:
-        form = PasswordChangeForm(user=request.user)
-    return render(request, 'change-password.html', {'form': form})
+        form = MyPasswordChangeForm(user=request.user)
+    context = {'user': user, 'form': form, 'access_token': access_token, 'refresh_token': refresh_token}
+    return render(request, 'change-password.html', context)

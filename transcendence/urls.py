@@ -17,10 +17,14 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, register_converter, include
 from django.contrib.auth import views as auth_views
-from authentication.views import register, login_view, index, logout_view, forgot_password, otp
+from authentication.views import register, login_view, index, logout_view, forgot_password, otp, oauth_callback, set_password
 from home.views import profile, settings_view, change_password
 from django.conf.urls.static import static
 from django.conf import settings
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 
 class UIDTokenConverter:
     regex = '[^/]+'
@@ -45,5 +49,9 @@ urlpatterns = [
     path('settings', settings_view, name='settings'),
     path('change-password', change_password, name='change-password'),
     path('chat/', include('chat.urls')),
+    path('set-password', set_password, name='set-password'),
+    path('callback', oauth_callback, name='callback'),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) \
   + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -1,19 +1,20 @@
 {% extends 'base.html' %}
 
-{% block title %}Index{% endblock %}
+{% block title %}Settings{% endblock %}
 
 {% block content %}
-<header>
-    <ul>
-        <li><a href="#" hx-get="{% url 'profile' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Profile</a></li>
-        <li><a href="#" hx-get="{% url 'settings' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Settings</a></li>
-        <li><a href="#" hx-get="{% url 'logout' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Logout</a></li>
-    </ul>
-</header>
-<div id="settings">
+
+{% block navbar %}{% include "navbar.html" %}{% endblock %}
+
+
+<div class="container x-auto my-4" id="settings">
     <h1>Settings</h1>
-    <ul>
-        <li><a href="#" hx-get="{% url 'change-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Change Password</a></li>
+    <ul class="m-0 p-0" style="list-style-type: none;">
+        {% if user.password is not None %}
+            <li><button class="btn btn-outline-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" hx-headers='{"Authorization": "Bearer {{ access_token }}"}'>Change Password</button></li>
+        {% else %}
+            <li><button class="btn btn-outline-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" hx-headers='{"Authorization": "Bearer {{ access_token }}"}'>Set Password</button></li>
+        {% endif %}
     </ul>
 </div>
 {% endblock %}

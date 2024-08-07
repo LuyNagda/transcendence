@@ -6,11 +6,11 @@ from django.contrib.auth.password_validation import validate_password
 CustomUser = get_user_model()
 
 class CustomUserCreationForm(forms.ModelForm):
-    username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username'}))
-    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email'}))
-    nick_name = forms.CharField(label='Nick Name', max_length=10, widget=forms.TextInput(attrs={'placeholder': 'Nick Name'}))
-    password1 = forms.CharField(label='Password', widget=forms.PasswordInput)
-    password2 = forms.CharField(label='Confirm Password', widget=forms.PasswordInput)
+    username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username', 'class': 'form-control'}))
+    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email', 'class': 'form-control'}))
+    nick_name = forms.CharField(label='Nick Name', max_length=10, widget=forms.TextInput(attrs={'placeholder': 'Nick Name', 'class': 'form-control'}))
+    password1 = forms.CharField(label='Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control'}))
+    password2 = forms.CharField(label='Confirm Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control'}))
 
     class Meta:
         model = CustomUser
@@ -39,21 +39,20 @@ class CustomUserCreationForm(forms.ModelForm):
         return user
 
 class LoginForm(forms.Form):
-    username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username'}))
-    password = forms.CharField(label='Password', widget=forms.PasswordInput)
-
+    username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username', 'class': 'form-control'}))
+    password = forms.CharField(label='Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control'}))
 class ForgotPasswordForm(forms.Form):
-    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email'}))
+    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email', 'class': 'form-control'}))
 
 class ResetPasswordForm(SetPasswordForm):
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
 
 class TWOFAForm(forms.Form):
-    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email'}))
+    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email', 'class': 'form-control'}))
 
 class OTPForm(forms.Form):
-    otp = forms.CharField(label='OTP', max_length=8, widget=forms.TextInput(attrs={'placeholder': 'OTP'}))
+    otp = forms.CharField(label='OTP', max_length=8, widget=forms.TextInput(attrs={'placeholder': 'OTP', 'class': 'form-control'}))
 
     def __init__(self, *args, **kwargs):
         self.otp_length = 8
