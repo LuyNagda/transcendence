@@ -5,3 +5,5 @@ django-htmx
 django-truncate
 Pillow
 gunicorn
+djangorestframework
+djangorestframework-simplejwt

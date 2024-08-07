@@ -21,6 +21,10 @@ from authentication.views import register, login_view, index, logout_view, forgo
 from home.views import profile, settings_view, change_password
 from django.conf.urls.static import static
 from django.conf import settings
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+)
 
 class UIDTokenConverter:
     regex = '[^/]+'
@@ -44,4 +48,6 @@ urlpatterns = [
     path('forgot-password', forgot_password, name='forgot-password'),
     path('settings', settings_view, name='settings'),
     path('change-password', change_password, name='change-password'),
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
