@@ -274,3 +274,21 @@ def oauth_callback(request):
     else:
         messages.error(request, 'Invalid code.')
     return render(request, 'login.html', {'form': LoginForm()})
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def set_password(request):
+    access_token = request.COOKIES.get('access_token')
+    refresh_token = request.COOKIES.get('refresh_token')
+    if request.method == 'POST':
+        form = ResetPasswordForm(request.user, request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Password has been set.')
+            return render(request, 'set-password.html', {'form': form, 'access_token': access_token, 'refresh_token': refresh_token})
+        else:
+            messages.error(request, 'Invalid form submission.')
+            return render(request, 'set-password.html', {'form': form, 'access_token': access_token, 'refresh_token': refresh_token})
+    else:
+        form = ResetPasswordForm(request.user)
+    return render(request, 'set-password.html', {'form': form, 'access_token': access_token, 'refresh_token': refresh_token})
