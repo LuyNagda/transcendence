@@ -23,19 +23,3 @@ def send_otp(request, user):
         'otp': OTP,
     })
     send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
-
-def get_refresh_token(request):
-    try:
-        refresh_token = request.COOKIES['refresh_token']
-    except:
-        refresh_token = "NULL"
-    
-    return refresh_token
-
-def get_access_token(request):
-    try:
-        access_token = request.COOKIES['access_token']
-    except:
-        access_token = "NULL"
-
-    return access_token

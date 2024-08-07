@@ -17,7 +17,6 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 import requests
-from django.urls import reverse
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -32,7 +31,10 @@ def register(request):
             return render(request, 'register.html', {'form': form})
     else:
         form = CustomUserCreationForm()
-    return render(request, 'register.html', {'form': form})
+    response = render(request, 'register.html', {'form': form})
+    response.delete_cookie('access_token')
+    response.delete_cookie('refresh_token')
+    return response
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -54,8 +56,8 @@ def login_view(request):
                 refresh_token = str(refresh)
                 # Optionally set tokens in cookies
                 response = render(request, 'index.html', {'user': user, 'access_token': access_token, 'refresh_token': refresh_token})
-                response.set_cookie('access_token', access_token, samesite='Lax')
-                response.set_cookie('refresh_token', refresh_token, samesite='Lax')
+                response.set_cookie('access_token', access_token, httponly=True, samesite='Lax')
+                response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax')
                 return response
             else:
                 messages.error(request, 'Invalid username or password.')
@@ -63,7 +65,10 @@ def login_view(request):
             messages.error(request, 'Invalid form submission.')
 
     form = LoginForm()
-    return render(request, 'login.html', {'form': form})
+    response = render(request, 'login.html', {'form': form})
+    response.delete_cookie('access_token')
+    response.delete_cookie('refresh_token')
+    return response
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -262,8 +267,8 @@ def oauth_callback(request):
                 refresh_token = str(refresh)
                 # Optionally set tokens in cookies
                 response = redirect('index')
-                response.set_cookie('access_token', access_token, samesite='Lax')
-                response.set_cookie('refresh_token', refresh_token, samesite='Lax')
+                response.set_cookie('access_token', access_token, httponly=True, samesite='Lax')
+                response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax')
                 return response
             else:
                 messages.error(request, 'Invalid access token.')
