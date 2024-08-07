@@ -6,7 +6,7 @@ class ProfileForm(forms.Form):
     name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'}))
     nick_name = forms.CharField(max_length=10, widget=forms.TextInput(attrs={'class': 'form-control'}))
     email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
-    date_of_birth = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'placeholder': 'YYYY-MM-DD'}), input_formats=['%Y-%m-%d'], required=False)
+    date_of_birth = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'placeholder': 'YYYY-MM-DD'}), input_formats=['%Y-%m-%d'], required=False)
     bio = forms.CharField(max_length=500, widget=forms.Textarea(attrs={'class': 'form-control'}), required=False)
     profile_picture = forms.ImageField(widget=forms.FileInput(attrs={'class': 'form-control'}), required=False)
 
@@ -37,4 +37,4 @@ class MyPasswordChangeForm(PasswordChangeForm):
     def __init__(self, *args, **kwargs):
         super(MyPasswordChangeForm, self).__init__(*args, **kwargs)
         for fieldname in ['old_password', 'new_password1', 'new_password2']:
-            self.fields[fieldname].widget.attrs.update({'class': 'form-control'})
+            self.fields[fieldname].widget.attrs.update({'class': 'form-control', 'placeholder': 'password'})

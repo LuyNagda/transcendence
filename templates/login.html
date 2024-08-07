@@ -3,10 +3,19 @@
 {% block title %}Login{% endblock %}
 
 {% block content %}
-<div id="login-form">
+
+{% block navbar %}{% include "navbar-login.html" %}{% endblock %}
+
+<div class="container x-auto my-4" id="login-form">
+	<h1>Login</h1>
     <form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="/index" enctype="multipart/form-data">
         {% csrf_token %}
-        {{ form.as_p }}
+        {% for field in form %}
+		<div class="form-floating my-3">
+                {{ field }}
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+		</div>
+        {% endfor %}
         <button type="submit">Login</button>
         <button type="button" hx-get="{% url 'login-2fa' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Login with 2FA</button>
         <a href="https://api.intra.42.fr/oauth/authorize?client_id=u-s4t2ud-8f8046fc8003d0e62f974ed9e6b3b49afb9037b4bcc536177154ecd6d297573a&redirect_uri=http%3A%2F%2F127.0.0.1%3A8000%2Fcallback&response_type=code"><button type="button">Login with 42 API</button></a>
@@ -14,8 +23,8 @@
     </form>
     {% if messages %}
     {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">
-            <p>{{ message }}</p>
+        <div class="alert alert-{{ message.tags }} my-2">
+            <p class="m-0">{{ message }}</p>
         </div>
     {% endfor %}
     {% endif %}

@@ -10,9 +10,10 @@
 #                                                                              #
 # **************************************************************************** #
 
+SHELL := /bin/bash
+
 NAME = transcendence
 
-SHELL := /bin/bash
 ENV_FILE = transcendence/.env
 
 export MY_GID ?= $(id -g)
