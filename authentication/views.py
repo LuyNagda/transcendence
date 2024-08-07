@@ -19,17 +19,11 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-import logging
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
-
-logger = logging.getLogger(__name__)
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def register(request):
-    """
-    Render registration form and handle registration.
-    """
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
@@ -45,9 +39,6 @@ def register(request):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    """
-    Render login form, authenticate user, and return JWT tokens.
-    """
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -75,9 +66,6 @@ def login_view(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def index(request):
-    """
-    Render a page for authenticated users.
-    """
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     return render(request, 'index.html', {'user': request.user, 'access_token': access_token, 'refresh_token': refresh_token})
@@ -85,9 +73,6 @@ def index(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def logout_view(request):
-    """
-    Logout view that handles token invalidation and session management.
-    """
     try:
         # Retrieve the refresh token from cookies
         refresh_token = request.COOKIES.get('refresh_token')
@@ -96,11 +81,9 @@ def logout_view(request):
             # Blacklist the refresh token
             token = RefreshToken(refresh_token)
             token.blacklist()
-            logger.info("Refresh token blacklisted successfully.")
 
         # Perform Django logout to clear session data
         django_logout(request)
-        logger.info("Django session cleared successfully.")
 
         # Create a response and delete the tokens
         response = render(request, 'login.html', {'form': LoginForm()})
@@ -110,15 +93,33 @@ def logout_view(request):
         return response
 
     except Exception as e:
-        logger.error(f"Logout error: {str(e)}")
         return Response({"error": "Logout failed. Please try again."}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def forgot_password(request):
-    """
-    Handle forgot password and send a reset link.
-    """
+    uid = request.GET.get('uid')
+    token = request.GET.get('token')
+    if uid and token:
+        # Handle password reset logic
+        try:
+            pk_uid = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=pk_uid)
+            if default_token_generator.check_token(user, token):
+                if request.method == 'POST':
+                    form = ResetPasswordForm(user, request.POST)
+                    if form.is_valid():
+                        form.save()
+                        return render(request, 'login.html', {'form': LoginForm()})
+                else:
+                    form = ResetPasswordForm(user)
+                return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token})
+            else:
+                messages.error(request, 'Invalid token.')
+                return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token, 'messages': messages})
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            messages.error(request, 'Invalid password reset link')
+            return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token, 'messages': messages})
     if request.method == 'POST':
         form = ForgotPasswordForm(request.POST)
         if form.is_valid():
@@ -140,7 +141,6 @@ def forgot_password(request):
                         'token': token,
                     })
                     send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
-                messages.success(request, 'Password reset link sent.')
             else:
                 messages.error(request, 'No user with this email address.')
 
@@ -152,9 +152,6 @@ def forgot_password(request):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def reset_password(request, uidb64, token):
-    """
-    Handle password reset form submission.
-    """
     try:
         uid = force_str(urlsafe_base64_decode(uidb64))
         user = User.objects.get(pk=uid)
@@ -178,9 +175,8 @@ def reset_password(request, uidb64, token):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def otp(request):
-    """
-    Handle OTP verification and sending.
-    """
+    access_token = request.COOKIES.get('access_token')
+    refresh_token = request.COOKIES.get('refresh_token')
     if request.method == 'POST':
         if 'otp' in request.POST:
             form = OTPForm(request.POST)
