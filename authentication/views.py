@@ -45,7 +45,7 @@ def login_view(request):
             username = form.cleaned_data['username']
             password = form.cleaned_data['password']
             user = User.objects.filter(username=username).first()
-            if user.password is None:
+            if user is not None and user.password is None:
                 messages.error(request, 'Invalid username or password.')
                 return render(request, 'login.html', {'form': form})
             user = authenticate(request, username=username, password=password)
@@ -71,7 +71,7 @@ def login_view(request):
     return response
 
 @api_view(['GET'])
-@permission_classes([AllowAny])
+@permission_classes([IsAuthenticated])
 def index(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
@@ -232,10 +232,7 @@ def authenticate_api(request, access_token):
 
     if response.status_code == 200:
         user_data = response.json()
-        user, created = User.objects.get_or_create(username=user_data['login'], defaults={
-            'email': user_data['email'],
-            'name': user_data['first_name'],
-        })
+        user, created = User.objects.get_or_create(username=user_data['login'], email=user_data['email'])
         return user
     return None
 
