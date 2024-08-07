@@ -13,13 +13,11 @@ from .models import User
 from .utils import generate_otp
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.views import APIView
-from rest_framework.exceptions import AuthenticationFailed
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+import requests
+from django.urls import reverse
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -44,6 +42,10 @@ def login_view(request):
         if form.is_valid():
             username = form.cleaned_data['username']
             password = form.cleaned_data['password']
+            user = User.objects.filter(username=username).first()
+            if user.password is None:
+                messages.error(request, 'Invalid username or password.')
+                return render(request, 'login.html', {'form': form})
             user = authenticate(request, username=username, password=password)
             if user is not None:
                 # Issue JWT tokens
@@ -64,7 +66,7 @@ def login_view(request):
     return render(request, 'login.html', {'form': form})
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def index(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
@@ -215,3 +217,60 @@ def otp(request):
     else:
         form = TWOFAForm()
     return render(request, 'login-2fa.html', {'form': form})
+
+def authenticate_api(request, access_token):
+    user_info_url = 'https://api.intra.42.fr/v2/me'
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+    }
+    response = requests.get(user_info_url, headers=headers)
+
+    if response.status_code == 200:
+        user_data = response.json()
+        user, created = User.objects.get_or_create(username=user_data['login'], defaults={
+            'email': user_data['email'],
+            'name': user_data['first_name'],
+        })
+        return user
+    return None
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([AllowAny])
+def oauth_callback(request):
+    code = request.GET.get('code')
+    state = request.GET.get('state')
+    if code:
+        token_url = 'https://api.intra.42.fr/oauth/token'
+        payload = {
+        'grant_type': 'authorization_code',
+        'client_id': settings.FT_CLIENT_ID,
+        'client_secret': settings.FT_CLIENT_SECRET,
+        'code': code,
+        'redirect_uri': settings.FT_REDIRECT_URI,
+        'state': state,
+        }
+        response = requests.post(token_url, data=payload)
+        if response.status_code == 200:
+            data = response.json()
+            access_token = data['access_token']
+            user = authenticate_api(request, access_token=access_token)
+            if user is not None:
+                # Issue JWT tokens
+                refresh = RefreshToken.for_user(user)
+                access_token = str(refresh.access_token)
+                refresh_token = str(refresh)
+                # Optionally set tokens in cookies
+                response = redirect('index')
+                response.set_cookie('access_token', access_token, samesite='Lax')
+                response.set_cookie('refresh_token', refresh_token, samesite='Lax')
+                return response
+            else:
+                messages.error(request, 'Invalid access token.')
+                render(request, 'login.html', {'form': LoginForm()})
+        else:
+            messages.error(request, 'Invalid code.')
+            render(request, 'login.html', {'form': LoginForm()})
+    else:
+        messages.error(request, 'Invalid code.')
+    return render(request, 'login.html', {'form': LoginForm()})
