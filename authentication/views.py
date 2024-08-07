@@ -93,7 +93,7 @@ def logout_view(request):
         django_logout(request)
 
         # Create a response and delete the tokens
-        response = render(request, 'login.html', {'form': LoginForm()})
+        response = redirect('login')
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
         
