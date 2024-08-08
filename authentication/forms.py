@@ -47,6 +47,8 @@ class ForgotPasswordForm(forms.Form):
 class ResetPasswordForm(SetPasswordForm):
     def __init__(self, user, *args, **kwargs):
         super().__init__(user, *args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update({'class': 'form-control', 'placeholder': field.label})
 
 class TWOFAForm(forms.Form):
     email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email', 'class': 'form-control'}))
