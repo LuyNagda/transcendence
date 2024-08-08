@@ -5,9 +5,10 @@ from .forms import ProfileForm, MyPasswordChangeForm
 from django.contrib.auth import login
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from authentication.decorators import IsAuthenticatedWithCookie
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticatedWithCookie])
 def profile(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
@@ -27,14 +28,14 @@ def profile(request):
     return render(request, 'profile.html', context)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticatedWithCookie])
 def settings_view(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     return render(request, 'settings.html', {'user': request.user, 'access_token': access_token, 'refresh_token': refresh_token})
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticatedWithCookie])
 def change_password(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')

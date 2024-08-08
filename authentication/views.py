@@ -12,6 +12,7 @@ from django.contrib import messages
 from .models import User
 from .utils import generate_otp
 from rest_framework.decorators import api_view, permission_classes
+from .decorators import IsAuthenticatedWithCookie
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from rest_framework.response import Response
@@ -56,8 +57,8 @@ def login_view(request):
                 refresh_token = str(refresh)
                 # Optionally set tokens in cookies
                 response = render(request, 'index.html', {'user': user, 'access_token': access_token, 'refresh_token': refresh_token})
-                response.set_cookie('access_token', access_token, httponly=True, samesite='Lax')
-                response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax')
+                response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
+                response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 return response
             else:
                 messages.error(request, 'Invalid username or password.')
@@ -71,14 +72,14 @@ def login_view(request):
     return response
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticatedWithCookie])
 def index(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     return render(request, 'index.html', {'user': request.user, 'access_token': access_token, 'refresh_token': refresh_token})
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticatedWithCookie])
 def logout_view(request):
     try:
         # Retrieve the refresh token from cookies
@@ -197,8 +198,8 @@ def otp(request):
                     access_token = str(refresh.access_token)
                     refresh_token = str(refresh)
                     response = render(request, 'index.html', {'user': user, 'access_token': access_token, 'refresh_token': refresh_token})
-                    response.set_cookie('access_token', access_token, httponly=True, samesite='Lax')
-                    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax')
+                    response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
+                    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                     return response
                 except User.DoesNotExist:
                     messages.error(request, 'Invalid OTP.')
@@ -264,8 +265,8 @@ def oauth_callback(request):
                 refresh_token = str(refresh)
                 # Optionally set tokens in cookies
                 response = redirect('index')
-                response.set_cookie('access_token', access_token, httponly=True, samesite='Lax')
-                response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax')
+                response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
+                response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 return response
             else:
                 messages.error(request, 'Invalid access token.')
@@ -278,7 +279,7 @@ def oauth_callback(request):
     return render(request, 'login.html', {'form': LoginForm()})
 
 @api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticatedWithCookie])
 def set_password(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
