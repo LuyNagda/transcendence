@@ -42,13 +42,6 @@ class RedirectOn401Middleware:
                     response.delete_cookie('access_token')
                     response.delete_cookie('refresh_token')
             else:
-                try:
-                    if request.user is not None:
-                        user = request.user
-                        user.online = False
-                        user.save()
-                except:
-                    pass
                 # If there's no refresh token, redirect to login
                 response = redirect(settings.LOGIN_URL)
                 response.delete_cookie('access_token')
