@@ -8,7 +8,7 @@
 
 <div class="container x-auto my-4" id="profile-form">
     <h1>Profile</h1>
-    <form method="post" hx-post="{% url 'profile' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" enctype="multipart/form-data" hx-headers='{"Authorization": "Bearer {{ access_token }}"}'>
+    <form method="post" hx-post="{% url 'profile' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" enctype="multipart/form-data">
         <div class="row">
             <div class="col">
                     {% csrf_token %}

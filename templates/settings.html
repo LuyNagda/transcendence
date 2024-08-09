@@ -10,9 +10,9 @@
     <h1>Settings</h1>
     <ul class="m-0 p-0" style="list-style-type: none;">
         {% if user.password is not None %}
-            <li><button class="btn btn-outline-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" hx-headers='{"Authorization": "Bearer {{ access_token }}"}'>Change Password</button></li>
+            <li><button class="btn btn-outline-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Change Password</button></li>
         {% else %}
-            <li><button class="btn btn-outline-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" hx-headers='{"Authorization": "Bearer {{ access_token }}"}'>Set Password</button></li>
+            <li><button class="btn btn-outline-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Set Password</button></li>
         {% endif %}
     </ul>
 </div>
