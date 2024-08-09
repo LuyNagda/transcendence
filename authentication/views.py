@@ -60,6 +60,8 @@ def login_view(request):
                 response = render(request, 'index.html', {'user': user, 'access_token': access_token, 'refresh_token': refresh_token})
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
+                user.online = True
+                user.save()
                 return response
             else:
                 messages.error(request, 'Invalid username or password.')
@@ -83,10 +85,13 @@ def index(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def logout_view(request):
+    user = request.user
+    user.online = False
+    user.save()
     try:
         # Retrieve the refresh token from cookies
         refresh_token = request.COOKIES.get('refresh_token')
-
+        
         if refresh_token:
             # Blacklist the refresh token
             token = RefreshToken(refresh_token)
@@ -195,6 +200,7 @@ def otp(request):
                 try:
                     user = User.objects.get(otp=otp)
                     user.otp = None
+                    user.online = True
                     user.save()
                     refresh = RefreshToken.for_user(user)
                     access_token = str(refresh.access_token)
@@ -269,6 +275,8 @@ def oauth_callback(request):
                 response = redirect('index')
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
+                user.online = True
+                user.save()
                 return response
             else:
                 messages.error(request, 'Invalid access token.')
