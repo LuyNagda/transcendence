@@ -1,10 +1,9 @@
 from authentication.models import User
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.shortcuts import render
 from .forms import ProfileForm, MyPasswordChangeForm
 from django.contrib.auth import login
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated, AllowAny
 from authentication.decorators import IsAuthenticatedWithCookie
 
 @api_view(['GET', 'POST'])

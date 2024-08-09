@@ -5,7 +5,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from django.conf import settings
-from django.contrib.auth import authenticate, login, logout as django_logout
+from django.contrib.auth import authenticate, logout as django_logout
 from django.shortcuts import render, redirect
 from .forms import CustomUserCreationForm, LoginForm, ForgotPasswordForm, ResetPasswordForm, OTPForm, TWOFAForm
 from django.contrib import messages
@@ -16,7 +16,7 @@ from .decorators import IsAuthenticatedWithCookie
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import AllowAny
 import requests
 
 @api_view(['GET', 'POST'])
@@ -33,8 +33,9 @@ def register(request):
     else:
         form = CustomUserCreationForm()
     response = render(request, 'register.html', {'form': form})
-    response.delete_cookie('access_token')
-    response.delete_cookie('refresh_token')
+    if 'access_token' in request.COOKIES:
+        response.delete_cookie('access_token')
+        response.delete_cookie('refresh_token')
     return response
 
 @api_view(['GET', 'POST'])
@@ -67,8 +68,9 @@ def login_view(request):
 
     form = LoginForm()
     response = render(request, 'login.html', {'form': form})
-    response.delete_cookie('access_token')
-    response.delete_cookie('refresh_token')
+    if 'access_token' in request.COOKIES:
+        response.delete_cookie('access_token')
+        response.delete_cookie('refresh_token')
     return response
 
 @api_view(['GET'])

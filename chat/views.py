@@ -1,10 +1,8 @@
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
 from .models import ChatMessage, BlockedUser
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.http import JsonResponse
-from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 
