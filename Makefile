@@ -137,7 +137,7 @@ docker-fclean:
 
 clean: docker-stop docker-clean
 
-fclean: clean docker-fclean
+fclean: db-clean clean docker-fclean
 
 re: fclean all
 debug_re: fclean debug

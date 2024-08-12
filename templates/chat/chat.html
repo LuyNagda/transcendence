@@ -12,7 +12,7 @@
 			<ul class="m-0 p-0" style="list-style-type: none;">
 				{% for user in users %}
 				<li>
-					<button href="#" class="btn btn-outline-secondary btn-sm me-1" data-user-id="{{ user.id }}">
+					<button href="#" class="btn btn-outline-secondary btn-sm me-1 user-chat" data-user-id="{{ user.id }}">
 						<img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 20px;">
 						{{ user.name|default:user.username }}
 					<span class="status-icon">
@@ -27,12 +27,12 @@
 						{% endif %}
 					</span>
 					{% if user.id not in blocked_users %}
-					<button class="btn btn-danger btn-sm" data-user-id="{{ user.id }}">Block</button>
+					<button class="btn btn-danger btn-sm block-user" data-user-id="{{ user.id }}">Block</button>
 					{% else %}
-					<button class="btn btn-outline-danger btn-sm" data-user-id="{{ user.id }}">Unblock</button>
+					<button class="btn btn-outline-danger btn-sm unblock-user" data-user-id="{{ user.id }}">Unblock</button>
 					{% endif %}
-					<button class="btn btn-outline-success btn-sm" data-user-id="{{ user.id }}">Invite to Pong</button>
-					<button class="btn btn-outline-primary btn-sm" data-user-id="{{ user.id }}">View Profile</button>
+					<button class="btn btn-outline-success btn-sm invite-user" data-user-id="{{ user.id }}">Invite to Pong</button>
+					<button class="btn btn-outline-primary btn-sm view-profile" data-user-id="{{ user.id }}">View Profile</button>
 				</li>
 				{% endfor %}
 			</ul>
