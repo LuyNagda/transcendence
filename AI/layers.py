@@ -8,10 +8,10 @@ X = [[1, 2, 3, 2.5],
 
 class Layer_Dense:
     def __init__(self, n_inputs, n_neurons):
-        self.weights = np.random.randn(n_inputs, n_neurons)
-        self.biases = np.zeros((1, n_neurons))
+        self.weights = np.random.randn(n_inputs, n_neurons)             # Weights are set with random numbers
+        self.biases = np.zeros((1, n_neurons))                          # Biases are set to 0
     def forward(self, inputs):
-        self.output = np.dot(inputs, self.weights) + self.biases
+        self.output = np.dot(inputs, self.weights) + self.biases        # Output are calculate by multiplying each input with theirs weight and then adding the biaises
 
 # EXAMPLE:
 # layer1 = Layer_Dense(4, 5)
