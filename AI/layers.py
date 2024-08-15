@@ -19,6 +19,26 @@ class Activation_SoftMax:
         probabilities = exp_values / np.sum(exp_values, axis=1, keepdims=True)
         self.output = probabilities
 
+# # # Number of neurons "rules"
+# # Nb_input = 5 (aiBall.x, aiBall.y, aiBall.dx, aiBall.dy, rightPaddle.y)
+# # Nb_output = 3 (move up, stop, move down)
+
+# # The number of hidden neurons should be between the size of the input layer and the size of the output layer.
+# print("The number of hidden neurons should be between 5 and 3")
+# # The number of hidden neurons should be 2/3 the size of the input layer, plus the size of the output layer.
+# print("The number of hidden neurons should be 2/3: ", 2 / 3 * (5 + 3))
+# # The number of hidden neurons should be less than twice the size of the input layer.
+# print("The number of hidden neurons should be less than: ", 2 * 5)
+# # Nh = Ns / ( α ∗ ( Ni + No ))
+# # Ni = number of input neurons.
+# # No = number of output neurons.
+# # Ns = number of samples in training data set.
+# # α = an arbitrary scaling factor usually 2-10.
+# for i in range(2 , 11):
+#     print("Nh = Ns / (", i, " * ( Ni + No )) = ", 500/(i*(5+3)))
+
+# I will try with 2 hidden layer of 4 neurons
+
 # # EXAMPLE:
 # X = [[1, 2, 3, 2.5],
 #      [2.0, 5.0, -1.0, 2.0],
