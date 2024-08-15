@@ -67,7 +67,14 @@ def login_view(request):
             messages.error(request, 'Invalid form submission.')
 
     form = LoginForm()
-    response = render(request, 'login.html', {'form': form})
+    FT_CLIENT_ID = settings.FT_CLIENT_ID
+    FT_REDIRECT_URI = settings.FT_REDIRECT_URI
+    context = {
+        'form': form,
+        'ft_client_id': FT_CLIENT_ID,
+        'ft_redirect_uri': FT_REDIRECT_URI,
+    }
+    response = render(request, 'login.html', context)
     if 'access_token' in request.COOKIES:
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
