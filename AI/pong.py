@@ -1,6 +1,7 @@
 import pygame
 import random
 import time
+from NNAI import AI_decision
 
 def pong_game():
     # Initialize Pygame
@@ -48,7 +49,7 @@ def pong_game():
 
     # New variables for opponent's delayed reaction
     last_update_time = time.time()
-    opponent_ball = opponent.y
+    opponent_ball = ball.centery
 
     def reset_ball():
         ball.center = (WIDTH//2, HEIGHT//2)
@@ -77,10 +78,11 @@ def pong_game():
             last_update_time = current_time
 
         # Move the opponent's paddle (simple AI)
-        if opponent.centery < opponent_ball and opponent.bottom < HEIGHT:
-            opponent.y += PADDLE_SPEED
-        elif opponent.centery > opponent_ball and opponent.top > 0:
-            opponent.y -= PADDLE_SPEED
+        match (AI_decision(opponent, opponent_ball, HEIGHT)):
+            case 1:
+                opponent.y += PADDLE_SPEED
+            case 2:
+                opponent.y -= PADDLE_SPEED
 
         # Move the ball
         ball.x += ball_dx
