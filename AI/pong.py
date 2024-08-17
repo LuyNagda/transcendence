@@ -50,15 +50,21 @@ def pong_game():
     last_update_time = time.time()
     opponent_ball = opponent.y
 
+    def reset_ball():
+        ball.center = (WIDTH//2, HEIGHT//2)
+        return BALL_SPEED_X * random.choice((1, -1)), BALL_SPEED_Y * random.choice((1, -1))
+
     # Game loop
     running = True
     while running:
+        keys = pygame.key.get_pressed()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+        if keys[pygame.K_ESCAPE]:
+            running = False
 
         # Move the player's paddle
-        keys = pygame.key.get_pressed()
         if keys[pygame.K_w] and player.top > 0:
             player.y -= PADDLE_SPEED
         if keys[pygame.K_s] and player.bottom < HEIGHT:
@@ -85,23 +91,22 @@ def pong_game():
             ball_dy *= -1
 
         # Ball collision with paddles
-        if ball.colliderect(player):
-            ball_dx *= -1
-        elif ball.colliderect(opponent):
-            ball_dx *= -1
-            opponent_send_back += 1
+        if ball_dx < 0 and player.right >= ball.left and player.top <= ball.centery <= player.bottom:
+            if ball.left > player.left:
+                ball.left = player.right
+                ball_dx *= -1
+        elif ball_dx > 0 and opponent.left <= ball.right and opponent.top <= ball.centery <= opponent.bottom:
+            if ball.right < opponent.right:
+                ball.right = opponent.left
+                ball_dx *= -1
 
         # Ball out of bounds
         if ball.left <= 0:
             opponent_score += 1
-            ball.center = (WIDTH//2, HEIGHT//2)
-            ball_dx = BALL_SPEED_X * random.choice((1, -1))
-            ball_dy = BALL_SPEED_Y * random.choice((1, -1))
+            ball_dx, ball_dy = reset_ball()
         elif ball.right >= WIDTH:
             player_score += 1
-            ball.center = (WIDTH//2, HEIGHT//2)
-            ball_dx = BALL_SPEED_X * random.choice((1, -1))
-            ball_dy = BALL_SPEED_Y * random.choice((1, -1))
+            ball_dx, ball_dy = reset_ball()
 
         # End the game
         if player_score >= 10:
@@ -127,8 +132,8 @@ def pong_game():
         # Update the display
         pygame.display.flip()
 
-        # # Cap the frame rate
-        # clock.tick(60)
+        # Cap the frame rate
+        clock.tick(60)
 
     # Quit the game
     pygame.quit()
