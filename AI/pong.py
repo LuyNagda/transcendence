@@ -1,17 +1,23 @@
 import pygame
 import random
 import time
-from NNAI import AI_decision
+from NNAI import AI_decision, Neuron_Network
 
-def pong_game():
+Ai_Sample = []
+for i in range(10):
+    random_ai = Neuron_Network()
+    Ai_Sample.append(random_ai)
+
+def pong_game(Ai_Sample, SHOW_MATCH):
     # Initialize Pygame
     pygame.init()
 
     # Set up the game window
     WIDTH = 800
     HEIGHT = 600
-    window = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Pong")
+    if SHOW_MATCH == "yes":
+        window = pygame.display.set_mode((WIDTH, HEIGHT))
+        pygame.display.set_caption("Pong")
 
     # Colors
     WHITE = (255, 255, 255)
@@ -42,14 +48,18 @@ def pong_game():
     # Score
     player_score = 0
     opponent_score = 0
-    opponent_send_back = 0
 
     # Font for score display
     font = pygame.font.Font(None, 36)
 
     # New variables for opponent's delayed reaction
     last_update_time = time.time()
-    opponent_ball = ball.centery
+
+    class opponent_ball:
+        x = ball.x
+        y = ball.y
+        dx = ball_dx
+        dy = ball_dy
 
     def reset_ball():
         ball.center = (WIDTH//2, HEIGHT//2)
@@ -61,9 +71,11 @@ def pong_game():
         keys = pygame.key.get_pressed()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                running = False
+                pygame.quit()
+                return "STOP"
         if keys[pygame.K_ESCAPE]:
-            running = False
+            pygame.quit()
+            return "STOP"
 
         # Move the player's paddle
         if keys[pygame.K_w] and player.top > 0:
@@ -74,15 +86,22 @@ def pong_game():
         # Update opponent's target position every second
         current_time = time.time()
         if current_time - last_update_time >= 1:
-            opponent_ball = ball.centery
+            opponent_ball.x = ball.x
+            opponent_ball.y = ball.y
+            opponent_ball.dx = ball_dx
+            opponent_ball.dy = ball_dy
             last_update_time = current_time
 
         # Move the opponent's paddle (simple AI)
-        match (AI_decision(opponent, opponent_ball, HEIGHT)):
+        match (AI_decision(Ai_Sample, opponent, opponent_ball, HEIGHT)):
+            case 0:
+                if opponent.top > 0:
+                    opponent.y -= PADDLE_SPEED
             case 1:
-                opponent.y += PADDLE_SPEED
+                opponent.y = opponent.y
             case 2:
-                opponent.y -= PADDLE_SPEED
+                if opponent.bottom < HEIGHT:
+                    opponent.y += PADDLE_SPEED
 
         # Move the ball
         ball.x += ball_dx
@@ -104,7 +123,7 @@ def pong_game():
 
         # Ball out of bounds
         if ball.left <= 0:
-            opponent_score += 1
+            Ai_Sample.ai_score += 1
             ball_dx, ball_dy = reset_ball()
         elif ball.right >= WIDTH:
             player_score += 1
@@ -114,35 +133,35 @@ def pong_game():
         if player_score >= 10:
             running = False
 
-        # Clear the screen
-        window.fill(BLACK)
+        if SHOW_MATCH == "yes":
+            # Clear the screen
+            window.fill(BLACK)
 
-        # Draw paddles and ball
-        pygame.draw.rect(window, WHITE, player)
-        pygame.draw.rect(window, WHITE, opponent)
-        pygame.draw.ellipse(window, WHITE, ball)
+            # Draw paddles and ball
+            pygame.draw.rect(window, WHITE, player)
+            pygame.draw.rect(window, WHITE, opponent)
+            pygame.draw.ellipse(window, WHITE, ball)
 
-        # Draw scores
-        player_text = font.render(str(player_score), True, WHITE)
-        opponent_text = font.render(str(opponent_score), True, WHITE)
-        window.blit(player_text, (WIDTH//4, 20))
-        window.blit(opponent_text, (3*WIDTH//4, 20))
+            # Draw scores
+            player_text = font.render(str(player_score), True, WHITE)
+            opponent_text = font.render(str(opponent_score), True, WHITE)
+            window.blit(player_text, (WIDTH//4, 20))
+            window.blit(opponent_text, (3*WIDTH//4, 20))
 
-        # Draw the center line
-        pygame.draw.aaline(window, WHITE, (WIDTH//2, 0), (WIDTH//2, HEIGHT))
+            # Draw the center line
+            pygame.draw.aaline(window, WHITE, (WIDTH//2, 0), (WIDTH//2, HEIGHT))
 
-        # Update the display
-        pygame.display.flip()
+            # Update the display
+            pygame.display.flip()
 
-        # Cap the frame rate
-        clock.tick(60)
+            # Cap the frame rate
+            clock.tick(60)
 
     # Quit the game
     pygame.quit()
 
-    # Return the opponent's score
-    return opponent_send_back
-
 # Run the game and get the opponent's score
-final_opponent_send_back = pong_game()
-print(f"The opponent send back the ball {final_opponent_send_back} times")
+for i in range(10):
+    if pong_game(Ai_Sample[i], "no") == "STOP":
+        break
+    print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")

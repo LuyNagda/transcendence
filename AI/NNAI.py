@@ -1,26 +1,25 @@
-# from layers import Layer_Dense, Activation_ReLU, Activation_SoftMax
+from layers import Layer_Dense, Activation_ReLU, Activation_SoftMax
+import numpy as np
 
-# X = [ 0.75, 0.5, 1.0, 1.0, 0.5 ]
+class Neuron_Network:
+    def __init__(self):
+        self.layer1 = Layer_Dense(5, 4)
+        self.activation1 = Activation_ReLU()
+        self.layer2 = Layer_Dense(4, 3)
+        self.activation2 = Activation_SoftMax()
+        self.ai_score = 0
 
-# layer1 = Layer_Dense(5, 4)
-# activation1 = Activation_ReLU()
-# layer2 = Layer_Dense(4, 3)
-# activation2 = Activation_SoftMax()
+def AI_neurons(ai, X):
+    ai.layer1.forward(X)
+    ai.activation1.forward(ai.layer1.output)
+    ai.layer2.forward(ai.activation1.output)
+    ai.activation2.forward(ai.layer2.output)
 
-# layer1.forward(X)
-# activation1.forward(layer1.output)
-# layer2.forward(activation1.output)
-# activation2.forward(layer2.output)
+    return np.argmax(ai.activation2.output)
 
-# print(activation2.output)
+def AI_decision(ai, opponent, opponent_ball, HEIGHT):
+    X = [opponent_ball.x / HEIGHT, opponent_ball.y / HEIGHT, opponent_ball.dx, opponent_ball.dy, opponent.y]
+    return AI_neurons(ai, X)
 
-# class NNAIPong:
-#     def __init__(self, species):
-
-def AI_decision(opponent, opponent_ball, HEIGHT):
-    if opponent.centery < opponent_ball and opponent.bottom < HEIGHT:
-        return 1
-    elif opponent.centery > opponent_ball and opponent.top > 0:
-        return 2
-    else:
-        return 0
+# def Save_Best_Ai(Ai_Sample):
+    
