@@ -1,12 +1,31 @@
-import pygame
-import random
-import time
+import pygame, random, time, os, pickle
 from NNAI import AI_decision, Neuron_Network
 
+save_file = "./bestAI.txt"
 Ai_Sample = []
-for i in range(10):
-    random_ai = Neuron_Network()
-    Ai_Sample.append(random_ai)
+
+def Init_Ai():
+    if (os.path.exists(save_file)):
+        with open(save_file, 'rb') as imp:
+            for i in range(5):
+                Saved_Ai = pickle.load(imp)
+                Saved_Ai.ai_score = 0
+                Ai_Sample.append(Saved_Ai)
+        for i in range(20):
+            Ai_Sample.append(Neuron_Network())
+    else:
+        for i in range(25):
+            random_ai = Neuron_Network()
+            Ai_Sample.append(random_ai)
+
+def Save_Best_Ai(Ai_Sample):
+    Ai_Sample.sort(reverse=True)
+
+    with open(save_file, 'wb') as save:  # Overwrites any existing file.
+        for i in range(5):
+            pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
+
+    Ai_Sample.clear()
 
 def pong_game(Ai_Sample, SHOW_MATCH):
     # Initialize Pygame
@@ -98,7 +117,7 @@ def pong_game(Ai_Sample, SHOW_MATCH):
                 if opponent.top > 0:
                     opponent.y -= PADDLE_SPEED
             case 1:
-                opponent.y = opponent.y
+                pass
             case 2:
                 if opponent.bottom < HEIGHT:
                     opponent.y += PADDLE_SPEED
@@ -120,10 +139,11 @@ def pong_game(Ai_Sample, SHOW_MATCH):
             if ball.right < opponent.right:
                 ball.right = opponent.left
                 ball_dx *= -1
+                Ai_Sample.ai_score += 1
 
         # Ball out of bounds
         if ball.left <= 0:
-            Ai_Sample.ai_score += 1
+            opponent_score += 1
             ball_dx, ball_dy = reset_ball()
         elif ball.right >= WIDTH:
             player_score += 1
@@ -155,13 +175,18 @@ def pong_game(Ai_Sample, SHOW_MATCH):
             pygame.display.flip()
 
             # Cap the frame rate
-            clock.tick(60)
+            # clock.tick(60)
 
     # Quit the game
     pygame.quit()
 
 # Run the game and get the opponent's score
-for i in range(10):
-    if pong_game(Ai_Sample[i], "no") == "STOP":
-        break
-    print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
+for j in range(1):
+    print(f"\n\n========== Sample #{j}===========\n")
+    Init_Ai()
+
+    for i in range(10):
+        if pong_game(Ai_Sample[i], "no") == "STOP":
+            break
+        print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
+    Save_Best_Ai(Ai_Sample)

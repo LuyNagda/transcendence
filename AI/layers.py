@@ -6,6 +6,7 @@ class Layer_Dense:
     def __init__(self, n_inputs, n_neurons):
         self.weights = np.random.randn(n_inputs, n_neurons)             # Weights are set with random numbers
         self.biases = np.zeros((1, n_neurons))                          # Biases are set to 0
+    
     def forward(self, inputs):
         self.output = np.dot(inputs, self.weights) + self.biases        # Output are calculate by multiplying each input with theirs weight and then adding the biaises
 
@@ -36,8 +37,6 @@ class Activation_SoftMax:
 # # α = an arbitrary scaling factor usually 2-10.
 # for i in range(2 , 11):
 #     print("Nh = Ns / (", i, " * ( Ni + No )) = ", 500/(i*(5+3)))
-
-# I will try with 2 hidden layer of 4 neurons
 
 # # EXAMPLE:
 # X = [[1, 2, 3, 2.5],
@@ -76,3 +75,20 @@ class Activation_SoftMax:
 # activation2.forward(dense2.output)
 
 # print(activation2.output)
+
+# # EXAMPLE
+# X = [0.1 , 0.4, 7, 7, 0.5]
+# dense1 = Layer_Dense(5, 3)
+# activation1 = Activation_ReLU()
+
+# # dense2 = Layer_Dense(3, 3)
+# activation2 = Activation_SoftMax()
+
+# dense1.forward(X)
+# activation1.forward(dense1.output)
+
+# # dense2.forward(activation1.output)
+# activation2.forward(activation1.output)
+
+# print(activation2.output)
+# print(np.argmax(activation2.output))
