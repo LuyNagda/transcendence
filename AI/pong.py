@@ -1,22 +1,39 @@
 import pygame, random, time, os, pickle
+import numpy as np
 from NNAI import AI_decision, Neuron_Network
 
 save_file = "./bestAI.txt"
 Ai_Sample = []
 
 def Init_Ai():
+    Ai_Sample.clear()
+    
     if (os.path.exists(save_file)):
         with open(save_file, 'rb') as imp:
             for i in range(5):
                 Saved_Ai = pickle.load(imp)
-                Saved_Ai.ai_score = 0
                 Ai_Sample.append(Saved_Ai)
-        for i in range(20):
-            Ai_Sample.append(Neuron_Network())
+        Mix_Weights(Ai_Sample)
     else:
         for i in range(25):
             random_ai = Neuron_Network()
             Ai_Sample.append(random_ai)
+    
+    for i in range(25):
+        print(f"Score of the {i} ai: {Ai_Sample[i].ai_score}")
+        Ai_Sample[i].ai_score = 0
+    
+    print("\nAfter wipe\n")
+    for i in range(25):
+        print(f"Score of the {i} ai: {Ai_Sample[i].ai_score}")
+
+def Mix_Weights(Ai_Sample):
+    for j in range(5):
+        for i in range(4):
+            mutated_ai = Ai_Sample[j]
+            mutated_ai.layer1.weights[np.random.randint(0, 3)] = np.random.randn()
+            Ai_Sample.append(mutated_ai)
+   
 
 def Save_Best_Ai(Ai_Sample):
     Ai_Sample.sort(reverse=True)
@@ -185,7 +202,7 @@ for j in range(1):
     print(f"\n\n========== Sample #{j}===========\n")
     Init_Ai()
 
-    for i in range(10):
+    for i in range(25):
         if pong_game(Ai_Sample[i], "no") == "STOP":
             break
         print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
