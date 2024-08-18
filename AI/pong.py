@@ -2,30 +2,41 @@ import pygame, random, time, os, pickle
 import numpy as np
 from NNAI import AI_decision, Neuron_Network
 
+DISPLAY_GAME = "no"
+DYSPLAY_LOG = "yes"
+AI_DELAY = "no"
+MAX_SCORE = 10
+NB_GENERATION = 1000
+NB_SPECIES = 50
+MAX_FRAME_RATE = 0  # 0 = unlimited
+
 save_file = "./bestAI.txt"
 Ai_Sample = []
 
 def Init_Ai():
     Ai_Sample.clear()
-    
+
     if (os.path.exists(save_file)):
         with open(save_file, 'rb') as imp:
             for i in range(5):
                 Saved_Ai = pickle.load(imp)
                 Ai_Sample.append(Saved_Ai)
         Mix_Weights(Ai_Sample)
+        for i in range(NB_SPECIES - 25):
+            random_ai = Neuron_Network()
+            Ai_Sample.append(random_ai)
     else:
-        for i in range(25):
+        for i in range(NB_SPECIES):
             random_ai = Neuron_Network()
             Ai_Sample.append(random_ai)
     
-    for i in range(25):
-        print(f"Score of the {i} ai: {Ai_Sample[i].ai_score}")
+    for i in range(NB_SPECIES):
+        # print(f"Score of the {i} ai: {Ai_Sample[i].ai_score}")
         Ai_Sample[i].ai_score = 0
     
-    print("\nAfter wipe\n")
-    for i in range(25):
-        print(f"Score of the {i} ai: {Ai_Sample[i].ai_score}")
+    # print("\nAfter wipe\n")
+    # for i in range(25):
+    #     print(f"Score of the {i} ai: {Ai_Sample[i].ai_score}")
 
 def Mix_Weights(Ai_Sample):
     for j in range(5):
@@ -78,8 +89,8 @@ def pong_game(Ai_Sample, SHOW_MATCH):
     clock = pygame.time.Clock()
 
     # Ball movement
-    ball_dx = BALL_SPEED_X * random.choice((1, -1))
-    ball_dy = BALL_SPEED_Y * random.choice((1, -1))
+    ball_dx = BALL_SPEED_X #* random.choice((1, -1))
+    ball_dy = BALL_SPEED_Y #* random.choice((1, -1))
 
     # Score
     player_score = 0
@@ -99,7 +110,8 @@ def pong_game(Ai_Sample, SHOW_MATCH):
 
     def reset_ball():
         ball.center = (WIDTH//2, HEIGHT//2)
-        return BALL_SPEED_X * random.choice((1, -1)), BALL_SPEED_Y * random.choice((1, -1))
+        # return BALL_SPEED_X * random.choice((1, -1)), BALL_SPEED_Y * random.choice((1, -1))
+        return BALL_SPEED_X , BALL_SPEED_Y
 
     # Game loop
     running = True
@@ -120,13 +132,21 @@ def pong_game(Ai_Sample, SHOW_MATCH):
             player.y += PADDLE_SPEED
 
         # Update opponent's target position every second
-        current_time = time.time()
-        if current_time - last_update_time >= 1:
+        if (AI_DELAY == "yes"):
+            current_time = time.time()
+            if current_time - last_update_time >= 1:
+                opponent_ball.x = ball.x
+                opponent_ball.y = ball.y
+                opponent_ball.dx = ball_dx
+                opponent_ball.dy = ball_dy
+                last_update_time = current_time
+        
+        else:
             opponent_ball.x = ball.x
             opponent_ball.y = ball.y
             opponent_ball.dx = ball_dx
             opponent_ball.dy = ball_dy
-            last_update_time = current_time
+
 
         # Move the opponent's paddle (simple AI)
         match (AI_decision(Ai_Sample, opponent, opponent_ball, HEIGHT)):
@@ -167,7 +187,7 @@ def pong_game(Ai_Sample, SHOW_MATCH):
             ball_dx, ball_dy = reset_ball()
 
         # End the game
-        if player_score >= 10:
+        if player_score >= MAX_SCORE:
             running = False
 
         if SHOW_MATCH == "yes":
@@ -192,18 +212,25 @@ def pong_game(Ai_Sample, SHOW_MATCH):
             pygame.display.flip()
 
             # Cap the frame rate
-            # clock.tick(60)
+            if (MAX_FRAME_RATE != 0):
+                clock.tick(MAX_FRAME_RATE)
 
     # Quit the game
     pygame.quit()
 
 # Run the game and get the opponent's score
-for j in range(1):
+for j in range(NB_GENERATION):
     print(f"\n\n========== Sample #{j}===========\n")
     Init_Ai()
 
-    for i in range(25):
-        if pong_game(Ai_Sample[i], "no") == "STOP":
+    for i in range(NB_SPECIES):
+        Ai_Sample[i].ai_score = 0
+        if pong_game(Ai_Sample[i], DISPLAY_GAME) == "STOP":
             break
-        print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
+        if (DYSPLAY_LOG == "yes"):
+            print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
     Save_Best_Ai(Ai_Sample)
+
+if (DYSPLAY_LOG != "yes"):
+    for i in range(NB_SPECIES):
+        print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
