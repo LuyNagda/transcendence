@@ -22,8 +22,9 @@ def Init_Ai():
             for i in range(5):
                 Saved_Ai = pickle.load(imp)
                 Ai_Sample.append(Saved_Ai)
+                Ai_Sample.append(Saved_Ai)
         Mix_Weights(Ai_Sample)
-        for i in range(NB_SPECIES - 25):
+        for i in range(NB_SPECIES - 30):
             random_ai = Neuron_Network()
             Ai_Sample.append(random_ai)
     else:
@@ -217,9 +218,10 @@ def pong_game(Ai_Sample, SHOW_MATCH):
     # Quit the game
     pygame.quit()
 
-# Run the game and get the opponent's score
+# Run the game
+
 for j in range(NB_GENERATION):
-    print(f"\n\n========== Sample #{j}===========\n")
+    print(f"\n\n========== Generation #{j}===========\n")
     Init_Ai()
 
     for i in range(NB_SPECIES):
