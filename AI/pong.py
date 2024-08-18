@@ -6,18 +6,19 @@ DISPLAY_GAME = "no"
 DYSPLAY_LOG = "yes"
 AI_DELAY = "no"
 MAX_SCORE = 10
-NB_GENERATION = 1000
+NB_GENERATION = 1
 NB_SPECIES = 50
 MAX_FRAME_RATE = 0  # 0 = unlimited
+SAVE_FILE = "./bestAI"
+SAVE_AI = "no"
 
-save_file = "./bestAI.txt"
 Ai_Sample = []
 
 def Init_Ai():
     Ai_Sample.clear()
 
-    if (os.path.exists(save_file)):
-        with open(save_file, 'rb') as imp:
+    if (os.path.exists(SAVE_FILE)):
+        with open(SAVE_FILE, 'rb') as imp:
             for i in range(5):
                 Saved_Ai = pickle.load(imp)
                 Ai_Sample.append(Saved_Ai)
@@ -49,7 +50,7 @@ def Mix_Weights(Ai_Sample):
 def Save_Best_Ai(Ai_Sample):
     Ai_Sample.sort(reverse=True)
 
-    with open(save_file, 'wb') as save:  # Overwrites any existing file.
+    with open(SAVE_FILE, 'wb') as save:  # Overwrites any existing file.
         for i in range(5):
             pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
 
@@ -103,10 +104,13 @@ def pong_game(Ai_Sample, SHOW_MATCH):
     last_update_time = time.time()
 
     class opponent_ball:
-        x = ball.x
-        y = ball.y
-        dx = ball_dx
-        dy = ball_dy
+        x: int
+        y: int
+        dx: int
+        dy: int
+
+        def __repr__(self):
+            return f"x = {self.x}\t\t\ty = {self.y} \ndx = {self.dx}\t\t\tdy = {self.dy}\n"
 
     def reset_ball():
         ball.center = (WIDTH//2, HEIGHT//2)
@@ -132,24 +136,25 @@ def pong_game(Ai_Sample, SHOW_MATCH):
             player.y += PADDLE_SPEED
 
         # Update opponent's target position every second
+        ai_ball = opponent_ball()
+
         if (AI_DELAY == "yes"):
             current_time = time.time()
             if current_time - last_update_time >= 1:
-                opponent_ball.x = ball.x
-                opponent_ball.y = ball.y
-                opponent_ball.dx = ball_dx
-                opponent_ball.dy = ball_dy
+                ai_ball.x = ball.x
+                ai_ball.y = ball.y
+                ai_ball.dx = ball_dx
+                ai_ball.dy = ball_dy
                 last_update_time = current_time
         
         else:
-            opponent_ball.x = ball.x
-            opponent_ball.y = ball.y
-            opponent_ball.dx = ball_dx
-            opponent_ball.dy = ball_dy
-
+            ai_ball.x = ball.x
+            ai_ball.y = ball.y
+            ai_ball.dx = ball_dx
+            ai_ball.dy = ball_dy
 
         # Move the opponent's paddle (simple AI)
-        match (AI_decision(Ai_Sample, opponent, opponent_ball, HEIGHT)):
+        match (AI_decision(Ai_Sample, opponent, ai_ball, HEIGHT)):
             case 0:
                 if opponent.top > 0:
                     opponent.y -= PADDLE_SPEED
@@ -234,3 +239,6 @@ for j in range(NB_GENERATION):
 if (DYSPLAY_LOG != "yes"):
     for i in range(NB_SPECIES):
         print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
+
+if (SAVE_AI == "no"):
+    os.remove(SAVE_FILE)
