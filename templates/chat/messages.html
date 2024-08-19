@@ -1,6 +1,6 @@
 {% for message in messages %}
-<div class="message {% if message.sender == request.user %}sent{% else %}received{% endif %}">
-	<p>{{ message.content }}</p>
+<div class="mb-2 message {% if message.sender == request.user %}sent{% else %}received{% endif %}">
+	<p class="m-0">{{ message.content }}</p>
 	<small>{{ message.timestamp|date:"H:i" }} - {{ message.sender.name|default:message.sender.username }}</small>
 </div>
 {% endfor %}

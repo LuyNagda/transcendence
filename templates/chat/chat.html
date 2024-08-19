@@ -9,10 +9,10 @@
 	<div class="row">
 		<div class="col user-list">
 			<h3>Users</h3>
-			<ul class="m-0 p-0" style="list-style-type: none;">
+			<ul class="rounded bg-dark-subtle m-0 p-3" style="list-style-type: none;">
 				{% for user in users %}
 				<li>
-					<button href="#" class="btn btn-outline-secondary btn-sm me-1 user-chat" data-user-id="{{ user.id }}">
+					<button href="#" class="btn btn-light btn-sm me-1 user-chat" data-user-id="{{ user.id }}">
 						<img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 20px;">
 						{{ user.name|default:user.username }}
 					<span class="status-icon">
@@ -29,10 +29,10 @@
 					{% if user.id not in blocked_users %}
 					<button class="btn btn-danger btn-sm block-user" data-user-id="{{ user.id }}">Block</button>
 					{% else %}
-					<button class="btn btn-outline-danger btn-sm unblock-user" data-user-id="{{ user.id }}">Unblock</button>
+					<button class="btn btn-danger btn-sm unblock-user" data-user-id="{{ user.id }}">Unblock</button>
 					{% endif %}
-					<button class="btn btn-outline-success btn-sm invite-user" data-user-id="{{ user.id }}">Invite to Pong</button>
-					<button class="btn btn-outline-primary btn-sm view-profile" data-user-id="{{ user.id }}">View Profile</button>
+					<button class="btn btn-success btn-sm invite-user" data-user-id="{{ user.id }}">Invite to Pong</button>
+					<button class="btn btn-primary btn-sm view-profile" data-user-id="{{ user.id }}">View Profile</button>
 				</li>
 				{% endfor %}
 			</ul>
@@ -45,13 +45,15 @@
 					<span class="visually-hidden">Unread messages</span>
 				</span>
 			</div>
-			<div id="message-history"></div>
-			<form id="chat-form" style="display: none;">
-				<div class="input-group mb-3">
-					<input type="text" class="form-control" placeholder="Type your message..." id="chat-message">
-					<button class="btn btn-outline-secondary" type="submit" id="button-addon2">Send</button>
-				</div>
-			</form>
+			<div class="rounded bg-dark-subtle m-0 p-3">
+				<div class="rounded bg-light p-3" id="message-history"></div>
+				<form id="chat-form" style="display: none;">
+					<div class="input-group pt-3">
+						<input type="text" class="form-control" placeholder="Type your message..." id="chat-message">
+						<button class="btn btn-secondary" type="submit" id="button-addon2">Send</button>
+					</div>
+				</form>
+			</div>
 		</div>
 	</div>
 </div>

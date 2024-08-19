@@ -8,13 +8,15 @@
 
 <div class="container x-auto my-4" id="settings">
     <h1>Settings</h1>
-    <ul class="m-0 p-0" style="list-style-type: none;">
-        {% if user.password is not None %}
-            <li><button class="btn btn-outline-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Change Password</button></li>
-        {% else %}
-            <li><button class="btn btn-outline-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Set Password</button></li>
-        {% endif %}
-    </ul>
+    <div class="m-0 pt-3">
+        <ul class="m-0 p-0" style="list-style-type: none;">
+            {% if user.password is not None %}
+                <li><button class="btn btn-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Change Password</button></li>
+            {% else %}
+                <li><button class="btn btn-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Set Password</button></li>
+            {% endif %}
+        </ul>
+    </div>
 </div>
 
 {% block footer %}{% include "footer.html" %}{% endblock %}
