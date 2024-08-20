@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     'channels',
     'authentication',
     'chat',
+    'pong',
     'corsheaders',  # Added 'corsheaders' to INSTALLED_APPS
     'rest_framework_simplejwt',
     'rest_framework',
