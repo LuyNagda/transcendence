@@ -50,6 +50,7 @@ urlpatterns = [
     path('settings', settings_view, name='settings'),
     path('change-password', change_password, name='change-password'),
     path('chat/', include('chat.urls'), name='chat'),
+    path('pong/', include('pong.urls'), name='pong'),  # Added this line
     path('set-password', set_password, name='set-password'),
     path('callback', oauth_callback, name='callback'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
