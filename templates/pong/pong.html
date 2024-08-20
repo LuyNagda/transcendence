@@ -1,10 +1,4 @@
-{% extends 'base.html' %}
-
-{% block title %}Pong Game{% endblock %}
-
-{% block content %}
-
-{% block navbar %}{% include "navbar.html" %}{% endblock %}
+{% extends 'base.html' %} {% block title %}Pong Game{% endblock %} {% block content %} {% block navbar %}{% include "navbar.html" %}{% endblock %}
 
 <div id="index" class="container x-auto my-4">
     <header class="text-center my-5">
@@ -35,6 +29,4 @@
     </main>
 </div>
 
-{% block footer %}{% include "footer.html" %}{% endblock %}
-
-{% endblock %}
+{% block footer %}{% include "footer.html" %}{% endblock %} {% endblock %}
