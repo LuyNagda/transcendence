@@ -1,29 +1,31 @@
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
-from .models import PongGame
+from .models import PongGame, PongRoom
 from django.contrib.auth import get_user_model
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
+from django.db import models
+import uuid
 
 User = get_user_model()
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def pong_view(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({'error': 'User not authenticated'}, status=401)
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
-    users = User.objects.exclude(id=request.user.id)
-    return render(request, 'pong/pong.html', {'users': users, 'access_token': access_token, 'refresh_token': refresh_token})
+    users = User.objects.exclude(email=request.user.email)
+    return render(request, 'pong/pong.html', {
+        'users': users, 
+        'access_token': access_token, 
+        'refresh_token': refresh_token
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def game_history(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({'error': 'User not authenticated'}, status=401)
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     games = PongGame.objects.filter(
@@ -33,22 +35,18 @@ def game_history(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
-def create_pong_game(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({'error': 'User not authenticated'}, status=401)
+def create_pong_room(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
-    player1 = User.objects.get(id=request.user.id)
-    player2_id = request.data.get('player2_id')
-    player2 = get_object_or_404(User, id=player2_id)
-    game = PongGame.objects.create(player1=player1, player2=player2)
-    return JsonResponse({'game_id': game.id, 'status': 'created', 'access_token': access_token, 'refresh_token': refresh_token})
+    players = [request.user]
+    room_id = str(uuid.uuid4())[:8]
+    room = PongRoom.objects.create(room_id=room_id)
+    room.players.set(players)
+    return JsonResponse({'room_id': room.room_id, 'status': 'created', 'access_token': access_token, 'refresh_token': refresh_token})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def update_pong_game_state(request, game_id):
-    if not request.user.is_authenticated:
-        return JsonResponse({'error': 'User not authenticated'}, status=401)
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     game = get_object_or_404(PongGame, id=game_id)
@@ -58,8 +56,6 @@ def update_pong_game_state(request, game_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def get_pong_game_state(request, game_id):
-    if not request.user.is_authenticated:
-        return JsonResponse({'error': 'User not authenticated'}, status=401)
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     game = get_object_or_404(PongGame, id=game_id)

@@ -1,10 +1,22 @@
 from django.db import models
-from django.contrib.auth.models import User
+from authentication.models import User
+from django.conf import settings
 
 class PongGame(models.Model):
-    player1 = models.ForeignKey(User, related_name='pong_games_as_player1', on_delete=models.CASCADE)
-    player2 = models.ForeignKey(User, related_name='pong_games_as_player2', on_delete=models.CASCADE)
-    score_player1 = models.IntegerField(default=0)
-    score_player2 = models.IntegerField(default=0)
-    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+class PongRoom(models.Model):
+    class Mode(models.TextChoices):
+        AI = 'ai'
+        CLASSIC = 'classic'
+        RANKED = 'ranked'
+        TOURNAMENT = 'tournament'
+
+    room_id = models.CharField(max_length=10, unique=True)
+    max_players = models.IntegerField(default=2)
+    players = models.ManyToManyField(User, related_name='pong_room_users')
+    mode = models.CharField(max_length=10, choices=Mode.choices, default=Mode.CLASSIC)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"PONGROOM[{self.room_id}]: {self.mode}"
