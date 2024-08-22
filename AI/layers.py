@@ -4,11 +4,15 @@ np.random.seed()
 
 class Layer_Dense:
     def __init__(self, n_inputs, n_neurons):
-        self.weights = np.random.randn(n_inputs, n_neurons)             # Weights are set with random numbers
-        self.biases = np.zeros((1, n_neurons))                          # Biases are set to 0
+        # Weights are set with random numbers
+        self.weights = np.random.randn(n_inputs, n_neurons)
+        
+        # Biases are set to 0
+        self.biases = np.zeros((1, n_neurons))                          
     
     def forward(self, inputs):
-        self.output = np.dot(inputs, self.weights) + self.biases        # Output are calculate by multiplying each input with theirs weight and then adding the biaises
+        # Output are calculate by multiplying each input with theirs weight and then adding the biaises
+        self.output = np.dot(inputs, self.weights) + self.biases
 
 class Activation_ReLU:
     def forward(self, inputs):
@@ -16,7 +20,9 @@ class Activation_ReLU:
 
 class Activation_SoftMax:
     def forward(self, inputs):
-        exp_values = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))  # Protect from overflow. In case of batch inputs, keeps it in the rigth format
+        # Protect from overflow. In case of batch inputs, keeps it in the rigth format
+        exp_values = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))
+
         probabilities = exp_values / np.sum(exp_values, axis=1, keepdims=True)
         self.output = probabilities
 
@@ -35,8 +41,6 @@ class Activation_SoftMax:
 # # No = number of output neurons.
 # # Ns = number of samples in training data set.
 # # α = an arbitrary scaling factor usually 2-10.
-# for i in range(2 , 11):
-#     print("Nh = Ns / (", i, " * ( Ni + No )) = ", 500/(i*(5+3)))
 
 # # EXAMPLE:
 # X = [[1, 2, 3, 2.5],
