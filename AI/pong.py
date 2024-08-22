@@ -1,33 +1,9 @@
 import pygame, random, time, os, pickle, sys
 import numpy as np
 from NNAI import AI_decision, Neuron_Network
-
-# Set up the game window
-WIDTH = 800
-HEIGHT = 600
-
-DISPLAY_GAME = "no"
-DYSPLAY_LOG = "yes"
-AI_DELAY = "no"
-MAX_SCORE = 10
-NB_GENERATION = 1
-NB_SPECIES = 50
-MAX_FRAME_RATE = 0  # 0 = unlimited
-SAVE_FILE = "./Saved_AI/bestAI"
-SAVE_AI = "yes"
-
-RED = (255, 0, 0)
+from utils import opponent_ball, reset_ball, WIDTH, HEIGHT, DISPLAY_GAME, DYSPLAY_LOG, AI_DELAY, MAX_SCORE, NB_GENERATION, NB_SPECIES, MAX_FRAME_RATE, SAVE_AI,SAVE_FILE, WHITE, BLACK, RED, PADDLE_HEIGHT, PADDLE_SPEED, PADDLE_WIDTH, BALL_SIZE, BALL_SPEED_X,BALL_SPEED_Y
 
 Ai_Sample = []
-
-class opponent_ball:
-    x: int
-    y: int
-    dx: int
-    dy: int
-
-    def __repr__(self):
-        return f"x = {self.x}\t\t\ty = {self.y} \ndx = {self.dx}\t\t\tdy = {self.dy}\n"
 
 def pong_game(Ai_Sample, SHOW_MATCH):
     # Initialize Pygame
@@ -36,20 +12,6 @@ def pong_game(Ai_Sample, SHOW_MATCH):
     if SHOW_MATCH == "yes":
         window = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("Pong")
-
-    # Colors
-    WHITE = (255, 255, 255)
-    BLACK = (0, 0, 0)
-
-    # Paddle settings
-    PADDLE_WIDTH = 15
-    PADDLE_HEIGHT = 90
-    PADDLE_SPEED = 5
-
-    # Ball settings
-    BALL_SIZE = 15
-    BALL_SPEED_X = 7
-    BALL_SPEED_Y = 7
 
     # Create paddles and ball
     player = pygame.Rect(50, 0, PADDLE_WIDTH, HEIGHT)
@@ -72,10 +34,6 @@ def pong_game(Ai_Sample, SHOW_MATCH):
 
     # New variables for opponent's delayed reaction
     last_update_time = time.time()
-
-    def reset_ball():
-        ball.center = (WIDTH//2, HEIGHT//2)
-        return BALL_SPEED_X * random.choice((1, -1)), BALL_SPEED_Y * random.choice((1, -1))
 
     # Game loop
     running = True
@@ -146,10 +104,10 @@ def pong_game(Ai_Sample, SHOW_MATCH):
         # Ball out of bounds
         if ball.left <= 0:
             opponent_score += 1
-            ball_dx, ball_dy = reset_ball()
+            ball_dx, ball_dy = reset_ball(ball)
         elif ball.right >= WIDTH:
             player_score += 1
-            ball_dx, ball_dy = reset_ball()
+            ball_dx, ball_dy = reset_ball(ball)
 
         # End the game
         if player_score >= MAX_SCORE:
@@ -290,10 +248,6 @@ def play_Ai(Ai, demo):
     # New variables for opponent's delayed reaction
     last_update_time = time.time()
 
-    def reset_ball():
-        ball.center = (WIDTH//2, HEIGHT//2)
-        return BALL_SPEED_X * random.choice((1, -1)), BALL_SPEED_Y * random.choice((1, -1))
-
     # Game loop
     running = True
     while running:
@@ -362,10 +316,10 @@ def play_Ai(Ai, demo):
         # Ball out of bounds
         if ball.left <= 0:
             opponent_score += 1
-            ball_dx, ball_dy = reset_ball()
+            ball_dx, ball_dy = reset_ball(ball)
         elif ball.right >= WIDTH:
             player_score += 1
-            ball_dx, ball_dy = reset_ball()
+            ball_dx, ball_dy = reset_ball(ball)
 
         # End the game
         if player_score >= MAX_SCORE:
@@ -401,35 +355,6 @@ def load_Ai(save_file):
     with open(save_file, 'rb') as imp:
         Ai = pickle.load(imp)
         return (Ai)
-
-# import traceback
-# def load_Ai(save_file):
-#     print(f"Attempting to load AI from {save_file}")
-#     print(f"File size: {os.path.getsize(save_file)} bytes")
-#     try:
-#         with open(save_file, 'rb') as imp:
-#             Ai = pickle.load(imp)
-#         print("AI loaded successfully")
-#         return Ai
-#     except Exception as e:
-#         print(f"Error loading AI: {e}")
-#         traceback.print_exc()
-#         return None
-
-# def load_Ai(save_file):
-#     print(f"Attempting to load AI from {save_file}")
-#     print(f"File size: {os.path.getsize(save_file)} bytes")
-#     try:
-#         with open(save_file, 'rb') as imp:
-#             Ai_models = []
-#             for _ in range(5):  # Load 5 models as per the saving function
-#                 Ai_models.append(pickle.load(imp))
-#         print(f"Successfully loaded {len(Ai_models)} AI models")
-#         return Ai_models[0]  # Return the first (best) model
-#     except Exception as e:
-#         print(f"Error loading AI: {e}")
-#         traceback.print_exc()
-#         return None
 
 # Run the game
 def main():
