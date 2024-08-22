@@ -134,10 +134,6 @@ def pong_game(Ai_Sample, SHOW_MATCH):
             # Update the display
             pygame.display.flip()
 
-            # Cap the frame rate
-            if (MAX_FRAME_RATE != 0):
-                clock.tick(MAX_FRAME_RATE)
-
     # Quit the game
     pygame.quit()
 
@@ -176,7 +172,8 @@ def Save_Best_Ai(Ai_Sample, save_file):
     if (len(save_file) > 0):
         SAVE_FILE = "./Saved_AI/" + save_file
 
-    with open(SAVE_FILE, 'wb') as save:  # Overwrites any existing file.
+    # Overwrites any existing file.
+    with open(SAVE_FILE, 'wb') as save:
         for i in range(5):
             pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
 
@@ -208,20 +205,6 @@ def play_Ai(Ai, demo):
 
     window = pygame.display.set_mode((WIDTH, HEIGHT))
     pygame.display.set_caption("Pong")
-
-    # Colors
-    WHITE = (255, 255, 255)
-    BLACK = (0, 0, 0)
-
-    # Paddle settings
-    PADDLE_WIDTH = 15
-    PADDLE_HEIGHT = 90
-    PADDLE_SPEED = 5
-
-    # Ball settings
-    BALL_SIZE = 15
-    BALL_SPEED_X = 7
-    BALL_SPEED_Y = 7
 
     # Create paddles and ball
     if (demo == "yes"):
