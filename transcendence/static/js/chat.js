@@ -100,8 +100,8 @@ class ChatApp {
 		document.querySelectorAll('.user-chat').forEach(el => el.classList.remove('active'));
 		e.currentTarget.classList.add('active');
 		this.loadMessageHistory(userId);
-		document.querySelector('#chat-form').style.display = 'block';
-	}
+		document.querySelector('#chat-form-div').style.display = 'block';
+	}	
 
 	handleUserBlockToggle(e) {
 		e.preventDefault();

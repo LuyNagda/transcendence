@@ -16,10 +16,10 @@
                 <label for="{{ field.id_for_label }}">{{ field.label }}</label>
 		</div>
         {% endfor %}
-        <button class="btn btn-outline-primary" type="submit">Login</button>
-        <button class="btn btn-outline-secondary" type="button" hx-get="{% url 'login-2fa' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Login with 2FA</button>
-        <a href="https://api.intra.42.fr/oauth/authorize?client_id={{ ft_client_id }}&redirect_uri={{ ft_redirect_uri|urlencode }}&response_type=code"><button class="btn btn-outline-secondary" type="button">Login with 42 API</button></a>
-        <button class="btn btn-outline-danger" href="#" hx-get="{% url 'forgot-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Forgot Password</button>    </form>
+        <button class="btn btn-primary" type="submit">Login</button>
+        <button class="btn btn-secondary" type="button" hx-get="{% url 'login-2fa' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Login with 2FA</button>
+        <a href="https://api.intra.42.fr/oauth/authorize?client_id={{ ft_client_id }}&redirect_uri={{ ft_redirect_uri|urlencode }}&response_type=code"><button class="btn btn-secondary" type="button">Login with 42 API</button></a>
+        <button class="btn btn-danger" href="#" hx-get="{% url 'forgot-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Forgot Password</button>    </form>
     {% if messages %}
     {% for message in messages %}
         <div class="alert alert-{{ message.tags }} my-2">

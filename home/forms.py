@@ -3,12 +3,12 @@ from authentication.models import User
 from django.contrib.auth.forms import PasswordChangeForm
 
 class ProfileForm(forms.Form):
-    name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly'}))
-    nick_name = forms.CharField(max_length=10, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control'}))
+    name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly', 'placeholder': 'user'}))
+    nick_name = forms.CharField(max_length=10, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'name'}))
+    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'email'}))
     date_of_birth = forms.DateField(widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'placeholder': 'YYYY-MM-DD'}), input_formats=['%Y-%m-%d'], required=False)
-    bio = forms.CharField(max_length=500, widget=forms.Textarea(attrs={'class': 'form-control'}), required=False)
-    profile_picture = forms.ImageField(widget=forms.FileInput(attrs={'class': 'form-control'}), required=False)
+    bio = forms.CharField(max_length=500, widget=forms.Textarea(attrs={'class': 'form-control', 'placeholder': 'bio'}), required=False)
+    profile_picture = forms.ImageField(widget=forms.FileInput(attrs={'class': 'form-control', 'placeholder': 'profile-picture'}), required=False)
 
     def __init__(self, *args, **kwargs):
         item_id = kwargs.pop('item_id')

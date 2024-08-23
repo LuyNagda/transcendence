@@ -12124,7 +12124,7 @@ textarea.form-control-lg {
   --bs-font-monospace: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --bs-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0));
   --bs-body-font-family: var(--bs-font-sans-serif);
-  --bs-body-font-size: 1rem;
+  --bs-body-font-size: 2rem;
   --bs-body-font-weight: 400;
   --bs-body-line-height: 1.5;
   --bs-body-color: #ffff00;
@@ -12172,5 +12172,38 @@ textarea.form-control-lg {
   --bs-form-valid-border-color: #32cd32;
   --bs-form-invalid-color: #ff4500;
   --bs-form-invalid-border-color: #ff4500;
+
+  h1 {
+    font-size: 6rem;
+  }
+
+  h3 {
+    font-size: 4rem;
+  }
+
+  .navbar-brand {
+    font-size: 2.5rem;
+  }
+
+  .form-control {
+    font-size: 2rem;
+    padding-top: 4rem;
+    padding-bottom: 3rem;
+  }
+
+  .form-control:focus {
+    font-size: 2rem;
+    padding-top: 4rem;
+    padding-bottom: 3rem;
+  }
+
+  .form-control:not(:placeholder-shown){
+    padding-top: 4rem;
+    padding-bottom: 3rem;
+  }
+
+  .btn {
+    font-size: 2rem;
+  }
 }
 /*# sourceMappingURL=bootstrap.css.map */
