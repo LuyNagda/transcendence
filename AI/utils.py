@@ -11,7 +11,7 @@ MAX_SCORE = 10
 NB_GENERATION = 1
 NB_SPECIES = 50
 MAX_FRAME_RATE = 0  # 0 = unlimited
-SAVE_FILE = "./Saved_AI/bestAI"
+SAVE_FILE = "bestAI"
 SAVE_AI = "yes"
 
 # Colors

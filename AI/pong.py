@@ -1,11 +1,21 @@
-import pygame, random, time, os, pickle, sys
+import pygame, random, time
 import numpy as np
-from NNAI import AI_decision, Neuron_Network
-from utils import opponent_ball, reset_ball, WIDTH, HEIGHT, DISPLAY_GAME, DYSPLAY_LOG, AI_DELAY, MAX_SCORE, NB_GENERATION, NB_SPECIES, MAX_FRAME_RATE, SAVE_AI,SAVE_FILE, WHITE, BLACK, RED, PADDLE_HEIGHT, PADDLE_SPEED, PADDLE_WIDTH, BALL_SIZE, BALL_SPEED_X,BALL_SPEED_Y
+from utils import opponent_ball, reset_ball, WIDTH, HEIGHT, AI_DELAY, MAX_SCORE, MAX_FRAME_RATE, WHITE, BLACK, PADDLE_HEIGHT, PADDLE_SPEED, PADDLE_WIDTH, BALL_SIZE, BALL_SPEED_X,BALL_SPEED_Y
 
-Ai_Sample = []
+def AI_neurons(ai, X):
+    ai.layer1.forward(X)
+    ai.activation1.forward(ai.layer1.output)
 
-def pong_game(Ai_Sample, SHOW_MATCH):
+    ai.activation2.forward(ai.activation1.output)
+    ai_response = np.argmax(ai.activation2.output)
+
+    return ai_response
+
+def AI_decision(ai, opponent, ai_ball, HEIGHT):
+    X = [ai_ball.x / HEIGHT, ai_ball.y / HEIGHT, ai_ball.dx, ai_ball.dy, opponent.y]
+    return AI_neurons(ai, X)
+
+def pong_game(Ai_selected, SHOW_MATCH):
     # Initialize Pygame
     pygame.init()
 
@@ -72,7 +82,7 @@ def pong_game(Ai_Sample, SHOW_MATCH):
             ai_ball.dy = ball_dy
 
         # Move the opponent's paddle (simple AI)
-        match (AI_decision(Ai_Sample, opponent, ai_ball, HEIGHT)):
+        match (AI_decision(Ai_selected, opponent, ai_ball, HEIGHT)):
             case 0:
                 if opponent.top > 0:
                     opponent.y -= PADDLE_SPEED
@@ -99,7 +109,7 @@ def pong_game(Ai_Sample, SHOW_MATCH):
             if ball.right < opponent.right:
                 ball.right = opponent.left
                 ball_dx *= -1
-                Ai_Sample.ai_score += 1
+                Ai_selected.ai_score += 1
 
         # Ball out of bounds
         if ball.left <= 0:
@@ -136,68 +146,6 @@ def pong_game(Ai_Sample, SHOW_MATCH):
 
     # Quit the game
     pygame.quit()
-
-def Init_Ai(base):
-    Ai_Sample.clear()
-
-    if (os.path.exists(SAVE_FILE) and base != "yes"):
-        with open(SAVE_FILE, 'rb') as imp:
-            for i in range(5):
-                Saved_Ai = pickle.load(imp)
-                Ai_Sample.append(Saved_Ai)
-                Ai_Sample.append(Saved_Ai)
-        Mix_Weights(Ai_Sample)
-        for i in range(NB_SPECIES - 30):
-            random_ai = Neuron_Network()
-            Ai_Sample.append(random_ai)
-    else:
-        for i in range(NB_SPECIES):
-            random_ai = Neuron_Network()
-            Ai_Sample.append(random_ai)
-    
-    for i in range(NB_SPECIES):
-        Ai_Sample[i].ai_score = 0
-    
-def Mix_Weights(Ai_Sample):
-    for j in range(5):
-        for i in range(4):
-            mutated_ai = Ai_Sample[j]
-            mutated_ai.layer1.weights[np.random.randint(0, 3)] = np.random.randn()
-            Ai_Sample.append(mutated_ai)
-   
-
-def Save_Best_Ai(Ai_Sample, save_file):
-    Ai_Sample.sort(reverse=True)
-
-    if (len(save_file) > 0):
-        SAVE_FILE = "./Saved_AI/" + save_file
-
-    # Overwrites any existing file.
-    with open(SAVE_FILE, 'wb') as save:
-        for i in range(5):
-            pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
-
-    Ai_Sample.clear()
-
-def train_Ai(save_file, base):
-    for j in range(NB_GENERATION):
-        print(f"\n\n========== Generation #{j}===========\n")
-        Init_Ai(base)
-
-        for i in range(NB_SPECIES):
-            Ai_Sample[i].ai_score = 0
-            if pong_game(Ai_Sample[i], DISPLAY_GAME) == "STOP":
-                break
-            if (DYSPLAY_LOG == "yes"):
-                print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
-        Save_Best_Ai(Ai_Sample, save_file)
-
-    if (DYSPLAY_LOG != "yes"):
-        for j in range(NB_SPECIES):
-            print(f"The AI opponent {j} send back the ball {Ai_Sample[j].ai_score} times")
-
-    if (SAVE_AI == "no"):
-        os.remove(SAVE_FILE)
 
 def play_Ai(Ai, demo):
     # Initialize Pygame
@@ -333,68 +281,3 @@ def play_Ai(Ai, demo):
 
     # Quit the game
     pygame.quit()
-
-def load_Ai(save_file):
-    with open(save_file, 'rb') as imp:
-        Ai = pickle.load(imp)
-        return (Ai)
-
-# Run the game
-def main():
-    print("\n\tThanks for tying my AI =)")
-
-    # Retrieve arguments from sys.argv
-    nb_args = len(sys.argv[1:])
-    if (nb_args == 0):
-        print("Usage:\n    train: \t\ttrain the AI\n    play [save_file]: \tplay against the best ai from the save")
-        return
-
-    match sys.argv[1]:
-        case "train":
-            save_file = ""
-            base = "no"
-
-            if (len(sys.argv) > 2):
-                save_file = sys.argv[2]
-            
-            if (len(sys.argv) > 3):
-                base = sys.argv[3]
-            
-            train_Ai(save_file, base)
-        
-        case "play":
-            if (len(sys.argv) > 2):
-                save_file = sys.argv[2]
-                if (os.path.exists(save_file)):
-                    Ai = load_Ai(save_file)
-                else:
-                    return print("Save file doesn't exist!")
-
-            else:
-                if (os.path.exists(SAVE_FILE)):
-                    Ai = load_Ai(SAVE_FILE)
-                else:
-                    return print("Save file doesn't exist!")
-
-            play_Ai(Ai, "no")
-
-        case "demo":
-            if (len(sys.argv) > 2):
-                save_file = sys.argv[2]
-                if (os.path.exists(save_file)):
-                    Ai = load_Ai(save_file)
-                else:
-                    return print("Save file doesn't exist!")
-            else:
-                if (os.path.exists(SAVE_FILE)):
-                    Ai = load_Ai(SAVE_FILE)
-                else:
-                    return print("Save file doesn't exist!")
-            play_Ai(Ai, "yes")
-
-        case _:
-            print("Usage:\n    train: \t\ttrain the AI\n    play [save_file]: \tplay against the best ai from the save")
-            return
-        
-if __name__ == "__main__":
-    main()
