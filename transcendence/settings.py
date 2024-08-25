@@ -60,6 +60,11 @@ LOGGING = {
     },
 }
 
+BUGSNAG = {
+    'api_key': env('BUGSNAG_KEY'),
+    'project_root': BASE_DIR,
+}
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -80,6 +85,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'bugsnag.django.middleware.BugsnagMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # Added CorsMiddleware to MIDDLEWARE
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',

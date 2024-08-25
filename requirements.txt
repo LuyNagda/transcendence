@@ -12,3 +12,4 @@ gunicorn
 djangorestframework
 djangorestframework-simplejwt
 requests
+bugsnag
