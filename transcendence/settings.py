@@ -35,9 +35,17 @@ DEBUG = True
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'root': {
+        'level': 'ERROR',
+        'handlers': ['bugsnag'],
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+        },
+        'bugsnag': {
+            'level': 'INFO',
+            'class': 'bugsnag.handlers.BugsnagHandler',
         },
     },
     'loggers': {
