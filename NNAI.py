@@ -84,6 +84,9 @@ def Crossover_mutation(Ai_Sample):
         parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
         child = Neuron_Network()
 
+        # Crossover
+        child.layer1.weights = (parent1.layer1.weights + parent2.layer1.weights) / 2
+
         # Set the probability of the occurrence of a mutation
         mutation_rate = 0.1
 
