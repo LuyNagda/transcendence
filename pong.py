@@ -48,6 +48,11 @@ def pong_game(Ai_selected, SHOW_MATCH):
     # Game loop
     running = True
     while running:
+        i = 0
+        if i > (10 * 60 * 60):
+            break
+        i += 1
+
         keys = pygame.key.get_pressed()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
