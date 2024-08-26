@@ -1,6 +1,6 @@
 import os, sys
 from NNAI import train_Ai, load_Ai
-from utils import SAVE_FILE
+from utils import SAVE_FILE, SAVE_FOLDER
 from pong import play_Ai
 
 # Run the game
@@ -35,8 +35,9 @@ def main():
                     return print("Save file doesn't exist!")
 
             else:
-                if (os.path.exists(SAVE_FILE)):
-                    Ai = load_Ai(SAVE_FILE)
+                file_path = os.path.join(SAVE_FOLDER, SAVE_FILE)
+                if (os.path.exists(file_path)):
+                    Ai = load_Ai(file_path)
                 else:
                     return print("Save file doesn't exist!")
 
@@ -50,8 +51,9 @@ def main():
                 else:
                     return print("Save file doesn't exist!")
             else:
-                if (os.path.exists(SAVE_FILE)):
-                    Ai = load_Ai(SAVE_FILE)
+                file_path = os.path.join(SAVE_FOLDER, SAVE_FILE)
+                if (os.path.exists(file_path)):
+                    Ai = load_Ai(file_path)
                 else:
                     return print("Save file doesn't exist!")
             play_Ai(Ai, "yes")
