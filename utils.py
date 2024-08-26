@@ -8,10 +8,11 @@ DISPLAY_GAME = "no"
 DYSPLAY_LOG = "yes"
 AI_DELAY = "no"
 MAX_SCORE = 10
-NB_GENERATION = 1
+NB_GENERATION = 100
 NB_SPECIES = 50
 MAX_FRAME_RATE = 0  # 0 = unlimited
 SAVE_FILE = "bestAI"
+SAVE_FOLDER = "Saved_AI"
 SAVE_AI = "yes"
 
 # Colors

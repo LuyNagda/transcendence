@@ -1,6 +1,6 @@
 import pickle, os
 from pong import pong_game 
-from utils import DISPLAY_GAME, DYSPLAY_LOG, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE
+from utils import DISPLAY_GAME, DYSPLAY_LOG, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
 import numpy as np
 
 np.random.seed()
@@ -45,10 +45,11 @@ class Neuron_Network:
 def Init_Ai(base):
     Ai_Sample = []
     Ai_Sample.clear()
+    file_path = os.path.join(SAVE_FOLDER, SAVE_FILE)
 
-    if (os.path.exists(SAVE_FILE) and base != "yes"):
+    if (os.path.exists(file_path) and base != "yes"):
         # Load all AI from the save file
-        with open(SAVE_FILE, 'rb') as imp:
+        with open(file_path, 'rb') as imp:
             while (len(Ai_Sample) < NB_SPECIES):
                 try:
                     Saved_Ai = pickle.load(imp)
@@ -102,9 +103,6 @@ def Crossover_mutation(Ai_Sample):
 
         # Add this mutated child to the AI's list
         Ai_Sample.append(child)
-
-
-   
 
 def Save_Best_Ai(Ai_Sample, save_file):
     # Sort AI from the best performer to the least one
