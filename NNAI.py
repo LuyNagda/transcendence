@@ -47,36 +47,67 @@ def Init_Ai(base):
     Ai_Sample.clear()
 
     if (os.path.exists(SAVE_FILE) and base != "yes"):
+        # Load all AI from the save file
         with open(SAVE_FILE, 'rb') as imp:
-            for i in range(5):
-                Saved_Ai = pickle.load(imp)
-                Ai_Sample.append(Saved_Ai)
-                Ai_Sample.append(Saved_Ai)
-        Mix_Weights(Ai_Sample)
-        for i in range(NB_SPECIES - 30):
+            while (len(Ai_Sample) < NB_SPECIES):
+                try:
+                    Saved_Ai = pickle.load(imp)
+                    Ai_Sample.append(Saved_Ai)
+                except EOFError:
+                    break
+
+        # Mix weights of the 5 best performing AIs
+        Crossover_mutation(Ai_Sample)
+        
+        # Add random AIs to reach NB_SPECIES
+        remaining = NB_SPECIES - len(Ai_Sample)
+        for i in range(remaining):
             random_ai = Neuron_Network()
             Ai_Sample.append(random_ai)
+
     else:
+        # Create NB_SPECIES random AIs
         for i in range(NB_SPECIES):
             random_ai = Neuron_Network()
             Ai_Sample.append(random_ai)
     
+    # Reset scores
     for i in range(NB_SPECIES):
         Ai_Sample[i].ai_score = 0
 
     return Ai_Sample
     
-def Mix_Weights(Ai_Sample):
-    for j in range(5):
-        for i in range(4):
-            mutated_ai = Ai_Sample[j]
-            mutated_ai.layer1.weights[np.random.randint(0, 3)] = np.random.randn()
-            Ai_Sample.append(mutated_ai)
+def Crossover_mutation(Ai_Sample):
+    # Crossover and then mutation
+    while (len(Ai_Sample) < NB_SPECIES - 5):
+        # Choose 2 parent randomly fron the 5 best performing AI and instance a child
+        parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
+        child = Neuron_Network()
+
+        # Set the probability of the occurrence of a mutation
+        mutation_rate = 0.1
+
+        # Create a matrix of random weight, shape like the neuron network's weight
+        weight_shape = child.layer1.weights.shape
+        random_values = np.random.random(weight_shape)
+
+        # For each random weight if they are smaller than the mutation rate, mutate the weight of the child in this position
+        mutation_mask = random_values < mutation_rate
+        nb_mutations = np.sum(mutation_mask)
+        mutation_value = np.random.randn(nb_mutations)
+        child.layer1.weights[mutation_mask] += mutation_value
+
+        # Add this mutated child to the AI's list
+        Ai_Sample.append(child)
+
+
    
 
 def Save_Best_Ai(Ai_Sample, save_file):
+    # Sort AI from the best performer to the least one
     Ai_Sample.sort(reverse=True)
 
+    # If a save file's name is provided, set it as the save file for this run
     if (len(save_file) > 0):
         SAVE_FILE = os.path.join("Saved_AI", save_file)
 
@@ -85,9 +116,18 @@ def Save_Best_Ai(Ai_Sample, save_file):
     
     # Overwrites any existing file.
     with open(SAVE_FILE, 'wb') as save:
+        # Save the 5 best performing AI
         for i in range(5):
             pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
 
+        # Save AI having similar performance as the best one
+        for i in range(5, len(Ai_Sample)):
+            if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.95 ):
+                pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
+            else:
+                break
+
+    # Clean the list
     Ai_Sample.clear()
 
 def train_Ai(save_file, base):
