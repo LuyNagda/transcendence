@@ -6,28 +6,32 @@
 
 {% block navbar %}{% include "navbar-login.html" %}{% endblock %}
 
-<div class="container x-auto my-4" id="login-form">
-	<h1>Login</h1>
-    <form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="/index" enctype="multipart/form-data">
-        {% csrf_token %}
-        {% for field in form %}
+<div class="container x-auto my-4" id="login-form" role="region" aria-labelledby="login-form-heading">
+	<h1 id="login-form-heading">Login</h1>
+	<form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="/index" enctype="multipart/form-data" aria-labelledby="login-form-heading">
+		{% csrf_token %}
+		{% for field in form %}
 		<div class="form-floating my-3">
-                {{ field }}
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+				{{ field }}
+				<label for="{{ field.id_for_label }}" id="label-{{ field.id_for_label }}">{{ field.label }}</label>
 		</div>
-        {% endfor %}
-        <button class="btn btn-primary" type="submit">Login</button>
-        <button class="btn btn-secondary" type="button" hx-get="{% url 'login-2fa' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Login with 2FA</button>
-        <a href="https://api.intra.42.fr/oauth/authorize?client_id={{ ft_client_id }}&redirect_uri={{ ft_redirect_uri|urlencode }}&response_type=code"><button class="btn btn-secondary" type="button">Login with 42 API</button></a>
-        <button class="btn btn-danger" href="#" hx-get="{% url 'forgot-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true">Forgot Password</button>    </form>
-    {% if messages %}
-    {% for message in messages %}
-        <div class="alert alert-{{ message.tags }} my-2">
-            <p class="m-0">{{ message }}</p>
-        </div>
-    {% endfor %}
-    {% endif %}
+		{% endfor %}
+		<button class="btn btn-primary" type="submit" aria-label="Login">Login</button>
+		<button class="btn btn-secondary" type="button" hx-get="{% url 'login-2fa' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" aria-label="Login with 2FA">Login with 2FA</button>
+		<a href="https://api.intra.42.fr/oauth/authorize?client_id={{ ft_client_id }}&redirect_uri={{ ft_redirect_uri|urlencode }}&response_type=code" aria-label="Login with 42 API">
+			<button class="btn btn-secondary" type="button">Login with 42 API</button>
+		</a>
+		<button class="btn btn-danger" type="button" hx-get="{% url 'forgot-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" aria-label="Forgot Password">Forgot Password</button>
+	</form>
+	{% if messages %}
+	{% for message in messages %}
+		<div class="alert alert-{{ message.tags }} my-2" role="alert" aria-live="polite">
+			<p class="m-0">{{ message }}</p>
+		</div>
+	{% endfor %}
+	{% endif %}
 </div>
+
 
 {% block footer %}{% include "footer.html" %}{% endblock %}
 

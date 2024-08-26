@@ -7,26 +7,26 @@
 {% block navbar %}{% include "navbar-login.html" %}{% endblock %}
 
 <div class="container x-auto my-4" id="registration-form">
-    <h1>Register</h1>
-    <form method="post" hx-post="{% url 'register' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" enctype="multipart/form-data">
-        {% csrf_token %}
-        {% for field in form %}
-        <div class="form-floating my-3">
-                {{ field }}
-                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {% if field.errors %}
-                    <div class="alert alert-{{ message.tags }} my-1">
-                        <ul class="m-0 p-0" style="list-style-type: none;">
-                        {% for error in field.errors %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                        </ul>
-                    </div>
-                {% endif %}
-        </div>
-        {% endfor %}
-        <button class="btn btn-primary" type="submit">Register</button>
-    </form>
+	<h1 id="registrationHeading">Register</h1>
+	<form method="post" hx-post="{% url 'register' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" enctype="multipart/form-data" aria-labelledby="registrationHeading">
+		{% csrf_token %}
+		{% for field in form %}
+		<div class="form-floating my-3">
+			{{ field }}
+			<label for="{{ field.id_for_label }}">{{ field.label }}</label>
+			{% if field.errors %}
+				<div class="alert alert-danger my-1" role="alert">
+					<ul class="m-0 p-0" style="list-style-type: none;">
+					{% for error in field.errors %}
+						<li>{{ error }}</li>
+					{% endfor %}
+					</ul>
+				</div>
+			{% endif %}
+		</div>
+		{% endfor %}
+		<button class="btn btn-primary" type="submit" aria-label="Register account">Register</button>
+	</form>
 </div>
 
 {% block footer %}{% include "footer.html" %}{% endblock %}
