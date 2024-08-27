@@ -50,11 +50,15 @@ $(VENV)/bin/activate: requirements.txt
 
 venv: $(VENV)/bin/activate
 
-makemigrations: venv
-	$(SRC_ENV) $(PYTHON) manage.py makemigrations
+makemigrations:
+	$(SRC_ENV) docker compose run --rm auth python manage.py makemigrations
 
-migrate: venv
-	$(SRC_ENV) $(PYTHON) manage.py migrate
+# To run for new apps : make makemigrations-app_name
+makemigrations-%:
+	$(SRC_ENV) docker compose run --rm auth python manage.py makemigrations $*
+
+migrate:
+	$(SRC_ENV) docker compose run --rm auth python manage.py migrate
 
 db-update: makemigrations migrate
 
@@ -146,3 +150,4 @@ debug_re: fclean debug
 .PHONY: env run daemon dev build logs stop
 .PHONY: test test-compare wait-for-healthy wait-for-nginx-healthy
 .PHONY: nginx nginxd docker-stop docker-fclean run_tests
+.PHONY: makemigrations migrate db-update
