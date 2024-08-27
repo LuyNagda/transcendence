@@ -49,7 +49,7 @@ def pong_game(Ai_selected, SHOW_MATCH):
     running = True
     while running:
         i = 0
-        if i > (10 * 60 * 60):
+        if i > (15 * 60 * 60):
             break
         i += 1
 
@@ -160,10 +160,7 @@ def play_Ai(Ai, demo):
     pygame.display.set_caption("Pong")
 
     # Create paddles and ball
-    if (demo == "yes"):
-        player = pygame.Rect(50, 0, PADDLE_WIDTH, HEIGHT)
-    else:
-        player = pygame.Rect(50, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
+    player = pygame.Rect(50, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
     opponent = pygame.Rect(WIDTH - 50 - PADDLE_WIDTH, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
     ball = pygame.Rect(WIDTH//2 - BALL_SIZE//2, HEIGHT//2 - BALL_SIZE//2, BALL_SIZE, BALL_SIZE)
 
@@ -196,14 +193,10 @@ def play_Ai(Ai, demo):
             pygame.quit()
             return "STOP"
 
-        # Move the player's paddle
-        if keys[pygame.K_w] and player.top > 0:
-            player.y -= PADDLE_SPEED
-        if keys[pygame.K_s] and player.bottom < HEIGHT:
-            player.y += PADDLE_SPEED
-
         # Update opponent's target position every second
         ai_ball = opponent_ball()
+        if (demo == "yes"):
+            ai2_ball = opponent_ball()
 
         if (AI_DELAY == "yes"):
             current_time = time.time()
@@ -212,6 +205,12 @@ def play_Ai(Ai, demo):
                 ai_ball.y = ball.y
                 ai_ball.dx = ball_dx
                 ai_ball.dy = ball_dy
+
+                ai2_ball.x = WIDTH - ball.x
+                ai2_ball.y = ball.y
+                ai2_ball.dx = ball_dx * -1
+                ai2_ball.dy = ball_dy
+
                 last_update_time = current_time
         
         else:
@@ -220,7 +219,30 @@ def play_Ai(Ai, demo):
             ai_ball.dx = ball_dx
             ai_ball.dy = ball_dy
 
-        # Move the opponent's paddle (simple AI)
+            ai2_ball.x = WIDTH - ball.x
+            ai2_ball.y = ball.y
+            ai2_ball.dx = ball_dx * -1
+            ai2_ball.dy = ball_dy
+
+        # Move the player's paddle by AI
+        if (demo == "yes"):
+            match (AI_decision(Ai, opponent, ai2_ball, HEIGHT)):
+                case 0:
+                    if player.top > 0:
+                        player.y -= PADDLE_SPEED
+                case 1:
+                    pass
+                case 2:
+                    if player.bottom < HEIGHT:
+                        player.y += PADDLE_SPEED
+        # Move the player's paddle with keyboard inputs
+        else:
+            if keys[pygame.K_w] and player.top > 0:
+                player.y -= PADDLE_SPEED
+            if keys[pygame.K_s] and player.bottom < HEIGHT:
+                player.y += PADDLE_SPEED
+
+        # Move the opponent's paddle
         match (AI_decision(Ai, opponent, ai_ball, HEIGHT)):
             case 0:
                 if opponent.top > 0:
