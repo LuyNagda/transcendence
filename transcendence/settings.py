@@ -249,24 +249,38 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
 LOGIN_URL = '/login'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', env('DOMAIN')]
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-    'https://' + env('DOMAIN'),
-	'ws://' + env('DOMAIN'),
-	'wss://' + env('DOMAIN'),
-]
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+DOMAIN = env('DOMAIN', default=None)
+if DOMAIN:
+    ALLOWED_HOSTS.append(DOMAIN)
+
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
-    'https://' + env('DOMAIN'),
-	'ws://' + env('DOMAIN'),
-	'wss://' + env('DOMAIN'),
 ]
-#CSRF_COOKIE_DOMAIN = env('DOMAIN')
+
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+
+if DOMAIN:
+    CORS_ALLOWED_ORIGINS.append(f'https://{DOMAIN}')
+    CSRF_TRUSTED_ORIGINS.append(f'https://{DOMAIN}')
+    
+    # If you need to allow WebSocket connections
+    CORS_ALLOWED_ORIGINS.extend([
+        f'ws://{DOMAIN}',
+        f'wss://{DOMAIN}',
+    ])
+    CSRF_TRUSTED_ORIGINS.extend([
+        f'ws://{DOMAIN}',
+        f'wss://{DOMAIN}',
+    ])
+
 CORS_ALLOW_CREDENTIALS = True
+
 FT_CLIENT_ID = env('FT_CLIENT_ID')
 FT_CLIENT_SECRET = env('FT_CLIENT_SECRET')
 FT_REDIRECT_URI = env('FT_REDIRECT_URI')
