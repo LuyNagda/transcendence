@@ -195,8 +195,7 @@ def play_Ai(Ai, demo):
 
         # Update opponent's target position every second
         ai_ball = opponent_ball()
-        if (demo == "yes"):
-            ai2_ball = opponent_ball()
+        ai2_ball = opponent_ball()
 
         if (AI_DELAY == "yes"):
             current_time = time.time()
