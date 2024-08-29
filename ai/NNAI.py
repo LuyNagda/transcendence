@@ -1,4 +1,4 @@
-import pickle, os
+import pickle, os, json
 from pong import pong_game 
 from utils import DISPLAY_GAME, DYSPLAY_LOG, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
 import numpy as np
@@ -41,6 +41,16 @@ class Neuron_Network:
     
     def __repr__(self):
         return str(self.ai_score)
+    
+    def to_dict(self):
+        return {
+            "layers1": {
+                "weights" : self.layer1.weights.tolist()
+            }
+        }
+    
+    def to_json(self):
+        return json.dumps(self.to_dict())
 
 def Init_Ai(base):
     Ai_Sample = []
