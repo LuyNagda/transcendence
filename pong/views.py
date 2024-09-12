@@ -1,12 +1,21 @@
+<<<<<<< HEAD
 from django.shortcuts import get_object_or_404, redirect, render
+=======
+from django.shortcuts import get_object_or_404
+>>>>>>> f463d5d73a4630f51557f45408623dc413b08557
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import PongGame, PongRoom
 from django.contrib.auth import get_user_model
+<<<<<<< HEAD
+=======
+from django.shortcuts import render
+>>>>>>> f463d5d73a4630f51557f45408623dc413b08557
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 from django.db import models
 import uuid
+<<<<<<< HEAD
 import logging
 
 User = get_user_model()
@@ -14,6 +23,11 @@ User = get_user_model()
 # Configure the logger
 logger = logging.getLogger(__name__)
 
+=======
+
+User = get_user_model()
+
+>>>>>>> f463d5d73a4630f51557f45408623dc413b08557
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def pong_view(request):
@@ -21,7 +35,11 @@ def pong_view(request):
     refresh_token = request.COOKIES.get('refresh_token')
     users = User.objects.exclude(email=request.user.email)
     return render(request, 'pong/pong.html', {
+<<<<<<< HEAD
         'users': users,
+=======
+        'users': users, 
+>>>>>>> f463d5d73a4630f51557f45408623dc413b08557
         'access_token': access_token, 
         'refresh_token': refresh_token
     })
@@ -45,7 +63,11 @@ def create_pong_room(request):
     room_id = str(uuid.uuid4())[:8]
     room = PongRoom.objects.create(room_id=room_id)
     room.players.set(players)
+<<<<<<< HEAD
     return redirect('pong_room', room_id=room.room_id)
+=======
+    return JsonResponse({'room_id': room.room_id, 'status': 'created', 'access_token': access_token, 'refresh_token': refresh_token})
+>>>>>>> f463d5d73a4630f51557f45408623dc413b08557
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -58,6 +80,7 @@ def update_pong_game_state(request, game_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
+<<<<<<< HEAD
 def pong_game(request, game_id):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
@@ -131,3 +154,18 @@ def start_ai_game(request, room_id):
     game = PongGame.objects.create(room=room, player1=player1, player2_is_ai=True, status=PongGame.Status.ONGOING)
     logger.info(f"Partie AI créée avec succès. ID de la partie : {game.id}")
     return redirect('pong_game', game_id=game.id)
+=======
+def get_pong_game_state(request, game_id):
+    access_token = request.COOKIES.get('access_token')
+    refresh_token = request.COOKIES.get('refresh_token')
+    game = get_object_or_404(PongGame, id=game_id)
+    return JsonResponse({
+        'player1': game.player1.username,
+        'player2': game.player2.username,
+        'score_player1': game.score_player1,
+        'score_player2': game.score_player2,
+        'is_active': game.is_active,
+        'access_token': access_token,
+        'refresh_token': refresh_token
+    })
+>>>>>>> f463d5d73a4630f51557f45408623dc413b08557
