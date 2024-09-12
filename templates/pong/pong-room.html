@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+
+{% block title %}Pong Room{% endblock %}
+
+{% block content %}
+
+{% block navbar %}{% include "navbar.html" %}{% endblock %}
+
+<div id="pong-room" class="container x-auto my-4">
+    <header class="text-center my-5">
+        <h1>Salle de Jeu Pong</h1>
+        <p>Choisissez votre mode de jeu et commencez à jouer !</p>
+    </header>
+    <main>
+        <section id="mode-selection" class="my-5">
+            <h2>Choisissez le Mode de Jeu</h2>
+            <form id="mode-form" method="post" onsubmit="return validateMode()">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label for="mode">Mode de Jeu</label>
+                    <select id="mode" name="mode" class="form-control" onchange="updateMode()">
+                        <option value="ai">AI</option>
+                        <option value="classic">Classic</option>
+                        <option value="ranked">Ranked</option>
+                        <option value="tournament">Tournament</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3">Valider</button>
+            </form>
+        </section>
+        <section id="dynamic-content" class="my-5">
+            <!-- Contenu dynamique sera inséré ici -->
+        </section>
+    </main>
+</div>
+
+{% block footer %}{% include "footer.html" %}{% endblock %}
+
+<script>
+function updateMode() {
+    const mode = document.getElementById('mode').value;
+    const dynamicContent = document.getElementById('dynamic-content');
+    dynamicContent.innerHTML = '';
+
+    if (mode === 'classic') {
+        dynamicContent.innerHTML = `
+            <h2>Classic Mode</h2>
+            <button class="btn btn-secondary" onclick="showInviteFriend()">Inviter un Ami</button>
+            <button class="btn btn-secondary" onclick="startMatchmaking()">Lancer le Matchmaking</button>
+            <button class="btn btn-secondary mt-3" onclick="resetMode()">Changer de Mode</button>
+        `;
+    } else if (mode === 'tournament') {
+        dynamicContent.innerHTML = `
+            <h2>Tournament Mode</h2>
+            <button class="btn btn-secondary" onclick="showInviteFriends()">Inviter des Amis</button>
+            <button class="btn btn-secondary" onclick="startMatchmaking()">Lancer le Matchmaking</button>
+            <button class="btn btn-secondary mt-3" onclick="resetMode()">Changer de Mode</button>
+        `;
+    } else {
+        dynamicContent.innerHTML = `
+            <h2>${mode.charAt(0).toUpperCase() + mode.slice(1)} Mode</h2>
+            <button class="btn btn-secondary mt-3" onclick="resetMode()">Changer de Mode</button>
+        `;
+    }
+}
+
+function showInviteFriend() {
+    const dynamicContent = document.getElementById('dynamic-content');
+    dynamicContent.innerHTML = `
+        <h2>Inviter un Ami</h2>
+        <form method="post" action="{% url 'invite_friend' room_id=room.room_id %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="friend">Choisissez un ami</label>
+                <select id="friend" name="friend" class="form-control">
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Inviter</button>
+        </form>
+        <button class="btn btn-secondary mt-3" onclick="resetMode()">Changer de Mode</button>
+    `;
+}
+
+function showInviteFriends() {
+    const dynamicContent = document.getElementById('dynamic-content');
+    dynamicContent.innerHTML = `
+        <h2>Inviter des Amis</h2>
+        <form method="post" action="{% url 'invite_friends' room_id=room.room_id %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="friends">Choisissez des amis</label>
+                <select id="friends" name="friends" class="form-control" multiple>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary mt-3">Inviter</button>
+        </form>
+        <button class="btn btn-secondary mt-3" onclick="resetMode()">Changer de Mode</button>
+    `;
+}
+
+function startMatchmaking() {
+    alert('Matchmaking lancé !');
+    // Ajoutez ici la logique pour lancer le matchmaking
+}
+
+function resetMode() {
+    document.getElementById('mode-form').reset();
+    document.getElementById('dynamic-content').innerHTML = '';
+}
+
+function validateMode() {
+    const mode = document.getElementById('mode').value;
+    if (mode === 'ai') {
+        startAIGame();
+        return false; // Empêche le formulaire de se soumettre
+    }
+    return true; // Permet au formulaire de se soumettre pour les autres modes
+}
+
+function startAIGame() {
+    console.log("startAIGame");
+    const roomId = "{{ room.room_id }}";
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `/pong/room/${roomId}/start-ai-game/`;
+    const csrfToken = document.createElement('input');
+    csrfToken.type = 'hidden';
+    csrfToken.name = 'csrfmiddlewaretoken';
+    csrfToken.value = '{{ csrf_token }}';
+    form.appendChild(csrfToken);
+    document.body.appendChild(form);
+    form.submit();
+}
+</script>
+
+{% endblock %}

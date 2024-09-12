@@ -1,20 +1,17 @@
-{% load static %}
-
-{% block content %}
+{% load static %} {% block content %}
 <div class="offcanvas offcanvas-start w-50" data-bs-backdrop="static" tabindex="-1" id="chatCanvas" aria-labelledby="chatCanvas">
-	<div class="offcanvas-header">
-		<h4 class="offcanvas-title">Chat</h4>
-		<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-	</div>
-	<div class="offcanvas-body">
-		<div class="row">
-			<div class="col-4 user-list" role="navigation" aria-labelledby="userListHeading">
-				<h5 id="userListHeading">Users</h5>
-				<ul class="rounded bg-dark-subtle m-0 p-3" style="list-style-type: none;">
-					{% for user in users %}
-					<li>
-						<button href="#" class="btn btn-transparent btn-sm me-1 user-chat" data-user-id="{{ user.id }}"
-							aria-label="Chat with {{ user.name|default:user.username }}">
+    <div class="offcanvas-header">
+        <h4 class="offcanvas-title">Chat</h4>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <div class="row">
+            <div class="col-4 user-list" role="navigation" aria-labelledby="userListHeading">
+                <h5 id="userListHeading">Users</h5>
+                <ul class="rounded bg-dark-subtle m-0 p-3" style="list-style-type: none;">
+                    {% for user in users %}
+                    <li>
+                        <button href="#" class="btn btn-transparent btn-sm me-1 user-chat" data-user-id="{{ user.id }}" aria-label="Chat with {{ user.name|default:user.username }}">
 							<img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 20px;"
 								alt="{{ user.name|default:user.username }}'s profile picture">
 							<span class="user-name" aria-live="polite">{{ user.name|default:user.username }}</span>
@@ -30,54 +27,42 @@
 								{% endif %}
 							</span>
 						</button>
-					</li>
-					{% endfor %}
-				</ul>
-			</div>
-			<div class="col-8 chat-messages" role="region" aria-labelledby="chatHeading">
-				<div class="d-flex align-items-start">
-					<h5 id="chatHeading">Select a user to start chatting</h5>
-					<span id="unreadBadge" class="mb-2 ms-2 p-1 badge rounded-pill bg-danger" aria-live="polite">
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-8 chat-messages" role="region" aria-labelledby="chatHeading">
+                <div class="d-flex align-items-start">
+                    <h5 id="chatHeading">Select a user to start chatting</h5>
+                    <span id="unreadBadge" class="mb-2 ms-2 p-1 badge rounded-pill bg-danger" aria-live="polite">
 						0
 						<span class="visually-hidden">Unread messages</span>
-					</span>
-				</div>
-				<div class="rounded m-0 p-3" style="background-color: var(--bs-dark-bg-subtle);">
-					<div class="rounded p-3 chat-bubble-container" style="background-color: var(--bs-light-bg-subtle);"
-						id="message-history" aria-live="polite"></div>
-					<div id="chat-form-div" style="display: none;">
-						<form id="chat-form" class="d-flex mt-2" aria-labelledby="chatFormHeading">
-							<h4 id="chatFormHeading" class="visually-hidden">Chat Form</h4>
-							<input type="text" class="form-control me-1" placeholder="Type your message..."
-								id="chat-message" aria-label="Message input">
-							<button class="btn btn-primary" type="submit" id="button-addon2"
-								aria-label="Send message">Send</button>
-						</form>
-						<div class="mt-2">
-							{% if blocked_users is not None %}
-							{% if user.id not in blocked_users %}
-							<button class="btn btn-danger block-user" data-user-id="{{ user.id }}"
-								aria-label="Block {{ user.name|default:user.username }}">Block</button>
-							{% else %}
-							<button class="btn btn-danger unblock-user" data-user-id="{{ user.id }}"
-								aria-label="Unblock {{ user.name|default:user.username }}">Unblock</button>
-							{% endif %}
-							{% endif %}
-							<button class="btn btn-success invite-user" data-user-id="{{ user.id }}"
-								aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite to
+                    </span>
+                </div>
+                <div class="rounded m-0 p-3" style="background-color: var(--bs-dark-bg-subtle);">
+                    <div class="rounded p-3 chat-bubble-container" style="background-color: var(--bs-light-bg-subtle);" id="message-history" aria-live="polite"></div>
+                    <div id="chat-form-div" style="display: none;">
+                        <form id="chat-form" class="d-flex mt-2" aria-labelledby="chatFormHeading">
+                            <h4 id="chatFormHeading" class="visually-hidden">Chat Form</h4>
+                            <input type="text" class="form-control me-1" placeholder="Type your message..." id="chat-message" aria-label="Message input">
+                            <button class="btn btn-primary" type="submit" id="button-addon2" aria-label="Send message">Send</button>
+                        </form>
+                        <div class="mt-2">
+                            {% if blocked_users is not None %} {% if user.id not in blocked_users %}
+                            <button class="btn btn-danger block-user" data-user-id="{{ user.id }}" aria-label="Block {{ user.name|default:user.username }}">Block</button> {% else %}
+                            <button class="btn btn-danger unblock-user" data-user-id="{{ user.id }}" aria-label="Unblock {{ user.name|default:user.username }}">Unblock</button> {% endif %} {% endif %}
+                            <button class="btn btn-success invite-user" data-user-id="{{ user.id }}" aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite to
 								Pong</button>
-							<button class="btn btn-primary view-profile" data-user-id="{{ user.id }}"
-								aria-label="View profile of {{ user.name|default:user.username }}">View Profile</button>
-						</div>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
+                            <button class="btn btn-primary view-profile" data-user-id="{{ user.id }}" aria-label="View profile of {{ user.name|default:user.username }}">View Profile</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<button class="btn btn-link position-relative chat-icon" data-bs-toggle="offcanvas" data-bs-target="#chatCanvas"
-	aria-controls="chatCanvas">
+<button class="btn btn-link position-relative chat-icon" data-bs-toggle="offcanvas" data-bs-target="#chatCanvas" aria-controls="chatCanvas">
 	<i class="bi bi-chat-dots fs-4"></i>
 	<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger chat-badge"
 		style="display: none;">
@@ -86,62 +71,62 @@
 </button>
 
 <style>
-	.chat-bubble-container {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-
-	.chat-bubble {
-		min-width: 25%;
-		max-width: 70%;
-		padding: 10px 15px;
-		border-radius: 20px;
-		position: relative;
-		color: white;
-		word-wrap: break-word;
-	}
-
-	.chat-bubble .message-header {
-		border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-		margin-bottom: 5px;
-		padding-bottom: 3px;
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.chat-bubble .sender-name {
-		font-weight: bold;
-		font-size: 0.9em;
-	}
-
-	.chat-bubble.sent .message-header {
-		flex-direction: row-reverse;
-	}
-
-	.chat-bubble.received .message-header {
-		flex-direction: row;
-	}
-
-	.chat-bubble p {
-		margin: 5px 0;
-	}
-
-	.chat-bubble.sent {
-		align-self: flex-end;
-		background-color: #007bff;
-	}
-
-	.chat-bubble.received {
-		align-self: flex-start;
-		background-color: #6c757d;
-	}
-
-	.chat-bubble small {
-		display: block;
-		font-size: 0.75em;
-		margin-top: 5px;
-		opacity: 0.7;
-	}
+    .chat-bubble-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .chat-bubble {
+        min-width: 25%;
+        max-width: 70%;
+        padding: 10px 15px;
+        border-radius: 20px;
+        position: relative;
+        color: white;
+        word-wrap: break-word;
+    }
+    
+    .chat-bubble .message-header {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+        margin-bottom: 5px;
+        padding-bottom: 3px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .chat-bubble .sender-name {
+        font-weight: bold;
+        font-size: 0.9em;
+    }
+    
+    .chat-bubble.sent .message-header {
+        flex-direction: row-reverse;
+    }
+    
+    .chat-bubble.received .message-header {
+        flex-direction: row;
+    }
+    
+    .chat-bubble p {
+        margin: 5px 0;
+    }
+    
+    .chat-bubble.sent {
+        align-self: flex-end;
+        background-color: #007bff;
+    }
+    
+    .chat-bubble.received {
+        align-self: flex-start;
+        background-color: #6c757d;
+    }
+    
+    .chat-bubble small {
+        display: block;
+        font-size: 0.75em;
+        margin-top: 5px;
+        opacity: 0.7;
+    }
 </style>
