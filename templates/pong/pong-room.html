@@ -14,7 +14,7 @@
     <main>
         <section id="mode-selection" class="my-5">
             <h2>Choisissez le Mode de Jeu</h2>
-            <form id="mode-form" method="post" onsubmit="return validateMode()">
+            <form id="mode-form" method="post" hx-post="{% url 'create_pong_room' %}" hx-target="#content" hx-swap="innerHTML" hx-push-url="true" onsubmit="return validateMode()">
                 {% csrf_token %}
                 <div class="form-group">
                     <label for="mode">Mode de Jeu</label>
@@ -68,7 +68,7 @@ function showInviteFriend() {
     const dynamicContent = document.getElementById('dynamic-content');
     dynamicContent.innerHTML = `
         <h2>Inviter un Ami</h2>
-        <form method="post" action="{% url 'invite_friend' room_id=room.room_id %}">
+        <form method="post" action="{% url 'invite_friend' room_id=room.room_id %}" hx-post="{% url 'invite_friend' room_id=room.room_id %}" hx-target="#dynamic-content" hx-swap="innerHTML" hx-push-url="true">
             {% csrf_token %}
             <div class="form-group">
                 <label for="friend">Choisissez un ami</label>
@@ -88,7 +88,7 @@ function showInviteFriends() {
     const dynamicContent = document.getElementById('dynamic-content');
     dynamicContent.innerHTML = `
         <h2>Inviter des Amis</h2>
-        <form method="post" action="{% url 'invite_friends' room_id=room.room_id %}">
+        <form method="post" action="{% url 'invite_friends' room_id=room.room_id %}" hx-post="{% url 'invite_friends' room_id=room.room_id %}" hx-target="#dynamic-content" hx-swap="innerHTML" hx-push-url="true">
             {% csrf_token %}
             <div class="form-group">
                 <label for="friends">Choisissez des amis</label>

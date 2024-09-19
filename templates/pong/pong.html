@@ -27,7 +27,7 @@
         </section>
         <section id="cta" class="text-center my-5">
             <h2>Prêt à jouer ?</h2>
-            <form action="{% url 'create_pong_room' %}" method="post">
+            <form action="{% url 'create_pong_room' %}" method="post" hx-post="{% url 'create_pong_room' %}" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-primary">Commencer une partie</button>
             </form>
