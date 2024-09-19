@@ -10,6 +10,7 @@ DEFAULT_FROM_EMAIL=marvin@42lyon.fr
 EMAIL_USE_TLS=False
 
 DEBUG=True
+PROD=False
 DOMAIN=localhost
 
 FT_CLIENT_ID=

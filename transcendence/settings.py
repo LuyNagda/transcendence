@@ -253,19 +253,22 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', env('DOMAIN')]
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
-    'https://' + env('DOMAIN'),
-	'ws://' + env('DOMAIN'),
-	'wss://' + env('DOMAIN'),
 ]
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
-    'https://' + env('DOMAIN'),
-	'ws://' + env('DOMAIN'),
-	'wss://' + env('DOMAIN'),
 ]
-#CSRF_COOKIE_DOMAIN = env('DOMAIN')
+
+if env('PROD', default='False') == 'True':
+    CSRF_TRUSTED_ORIGINS.append(f'https://{env("DOMAIN")}')
+    CSRF_TRUSTED_ORIGINS.append(f'ws://{env("DOMAIN")}')
+    CSRF_TRUSTED_ORIGINS.append(f'wss://{env("DOMAIN")}')
+    CORS_ALLOWED_ORIGINS.append(f'https://{env("DOMAIN")}')
+    CORS_ALLOWED_ORIGINS.append(f'ws://{env("DOMAIN")}')
+    CORS_ALLOWED_ORIGINS.append(f'wss://{env("DOMAIN")}')
+
+CSRF_COOKIE_DOMAIN = env('DOMAIN')
 CORS_ALLOW_CREDENTIALS = True
 FT_CLIENT_ID = env('FT_CLIENT_ID')
 FT_CLIENT_SECRET = env('FT_CLIENT_SECRET')
