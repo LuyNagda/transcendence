@@ -1,6 +1,0 @@
-FROM transcendence
-
-COPY . /app
-
-ENTRYPOINT ["/app/install.sh", "/venv/bin/python", "/app/manage.py"]
-CMD ["test", "-v", "2"]
