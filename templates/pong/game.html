@@ -1,348 +1,214 @@
-{% extends 'base.html' %}
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Basic Pong HTML Game</title>
+  <meta charset="UTF-8">
+  <style>
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
 
-{% block title %}Pong Atari Simulation{% endblock %}
+  body {
+    background: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  </style>
+</head>
+<body>
+<canvas width="858" height="525" id="game"></canvas>
+<script>
+const canvas = document.getElementById('game');
+const context = canvas.getContext('2d');
+const grid = 15;
+const paddleHeight = grid * 6; // 90
+const maxPaddleY = canvas.height - grid - paddleHeight;
 
-{% block content %}
-<div id="pong-atari" class="container my-4">
-    <header class="text-center my-5">
-        <h1>Simulation de Pong sur Atari</h1>
-        <p>Utilisant CircuitJS</p>
-    </header>
-    <main>
-        <div id="circuit-simulation" class="circuit-simulation">
-            <!-- Iframe pour afficher la simulation CircuitJS -->
-            <iframe id="circuitFrame" src="https://www.falstad.com/circuit/circuitjsd.html?startCircuit=https://www.falstad.com/pong/vonly.txt&mouseMode=DragAll" width="800" height="600"></iframe>
-        </div>
-        <div id="controls" class="text-center my-4">
-            <button onclick="startGame()">New Game</button>
-            <button onclick="stopGame()">Attract Mode</button>
-            <div class="checkbox">Autoplay: <input type="checkbox" id="autoplayCheck"><br>
-            &nbsp;<br>
-            <canvas id="canvas" width="375" height="246" style="background-color:black;"></canvas>
-        </div>
-    </main>
-</div>
+var paddleSpeed = 6;
+var ballSpeed = 5;
 
-<script type="module">
-import Split from 'https://www.falstad.com/split.js';
+let leftScore = 0;
+let rightScore = 0;
 
-Split(['#split-0', '#split-1'], { sizes: [70, 30] });
+const leftPaddle = {
+  // start in the middle of the game on the left side
+  x: grid * 2,
+  y: canvas.height / 2 - paddleHeight / 2,
+  width: grid,
+  height: paddleHeight,
 
-// get iframe the simulator is running in. Must have same origin as this file!
-var iframe = document.getElementById("circuitFrame");
+  // paddle velocity
+  dy: 0
+};
+const rightPaddle = {
+  // start in the middle of the game on the right side
+  x: canvas.width - grid * 3,
+  y: canvas.height / 2 - paddleHeight / 2,
+  width: grid,
+  height: paddleHeight,
 
-var sim;
-var freq, ampl;
-var v1, h256, video, ctx, vblank, vpad1, vpad2, vvid, Aa, Ba;
-var pad1 = 100, pad2 = 100, lineCount;
+  // paddle velocity
+  dy: 0
+};
+const ball = {
+  // start in the middle of the game
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  width: grid,
+  height: grid,
 
-var nettext = '';
-var highlightY = -1;
-var savedLine;
-var resetCounter = 50;  // keep SRST high for short period at start
-var attractMode = false;
+  // keep track of when need to reset the ball position
+  resetting: false,
 
-function didAnalyze(sim) {
-  // get nodes we need
-  v1 = sim.getNode("1V");
-  h256 = sim.getNode("256H");
-  video = sim.getNode("VIDEO");
-  vblank = sim.getNode("VBLANK");
-  vpad1 = sim.getNode("/VPAD1");
-  vpad2 = sim.getNode("/VPAD2");
-  vvid = sim.getNode("/VVID");
-  Aa = sim.getNode("Aa");
-  Ba = sim.getNode("Ba");
+  // ball velocity (start going to the top-right corner)
+  dx: ballSpeed,
+  dy: -ballSpeed
+};
+
+// check for collision between two objects using axis-aligned bounding box (AABB)
+// @see https://developer.mozilla.org/en-US/docs/Games/Techniques/2D_collision_detection
+function collides(obj1, obj2) {
+  return obj1.x < obj2.x + obj2.width &&
+         obj1.x + obj1.width > obj2.x &&
+         obj1.y < obj2.y + obj2.height &&
+         obj1.y + obj1.height > obj2.y;
 }
 
-// called when simulator updates its display
-function didUpdate(sim) {
-  var info = document.getElementById("info");
+// game loop
+function loop() {
+  requestAnimationFrame(loop);
+  context.clearRect(0,0,canvas.width,canvas.height);
 
-  // erase highlight
-  if (savedLine)
-    ctx.putImageData(savedLine, 0, highlightY);
+  // move paddles by their velocity
+  leftPaddle.y += leftPaddle.dy;
+  rightPaddle.y += rightPaddle.dy;
 
-  // if frame rate is slow, draw highlight just above line we are updating
-  highlightY = y-1;
-  ctx.fillStyle = "red";
-  savedLine = ctx.getImageData(0, highlightY, 455, 1);
-  if (lineCount < 150)
-    ctx.fillRect(0, highlightY, 455, 1);
-  ctx.fillStyle = "white";
-
-  // serve ball?
-  if (serveTime > 0 && sim.getTime() > serveTime) {
-    serveTime = 0;
-    if (!attractMode)
-      ballx = 200;
+  // prevent paddles from going through walls
+  if (leftPaddle.y < grid) {
+    leftPaddle.y = grid;
   }
-  sim.setExtVoltage("/SERVE", serveTime == 0 ? 5 : 0);
-
-  // time to clear SC?
-  if (scTime > 0 && sim.getTime() > scTime) {
-    scTime = 0;
-    sim.setExtVoltage("SC", 0);
+  else if (leftPaddle.y > maxPaddleY) {
+    leftPaddle.y = maxPaddleY;
   }
-  if (resetCounter == 0 && sim.getNodeVoltage("STOP G") > 2.5)
-    sim.setExtVoltage("/RUN", 5);
-  lineCount = 0;
-}
 
-var lastv1 = -1;
-var y = 0;
-var ballx = 200;
-var clearedY = -1;
-var oldmiss = true, oldhit = true;
-var serveTime = 0;
-var scTime = 0;
-var needH256 = 0;
-var oldVblank = false;
-var ballY;
-var padAdj = 0;
+  if (rightPaddle.y < grid) {
+    rightPaddle.y = grid;
+  }
+  else if (rightPaddle.y > maxPaddleY) {
+    rightPaddle.y = maxPaddleY;
+  }
 
-// called every timestep
-function didStep(sim) {
-  // are we waiting for 256H to have the right value so we can call setHit()?
-  if (needH256 > 0) {
-    var h = h256.getVoltage();
-    if ((h > 2.5) == (ballx > 256)) {
-      needH256--;
-      if (needH256 == 0)
-        setHit(sim, true)
+  // draw paddles
+  context.fillStyle = 'white';
+  context.fillRect(leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height);
+  context.fillRect(rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height);
+
+  // move ball by its velocity
+  ball.x += ball.dx;
+  ball.y += ball.dy;
+
+  // prevent ball from going through walls by changing its velocity
+  if (ball.y < grid) {
+    ball.y = grid;
+    ball.dy *= -1;
+  }
+  else if (ball.y + grid > canvas.height - grid) {
+    ball.y = canvas.height - grid * 2;
+    ball.dy *= -1;
+  }
+
+  // reset ball if it goes past paddle (but only if we haven't already done so)
+  if ( (ball.x < 0 || ball.x > canvas.width) && !ball.resetting) {
+    ball.resetting = true;
+
+    // update score
+    if (ball.x < 0) {
+      rightScore++;
+    } else {
+      leftScore++;
     }
+
+    // give some time for the player to recover before launching the ball again
+    setTimeout(() => {
+      ball.resetting = false;
+      ball.x = canvas.width / 2;
+      ball.y = canvas.height / 2;
+    }, 400);
   }
 
-  // wait for 1V to change
-  var c = v1.getVoltage();
-  if (c == lastv1)
-    return;
-  lastv1 = c;
-  y++;
-  lineCount++;
+  // check to see if ball collides with paddle. if they do change x velocity
+  if (collides(ball, leftPaddle)) {
+    ball.dx *= -1;
 
-  // get Aa and Ba to figure out which way ball is moving
-  var Aaval = (Aa.getVoltage() > 2.5) ? 1 : 0;
-  var Baval = (Ba.getVoltage() > 2.5) ? 1 : 0;
-  ballx += 2-(Aaval+Baval*2);
-  var miss = (ballx < 0 || ballx >= 375);
-  if (miss != oldmiss) {
-    if (ballx < 0)
-      ballx += 375;
-    if (ballx >= 375)
-      ballx -= 375;
-    sim.setExtVoltage("/MISS", miss ? 0 : 5);
-    oldmiss = miss;
-    if (miss) {
-      // set serve timer to 1.7 seconds from now
-      serveTime = sim.getTime() + 1.7;
-
-      // set SC and /SERVE high
-      sim.setExtVoltage("SC", 5);
-      sim.setExtVoltage("/SERVE", 5);
-
-      // put SC back to low in .5 sec
-      scTime = sim.getTime() + .5;
-    }
+    // move ball next to the paddle otherwise the collision will happen again
+    // in the next frame
+    ball.x = leftPaddle.x + leftPaddle.width;
   }
+  else if (collides(ball, rightPaddle)) {
+    ball.dx *= -1;
 
-  // vertical blanking?
-  if (vblank.getVoltage() > 2.5) {
-    y = 0;
-    clearedY = -1;
-    if (!oldVblank) {
-      sim.setExtVoltage("PADTRIGGER1", 5);
-      sim.setExtVoltage("PADTRIGGER2", 5);
-      attractMode = sim.getNodeVoltage("ATTRACT") > 2.5;
-
-      // autoplay?  set paddle locations to ball Y
-      if (autoplayCheck.checked)
-        pad1 = pad2 = Math.max(1, ballY-8+padAdj);
-    }
-    oldVblank = true;
-  } else
-    oldVblank = false;
-
-  // trigger paddles
-  if (y == pad1)
-    sim.setExtVoltage("PADTRIGGER1", 0);
-  if (y == pad2)
-    sim.setExtVoltage("PADTRIGGER2", 0);
-  ctx.fillStyle = "black";
-  ctx.fillRect(0, y, 455, 1);
-  ctx.fillStyle = "white";
+    // move ball next to the paddle otherwise the collision will happen again
+    // in the next frame
+    ball.x = rightPaddle.x - ball.width;
+  }
 
   // draw ball
-  if (video.getVoltage() > 2.5 && (serveTime == 0 || attractMode)) {
-    ctx.fillRect(ballx, y, 4, 1);
-    ballY = y;
-  }
-  var hit = false;
+  context.fillRect(ball.x, ball.y, ball.width, ball.height);
 
-  if (vpad1.getVoltage() < 2.5 && !attractMode) {
-    // draw paddle 1
-    ctx.fillRect(48, y, 4, 1);
-    // check for hit
-    if ((ballx >= 45 && ballx < 52) && vvid.getVoltage() < 2.5)
-      hit = true;
-  }
-  if (vpad2.getVoltage() < 2.5 && !attractMode) {
-    // draw paddle 2
-    ctx.fillRect(48+256, y, 4, 1);
-    // check for hit
-    if ((ballx >= 45+256 && ballx < 52+256) && vvid.getVoltage() < 2.5)
-      hit = true;
-  }
-  if (hit != oldhit) {
-    if (hit) {
-      // we got a hit but we need to wait until 256H has the correct value
-      // before setting HIT, so that the vertical ball control will set the vertical speed
-      // to the correct value.  actually wait 10 iterations after that so that
-      // we have a chance to process all the logic.
-      needH256 = 10;
-    } else
-      setHit(sim, false);
-    oldhit = hit;
+  // draw walls
+  context.fillStyle = 'lightgrey';
+  context.fillRect(0, 0, canvas.width, grid);
+  context.fillRect(0, canvas.height - grid, canvas.width, canvas.height);
+
+  // draw dotted line down the middle
+  for (let i = grid; i < canvas.height - grid; i += grid * 2) {
+    context.fillRect(canvas.width / 2 - 1, i, 2, grid);
   }
 
-  // draw net
-  if (y % 8 < 4)
-    ctx.fillRect(256-80, y, 1, 1);
-  var realY = y+16;
-
-  // draw score
-  if (realY >= 32 && realY < 64) {
-    ctx.translate(-80, 0);
-    ctx.fillStyle = "#d4d4d4";
-    drawScore(realY);
-    ctx.translate(+80, 0);
-  }
-
-  if (resetCounter > 0) {
-    resetCounter--;
-    sim.setExtVoltage("SRST", resetCounter == 0 ? 0 : 5);
-  }
+  // draw scores
+  context.fillStyle = 'white';
+  context.font = '40px Courier New'; // Updated font to Courier New
+  context.fillText(leftScore, canvas.width / 4, 50);
+  context.fillText(rightScore, 3 * canvas.width / 4, 50);
 }
 
-var code11, code12, code21, code22;
+// listen to keyboard events to move the paddles
+document.addEventListener('keydown', function(e) {
 
-function getCode(name) {
-  var s1 = sim.getNodeVoltage(name + "_1") > 2.5 ? 1 : 0;
-  var s2 = sim.getNodeVoltage(name + "_2") > 2.5 ? 2 : 0;
-  var s4 = sim.getNodeVoltage(name + "_4") > 2.5 ? 4 : 0;
-  var s8 = sim.getNodeVoltage(name + "_8") > 2.5 ? 8 : 0;
-  return decoder[s1+s2+s4+s8];
-}
-
-function drawScore(ry) {
-  if (ry == 32) {
-    code11 = sim.getNodeVoltage("SCORE1_10") > 2.5 ? decoder[1] : null;
-    code12 = getCode("SCORE1");
-    code21 = sim.getNodeVoltage("SCORE2_10") > 2.5 ? decoder[1] : null;
-    code22 = getCode("SCORE2");
+  // up arrow key
+  if (e.which === 38) {
+    rightPaddle.dy = -paddleSpeed;
   }
-  drawScoreDigit(128, ry, code11);
-  drawScoreDigit(128+32, ry, code12);
-  drawScoreDigit(256+64, ry, code21);
-  drawScoreDigit(256+64+32, ry, code22);
-}
-
-// 7-segment decoder values
-var decoder = [
-                [true,true,true,true,true,true,false],//0
-                [false,true,true,false,false,false,false],//1
-                [true,true,false,true,true,false,true],//2
-                [true,true,true,true,false,false,true],//3
-                [false,true,true,false,false,true,true],//4
-                [true,false,true,true,false,true,true],//5
-                [false,false,true,true,true,true,true],//6   // emulate original 7448 here
-                [true,true,true,false,false,false,false],//7
-                [true,true,true,true,true,true,true],//8
-                [true,true,true,false,false,true,true]//9
-];
-
-// draw horizontal slice of score digit
-function drawScoreDigit(x, ry, code) {
-  if (!code)
-    return;
-  if (ry & 16) {
-    if (code[4])
-      ctx.fillRect(x+16, y, 4, 1); // E
-    if (code[2])
-      ctx.fillRect(x+16+4+8, y, 4, 1); // C
-    if (code[3] && (ry & (4+8)) == 12)
-      ctx.fillRect(x+16, y, 16, 1); // D
-  } else {
-    if (code[5])
-      ctx.fillRect(x+16, y, 4, 1); // F
-    if (code[1])
-      ctx.fillRect(x+16+4+8, y, 4, 1); // B
-    if (code[0] && (ry & (4+8)) == 0)
-      ctx.fillRect(x+16, y, 16, 1); // A
-    if (code[6] && (ry & (4+8)) == 12)
-      ctx.fillRect(x+16, y, 16, 1); // G
+  // down arrow key
+  else if (e.which === 40) {
+    rightPaddle.dy = paddleSpeed;
   }
-  // c, 16V=1, 16H=1, 4H=1, 8H=1
-  // a: 16V=0, 8V=0, 4V=0, 16H=1
-  // g: 4V=1, 8V=1, 16H=1, 16V=0
-  // d: 16V=1, 4V,8V,16H=1
-}
 
-function setHit(sim, hit) {
-  sim.setExtVoltage("HIT", hit ? 5 : 0);
-  sim.setExtVoltage("/HIT1", hit && ballx < 256 ? 0 : 5);
-  sim.setExtVoltage("/HIT2", hit && ballx > 256 ? 0 : 5);
-
-  // add random adjustment so we're not just hitting the ball horizontally every time
-  padAdj = Math.floor(Math.random()*8)-5;
-}
-
-window.startGame = function () {
-  sim.setExtVoltage("/RUN", 0);
-
-  // keep SRST high for short period at start
-  resetCounter = 50;
-
-  // start serve timer
-  serveTime = sim.getTime() + 1.7;
-  sim.setExtVoltage("/SERVE", 0);
-}
-
-window.stopGame = function () {
-  sim.setExtVoltage("/RUN", 5);
-}
-
-// callback called when simulation is done initializing
-function simLoaded() {
-  // get simulator object
-  sim = iframe.contentWindow.CircuitJS1;
-
-  // set up callbacks on update and timestep
-  sim.onupdate = didUpdate;
-  sim.ontimestep = didStep;
-  sim.onanalyze = didAnalyze;
-
-  ctx = canvas.getContext("2d");
-  //ctx.fillRect(0, 0, 455, 262);
-  ctx.strokeStyle = "white";
-  ctx.fillStyle = "white";
-
-  canvas.onmousemove = function (event) {
-    var rect = canvas.getBoundingClientRect();
-    var mouseX = Math.floor((event.clientX - rect.left) * 375 / rect.width);
-    var mouseY = Math.floor((event.clientY - rect.top) * 246 / rect.height);
-    var padY = Math.max(mouseY-8, 1);
-
-    // move paddles
-    if (mouseX < 256-80)
-      pad1 = padY;
-    else
-      pad2 = padY;
+  // w key
+  if (e.which === 87) {
+    leftPaddle.dy = -paddleSpeed;
   }
-}
+  // a key
+  else if (e.which === 83) {
+    leftPaddle.dy = paddleSpeed;
+  }
+});
 
-// set up callback
-iframe.contentWindow.oncircuitjsloaded = simLoaded;
+// listen to keyboard events to stop the paddle if key is released
+document.addEventListener('keyup', function(e) {
+  if (e.which === 38 || e.which === 40) {
+    rightPaddle.dy = 0;
+  }
 
+  if (e.which === 83 || e.which === 87) {
+    leftPaddle.dy = 0;
+  }
+});
+
+// start the game
+requestAnimationFrame(loop);
 </script>
-{% endblock %}
+</body>
+</html>
