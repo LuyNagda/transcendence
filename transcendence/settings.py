@@ -30,22 +30,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-zw-ma$(zm6#8=njdjxk+@gd32fa&fd$-&tjxv-m#upwl(gt&ay'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', default=True)
+DEBUG = env.bool('DEBUG', default=False)
 
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
     'root': {
         'level': 'ERROR',
-        'handlers': ['bugsnag'],
+        'handlers': ['console'],
     },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-        },
-        'bugsnag': {
-            'level': 'INFO',
-            'class': 'bugsnag.handlers.BugsnagHandler',
         },
     },
     'loggers': {
@@ -81,16 +77,14 @@ INSTALLED_APPS = [
     'channels',
     'authentication',
     'chat',
-    'corsheaders',  # Added 'corsheaders' to INSTALLED_APPS
+    'corsheaders',
     'rest_framework_simplejwt',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
-    'bugsnag.django',  # Added 'bugsnag.django' to INSTALLED_APPS
 ]
 
 MIDDLEWARE = [
-    'bugsnag.django.middleware.BugsnagMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # Added CorsMiddleware to MIDDLEWARE
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -208,13 +202,13 @@ if not DEBUG:
     }
 
     if BUGSNAG['api_key']:
-        MIDDLEWARE = ['bugsnag.django.middleware.BugsnagMiddleware'] + MIDDLEWARE
         INSTALLED_APPS.append('bugsnag.django')
-
-    LOGGING['root']['handlers'] = ['bugsnag']
-else:
-    LOGGING['root']['handlers'] = ['console']
-
+        MIDDLEWARE.insert(0, 'bugsnag.django.middleware.BugsnagMiddleware')
+        LOGGING['handlers']['bugsnag'] = {
+            'level': 'ERROR',
+            'class': 'bugsnag.handlers.BugsnagHandler',
+        }
+        LOGGING['root']['handlers'].append('bugsnag')
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
