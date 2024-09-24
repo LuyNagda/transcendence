@@ -195,7 +195,7 @@ USE_I18N = True
 
 USE_TZ = True
 
-if BUGSNAG['api_key']:
+if env('BUGSNAG_KEY', default=None) is not None:
     BUGSNAG = {
         'api_key': env('BUGSNAG_KEY', default=None),
         'project_root': BASE_DIR,
