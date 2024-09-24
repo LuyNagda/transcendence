@@ -30,7 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-zw-ma$(zm6#8=njdjxk+@gd32fa&fd$-&tjxv-m#upwl(gt&ay'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', default=False)
+DEBUG = env.bool('DEBUG', default=True)
 
 LOGGING = {
     'version': 1,
@@ -195,20 +195,19 @@ USE_I18N = True
 
 USE_TZ = True
 
-if not DEBUG:
+if BUGSNAG['api_key']:
     BUGSNAG = {
         'api_key': env('BUGSNAG_KEY', default=None),
         'project_root': BASE_DIR,
     }
 
-    if BUGSNAG['api_key']:
-        INSTALLED_APPS.append('bugsnag.django')
-        MIDDLEWARE.insert(0, 'bugsnag.django.middleware.BugsnagMiddleware')
-        LOGGING['handlers']['bugsnag'] = {
-            'level': 'ERROR',
-            'class': 'bugsnag.handlers.BugsnagHandler',
-        }
-        LOGGING['root']['handlers'].append('bugsnag')
+    INSTALLED_APPS.append('bugsnag.django')
+    MIDDLEWARE.insert(0, 'bugsnag.django.middleware.BugsnagMiddleware')
+    LOGGING['handlers']['bugsnag'] = {
+        'level': 'ERROR',
+        'class': 'bugsnag.handlers.BugsnagHandler',
+    }
+    LOGGING['root']['handlers'].append('bugsnag')
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
