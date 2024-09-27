@@ -1,6 +1,17 @@
+FROM python:3.9-slim-bookworm AS builder
+
+RUN apt-get update && apt-get install -y curl make git libpq-dev python3-venv
+
+WORKDIR /app
+
+# Copy only requirements.txt first to leverage Docker cache
+COPY requirements.txt .
+
+RUN python3 -m venv /app/.venv
+RUN .venv/bin/pip install --upgrade pip && \
+	.venv/bin/pip install -r requirements.txt
+
 FROM python:3.9-slim-bookworm
-RUN apt-get update
-RUN apt-get install -y curl make git libpq-dev python3-venv
 
 ENV DB_NAME=${DB_NAME}
 ENV DB_HOST=${DB_HOST}
@@ -16,15 +27,18 @@ ENV DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
 ENV DEBUG=${DEBUG}
 ENV DOMAIN=${DOMAIN}
 
+RUN apt-get update && apt-get install -y curl make git libpq-dev openssl
+
 SHELL ["/bin/bash", "-c"]
 
 RUN mkdir /certs
-COPY . /app
 WORKDIR /app
 
-RUN python3 -m venv /app/.venv
-RUN .venv/bin/pip install --upgrade pip && \
-	.venv/bin/pip install -r requirements.txt
+COPY --from=builder /app/.venv /app/.venv
+
+COPY . .
+
+RUN chmod +x install.sh
 
 HEALTHCHECK --interval=1s --timeout=30s --retries=30 \
 	CMD [ -f /tmp/healthy ] || (curl -f http://localhost:8000/ && touch /tmp/healthy || exit 1)
