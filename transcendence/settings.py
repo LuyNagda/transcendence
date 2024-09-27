@@ -35,6 +35,15 @@ DEBUG = env.bool('DEBUG', default=True)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[%(asctime)s] [%(levelname)s] [user %(user_id)s] %(message)s',
+            'defaults': {'user_id': 'N/A'},
+        },
+        'simple': {
+            'format': '%(levelname)s %(message)s'
+        },
+    },
     'root': {
         'level': 'ERROR',
         'handlers': ['console'],
@@ -42,6 +51,7 @@ LOGGING = {
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
         },
     },
     'loggers': {
@@ -60,6 +70,7 @@ LOGGING = {
         'chat': {
             'handlers': ['console'],
             'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': True,
         },
     },
 }

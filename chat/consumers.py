@@ -49,6 +49,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         })
 
     async def receive(self, text_data):
+        log.debug(f"Received data: {text_data}", extra={
+            'user_id': self.user.id
+        })
         try:
             data = json.loads(text_data)
             message_type = data['type']
@@ -83,7 +86,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.user.online = True
             self.user.save()
         else:
-            log.warning("Attempted to set AnonymousUser online")
+            log.warning("Attempted to set AnonymousUser online", extra={
+                'user_id': getattr(self.user, 'id', 'Unknown')
+            })
 
     @database_sync_to_async
     def set_user_offline(self):
@@ -116,7 +121,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     async def game_invitation(self, event):
-        log.debug(f"{self.user.id} - Received game invitation")
+        log.debug(f"{self.user.id} - Received game invitation", extra={
+            'user_id': self.user.id,
+        })
         await self.send(text_data=json.dumps({
             'type': 'game_invitation',
             'game_id': event['game_id'],

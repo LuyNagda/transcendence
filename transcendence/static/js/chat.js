@@ -5,12 +5,15 @@ if (typeof ChatApp === 'undefined') {
 			this.messageQueue = [];
 			this.reconnectAttempts = 0;
 			this.maxReconnectAttempts = 5;
+			this.unreadMessageCount = 0;
+			this.chatModalOpen = false;
 			this.init();
 		}
 
 		init() {
 			document.addEventListener('DOMContentLoaded', () => this.createWebSocketConnection());
 			this.attachEventListeners();
+			this.setupChatModalListeners();
 		}
 
 		createWebSocketConnection() {
@@ -33,12 +36,27 @@ if (typeof ChatApp === 'undefined') {
 			};
 		}
 
+		setupChatModalListeners() {
+			const chatCanvas = document.getElementById('chatCanvas');
+			if (chatCanvas) {
+				chatCanvas.addEventListener('show.bs.offcanvas', () => {
+					this.chatModalOpen = true;
+					this.resetUnreadMessageCount();
+				});
+				chatCanvas.addEventListener('hide.bs.offcanvas', () => {
+					this.chatModalOpen = false;
+				});
+			}
+		}
+
 		handleMessage(e) {
 			const data = JSON.parse(e.data);
 			console.log("Received data:", data);
 			switch (data.type) {
 				case 'chat_message':
 					this.addMessage(data.message, data.sender_id);
+					if (!this.chatModalOpen)
+						this.incrementUnreadMessageCount();
 					break;
 				case 'game_invitation':
 					this.handleGameInvitation(data.game_id, data.sender_id);
@@ -101,11 +119,11 @@ if (typeof ChatApp === 'undefined') {
 			}
 			const recipientId = activeUser.dataset.userId;
 			console.log("Sending message to:", recipientId);
-			this.sendMessage(JSON.stringify({
+			this.sendMessage({
 				'type': 'chat_message',
 				'message': message,
 				'recipient_id': recipientId
-			}));
+			});
 			this.addMessage(message, document.body.dataset.userId);
 			messageInput.value = '';
 		}
@@ -113,10 +131,53 @@ if (typeof ChatApp === 'undefined') {
 		handleUserClick(e) {
 			e.preventDefault();
 			const userId = e.currentTarget.dataset.userId;
+			this.selectedUserId = userId;
 			document.querySelectorAll('.user-chat').forEach(el => el.classList.remove('active'));
 			e.currentTarget.classList.add('active');
 			this.loadMessageHistory(userId);
 			document.querySelector('#chat-form-div').style.display = 'block';
+			this.updateChatHeading(userId);
+		}
+
+		loadMessageHistory(userId) {
+			fetch(`/chat/history/${userId}/`, {
+				method: 'GET',
+				headers: {
+					'X-CSRFToken': this.getCSRFToken(),
+					'Content-Type': 'application/json'
+				}
+			})
+				.then(response => response.text())
+				.then(html => {
+					const messageHistory = document.getElementById('message-history');
+					messageHistory.innerHTML = html;
+					this.updateChatHeading(userId);
+				})
+				.catch(error => {
+					console.error('Error loading message history:', error);
+				});
+		}
+
+		updateChatHeading(userId) {
+			const chatHeading = document.getElementById('chatHeading');
+			const unreadBadge = document.getElementById('unreadBadge');
+			if (chatHeading && unreadBadge) {
+				const messageCount = this.countMessages();
+				const userName = this.getUserName(userId);
+				chatHeading.textContent = `Chat with ${userName}`;
+				unreadBadge.textContent = messageCount;
+				unreadBadge.querySelector('.visually-hidden').textContent = `${messageCount} unread messages`;
+			}
+		}
+
+		countMessages() {
+			const messageHistory = document.getElementById('message-history');
+			return messageHistory.querySelectorAll('.message').length;
+		}
+
+		getUserName(userId) {
+			const userElement = document.querySelector(`.user-chat[data-user-id="${userId}"]`);
+			return userElement ? userElement.textContent.trim() : 'User';
 		}
 
 		handleUserBlockToggle(e) {
@@ -186,11 +247,12 @@ if (typeof ChatApp === 'undefined') {
 		}
 
 		sendMessage(payload) {
+			const message = typeof payload === 'string' ? payload : JSON.stringify(payload);
 			if (this.chatSocket && this.chatSocket.readyState === WebSocket.OPEN) {
-				this.chatSocket.send(JSON.stringify(payload));
+				this.chatSocket.send(message);
 			} else {
 				console.log('WebSocket not connected. Queueing message.');
-				this.messageQueue.push(payload);
+				this.messageQueue.push(message);
 				if (this.chatSocket.readyState === WebSocket.CLOSED) {
 					this.createWebSocketConnection();
 				}
@@ -239,6 +301,10 @@ if (typeof ChatApp === 'undefined') {
 			`;
 			messageHistory.appendChild(messageElement);
 			messageHistory.scrollTop = messageHistory.scrollHeight;
+
+			if (senderId === this.selectedUserId || senderId === document.body.dataset.userId) {
+				this.updateChatHeading(this.selectedUserId);
+			}
 		}
 
 		loadMessageHistory(userId) {
@@ -278,6 +344,34 @@ if (typeof ChatApp === 'undefined') {
 			profileModal.addEventListener('click', function () {
 				document.body.removeChild(profileModal);
 			});
+		}
+
+		incrementUnreadMessageCount() {
+			this.unreadMessageCount++;
+			this.updateChatIcon();
+		}
+
+		resetUnreadMessageCount() {
+			this.unreadMessageCount = 0;
+			this.updateChatIcon();
+		}
+
+		updateChatIcon() {
+			const chatIcon = document.querySelector('.chat-icon i');
+			const chatBadge = document.querySelector('.chat-badge');
+
+			if (chatIcon && chatBadge) {
+				if (this.unreadMessageCount > 0) {
+					chatIcon.classList.remove('text-secondary');
+					chatIcon.classList.add('text-primary');
+					chatBadge.textContent = this.unreadMessageCount > 99 ? '99+' : this.unreadMessageCount;
+					chatBadge.style.display = 'inline';
+				} else {
+					chatIcon.classList.remove('text-primary');
+					chatIcon.classList.add('text-secondary');
+					chatBadge.style.display = 'none';
+				}
+			}
 		}
 	}
 

@@ -24,7 +24,22 @@ class ChatHandler:
         }
         handler = actions.get(message_type)
         if handler:
-            await handler(data)
+            try:
+                log.debug(f'Calling handler for message type: {message_type}', extra={
+                    'user_id': self.consumer.user.id,
+                    'message_type': message_type,
+                    'data': json.dumps(data)
+                })
+                await handler(data)
+            except Exception as e:
+                log.error(f'Error in handler for message type {message_type}', extra={
+                    'user_id': self.consumer.user.id,
+                    'message_type': message_type,
+                    'error': str(e)
+                })
+                await self.consumer.send(text_data=json.dumps({
+                    'error': f'An error occurred while processing the {message_type}'
+                }))
         else:
             log.warning('Unhandled message type', extra={
                 'user_id': self.consumer.user.id,
@@ -53,6 +68,10 @@ class ChatHandler:
             return False
 
     async def handle_chat_message(self, data):
+        log.debug('Handling chat message', extra={
+            'user_id': self.consumer.user.id,
+            'data': json.dumps(data)
+        })
         message = data['message']
         recipient_id = data['recipient_id']
         if await self.is_blocked(recipient_id):
@@ -150,10 +169,14 @@ class ChatHandler:
                 'online': getattr(user, 'online', False),
             }
         except ObjectDoesNotExist:
-            log.error(f"User with id {user_id} not found")
+            log.error(f"User with id {user_id} not found", extra={
+                'user_id': self.consumer.user.id
+            })
             return None
         except Exception as e:
-            log.error(f"Error fetching user profile: {str(e)}")
+            log.error(f"Error fetching user profile: {str(e)}", extra={
+                'user_id': self.consumer.user.id
+            })
             return None
 
     @database_sync_to_async
@@ -166,10 +189,14 @@ class ChatHandler:
                 content=message
             )
         except ObjectDoesNotExist:
-            log.error(f"Recipient with id {recipient_id} not found")
+            log.error(f"Recipient with id {recipient_id} not found", extra={
+                'user_id': self.consumer.user.id
+            })
             raise ObjectDoesNotExist("Recipient not found")
         except Exception as e:
-            log.error(f"Error saving message: {str(e)}")
+            log.error(f"Error saving message: {str(e)}", extra={
+                'user_id': self.consumer.user.id
+            })
             raise Exception("Error saving message")
         
     @database_sync_to_async
@@ -182,10 +209,14 @@ class ChatHandler:
                 game_id=game_id
             )
         except ObjectDoesNotExist:
-            log.error(f"Recipient with id {recipient_id} not found")
+            log.error(f"Recipient with id {recipient_id} not found", extra={
+                'user_id': self.consumer.user.id
+            })
             raise ObjectDoesNotExist("Recipient not found")
         except Exception as e:
-            log.error(f"Error saving game invitation: {str(e)}")
+            log.error(f"Error saving game invitation: {str(e)}", extra={
+                'user_id': self.consumer.user.id
+            })
             raise Exception("Error saving game invitation")
 
     @database_sync_to_async

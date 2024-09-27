@@ -3,3 +3,5 @@
 .DS_Store
 .venv
 static/
+!transcendence/static/
+!transcendence/static/js/
