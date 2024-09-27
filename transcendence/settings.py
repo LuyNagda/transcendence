@@ -37,19 +37,23 @@ LOGGING = {
     'disable_existing_loggers': False,
     'formatters': {
         'verbose': {
-            'format': '[%(asctime)s] [%(levelname)s] [user %(user_id)s] %(message)s',
-            'defaults': {'user_id': 'N/A'},
+            'format': '[{asctime}] [{levelname}] [user {user_id}] {message}',
+            'style': '{',
         },
         'simple': {
-            'format': '%(levelname)s %(message)s'
+            'format': '{levelname} {message}',
+            'style': '{',
         },
     },
-    'root': {
-        'level': 'ERROR',
-        'handlers': ['console'],
+    'filters': {
+        'require_debug_true': {
+            '()': 'django.utils.log.RequireDebugTrue',
+        },
     },
     'handlers': {
         'console': {
+            'level': 'DEBUG',
+            'filters': ['require_debug_true'],
             'class': 'logging.StreamHandler',
             'formatter': 'verbose',
         },
@@ -57,7 +61,7 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
+            'level': 'INFO',
         },
         'django.db.backends': {
             'handlers': ['console'],
@@ -65,13 +69,22 @@ LOGGING = {
         },
         'channels': {
             'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
+            'level': 'DEBUG',
+        },
+        'authentication': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': False,
         },
         'chat': {
             'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
-            'propagate': True,
+            'level': 'DEBUG',
+            'propagate': False,
         },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'WARNING',
     },
 }
 

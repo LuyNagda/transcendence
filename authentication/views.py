@@ -18,6 +18,9 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -25,10 +28,12 @@ def register(request):
     if request.method == 'POST':
         form = CustomUserCreationForm(request.POST)
         if form.is_valid():
-            form.save()
+            user = form.save()
+            logger.info(f"New user registered: {user.username}", extra={'user_id': user.id})
             messages.success(request, 'Registration successful. You can now log in.')
             return redirect('login')
         else:
+            logger.warning(f"Failed registration attempt: {form.errors}")
             return render(request, 'register.html', {'form': form})
     else:
         form = CustomUserCreationForm()
@@ -48,10 +53,12 @@ def login_view(request):
             password = form.cleaned_data['password']
             user = User.objects.filter(username=username).first()
             if user is not None and user.password is None:
+                logger.warning(f"Login attempt with unset password for user: {username}", extra={'user_id': user.id})
                 messages.error(request, 'Invalid username or password.')
                 return render(request, 'login.html', {'form': form})
             user = authenticate(request, username=username, password=password)
             if user is not None:
+                logger.info(f"User {username} logged in successfully", extra={'user_id': user.id})
                 # Issue JWT tokens
                 refresh = RefreshToken.for_user(user)
                 access_token = str(refresh.access_token)
@@ -62,8 +69,10 @@ def login_view(request):
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 return response
             else:
+                logger.warning(f"Failed login attempt for user: {username}", extra={'user_id': user.id})
                 messages.error(request, 'Invalid username or password.')
         else:
+            logger.warning("Invalid form submission during login", extra={'user_id': user.id})
             messages.error(request, 'Invalid form submission.')
 
     form = LoginForm()
@@ -102,6 +111,8 @@ def logout_view(request):
         # Perform Django logout to clear session data
         django_logout(request)
 
+        logger.info(f"User {request.user.username} (ID: {request.user.id}) logged out")
+
         # Create a response and delete the tokens
         response = redirect('login')
         response.delete_cookie('access_token')
@@ -110,6 +121,7 @@ def logout_view(request):
         return response
 
     except Exception as e:
+        logger.error(f"Logout failed for user {request.user.username} (ID: {request.user.id}): {str(e)}")
         return Response({"error": "Logout failed. Please try again."}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET', 'POST'])

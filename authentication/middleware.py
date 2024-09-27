@@ -34,48 +34,47 @@ class JWTAuthMiddlewareInstance:
         # Close old database connections to prevent usage of timed out connections
         close_old_connections()
 
-        log.debug("Starting JWTAuthMiddlewareInstance.__call__")
+        log.debug("Starting JWTAuthMiddlewareInstance.__call__", extra={'user_id': 'N/A'})
 
         # Get the cookies from the scope's headers
         headers = dict(self.scope['headers'])
         cookies = {}
         if b'cookie' in headers:
             cookie_header = headers[b'cookie'].decode()
-            log.debug(f"Cookie header: {cookie_header}")
+            log.debug(f"Cookie header: {cookie_header}", extra={'user_id': 'N/A'})
             for cookie in cookie_header.split('; '):
                 if '=' in cookie:
                     key, value = cookie.split('=', 1)
                     cookies[key] = value
         else:
-            log.debug("No cookie header found")
+            log.debug("No cookie header found", extra={'user_id': 'N/A'})
 
-        log.debug(f"Parsed cookies: {cookies}")
+        log.debug(f"Parsed cookies: {cookies}", extra={'user_id': 'N/A'})
 
         # Try to authenticate the user using the access token from cookies
         access_token = cookies.get('access_token')
         if access_token:
-            log.debug("Access token found in cookies")
+            log.debug("Access token found in cookies", extra={'user_id': 'N/A'})
             try:
                 validated_token = AccessToken(access_token)
                 user_id = validated_token['user_id']
-                log.debug(f"Attempting to authenticate user with ID: {user_id}")
+                log.debug(f"Attempting to authenticate user", extra={'user_id': user_id})
                 try:
                     user = await sync_to_async(User.objects.get)(id=user_id)
                     self.scope['user'] = user
-                    log.info(f"User {user.username} (ID: {user_id}) authenticated successfully")
+                    log.info(f"User {user.username} authenticated successfully", extra={'user_id': user_id})
                 except User.DoesNotExist:
-                    log.warning(f"User with ID {user_id} not found in database")
+                    log.warning(f"User not found in database", extra={'user_id': user_id})
                     self.scope['user'] = AnonymousUser()
             except InvalidToken:
-                log.error("Invalid access token provided")
+                log.error("Invalid access token provided", extra={'user_id': 'N/A'})
                 self.scope['user'] = AnonymousUser()
         else:
-            log.debug("No access token found in cookies")
+            log.debug("No access token found in cookies", extra={'user_id': 'N/A'})
             self.scope['user'] = AnonymousUser()
 
-        log.debug(f"Final user authentication status: {self.scope['user'].is_authenticated}")
+        log.debug(f"Final user authentication status: {self.scope['user'].is_authenticated}", extra={'user_id': self.scope['user'].id if self.scope['user'].is_authenticated else 'N/A'})
 
-        # Change this line
         return await self.inner(self.scope, receive, send)
 
 class RedirectOn401Middleware:
@@ -131,7 +130,7 @@ class WebSocketNotFoundMiddleware(BaseMiddleware):
                 return await super().__call__(scope, receive, send)
             except ValueError as e:
                 if str(e).startswith("No route found for path"):
-                    log.warning(f"WebSocket route not found: {scope['path']}")
+                    log.warning(f"WebSocket route not found: {scope['path']}", extra={'user_id': scope['user'].id if scope['user'].is_authenticated else None})
                     await send({
                         "type": "websocket.close",
                         "code": 4404,  # Custom close code for "Not Found"
