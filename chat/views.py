@@ -11,11 +11,12 @@ User = get_user_model()
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def chat_view(request):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     users = User.objects.exclude(id=request.user.id)
-    blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user', flat=True)
-    return render(request, 'chat/chat.html', {'users': users, 'blocked_users': blocked_users, 'access_token': access_token, 'refresh_token': refresh_token})
+    blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user_id', flat=True)
+    return render(request, 'chat/chat.html', {
+        'users': users,
+        'blocked_users': blocked_users
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -28,21 +29,17 @@ def message_history(request, recipient_id):
     ).order_by('timestamp')
     return render(request, 'chat/messages.html', {'messages': messages, 'access_token': access_token, 'refresh_token': refresh_token})
 
-@api_view(['GET'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def block_user(request, user_id):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     BlockedUser.objects.create(user=request.user, blocked_user_id=user_id)
-    return JsonResponse({'success': True, 'access_token': access_token, 'refresh_token': refresh_token})
+    return JsonResponse({'success': True})
 
-@api_view(['GET'])
+@api_view(['DELETE'])
 @permission_classes([IsAuthenticatedWithCookie])
 def unblock_user(request, user_id):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     BlockedUser.objects.filter(user=request.user, blocked_user_id=user_id).delete()
-    return JsonResponse({'success': True, 'acess_token': access_token, 'refresh_token': refresh_token})
+    return JsonResponse({'success': True})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])

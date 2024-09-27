@@ -1,7 +1,5 @@
-{% extends "base.html" %}
 {% load static %}
 
-{% block content %}
 <div class="offcanvas offcanvas-start w-50" tabindex="-1" id="chatCanvas" aria-labelledby="chatCanvas">
 	<div class="offcanvas-header">
 		<h4 class="offcanvas-title">Chat</h4>
@@ -20,13 +18,13 @@
 								alt="{{ user.name|default:user.username }}'s profile picture">
 							{{ user.name|default:user.username }}
 							<span class="status-icon" aria-live="polite">
-								{% if user.id not in blocked_users %}
+								{% if blocked_users is not None and user.id not in blocked_users %}
 								{% if user.online %}
 								&#x1F7E2; <!-- Green circle -->
 								{% else %}
 								&#x26AA; <!-- White circle -->
 								{% endif %}
-								{% else %}
+								{% elif blocked_users is not None %}
 								&#x1F534; <!-- Red circle -->
 								{% endif %}
 							</span>
@@ -55,12 +53,14 @@
 								aria-label="Send message">Send</button>
 						</form>
 						<div class="mt-2">
+							{% if blocked_users is not None %}
 							{% if user.id not in blocked_users %}
 							<button class="btn btn-danger block-user" data-user-id="{{ user.id }}"
 								aria-label="Block {{ user.name|default:user.username }}">Block</button>
 							{% else %}
 							<button class="btn btn-danger unblock-user" data-user-id="{{ user.id }}"
 								aria-label="Unblock {{ user.name|default:user.username }}">Unblock</button>
+							{% endif %}
 							{% endif %}
 							<button class="btn btn-success invite-user" data-user-id="{{ user.id }}"
 								aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite to
@@ -76,4 +76,3 @@
 </div>
 
 <script src="{% static '/js/chat.js' %}"></script>
-{% endblock %}

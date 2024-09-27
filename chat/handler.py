@@ -1,6 +1,6 @@
 import json
 import logging
-import asyncio
+from django.db import models
 from channels.db import database_sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
@@ -20,17 +20,36 @@ class ChatHandler:
             'user_status_change': self.handle_user_status_change,
             'get_profile': self.handle_get_profile,
             'game_invitation': self.handle_game_invitation,
-            'tournament_warning': lambda data: log.warning(f"TODO : Implementation: {message_type}")
+            'tournament_warning': self.handle_tournament_warning
         }
-        handler = actions.get(message_type, lambda data: log.warning(f"Unhandled message type: {message_type}") or asyncio.sleep(0))
-        await handler(data)
+        handler = actions.get(message_type)
+        if handler:
+            await handler(data)
+        else:
+            log.warning('Unhandled message type', extra={
+                'user_id': self.consumer.user.id,
+                'message_type': message_type
+            })
+
+    async def handle_tournament_warning(self, data):
+        log.warning('Tournament warning received', extra={
+            'user_id': self.consumer.user.id,
+            'data': json.dumps(data)
+        })
 
     @database_sync_to_async
     def is_blocked(self, recipient_id):
         try:
-            return BlockedUser.objects.filter(user_id=recipient_id, blocked_user=self.consumer.user).exists()
+            return BlockedUser.objects.filter(
+                models.Q(user_id=recipient_id, blocked_user=self.consumer.user) |
+                models.Q(user=self.consumer.user, blocked_user_id=recipient_id)
+            ).exists()
         except Exception as e:
-            log.error(f"Error checking blocked status: {str(e)}")
+            log.error('Error checking blocked status', extra={
+                'user_id': self.consumer.user.id,
+                'recipient_id': recipient_id,
+                'error': str(e)
+            })
             return False
 
     async def handle_chat_message(self, data):
@@ -47,6 +66,11 @@ class ChatHandler:
         except ObjectDoesNotExist:
             await self.consumer.send(text_data=json.dumps({
                 'error': 'Recipient not found'
+            }))
+            return
+        except Exception as e:
+            await self.consumer.send(text_data=json.dumps({
+                'error': 'An error occurred while saving the message'
             }))
             return
 
@@ -83,6 +107,11 @@ class ChatHandler:
                 'error': 'Recipient not found'
             }))
             return
+        except Exception as e:
+            await self.consumer.send(text_data=json.dumps({
+                'error': 'An error occurred while processing the game invitation'
+            }))
+            return
         
         await self.consumer.channel_layer.group_send(
             f"chat_{recipient_id}",
@@ -94,12 +123,6 @@ class ChatHandler:
         )
 
     async def handle_get_profile(self, data):
-        if await self.is_blocked(data['user_id']):
-            await self.consumer.send(text_data=json.dumps({
-                'error': 'You are blocked...'
-            }))
-            return
-
         profile = await self.get_user_profile(data['user_id'])
         if profile:
             await self.consumer.send(text_data=json.dumps({
@@ -137,7 +160,7 @@ class ChatHandler:
     def save_message(self, message, recipient_id):
         try:
             recipient = User.objects.get(id=recipient_id)
-            ChatMessage.objects.create(
+            return ChatMessage.objects.create(
                 sender=self.consumer.user,
                 recipient=recipient,
                 content=message
@@ -153,7 +176,7 @@ class ChatHandler:
     def save_game_invitation(self, game_id, recipient_id):
         try:
             recipient = User.objects.get(id=recipient_id)
-            GameInvitation.objects.create(
+            return GameInvitation.objects.create(
                 sender=self.consumer.user,
                 recipient=recipient,
                 game_id=game_id
@@ -164,7 +187,7 @@ class ChatHandler:
         except Exception as e:
             log.error(f"Error saving game invitation: {str(e)}")
             raise Exception("Error saving game invitation")
-        
+
     @database_sync_to_async
     def delete_existing_invitation(self, recipient_id, game_id):
-       	GameInvitation.objects.filter(recipient_id=recipient_id, game_id=game_id).delete()
+        return GameInvitation.objects.filter(recipient_id=recipient_id, game_id=game_id).delete()

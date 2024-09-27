@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load chat_tags %}
 
 {% block title %}Index{% endblock %}
 
@@ -10,7 +11,7 @@
 	<h1>I am Index File !</h1>
 </div>
 
-{% block chat %}{% include "chat/chat.html" %}{% endblock %}
+{% block chat %}{% render_chat %}{% endblock %}
 
 {% block footer %}{% include "footer.html" %}{% endblock %}
 

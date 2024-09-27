@@ -14,3 +14,5 @@ class User(AbstractUser):
     profile_picture = models.ImageField(upload_to='profile_pictures/', default='profile_pictures/user.png')
     otp = models.CharField(max_length=8, blank=True, null=True, default=None)
     online = models.BooleanField(default=False)
+
+# TODO: Remove fields already present in AbstractUser
