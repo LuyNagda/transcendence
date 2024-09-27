@@ -7,11 +7,15 @@ if (typeof ChatApp === 'undefined') {
 			this.maxReconnectAttempts = 5;
 			this.unreadMessageCount = 0;
 			this.chatModalOpen = false;
+			this.messageHistory = document.getElementById('message-history');
+			this.selectedUserId = null;
+			this.messageCountByUser = {};
+			this.currentUserId = this.getCurrentUserId();
 			this.init();
 		}
 
 		init() {
-			document.addEventListener('DOMContentLoaded', () => this.createWebSocketConnection());
+			this.createWebSocketConnection();
 			this.attachEventListeners();
 			this.setupChatModalListeners();
 		}
@@ -19,8 +23,6 @@ if (typeof ChatApp === 'undefined') {
 		createWebSocketConnection() {
 			const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
 			const wsUrl = `${protocol}${window.location.host}/ws/chat/`;
-			console.log('Attempting to connect to WebSocket:', wsUrl);
-
 			this.chatSocket = new WebSocket(wsUrl);
 			this.setupWebSocketHandlers();
 		}
@@ -118,13 +120,17 @@ if (typeof ChatApp === 'undefined') {
 				return;
 			}
 			const recipientId = activeUser.dataset.userId;
+			if (!this.currentUserId) {
+				alert("Unable to send message. User ID not found.");
+				return;
+			}
 			console.log("Sending message to:", recipientId);
 			this.sendMessage({
 				'type': 'chat_message',
 				'message': message,
 				'recipient_id': recipientId
 			});
-			this.addMessage(message, document.body.dataset.userId);
+			this.addMessage(message, this.currentUserId, new Date());
 			messageInput.value = '';
 		}
 
@@ -135,8 +141,10 @@ if (typeof ChatApp === 'undefined') {
 			document.querySelectorAll('.user-chat').forEach(el => el.classList.remove('active'));
 			e.currentTarget.classList.add('active');
 			this.loadMessageHistory(userId);
-			document.querySelector('#chat-form-div').style.display = 'block';
+			document.getElementById('chat-form-div').style.display = 'block';
 			this.updateChatHeading(userId);
+			// Reset message count for this user
+			this.messageCountByUser[userId] = 0;
 		}
 
 		loadMessageHistory(userId) {
@@ -147,10 +155,19 @@ if (typeof ChatApp === 'undefined') {
 					'Content-Type': 'application/json'
 				}
 			})
-				.then(response => response.text())
-				.then(html => {
-					const messageHistory = document.getElementById('message-history');
-					messageHistory.innerHTML = html;
+				.then(response => response.json())
+				.then(data => {
+					this.messageHistory.innerHTML = '';
+					this.messageCountByUser[userId] = data.length;
+					console.log("Message history loaded:", data);
+					data.forEach(message => {
+						try {
+							this.addMessage(message.content, message.sender_id, new Date(message.timestamp));
+						} catch (error) {
+							console.error('Error adding message:', error);
+						}
+					});
+					this.messageHistory.scrollTop = this.messageHistory.scrollHeight;
 					this.updateChatHeading(userId);
 				})
 				.catch(error => {
@@ -161,23 +178,20 @@ if (typeof ChatApp === 'undefined') {
 		updateChatHeading(userId) {
 			const chatHeading = document.getElementById('chatHeading');
 			const unreadBadge = document.getElementById('unreadBadge');
-			if (chatHeading && unreadBadge) {
-				const messageCount = this.countMessages();
-				const userName = this.getUserName(userId);
-				chatHeading.textContent = `Chat with ${userName}`;
-				unreadBadge.textContent = messageCount;
-				unreadBadge.querySelector('.visually-hidden').textContent = `${messageCount} unread messages`;
+			const messageCount = this.messageCountByUser[userId] || 0;
+			const userName = document.querySelector(`.user-chat[data-user-id="${userId}"]`).textContent.trim();
+			chatHeading.textContent = `Chat with ${userName}`;
+			unreadBadge.textContent = messageCount;
+
+			const visuallyHiddenElement = unreadBadge.querySelector('.visually-hidden');
+			if (visuallyHiddenElement) {
+				visuallyHiddenElement.textContent = `${messageCount} messages`;
+			} else {
+				const span = document.createElement('span');
+				span.className = 'visually-hidden';
+				span.textContent = `${messageCount} messages`;
+				unreadBadge.appendChild(span);
 			}
-		}
-
-		countMessages() {
-			const messageHistory = document.getElementById('message-history');
-			return messageHistory.querySelectorAll('.message').length;
-		}
-
-		getUserName(userId) {
-			const userElement = document.querySelector(`.user-chat[data-user-id="${userId}"]`);
-			return userElement ? userElement.textContent.trim() : 'User';
 		}
 
 		handleUserBlockToggle(e) {
@@ -287,32 +301,63 @@ if (typeof ChatApp === 'undefined') {
 			}
 		}
 
-		addMessage(message, senderId) {
-			const messageHistory = document.getElementById('message-history');
-			const messageElement = document.createElement('div');
-			messageElement.classList.add('message');
-			messageElement.classList.add(senderId === document.body.dataset.userId ? 'sent' : 'received');
+		addMessage(message, senderId, timestamp = null) {
+			console.log('addMessage called with:', { message, senderId, timestamp });
+			senderId = parseInt(senderId, 10);
 
-			const senderName = senderId === document.body.dataset.userId ? 'You' : document.querySelector(`.user-chat[data-user-id="${senderId}"]`).textContent.trim();
-			const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+			const messageElement = document.createElement('div');
+			messageElement.classList.add('chat-bubble');
+
+			if (!this.currentUserId) {
+				console.error('Current user ID is not set. Unable to determine message sender.');
+				return;
+			}
+
+			messageElement.classList.add(senderId === this.currentUserId ? 'sent' : 'received');
+
+			let senderName = 'Unknown User';
+			if (senderId === this.currentUserId) {
+				senderName = 'You';
+				console.log('Message is from current user');
+			} else {
+				const userElement = document.querySelector(`.user-chat[data-user-id="${senderId}"]`);
+				if (userElement) {
+					senderName = userElement.textContent.trim();
+					console.log('Found user element:', userElement);
+				} else {
+					console.log('User element not found for ID:', senderId);
+				}
+			}
+			console.log('Sender name determined:', senderName);
+
+			let formattedTimestamp = 'Just now';
+			if (timestamp) {
+				console.log('Timestamp provided:', timestamp);
+				const date = new Date(timestamp);
+				if (!isNaN(date.getTime())) {
+					formattedTimestamp = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+					console.log('Formatted timestamp:', formattedTimestamp);
+				} else {
+					console.log('Invalid timestamp provided');
+				}
+			} else {
+				console.log('No timestamp provided, using current time');
+				formattedTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+			}
+
 			messageElement.innerHTML = `
 				<p>${message}</p>
-				<small>${timestamp} - ${senderName}</small>
+				<small>${formattedTimestamp} - ${senderName}</small>
 			`;
-			messageHistory.appendChild(messageElement);
-			messageHistory.scrollTop = messageHistory.scrollHeight;
+			console.log('Message element created:', messageElement.outerHTML);
 
-			if (senderId === this.selectedUserId || senderId === document.body.dataset.userId) {
+			this.messageHistory.appendChild(messageElement);
+			this.messageHistory.scrollTop = this.messageHistory.scrollHeight;
+
+			if (senderId === this.selectedUserId || senderId === this.currentUserId) {
+				this.messageCountByUser[this.selectedUserId] = (this.messageCountByUser[this.selectedUserId] || 0) + 1;
 				this.updateChatHeading(this.selectedUserId);
 			}
-		}
-
-		loadMessageHistory(userId) {
-			fetch(`/chat/history/${userId}/`)
-				.then(response => response.text())
-				.then(html => {
-					document.getElementById('message-history').innerHTML = html;
-				});
 		}
 
 		handleGameInvitation(gameId, senderId) {
@@ -372,6 +417,15 @@ if (typeof ChatApp === 'undefined') {
 					chatBadge.style.display = 'none';
 				}
 			}
+		}
+
+		getCurrentUserId() {
+			const userId = document.body.dataset.userId;
+			if (!userId) {
+				console.error('User ID not found in body dataset. Make sure to set data-user-id on the body element.');
+				return null;
+			}
+			return parseInt(userId, 10);
 		}
 	}
 

@@ -13,7 +13,7 @@
 	<script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 </head>
 
-<body>
+<body data-user-id="{{ request.user.id }}">
 	<main id="content">
 		{% block content %}{% endblock %}
 	</main>
