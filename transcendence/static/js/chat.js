@@ -129,17 +129,44 @@ if (typeof ChatApp === 'undefined') {
 			fetch(`/chat/${action}/${userId}/`, {
 				method: method,
 				headers: {
-					'X-CSRFToken': getCSRFToken(),
+					'X-CSRFToken': this.getCSRFToken(),
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({}) // Include any necessary data
 			})
-				.then(response => response.json())
+				.then(response => {
+					if (response.ok) {
+						return response.json();
+					}
+					throw new Error('Network response was not ok.');
+				})
 				.then(data => {
 					if (data.success) {
-						// Update UI accordingly
+						// Toggle button text and class
+						if (action === 'block') {
+							element.textContent = 'Unblock';
+							element.classList.remove('block-user', 'btn-danger');
+							element.classList.add('unblock-user', 'btn-secondary');
+						} else {
+							element.textContent = 'Block';
+							element.classList.remove('unblock-user', 'btn-secondary');
+							element.classList.add('block-user', 'btn-danger');
+						}
+						// Update user status
+						this.updateUserStatus(userId, action === 'block' ? 'blocked' : 'online');
 					}
+				})
+				.catch(error => {
+					console.error('Error:', error);
+					alert('An error occurred while processing your request.');
 				});
+		}
+
+		getCSRFToken() {
+			const cookieValue = document.cookie
+				.split('; ')
+				.find(row => row.startsWith('csrftoken='));
+			return cookieValue ? cookieValue.split('=')[1] : null;
 		}
 
 		handleSpecialActions(e) {
