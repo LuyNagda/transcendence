@@ -57,7 +57,7 @@ def login_view(request):
                 messages.error(request, 'Invalid username or password.')
                 return render(request, 'login.html', {'form': form})
             user = authenticate(request, username=username, password=password)
-            if user is not None:
+            if user is not None and user.check_password(password):
                 logger.info(f"User {username} logged in successfully", extra={'user_id': user.id})
                 # Issue JWT tokens
                 refresh = RefreshToken.for_user(user)
@@ -69,8 +69,9 @@ def login_view(request):
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 return response
             else:
-                logger.warning(f"Failed login attempt for user: {username}", extra={'user_id': user.id})
+                logger.warning(f"Failed login attempt for user: {username}")
                 messages.error(request, 'Invalid username or password.')
+                return render(request, 'login.html', {'form': form})
         else:
             logger.warning("Invalid form submission during login", extra={'user_id': user.id})
             messages.error(request, 'Invalid form submission.')

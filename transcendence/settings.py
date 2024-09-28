@@ -14,6 +14,7 @@ from pathlib import Path
 from django.contrib import messages
 import environ
 from datetime import timedelta
+import os
 
 # Load environment variables from .env file
 env = environ.Env()
@@ -242,6 +243,10 @@ STATIC_ROOT = BASE_DIR / 'static'
 STATICFILES_DIRS = [
     BASE_DIR / 'transcendence' / 'static',
 ]
+
+# esbuild configuration
+ESBUILD_BIN_PATH = os.path.join(BASE_DIR, 'node_modules', '.bin', 'esbuild')
+ESBUILD_CONFIG_PATH = os.path.join(BASE_DIR, 'esbuild.config.js')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field

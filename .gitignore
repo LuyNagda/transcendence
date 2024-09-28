@@ -5,3 +5,4 @@
 static/
 !transcendence/static/
 !transcendence/static/js/
+node_modules

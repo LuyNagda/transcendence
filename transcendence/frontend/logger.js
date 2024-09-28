@@ -1,4 +1,3 @@
-'use strict';
 class Logger {
 	constructor() {
 		this.debugSettings = false;
@@ -57,10 +56,7 @@ class Logger {
 	}
 }
 
-// Create a global logger instance
-window.logger = new Logger();
+export default Logger;
 
-// Initialize the logger when the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', function () {
-	window.logger.initialize();
-});
+// Create and export a global logger instance
+export const logger = new Logger();

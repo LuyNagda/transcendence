@@ -42,6 +42,7 @@ daemon:
 	$(SRC_ENV) BUILD_TYPE=prod docker compose --profile prod up -d
 
 dev: build
+	npm run dev & \
 	$(SRC_ENV) DEBUG=True BUILD_TYPE=dev docker compose --profile dev up --watch
 
 $(VENV)/bin/activate: requirements.txt
