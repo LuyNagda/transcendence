@@ -16,7 +16,7 @@
 							aria-label="Chat with {{ user.name|default:user.username }}">
 							<img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 20px;"
 								alt="{{ user.name|default:user.username }}'s profile picture">
-							{{ user.name|default:user.username }}
+							<span class="user-name" aria-live="polite">{{ user.name|default:user.username }}</span>
 							<span class="status-icon" aria-live="polite">
 								{% if blocked_users is not None and user.id not in blocked_users %}
 								{% if user.online %}
@@ -92,12 +92,39 @@
 	}
 
 	.chat-bubble {
+		min-width: 25%;
 		max-width: 70%;
 		padding: 10px 15px;
 		border-radius: 20px;
 		position: relative;
 		color: white;
 		word-wrap: break-word;
+	}
+
+	.chat-bubble .message-header {
+		border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+		margin-bottom: 5px;
+		padding-bottom: 3px;
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.chat-bubble .sender-name {
+		font-weight: bold;
+		font-size: 0.9em;
+	}
+
+	.chat-bubble.sent .message-header {
+		flex-direction: row-reverse;
+	}
+
+	.chat-bubble.received .message-header {
+		flex-direction: row;
+	}
+
+	.chat-bubble p {
+		margin: 5px 0;
 	}
 
 	.chat-bubble.sent {

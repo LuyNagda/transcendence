@@ -7,7 +7,7 @@ if (typeof ChatApp === 'undefined') {
 			this.maxReconnectAttempts = 5;
 			this.unreadMessageCount = 0;
 			this.chatModalOpen = false;
-			this.messageHistory = document.getElementById('message-history');
+			this.MessageHistory = document.getElementById('message-history');
 			this.selectedUserId = null;
 			this.messageCountByUser = {};
 			this.currentUserId = this.getCurrentUserId();
@@ -32,20 +32,20 @@ if (typeof ChatApp === 'undefined') {
 			this.chatSocket.onclose = (e) => this.handleClose(e);
 			this.chatSocket.onerror = (err) => this.handleError(err);
 			this.chatSocket.onopen = () => {
-				console.log('WebSocket connection established');
+				logger.debug('WebSocket connection established');
 				this.reconnectAttempts = 0;
 				this.processMessageQueue();
 			};
 		}
 
 		setupChatModalListeners() {
-			const chatCanvas = document.getElementById('chatCanvas');
-			if (chatCanvas) {
-				chatCanvas.addEventListener('show.bs.offcanvas', () => {
+			const ChatCanvas = document.getElementById('ChatCanvas');
+			if (ChatCanvas) {
+				ChatCanvas.addEventListener('show.bs.offcanvas', () => {
 					this.chatModalOpen = true;
 					this.resetUnreadMessageCount();
 				});
-				chatCanvas.addEventListener('hide.bs.offcanvas', () => {
+				ChatCanvas.addEventListener('hide.bs.offcanvas', () => {
 					this.chatModalOpen = false;
 				});
 			}
@@ -53,7 +53,7 @@ if (typeof ChatApp === 'undefined') {
 
 		handleMessage(e) {
 			const data = JSON.parse(e.data);
-			console.log("Received data:", data);
+			logger.debug("Received data:", data);
 			switch (data.type) {
 				case 'chat_message':
 					this.addMessage(data.message, data.sender_id);
@@ -79,22 +79,20 @@ if (typeof ChatApp === 'undefined') {
 		}
 
 		handleClose(e) {
-			console.log('WebSocket closed. Code:', e.code, 'Reason:', e.reason);
+			logger.warn(`WebSocket closed. Code: ${e.code}, Reason: ${e.reason}`);
 			if (this.reconnectAttempts < this.maxReconnectAttempts) {
-				const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-				console.log(`Reconnect attempt ${this.reconnectAttempts + 1} will be made in ${delay}ms`);
+				const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 60000);
+				logger.info(`Reconnect attempt ${this.reconnectAttempts + 1} will be made in ${delay}ms`);
 				setTimeout(() => {
 					this.reconnectAttempts++;
 					this.createWebSocketConnection();
 				}, delay);
-			} else {
-				console.error('Max reconnect attempts reached. Please refresh the page.');
-			}
+			} else
+				logger.error('Max reconnect attempts reached. Please refresh the page.');
 		}
 
 		handleError(err) {
-			console.error('WebSocket error:', err);
-			// You might want to display an error message to the user here
+			logger.error('WebSocket error:', err);
 		}
 
 		attachEventListeners() {
@@ -124,7 +122,7 @@ if (typeof ChatApp === 'undefined') {
 				alert("Unable to send message. User ID not found.");
 				return;
 			}
-			console.log("Sending message to:", recipientId);
+			logger.info(`Sending message to user ${recipientId} : ${message}`);
 			this.sendMessage({
 				'type': 'chat_message',
 				'message': message,
@@ -157,40 +155,40 @@ if (typeof ChatApp === 'undefined') {
 			})
 				.then(response => response.json())
 				.then(data => {
-					this.messageHistory.innerHTML = '';
+					this.MessageHistory.innerHTML = '';
 					this.messageCountByUser[userId] = data.length;
-					console.log("Message history loaded:", data);
+					logger.debug("Message history loaded:", data);
 					data.forEach(message => {
 						try {
 							this.addMessage(message.content, message.sender_id, new Date(message.timestamp));
 						} catch (error) {
-							console.error('Error adding message:', error);
+							logger.error('Error adding message:', error);
 						}
 					});
-					this.messageHistory.scrollTop = this.messageHistory.scrollHeight;
+					this.MessageHistory.scrollTop = this.MessageHistory.scrollHeight;
 					this.updateChatHeading(userId);
 				})
 				.catch(error => {
-					console.error('Error loading message history:', error);
+					logger.error('Error loading message history:', error);
 				});
 		}
 
 		updateChatHeading(userId) {
-			const chatHeading = document.getElementById('chatHeading');
-			const unreadBadge = document.getElementById('unreadBadge');
+			const ChatHeading = document.getElementById('chatHeading');
+			const UnreadBadge = document.getElementById('unreadBadge');
 			const messageCount = this.messageCountByUser[userId] || 0;
 			const userName = document.querySelector(`.user-chat[data-user-id="${userId}"]`).textContent.trim();
-			chatHeading.textContent = `Chat with ${userName}`;
-			unreadBadge.textContent = messageCount;
+			ChatHeading.textContent = `Chat with ${userName}`;
+			UnreadBadge.textContent = messageCount;
 
-			const visuallyHiddenElement = unreadBadge.querySelector('.visually-hidden');
+			const visuallyHiddenElement = UnreadBadge.querySelector('.visually-hidden');
 			if (visuallyHiddenElement) {
 				visuallyHiddenElement.textContent = `${messageCount} messages`;
 			} else {
 				const span = document.createElement('span');
 				span.className = 'visually-hidden';
 				span.textContent = `${messageCount} messages`;
-				unreadBadge.appendChild(span);
+				UnreadBadge.appendChild(span);
 			}
 		}
 
@@ -210,9 +208,8 @@ if (typeof ChatApp === 'undefined') {
 				body: JSON.stringify({}) // Include any necessary data
 			})
 				.then(response => {
-					if (response.ok) {
+					if (response.ok)
 						return response.json();
-					}
 					throw new Error('Network response was not ok.');
 				})
 				.then(data => {
@@ -232,7 +229,7 @@ if (typeof ChatApp === 'undefined') {
 					}
 				})
 				.catch(error => {
-					console.error('Error:', error);
+					logger.error('Error:', error);
 					alert('An error occurred while processing your request.');
 				});
 		}
@@ -265,7 +262,7 @@ if (typeof ChatApp === 'undefined') {
 			if (this.chatSocket && this.chatSocket.readyState === WebSocket.OPEN) {
 				this.chatSocket.send(message);
 			} else {
-				console.log('WebSocket not connected. Queueing message.');
+				logger.warn('WebSocket not connected. Queueing message.');
 				this.messageQueue.push(message);
 				if (this.chatSocket.readyState === WebSocket.CLOSED) {
 					this.createWebSocketConnection();
@@ -281,89 +278,89 @@ if (typeof ChatApp === 'undefined') {
 		}
 
 		updateUserStatus(userId, status) {
-			console.log("Updating user status:", userId, status);
-			const userElement = document.querySelector(`.user-chat[data-user-id="${userId}"]`);
-			if (userElement) {
-				const statusIcon = userElement.querySelector('.status-icon');
+			logger.info(`Updating user status: ${userId}, Status: ${status}`);
+			const UserElement = document.querySelector(`.user-chat[data-user-id="${userId}"]`);
+			if (UserElement) {
+				const statusIcon = UserElement.querySelector('.status-icon');
 				if (status === 'online') {
 					statusIcon.innerHTML = '&#x1F7E2;'; // Green circle
-					userElement.classList.add('online');
-					userElement.classList.remove('offline');
+					UserElement.classList.add('online');
+					UserElement.classList.remove('offline', 'blocked');
 				} else if (status === 'offline') {
 					statusIcon.innerHTML = '&#x26AA;'; // White circle
-					userElement.classList.add('offline');
-					userElement.classList.remove('online');
+					UserElement.classList.add('offline');
+					UserElement.classList.remove('online', 'blocked');
 				} else if (status === 'blocked') {
 					statusIcon.innerHTML = '&#x1F534;'; // Red circle
-					userElement.classList.add('blocked');
-					userElement.classList.remove('online', 'offline');
+					UserElement.classList.add('blocked');
+					UserElement.classList.remove('online', 'offline');
 				}
+
+				// Update status indicators in message bubbles
+				this.updateMessageBubblesStatus(userId, status);
 			}
 		}
 
 		addMessage(message, senderId, timestamp = null) {
-			console.log('addMessage called with:', { message, senderId, timestamp });
 			senderId = parseInt(senderId, 10);
 
-			const messageElement = document.createElement('div');
-			messageElement.classList.add('chat-bubble');
+			const Message = document.createElement('div');
+			Message.classList.add('chat-bubble');
+			Message.setAttribute('data-user-id', senderId); // Add data-user-id attribute
 
 			if (!this.currentUserId) {
-				console.error('Current user ID is not set. Unable to determine message sender.');
+				logger.error('Current user ID is not set. Unable to determine message sender.');
 				return;
 			}
 
-			messageElement.classList.add(senderId === this.currentUserId ? 'sent' : 'received');
+			const isSent = senderId === this.currentUserId;
+			Message.classList.add(isSent ? 'sent' : 'received');
 
-			let senderName = 'Unknown User';
-			if (senderId === this.currentUserId) {
-				senderName = 'You';
-				console.log('Message is from current user');
-			} else {
+			let senderName = isSent ? 'You' : 'Unknown User';
+			if (!isSent) {
 				const userElement = document.querySelector(`.user-chat[data-user-id="${senderId}"]`);
-				if (userElement) {
-					senderName = userElement.textContent.trim();
-					console.log('Found user element:', userElement);
-				} else {
-					console.log('User element not found for ID:', senderId);
-				}
+				if (userElement)
+					senderName = userElement.querySelector('.user-name').textContent.trim();
+				else
+					logger.warn('User element not found for ID:', senderId);
 			}
-			console.log('Sender name determined:', senderName);
 
 			let formattedTimestamp = 'Just now';
 			if (timestamp) {
-				console.log('Timestamp provided:', timestamp);
 				const date = new Date(timestamp);
-				if (!isNaN(date.getTime())) {
+				if (!isNaN(date.getTime()))
 					formattedTimestamp = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-					console.log('Formatted timestamp:', formattedTimestamp);
-				} else {
-					console.log('Invalid timestamp provided');
-				}
-			} else {
-				console.log('No timestamp provided, using current time');
+			} else
 				formattedTimestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-			}
 
-			messageElement.innerHTML = `
+			// Conditionally include the status icon only for received messages
+			const statusIconHTML = !isSent ? `
+				<span class="status-icon" aria-label="User status">
+					${this.getUserStatusIcon(senderId)}
+				</span>
+			` : '';
+
+			Message.innerHTML = `
+				<div class="message-header">
+					<span class="sender-name">${senderName}</span>
+					${statusIconHTML}
+				</div>
 				<p>${message}</p>
-				<small>${formattedTimestamp} - ${senderName}</small>
+				<small>${formattedTimestamp}</small>
 			`;
-			console.log('Message element created:', messageElement.outerHTML);
 
-			this.messageHistory.appendChild(messageElement);
-			this.messageHistory.scrollTop = this.messageHistory.scrollHeight;
+			this.MessageHistory.appendChild(Message);
+			this.MessageHistory.scrollTop = this.MessageHistory.scrollHeight;
 
-			if (senderId === this.selectedUserId || senderId === this.currentUserId) {
+			if (senderId === this.selectedUserId || isSent) {
 				this.messageCountByUser[this.selectedUserId] = (this.messageCountByUser[this.selectedUserId] || 0) + 1;
 				this.updateChatHeading(this.selectedUserId);
 			}
 		}
 
 		handleGameInvitation(gameId, senderId) {
-			if (confirm(`You've been invited to play ${gameId}. Do you want to accept?`)) {
+			if (confirm(`You've been invited to play ${gameId}. Do you want to accept?`))
 				window.location.href = `/games/${gameId}/?opponent=${senderId}`;
-			}
 		}
 
 		handleTournamentWarning(tournamentId, matchTime) {
@@ -371,23 +368,22 @@ if (typeof ChatApp === 'undefined') {
 		}
 
 		displayUserProfile(profile) {
-			const existingProfileModal = document.querySelector('.profile-modal');
-			if (existingProfileModal) {
-				document.body.removeChild(existingProfileModal);
-			}
+			const ExistingProfileModal = document.querySelector('.profile-modal');
+			if (ExistingProfileModal)
+				document.body.removeChild(ExistingProfileModal);
 
-			const profileModal = document.createElement('div');
-			profileModal.classList.add('profile-modal');
-			profileModal.innerHTML = `
+			const ProfileModal = document.createElement('div');
+			ProfileModal.classList.add('profile-modal');
+			ProfileModal.innerHTML = `
 				<h2>${profile.username}'s Profile</h2>
 				<p>Email: ${profile.email}</p>
 				<p>Bio: ${profile.bio}</p>
 				<img src="${profile.profile_picture}" alt="Profile Picture"> <!-- Display profile picture if available -->
 			`;
-			document.body.appendChild(profileModal);
+			document.body.appendChild(ProfileModal);
 
-			profileModal.addEventListener('click', function () {
-				document.body.removeChild(profileModal);
+			ProfileModal.addEventListener('click', function () {
+				document.body.removeChild(ProfileModal);
 			});
 		}
 
@@ -402,19 +398,19 @@ if (typeof ChatApp === 'undefined') {
 		}
 
 		updateChatIcon() {
-			const chatIcon = document.querySelector('.chat-icon i');
-			const chatBadge = document.querySelector('.chat-badge');
+			const ChatIcon = document.querySelector('.chat-icon i');
+			const ChatBadge = document.querySelector('.chat-badge');
 
-			if (chatIcon && chatBadge) {
+			if (ChatIcon && ChatBadge) {
 				if (this.unreadMessageCount > 0) {
-					chatIcon.classList.remove('text-secondary');
-					chatIcon.classList.add('text-primary');
-					chatBadge.textContent = this.unreadMessageCount > 99 ? '99+' : this.unreadMessageCount;
-					chatBadge.style.display = 'inline';
+					ChatIcon.classList.remove('text-secondary');
+					ChatIcon.classList.add('text-primary');
+					ChatBadge.textContent = this.unreadMessageCount > 99 ? '99+' : this.unreadMessageCount;
+					ChatBadge.style.display = 'inline';
 				} else {
-					chatIcon.classList.remove('text-primary');
-					chatIcon.classList.add('text-secondary');
-					chatBadge.style.display = 'none';
+					ChatIcon.classList.remove('text-primary');
+					ChatIcon.classList.add('text-secondary');
+					ChatBadge.style.display = 'none';
 				}
 			}
 		}
@@ -422,10 +418,54 @@ if (typeof ChatApp === 'undefined') {
 		getCurrentUserId() {
 			const userId = document.body.dataset.userId;
 			if (!userId) {
-				console.error('User ID not found in body dataset. Make sure to set data-user-id on the body element.');
+				logger.error('User ID not found in body dataset. Make sure to set data-user-id on the body element.');
 				return null;
 			}
 			return parseInt(userId, 10);
+		}
+
+		updateMessageBubblesStatus(userId, status) {
+			const MessageBubbles = document.querySelectorAll(`.chat-bubble[data-user-id="${userId}"] .status-icon`);
+			MessageBubbles.forEach((icon) => {
+				if (status === 'online') {
+					icon.innerHTML = '&#x1F7E2;'; // Green circle
+					icon.classList.add('online');
+					icon.classList.remove('offline', 'blocked');
+				} else if (status === 'offline') {
+					icon.innerHTML = '&#x26AA;'; // White circle
+					icon.classList.add('offline');
+					icon.classList.remove('online', 'blocked');
+				} else if (status === 'blocked') {
+					icon.innerHTML = '&#x1F534;'; // Red circle
+					icon.classList.add('blocked');
+					icon.classList.remove('online', 'offline');
+				}
+			});
+		}
+
+		getUserStatusIcon(userId) {
+			const status = this.getUserStatus(userId);
+			switch (status) {
+				case 'online':
+					return '&#x1F7E2;'; // Green circle
+				case 'offline':
+					return '&#x26AA;'; // White circle
+				case 'blocked':
+					return '&#x1F534;'; // Red circle
+				default:
+					return '&#x26AA;'; // Default to offline (white circle)
+			}
+		}
+
+		getUserStatus(userId) {
+			const UserElement = document.querySelector(`.user-chat[data-user-id="${userId}"]`);
+			if (UserElement) {
+				if (UserElement.classList.contains('online'))
+					return 'online';
+				if (UserElement.classList.contains('blocked'))
+					return 'blocked';
+			}
+			return 'offline'; // Default to offline if status not found or user is offline
 		}
 	}
 
