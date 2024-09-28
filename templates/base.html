@@ -13,7 +13,8 @@
 	<script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 </head>
 
-<body data-user-id="{{ request.user.id }}">
+<body data-user-id="{{ user_id }}" data-debug="{{ debug }}" data-log-level="{{ log_level }}">
+	<script src="{% static '/js/logger.js' %}"></script>
 	<main id="content">
 		{% block content %}{% endblock %}
 	</main>
