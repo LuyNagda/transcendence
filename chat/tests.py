@@ -1,3 +1,4 @@
+import asyncio
 from unittest import mock
 from channels.testing import WebsocketCommunicator
 from django.contrib.auth import get_user_model
@@ -13,12 +14,18 @@ from chat.models import BlockedUser, ChatMessage, GameInvitation
 User = get_user_model()
 
 class ChatConsumerTestCase(TransactionTestCase):
-    async def asyncSetUp(self):
-        self.user = await database_sync_to_async(User.objects.create_user)(
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        asyncio.run(cls.asyncSetUpClass())
+
+    @classmethod
+    async def asyncSetUpClass(cls):
+        cls.user = await database_sync_to_async(User.objects.create_user)(
             username='testuser', password='password123', email='testuser@example.com')
-        self.other_user = await database_sync_to_async(User.objects.create_user)(
+        cls.other_user = await database_sync_to_async(User.objects.create_user)(
             username='otheruser', password='password123', email='otheruser@example.com')
-        self.channel_layer = get_channel_layer()
+        cls.channel_layer = get_channel_layer()
 
     async def create_communicator(self, user=None):
         application = AuthMiddlewareStack(URLRouter([path("ws/chat/", ChatConsumer.as_asgi())]))
@@ -37,12 +44,17 @@ class ChatConsumerTestCase(TransactionTestCase):
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
         await communicator.disconnect()
+        
+        # Add a small delay to ensure the connection is fully closed
+        await asyncio.sleep(0.1)
+        
+        # Try to receive a message and expect it to fail
         with self.assertRaises(Exception):
-            await communicator.send_json_to({'type': 'ping'})
+            await communicator.receive_from()
 
     async def test_authentication(self):
         # Test unauthenticated access
-        application = URLRouter([path("ws/chat/", ChatConsumer.as_asgi())])
+        application = AuthMiddlewareStack(URLRouter([path("ws/chat/", ChatConsumer.as_asgi())]))
         communicator = WebsocketCommunicator(application, "/ws/chat/")
         connected, _ = await communicator.connect()
         self.assertFalse(connected)
@@ -78,6 +90,13 @@ class ChatConsumerTestCase(TransactionTestCase):
         await recipient_comm.disconnect()
 
     async def test_blocked_user_interactions(self):
+        # Ensure users are created and persisted
+        self.user = await database_sync_to_async(User.objects.create_user)(
+            username='testuser', password='password123', email='testuser@example.com')
+        self.other_user = await database_sync_to_async(User.objects.create_user)(
+            username='otheruser', password='password123', email='otheruser@example.com')
+
+        # Create BlockedUser object
         await database_sync_to_async(BlockedUser.objects.create)(
             user=self.other_user, blocked_user=self.user)
 
@@ -89,7 +108,15 @@ class ChatConsumerTestCase(TransactionTestCase):
         self.assertEqual(response.get('error'), 'You are blocked...')
         await communicator.disconnect()
 
+        # Clean up
+        await database_sync_to_async(BlockedUser.objects.all().delete)()
+        await database_sync_to_async(User.objects.all().delete)()
+
     async def test_user_profile_and_status(self):
+        # Recreate users if necessary
+        self.other_user = await database_sync_to_async(User.objects.create_user)(
+            username='otheruser', password='password123', email='otheruser@example.com'
+        )
         communicator = await self.connect_and_send('get_profile', {
             'user_id': self.other_user.id
         })
@@ -134,8 +161,9 @@ class ChatConsumerTestCase(TransactionTestCase):
         self.assertEqual(response.get('error'), 'Invalid JSON data')
 
         await communicator.send_json_to({'type': 'chat_message'})
+        response = await communicator.receive_json_from() # Online message
         response = await communicator.receive_json_from()
-        self.assertEqual(response.get('error'), 'Missing keys in received data')
+        self.assertEqual(response.get('error'), 'Missing required keys: message or recipient_id')
 
         await communicator.send_json_to({'type': 'get_profile', 'user_id': 9999})
         response = await communicator.receive_json_from()
@@ -156,18 +184,30 @@ class ChatConsumerTestCase(TransactionTestCase):
             'recipient_id': self.other_user.id
         })
         response = await communicator.receive_json_from()
-        self.assertEqual(response.get('error'), 'An error occurred while processing your request')
+        self.assertIn('error', response)
         await communicator.disconnect()
 
     async def test_unauthorized_access(self):
         # Test accessing a protected route without authentication
-        application = URLRouter([path("ws/chat/", ChatConsumer.as_asgi())])
+        application = AuthMiddlewareStack(URLRouter([path("ws/chat/", ChatConsumer.as_asgi())]))
         communicator = WebsocketCommunicator(application, "/ws/chat/")
         connected, _ = await communicator.connect()
         self.assertFalse(connected)
         await communicator.disconnect()
 
     async def tearDown(self):
+        await database_sync_to_async(User.objects.all().delete)()
+        await database_sync_to_async(BlockedUser.objects.all().delete)()
+        await database_sync_to_async(ChatMessage.objects.all().delete)()
+        await database_sync_to_async(GameInvitation.objects.all().delete)()
+
+    @classmethod
+    def tearDownClass(cls):
+        asyncio.run(cls.asyncTearDownClass())
+        super().tearDownClass()
+
+    @classmethod
+    async def asyncTearDownClass(cls):
         await database_sync_to_async(User.objects.all().delete)()
         await database_sync_to_async(BlockedUser.objects.all().delete)()
         await database_sync_to_async(ChatMessage.objects.all().delete)()

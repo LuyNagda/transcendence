@@ -24,27 +24,20 @@ class ChatHandler:
         }
         handler = actions.get(message_type)
         if handler:
-            try:
-                log.debug(f'Calling handler for message type: {message_type}', extra={
-                    'user_id': self.consumer.user.id,
-                    'message_type': message_type,
-                    'data': json.dumps(data)
-                })
-                await handler(data)
-            except Exception as e:
-                log.error(f'Error in handler for message type {message_type}', extra={
-                    'user_id': self.consumer.user.id,
-                    'message_type': message_type,
-                    'error': str(e)
-                })
-                await self.consumer.send(text_data=json.dumps({
-                    'error': f'An error occurred while processing the {message_type}'
-                }))
+            log.debug(f'Calling handler for message type: {message_type}', extra={
+                'user_id': self.consumer.user.id,
+                'message_type': message_type,
+                'data': json.dumps(data)
+            })
+            await handler(data)
         else:
             log.warning('Unhandled message type', extra={
                 'user_id': self.consumer.user.id,
                 'message_type': message_type
             })
+            await self.consumer.send(text_data=json.dumps({
+                'error': 'Invalid message type'
+            }))
 
     async def handle_tournament_warning(self, data):
         log.warning('Tournament warning received', extra={
@@ -72,6 +65,10 @@ class ChatHandler:
             'user_id': self.consumer.user.id,
             'data': json.dumps(data)
         })
+
+        if 'message' not in data or 'recipient_id' not in data:
+            raise KeyError('Missing required keys: message or recipient_id')
+        
         message = data['message']
         recipient_id = data['recipient_id']
         if await self.is_blocked(recipient_id):
@@ -88,10 +85,8 @@ class ChatHandler:
             }))
             return
         except Exception as e:
-            await self.consumer.send(text_data=json.dumps({
-                'error': 'An error occurred while saving the message'
-            }))
-            return
+            # Re-raise the exception to be caught by handle_message
+            raise e
 
         await self.consumer.channel_layer.group_send(
             f"chat_{recipient_id}",
@@ -103,12 +98,16 @@ class ChatHandler:
         )
 
     async def handle_user_status_change(self, data):
+        if 'user_id' not in data or 'status' not in data:
+            raise KeyError('Missing required keys: user_id or status')
         user_id = data['user_id']
         status = data['status']
         if user_id == self.consumer.user.id:
             await self.consumer.broadcast_status(status)
 
     async def handle_game_invitation(self, data):
+        if 'recipient_id' not in data or 'game_id' not in data:
+            raise KeyError('Missing required keys: recipient_id or game_id')
         recipient_id = data['recipient_id']
         game_id = data['game_id']
 
@@ -127,10 +126,7 @@ class ChatHandler:
             }))
             return
         except Exception as e:
-            await self.consumer.send(text_data=json.dumps({
-                'error': 'An error occurred while processing the game invitation'
-            }))
-            return
+            raise e
         
         await self.consumer.channel_layer.group_send(
             f"chat_{recipient_id}",
@@ -142,6 +138,8 @@ class ChatHandler:
         )
 
     async def handle_get_profile(self, data):
+        if 'user_id' not in data:
+            raise KeyError('Missing required keys: user_id')
         profile = await self.get_user_profile(data['user_id'])
         if profile:
             await self.consumer.send(text_data=json.dumps({
@@ -174,10 +172,7 @@ class ChatHandler:
             })
             return None
         except Exception as e:
-            log.error(f"Error fetching user profile: {str(e)}", extra={
-                'user_id': self.consumer.user.id
-            })
-            return None
+            raise e
 
     @database_sync_to_async
     def save_message(self, message, recipient_id):
@@ -197,7 +192,7 @@ class ChatHandler:
             log.error(f"Error saving message: {str(e)}", extra={
                 'user_id': self.consumer.user.id
             })
-            raise Exception("Error saving message")
+            raise e
         
     @database_sync_to_async
     def save_game_invitation(self, game_id, recipient_id):
@@ -217,7 +212,7 @@ class ChatHandler:
             log.error(f"Error saving game invitation: {str(e)}", extra={
                 'user_id': self.consumer.user.id
             })
-            raise Exception("Error saving game invitation")
+            raise e
 
     @database_sync_to_async
     def delete_existing_invitation(self, recipient_id, game_id):

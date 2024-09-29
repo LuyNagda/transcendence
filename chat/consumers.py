@@ -15,28 +15,25 @@ all = 'all_users'
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.user = self.scope["user"]
+        self.user = self.scope.get("user")
         log.info('WebSocket connection attempt', extra={
             'user_id': getattr(self.user, 'id', None),
             'authenticated': self.user.is_authenticated
         })
-        if not self.user.is_authenticated:
-            log.error('Unauthenticated user connection attempt', extra={
-                'user_id': getattr(self.user, 'id', None)
+        if not self.user or self.user.is_anonymous:
+            await self.close()
+        else:
+            await self.accept()
+            self.user_group_name = f"chat_{self.user.id}"
+            self.handler = ChatHandler(self)
+            
+            await self.channel_layer.group_add(all, self.channel_name)
+            await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+            await self.set_user_online()
+            await self.broadcast_status('online')
+            log.info('WebSocket connected', extra={
+                'user_id': self.user.id
             })
-            raise DenyConnection("User is not authenticated")
-
-        self.user_group_name = f"chat_{self.user.id}"
-        self.handler = ChatHandler(self)
-        
-        await self.channel_layer.group_add(all, self.channel_name)
-        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
-        await self.set_user_online()
-        await self.accept()
-        await self.broadcast_status('online')
-        log.info('WebSocket connected', extra={
-            'user_id': self.user.id
-        })
 
     async def disconnect(self, close_code):
         if hasattr(self, 'user') and self.user.is_authenticated:
@@ -54,7 +51,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         })
         try:
             data = json.loads(text_data)
-            message_type = data['type']
+            message_type = data.get('type')
+            if not message_type:
+                raise KeyError('type')
             await self.handler.handle_message(message_type, data)
         except json.JSONDecodeError:
             log.error('Received invalid JSON data', extra={
@@ -64,9 +63,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except KeyError as e:
             log.error('Missing key in received data', extra={
                 'user_id': self.user.id,
-                'missing_key': str(e)
+                'missing_key': e.args[0]  # Message (f**k)
             })
-            await self.send(text_data=json.dumps({'error': 'Missing keys in received data'}))
+            await self.send(text_data=json.dumps({'error': e.args[0]}))
         except ValueError as e:
             log.error('Value error in received data', extra={
                 'user_id': self.user.id,
@@ -78,7 +77,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'user_id': self.user.id,
                 'error': str(e)
             })
-            await self.send(text_data=json.dumps({'error': 'An unexpected error occurred'}))
+            await self.send(text_data=json.dumps({'error': 'An error occurred while processing your request'}))
 
     @database_sync_to_async
     def set_user_online(self):
