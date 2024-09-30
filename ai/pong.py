@@ -86,7 +86,7 @@ def pong_game(Ai_selected, SHOW_MATCH):
             ai_ball.dx = ball_dx
             ai_ball.dy = ball_dy
 
-        # Move the opponent's paddle (simple AI)
+        # Move the opponent's paddle
         match (AI_decision(Ai_selected, opponent, ai_ball, HEIGHT)):
             case 0:
                 if opponent.top > 0:
