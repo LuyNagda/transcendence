@@ -8,12 +8,11 @@
 	<title>{% block title %}Transcendence{% endblock %}</title>
 	<link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
 	<link href="{% static 'bootstrap/css/bootstrap.css' %}" rel="stylesheet">
-	<script src="https://unpkg.com/htmx.org@1.9.2"></script>
-	<script src="https://unpkg.com/htmx.org/dist/htmx.min.js"></script>
+	<script src="https://unpkg.com/htmx.org@1.9.12"></script>
 	<script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 </head>
 
-<body data-user-id="{{ user_id }}" data-debug="{{ debug }}" data-log-level="{{ log_level }}">
+<body data-user-id="{{ user.id|default:'None' }}" data-debug="{{ debug }}" data-log-level="{{ log_level }}">
 	<main id="content">
 		{% block content %}{% endblock %}
 	</main>

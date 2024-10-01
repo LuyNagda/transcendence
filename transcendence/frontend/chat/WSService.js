@@ -10,11 +10,30 @@ export default class WSService {
 		this.onErrorCallbacks = [];
 		this.reconnectAttempts = 0;
 		this.maxReconnectAttempts = 5;
+		this.userIdCheckInterval = null;
 		this.initialize();
 	}
 
 	initialize() {
-		this.connect();
+		this.setupUserIdWatcher();
+	}
+
+	setupUserIdWatcher() {
+		const userId = this.getUserId();
+		console.log('Initial user ID:', userId);
+		if (userId && userId !== 'None') {
+			this.connect();
+		} else {
+			console.log('No valid user ID found. Waiting for user ID...');
+			this.userIdCheckInterval = setInterval(() => {
+				const newUserId = this.getUserId();
+				console.log('Checking for new user ID:', newUserId);
+				if (newUserId && newUserId !== 'None') {
+					this.connect();
+					clearInterval(this.userIdCheckInterval);
+				}
+			}, 1000);
+		}
 	}
 
 	connect() {
@@ -47,6 +66,12 @@ export default class WSService {
 	}
 
 	handleReconnection() {
+		const userId = this.getUserId();
+		if (!userId) {
+			console.log('No user ID available. Skipping reconnection.');
+			return;
+		}
+
 		if (this.reconnectAttempts < this.maxReconnectAttempts) {
 			const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 60000);
 			console.info(`Reconnect attempt ${this.reconnectAttempts + 1} in ${delay}ms`);
@@ -62,7 +87,11 @@ export default class WSService {
 
 	send(message) {
 		if (this.isConnected) {
-			this.socket.send(JSON.stringify(message));
+			const messageWithToken = {
+				...message,
+				csrfToken: this.getCSRFToken(),
+			};
+			this.socket.send(JSON.stringify(messageWithToken));
 		} else {
 			console.warn('WebSocket not connected. Queueing message.');
 			this.messageQueue.push(message);
@@ -93,5 +122,26 @@ export default class WSService {
 
 	onError(callback) {
 		this.onErrorCallbacks.push(callback);
+	}
+
+	getCSRFToken() {
+		const cookieValue = document.cookie
+			.split('; ')
+			.find(row => row.startsWith('csrftoken='));
+		return cookieValue ? cookieValue.split('=')[1] : null;
+	}
+
+	getUserId() {
+		const body = document.querySelector('body');
+		return body ? body.getAttribute('data-user-id') : null;
+	}
+
+	destroy() {
+		if (this.userIdCheckInterval) {
+			clearInterval(this.userIdCheckInterval);
+		}
+		if (this.socket) {
+			this.socket.close();
+		}
 	}
 }

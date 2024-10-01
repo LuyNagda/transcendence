@@ -10,20 +10,7 @@ export default class ChatApp {
 		this.uiHandler = new UIHandler(this);
 		this.messageService = new MessageService(this.uiHandler, this.userService);
 		this.messageCountByUser = {};
-		this.setupCSRFTokenWatcher();
-	}
-
-	setupCSRFTokenWatcher() {
-		if (this.getCSRFToken()) {
-			this.initializeWebSocket();
-		} else {
-			this.tokenCheckInterval = setInterval(() => {
-				if (this.getCSRFToken()) {
-					this.initializeWebSocket();
-					clearInterval(this.tokenCheckInterval);
-				}
-			}, 1000);
-		}
+		this.initializeWebSocket();
 	}
 
 	initializeWebSocket() {
@@ -35,13 +22,6 @@ export default class ChatApp {
 		this.WSService.onMessage((data) => this.handleMessage(data));
 		this.WSService.onClose(() => this.handleClose());
 		this.WSService.onOpen(() => this.handleOpen());
-	}
-
-	// TODO : Implement JWT auth
-	getAccessToken() {
-		// Implement this method to retrieve the access token
-		// from wherever it's stored (e.g., localStorage)
-		return localStorage.getItem('accessToken');
 	}
 
 	handleMessage(data) {
@@ -128,7 +108,7 @@ export default class ChatApp {
 		fetch(`/chat/history/${userId}/`, {
 			method: 'GET',
 			headers: {
-				'X-CSRFToken': this.getCSRFToken(),
+				'X-CSRFToken': this.WSService.getCSRFToken(),
 				'Content-Type': 'application/json'
 			}
 		})
@@ -169,7 +149,7 @@ export default class ChatApp {
 		fetch(`/chat/${action}/${userId}/`, {
 			method: method,
 			headers: {
-				'X-CSRFToken': this.getCSRFToken(),
+				'X-CSRFToken': this.WSService.getCSRFToken(),
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({})
@@ -237,15 +217,7 @@ export default class ChatApp {
 		}
 	}
 
-	getCSRFToken() {
-		const cookieValue = document.cookie
-			.split('; ')
-			.find(row => row.startsWith('csrftoken='));
-		return cookieValue ? cookieValue.split('=')[1] : null;
-	}
-
 	destroy() {
-		if (this.tokenCheckInterval)
-			clearInterval(this.tokenCheckInterval);
+		this.WSService.destroy();
 	}
 }
