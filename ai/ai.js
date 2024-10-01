@@ -43,76 +43,32 @@ class Activation_SoftMax {
 
 export class Neuron_Network {
     constructor(neuron_json) {
-    //     // let setup = JSON.parse(neuron_json)
-
-    //     let setup;
-    //     if (typeof neuron_json === 'string') {
-    //         try {
-    //             setup = JSON.parse(neuron_json);
-    //         } catch (e) {
-    //             console.error("Error parsing JSON:", e);
-    //             throw new Error("Invalid JSON string provided");
-    //         }
-    //     } else if (typeof neuron_json === 'object') {
-    //         setup = neuron_json;
-    //     } else {
-    //         throw new Error("Invalid setup provided. Must be a JSON string or object.");
-    //     }
-
-    //     if (!setup || !setup.layers1 || !setup.layers1.weights) {
-    //         throw new Error("Invalid setup structure. Must contain layers1.weights.");
-    //     }
-
-    //     this.layer1 = new Layer_Dense(setup.layer1.weights)
-    //     this.activation1 = new Activation_ReLU()
-    //     this.activation2 = new Activation_SoftMax()
-        console.log("NeuronNetwork constructor called with:", setupJson);
-        console.log("Type of setupJson:", typeof setupJson);
+        // let setup = JSON.parse(neuron_json)
 
         let setup;
-        if (typeof setupJson === 'string') {
+        if (typeof neuron_json === 'string') {
             try {
-                setup = JSON.parse(setupJson);
-                console.log("Parsed JSON:", setup);
+                setup = JSON.parse(neuron_json);
             } catch (e) {
                 console.error("Error parsing JSON:", e);
-                throw new Error("Invalid JSON string provided: " + e.message);
+                throw new Error("Invalid JSON string provided");
             }
-        } else if (typeof setupJson === 'object') {
-            setup = setupJson;
-            console.log("Using provided object:", setup);
+        } else if (typeof neuron_json === 'object') {
+            setup = neuron_json;
         } else {
-            console.error("Invalid setup type:", typeof setupJson);
             throw new Error("Invalid setup provided. Must be a JSON string or object.");
         }
 
-        console.log("Setup after parsing:", setup);
-
-        if (!setup) {
-            console.error("Setup is undefined or null");
-            throw new Error("Setup is undefined or null");
+        if (!setup || !setup.layers1 || !setup.layers1.weights) {
+            throw new Error("Invalid setup structure. Must contain layers1.weights.");
         }
 
-        console.log("Setup keys:", Object.keys(setup));
+        this.layer1 = new Layer_Dense(setup.layer1.weights)
+        this.activation1 = new Activation_ReLU()
+        this.activation2 = new Activation_SoftMax()
+        console.log("NeuronNetwork constructor called with:", neuron_json);
+        console.log("Type of neuron_json:", typeof neuron_json);
 
-        if (!setup.layers1) {
-            console.error("Missing layers1 in setup:", setup);
-            throw new Error("Invalid setup structure. Missing layers1.");
-        }
-
-        console.log("layers1:", setup.layers1);
-
-        if (!setup.layers1.weights) {
-            console.error("Missing weights in layers1:", setup.layers1);
-            throw new Error("Invalid setup structure. Missing layers1.weights.");
-        }
-
-        console.log("weights:", setup.layers1.weights);
-
-        this.layer1 = new LayerDense(setup.layers1.weights);
-        this.activation1 = new ActivationReLU();
-        this.activation2 = new ActivationSoftMax();
-        console.log("NeuronNetwork initialized successfully");
     }
 
     forward(inputs) {

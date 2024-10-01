@@ -30,17 +30,17 @@ const ball = {
 const ai_ball = ball;
 
 // AI setting
-// const neuron_json = JSON.stringify({
-//     "layers1": {
-//         "weights": [
-//             [-0.8730789607358392, 0.5824308739012745, 1.4386435945576093],
-//             [-0.2239885923499962, 0.3315438954533523, 1.3607337003901363],
-//             [-0.5934591295652615, -1.9951332952168253, 0.2504200628910535],
-//             [-1.1532241863386201, 0.22437054627430497, 0.8832272910500715],
-//             [0.8191879100269014, 0.23702494495879028, 0.7798145696425061]
-//         ]
-//     }
-// });
+const neuron_json = JSON.stringify({
+    "layers1": {
+        "weights": [
+            [-0.8730789607358392, 0.5824308739012745, 1.4386435945576093],
+            [-0.2239885923499962, 0.3315438954533523, 1.3607337003901363],
+            [-0.5934591295652615, -1.9951332952168253, 0.2504200628910535],
+            [-1.1532241863386201, 0.22437054627430497, 0.8832272910500715],
+            [0.8191879100269014, 0.23702494495879028, 0.7798145696425061]
+        ]
+    }
+});
 
 // // const neuron_json = {
 // //     "layers1": {
@@ -54,32 +54,7 @@ const ai_ball = ball;
 // //     }
 // // };
 
-// const ai_loaded = new Neuron_Network(neuron_json)
-// Example usage (for testing purposes)
-try {
-    const setupJson = JSON.stringify({
-        "layers1": {
-            "weights": [
-                [-0.8730789607358392, 0.5824308739012745, 1.4386435945576093],
-                [-0.2239885923499962, 0.3315438954533523, 1.3607337003901363],
-                [-0.5934591295652615, -1.9951332952168253, 0.2504200628910535],
-                [-1.1532241863386201, 0.22437054627430497, 0.8832272910500715],
-                [0.8191879100269014, 0.23702494495879028, 0.7798145696425061]
-            ]
-        }
-    });
-
-    console.log("Creating Neuron_Network...");
-    const ai_loaded = new Neuron_Network(setupJson);
-    console.log("Neuron_Network created successfully");
-
-    const input = [[1, 2, 3, 4, 5]];
-    console.log("Running forward pass...");
-    const output = ai_loaded.forward(input);
-    console.log("Forward pass result:", output);
-} catch (error) {
-    console.error("Error in example usage:", error);
-}
+const ai_loaded = new Neuron_Network(neuron_json)
 
 const leftPaddle = {
     x: 0,
