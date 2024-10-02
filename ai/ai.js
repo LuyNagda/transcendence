@@ -5,6 +5,7 @@ class Layer_Dense {
 
     forward(inputs){
         this.output = this.matrixDot(inputs, this.weights)
+        return this.output
     }
 
     matrixDot(a, b) {
@@ -16,72 +17,52 @@ class Layer_Dense {
     };
 }
 
+// (Rectified Linear Unit) 
 class Activation_ReLU {
     forward(inputs) {
-        this.output = inputs.map(row => row.map(val = Math.max(0, val)))
-        
-        return this.output
+        this.output = inputs.map(row => Array.isArray(row) ? row.map(val => Math.max(0, val)) : Math.max(0, row));
+        return this.output;
     }
 }
 
 class Activation_SoftMax {
     forward(inputs) {
         const exp_values = inputs.map(row => {
-            const max_value = Math.max(...row)
-            return row.map(val => Math.exp(val - max_value))
-        })
+            const max_value = Math.max(...(Array.isArray(row) ? row : [row]));
+            return Array.isArray(row) ? row.map(val => Math.exp(val - max_value)) : Math.exp(row - max_value);
+        });
 
-        const sum_exp_values = exp_values.map(row => row.reduce((a, b) => a + b, 0))
+        const sum_exp_values = exp_values.map(row => Array.isArray(row) ? row.reduce((a, b) => a + b, 0) : row);
 
         this.output = exp_values.map((row, i) =>
-            row.map(val => val / sum_exp_values[i])
-        )
+            Array.isArray(row) ? row.map(val => val / sum_exp_values[i]) : row / sum_exp_values[i]
+        );
 
-        return this.output
+        return this.output;
     }
 }
 
 export class Neuron_Network {
     constructor(neuron_json) {
-        // let setup = JSON.parse(neuron_json)
-
-        let setup;
-        if (typeof neuron_json === 'string') {
-            try {
-                setup = JSON.parse(neuron_json);
-            } catch (e) {
-                console.error("Error parsing JSON:", e);
-                throw new Error("Invalid JSON string provided");
-            }
-        } else if (typeof neuron_json === 'object') {
-            setup = neuron_json;
-        } else {
-            throw new Error("Invalid setup provided. Must be a JSON string or object.");
+        const setup = JSON.parse(neuron_json);
+        if (!setup || !setup.layer1 || !setup.layer1.weights) {
+            throw new Error("Invalid neuron_json structure. Expected {layer1: {weights: [...]}}")
         }
-
-        if (!setup || !setup.layers1 || !setup.layers1.weights) {
-            throw new Error("Invalid setup structure. Must contain layers1.weights.");
-        }
-
-        this.layer1 = new Layer_Dense(setup.layer1.weights)
-        this.activation1 = new Activation_ReLU()
-        this.activation2 = new Activation_SoftMax()
-        console.log("NeuronNetwork constructor called with:", neuron_json);
-        console.log("Type of neuron_json:", typeof neuron_json);
-
+        this.layer1 = new Layer_Dense(setup.layer1.weights);
+        this.activation1 = new Activation_ReLU();
+        this.activation2 = new Activation_SoftMax();
     }
 
     forward(inputs) {
-        let output = this.layer1.forward(inputs)
-        output = this.activation1.forward(output)
-        output = this.activation2.forward(output)
-
-        return output
+        let output = this.layer1.forward(inputs);
+        output = this.activation1.forward(output);
+        output = this.activation2.forward(output);
+        return output;
     }
-    
+
     toDict() {
         return {
-            layers1: {
+            layer1: {
                 weights: this.layer1.weights
             }
         };
