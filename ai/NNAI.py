@@ -44,7 +44,7 @@ class Neuron_Network:
     
     def to_dict(self):
         return {
-            "layers1": {
+            "layer1": {
                 "weights" : self.layer1.weights.tolist()
             }
         }
