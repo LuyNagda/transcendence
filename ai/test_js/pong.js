@@ -10,7 +10,7 @@ const HEIGHT = 600;
 // Paddle settings
 const PADDLE_WIDTH = 15;
 const PADDLE_HEIGHT = 90;
-const PADDLE_SPEED = 5;
+const PADDLE_SPEED = 6;
 
 // Ball settings
 const BALL_SIZE = 15;
@@ -29,32 +29,43 @@ const ball = {
 
 const ai_ball = ball;
 
+// Function to reset the ball with random direction
+function resetBall() {
+    ball.x = WIDTH / 2;
+    ball.y = HEIGHT / 2;
+    
+    // Randomly choose left or right direction
+    const direction1 = Math.random() < 0.5 ? -1 : 1;
+    const direction2 = Math.random() < 0.5 ? -1 : 1;
+    
+    ball.dx = direction1 * ball.dx;
+    ball.dy = direction2 * ball.dy;
+    
+    // Update ai_ball
+    Object.assign(ai_ball, ball);
+}
+
 // AI setting
-const neuron_json = JSON.stringify({
-    "layers1": {
-        "weights": [
-            [-0.8730789607358392, 0.5824308739012745, 1.4386435945576093],
-            [-0.2239885923499962, 0.3315438954533523, 1.3607337003901363],
-            [-0.5934591295652615, -1.9951332952168253, 0.2504200628910535],
-            [-1.1532241863386201, 0.22437054627430497, 0.8832272910500715],
-            [0.8191879100269014, 0.23702494495879028, 0.7798145696425061]
-        ]
-    }
-});
+let ai_loaded;
 
-// // const neuron_json = {
-// //     "layers1": {
-// //         "weights": [
-// //             [-0.8730789607358392, 0.5824308739012745, 1.4386435945576093],
-// //             [-0.2239885923499962, 0.3315438954533523, 1.3607337003901363],
-// //             [-0.5934591295652615, -1.9951332952168253, 0.2504200628910535],
-// //             [-1.1532241863386201, 0.22437054627430497, 0.8832272910500715],
-// //             [0.8191879100269014, 0.23702494495879028, 0.7798145696425061]
-// //         ]
-// //     }
-// // };
+try {
+    const setupJson = JSON.stringify({
+        "layer1": {
+            "weights": [
+                [-0.8730789607358392, 0.5824308739012745, 1.4386435945576093],
+                [-0.2239885923499962, 0.3315438954533523, 1.3607337003901363],
+                [-0.5934591295652615, -1.9951332952168253, 0.2504200628910535],
+                [-1.1532241863386201, 0.22437054627430497, 0.8832272910500715],
+                [0.8191879100269014, 0.23702494495879028, 0.7798145696425061]
+            ]
+        }
+    });
 
-const ai_loaded = new Neuron_Network(neuron_json)
+    ai_loaded = new Neuron_Network(setupJson);
+} catch (error) {
+    console.error("Error in Neuron_Network initialization:", error);
+    ai_loaded = null;
+}
 
 const leftPaddle = {
     x: 0,
@@ -92,8 +103,12 @@ document.addEventListener('keyup', (e) => {
 });
 
 function AI_decision(ai, rightPaddle, ai_ball, HEIGHT) {
-    let X = [ai_ball.x / HEIGHT, ai_ball.y / HEIGHT, ai_ball.dx, ai_ball.dy, rightPaddle.y]
-    return ai.forward(X)
+    if (!ai)    // If no AI is provided, the paddle wont't move
+        return 1;
+    
+    let X = [[ai_ball.x / HEIGHT, ai_ball.y / HEIGHT, ai_ball.dx, ai_ball.dy, rightPaddle.y / HEIGHT]];
+    let result = ai.forward(X);
+    return result[0].indexOf(Math.max(...result[0]));
 }
 
 function movePaddles() {
@@ -142,8 +157,7 @@ function moveBall() {
 
     // Reset ball if it goes out of bounds
     if (ball.x < 0 || ball.x + ball.width > WIDTH) {
-        ball.x = WIDTH / 2;
-        ball.y = HEIGHT / 2;
+        resetBall();
     }
 
     updateAiBall();
@@ -169,4 +183,5 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+resetBall();
 gameLoop();
