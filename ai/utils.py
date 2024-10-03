@@ -4,9 +4,9 @@ import random
 WIDTH = 800
 HEIGHT = 600
 
-DISPLAY_GAME = "no"
+DISPLAY_GAME = "yes"
 DYSPLAY_LOG = "yes"
-AI_DELAY = "no"
+AI_DELAY = "yes"
 MAX_SCORE = 10
 NB_GENERATION = 100
 NB_SPECIES = 50
