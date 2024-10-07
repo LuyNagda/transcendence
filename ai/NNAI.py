@@ -36,6 +36,12 @@ class Neuron_Network:
         self.activation2 = Activation_SoftMax()
         self.ai_score = 0
 
+    def forward(self,inputs):
+        layer1 = self.layer1.forward(inputs)
+        activation1 = self.activation1.forward(layer1)
+        output = self.activation2.forward(activation1)
+        return output
+
     def __lt__(self, other):
         return ((self.ai_score) < (other.ai_score))
     
