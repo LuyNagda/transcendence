@@ -2,18 +2,11 @@ import pygame, random, time
 import numpy as np
 from utils import opponent_ball, reset_ball, WIDTH, HEIGHT, AI_DELAY, MAX_SCORE, MAX_FRAME_RATE, WHITE, BLACK, PADDLE_HEIGHT, PADDLE_SPEED, PADDLE_WIDTH, BALL_SIZE, BALL_SPEED_X,BALL_SPEED_Y
 
-def AI_neurons(ai, X):
-    ai.layer1.forward(X)
-    ai.activation1.forward(ai.layer1.output)
-
-    ai.activation2.forward(ai.activation1.output)
-    ai_response = np.argmax(ai.activation2.output)
-
-    return ai_response
-
 def AI_decision(ai, opponent, ai_ball, HEIGHT):
     X = [ai_ball.x / HEIGHT, ai_ball.y / HEIGHT, ai_ball.dx, ai_ball.dy, opponent.y]
-    return AI_neurons(ai, X)
+
+    ai_response = np.argmax(ai.forward(X))
+    return ai_response
 
 def pong_game(Ai_selected, SHOW_MATCH):
     # Initialize Pygame
@@ -42,7 +35,7 @@ def pong_game(Ai_selected, SHOW_MATCH):
     # Font for score display
     font = pygame.font.Font(None, 36)
 
-    # Update opponent's target position every second
+    # Update opponent's target position
     ai_ball = opponent_ball()
     ai_ball.x = ball.x
     ai_ball.y = ball.y
@@ -184,6 +177,19 @@ def play_Ai(Ai, demo):
     ball_dx = BALL_SPEED_X * random.choice((1, -1))
     ball_dy = BALL_SPEED_Y * random.choice((1, -1))
 
+    # Update opponent's target position
+    ai_ball = opponent_ball()
+    ai_ball.x = ball.x
+    ai_ball.y = ball.y
+    ai_ball.dx = ball_dx
+    ai_ball.dy = ball_dy
+
+    ai2_ball = opponent_ball()
+    ai2_ball.x = WIDTH - ball.x
+    ai2_ball.y = ball.y
+    ai2_ball.dx = ball_dx * -1
+    ai2_ball.dy = ball_dy
+
     # Score
     player_score = 0
     opponent_score = 0
@@ -205,10 +211,6 @@ def play_Ai(Ai, demo):
         if keys[pygame.K_ESCAPE]:
             pygame.quit()
             return "STOP"
-
-        # Update opponent's target position every second
-        ai_ball = opponent_ball()
-        ai2_ball = opponent_ball()
 
         if (AI_DELAY == "yes"):
             current_time = time.time()

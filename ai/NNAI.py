@@ -16,10 +16,12 @@ class Layer_Dense:
     def forward(self, inputs):
         # Output are calculate by multiplying each input with theirs weight and then adding the biaises
         self.output = np.dot(inputs, self.weights) + self.biases
+        return self.output
 
 class Activation_ReLU:
     def forward(self, inputs):
         self.output = np.maximum(0, inputs)
+        return self.output
 
 class Activation_SoftMax:
     def forward(self, inputs):
@@ -28,6 +30,7 @@ class Activation_SoftMax:
 
         probabilities = exp_values / np.sum(exp_values, axis=1, keepdims=True)
         self.output = probabilities
+        return self.output
 
 class Neuron_Network:
     def __init__(self):
@@ -36,11 +39,11 @@ class Neuron_Network:
         self.activation2 = Activation_SoftMax()
         self.ai_score = 0
 
-    def forward(self,inputs):
-        layer1 = self.layer1.forward(inputs)
-        activation1 = self.activation1.forward(layer1)
-        output = self.activation2.forward(activation1)
-        return output
+    def forward(self, inputs):
+        self.output = self.layer1.forward(inputs)
+        self.output = self.activation1.forward(self.output)
+        self.output = self.activation2.forward(self.output)
+        return self.output
 
     def __lt__(self, other):
         return ((self.ai_score) < (other.ai_score))
