@@ -102,15 +102,6 @@ document.addEventListener('keyup', (e) => {
     }
 });
 
-function AI_decision(ai, rightPaddle, ai_ball, HEIGHT) {
-    if (!ai)    // If no AI is provided, the paddle wont't move
-        return 1;
-    
-    let X = [[ai_ball.x / HEIGHT, ai_ball.y / HEIGHT, ai_ball.dx, ai_ball.dy, rightPaddle.y / HEIGHT]];
-    let result = ai.forward(X);
-    return result[0].indexOf(Math.max(...result[0]));
-}
-
 function movePaddles() {
     if (keys.w && leftPaddle.y > 0) {
         leftPaddle.y -= leftPaddle.dy;
@@ -118,8 +109,8 @@ function movePaddles() {
     if (keys.s && leftPaddle.y < HEIGHT - leftPaddle.height) {
         leftPaddle.y += leftPaddle.dy;
     }
-
-    switch(AI_decision(ai_loaded, rightPaddle, ai_ball, HEIGHT)) {
+    
+    switch(ai_loaded.decision(rightPaddle, ai_ball, HEIGHT)) {
         case 0:
             if (rightPaddle.y > 0)
                 rightPaddle.y -= rightPaddle.dy;

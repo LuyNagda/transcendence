@@ -17,7 +17,6 @@ class Layer_Dense {
     };
 }
 
-// (Rectified Linear Unit) 
 class Activation_ReLU {
     forward(inputs) {
         this.output = inputs.map(row => Array.isArray(row) ? row.map(val => Math.max(0, val)) : Math.max(0, row));
@@ -58,6 +57,12 @@ export class Neuron_Network {
         output = this.activation1.forward(output);
         output = this.activation2.forward(output);
         return output;
+    }
+
+    decision(paddle, ball, height) {
+        let X = [[ball.x / height, ball.y / height, ball.dx, ball.dy, paddle.y / height]];
+        let result = this.forward(X);
+        return result[0].indexOf(Math.max(...result[0]));
     }
 
     toDict() {
