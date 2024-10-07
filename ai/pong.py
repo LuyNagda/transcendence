@@ -1,12 +1,5 @@
 import pygame, random, time
-import numpy as np
 from utils import opponent_ball, reset_ball, WIDTH, HEIGHT, AI_DELAY, MAX_SCORE, MAX_FRAME_RATE, WHITE, BLACK, PADDLE_HEIGHT, PADDLE_SPEED, PADDLE_WIDTH, BALL_SIZE, BALL_SPEED_X,BALL_SPEED_Y
-
-def AI_decision(ai, opponent, ai_ball, HEIGHT):
-    X = [ai_ball.x / HEIGHT, ai_ball.y / HEIGHT, ai_ball.dx, ai_ball.dy, opponent.y]
-
-    ai_response = np.argmax(ai.forward(X))
-    return ai_response
 
 def pong_game(Ai_selected, SHOW_MATCH):
     # Initialize Pygame
@@ -118,7 +111,7 @@ def pong_game(Ai_selected, SHOW_MATCH):
             player.y += PADDLE_SPEED
 
         # Move the opponent's paddle
-        match (AI_decision(Ai_selected, opponent, ai_ball, HEIGHT)):
+        match (Ai_selected.decision(opponent, ai_ball, HEIGHT)):
             case 0:
                 if opponent.top > 0:
                     opponent.y -= PADDLE_SPEED
@@ -240,7 +233,7 @@ def play_Ai(Ai, demo):
 
         # Move the player's paddle by AI
         if (demo == "yes"):
-            match (AI_decision(Ai, opponent, ai2_ball, HEIGHT)):
+            match (Ai.decision(opponent, ai2_ball, HEIGHT)):
                 case 0:
                     if player.top > 0:
                         player.y -= PADDLE_SPEED
@@ -257,7 +250,7 @@ def play_Ai(Ai, demo):
                 player.y += PADDLE_SPEED
 
         # Move the opponent's paddle
-        match (AI_decision(Ai, opponent, ai_ball, HEIGHT)):
+        match (Ai.decision(opponent, ai_ball, HEIGHT)):
             case 0:
                 if opponent.top > 0:
                     opponent.y -= PADDLE_SPEED

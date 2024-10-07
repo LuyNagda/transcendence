@@ -18,11 +18,13 @@ class Layer_Dense:
         self.output = np.dot(inputs, self.weights) + self.biases
         return self.output
 
+# Activation Rectified Linear Unit is use to only use positives outputs
 class Activation_ReLU:
     def forward(self, inputs):
         self.output = np.maximum(0, inputs)
         return self.output
 
+# Transforme the inputs into probabilities
 class Activation_SoftMax:
     def forward(self, inputs):
         # Protect from overflow. In case of batch inputs, keeps it in the rigth format
@@ -44,6 +46,12 @@ class Neuron_Network:
         self.output = self.activation1.forward(self.output)
         self.output = self.activation2.forward(self.output)
         return self.output
+    
+    def decision(self, paddle, ball, height):
+        X = [ball.x / height, ball.y / height, ball.dx, ball.dy, paddle.y]
+        response = np.argmax(self.forward(X))
+
+        return response
 
     def __lt__(self, other):
         return ((self.ai_score) < (other.ai_score))
@@ -159,7 +167,7 @@ def train_Ai(save_file, base):
         for i in range(NB_SPECIES):
             Ai_Sample[i].ai_score = 0
             if pong_game(Ai_Sample[i], DISPLAY_GAME) == "STOP":
-                break
+                return
             if (DYSPLAY_LOG == "yes"):
                 print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
         Save_Best_Ai(Ai_Sample, save_file)
