@@ -1,5 +1,5 @@
 import os, sys
-from NNAI import train_Ai, load_Ai
+from ai import train_Ai, load_Ai
 from utils import SAVE_FILE, SAVE_FOLDER
 from pong import play_Ai
 

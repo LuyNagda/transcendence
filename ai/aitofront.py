@@ -1,6 +1,6 @@
 import os, pickle, json
 from utils import SAVE_FILE, SAVE_FOLDER
-from NNAI import Neuron_Network
+from ai import Neuron_Network
 
 def main():
     file_path = os.path.join(SAVE_FOLDER, SAVE_FILE)
