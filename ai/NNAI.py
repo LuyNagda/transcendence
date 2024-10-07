@@ -48,7 +48,9 @@ class Neuron_Network:
         return self.output
     
     def decision(self, paddle, ball, height):
-        X = [ball.x / height, ball.y / height, ball.dx, ball.dy, paddle.y]
+        X = [ball.x / height, ball.y / height, ball.dx, ball.dy, paddle.y / height]
+
+        print("paddle.y = ", paddle.y)
         response = np.argmax(self.forward(X))
 
         return response
