@@ -1,6 +1,6 @@
 FROM python:3.9-slim-bookworm AS builder
 
-RUN apt-get update && apt-get install -y curl make git libpq-dev python3-venv nodejs npm
+RUN apt-get update && apt-get install -y libpq-dev python3-venv nodejs npm
 
 WORKDIR /app
 
