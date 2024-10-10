@@ -71,9 +71,6 @@ def login_view(request):
                 response = redirect('index')
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
-                response['HX-Trigger'] = json.dumps({
-                    'updateUserId': { 'userId': user.id }
-                })
                 logger.info(f"User {username} logged in successfully", extra={'user_id': user.id})
                 return response
             else:
@@ -127,17 +124,11 @@ def logout_view(request):
             logger.info(f"User {username} logged out", extra={'user_id': user_id})
         except Exception as logout_error:
             logger.error(f"Error during Django logout for user {username} (ID: {user_id}): {str(logout_error)}")
-
-        logger.info(f"User {username} logged out", extra={'user_id': user_id})
         
-        # Create a response, delete the tokens and update the user id
+        # Create a response and delete the tokens
         response = redirect('login')
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
-        response['HX-Trigger'] = json.dumps({
-            'updateUserId': { 'userId': 'None' }
-        })
-        
         return response
 
     except Exception as e:

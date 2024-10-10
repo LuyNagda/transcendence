@@ -1,4 +1,4 @@
-import logging
+import logging, json
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections
@@ -76,6 +76,31 @@ class JWTAuthMiddlewareInstance:
         log.debug(f"Final user authentication status: {self.scope['user'].is_authenticated}", extra={'user_id': self.scope['user'].id if self.scope['user'].is_authenticated else 'N/A'})
 
         return await self.inner(self.scope, receive, send)
+    
+class HtmxUserMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        
+        if 'HX-Request' in request.headers:
+            user_id = request.user.id if request.user.is_authenticated else None
+            new_trigger = {'updateUserId': {'userId': user_id}}
+            
+            existing_trigger = response.get('HX-Trigger')
+            if existing_trigger:
+                try:
+                    existing_trigger_dict = json.loads(existing_trigger)
+                    existing_trigger_dict.update(new_trigger)
+                    response['HX-Trigger'] = json.dumps(existing_trigger_dict)
+                except json.JSONDecodeError:
+                    # If existing trigger is not valid JSON, overwrite it
+                    response['HX-Trigger'] = json.dumps(new_trigger)
+            else:
+                response['HX-Trigger'] = json.dumps(new_trigger)
+        
+        return response
 
 class RedirectOn401Middleware:
     def __init__(self, get_response):

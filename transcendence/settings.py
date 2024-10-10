@@ -119,6 +119,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
     'authentication.middleware.RedirectOn401Middleware',
+    'authentication.middleware.HtmxUserMiddleware',
 ]
 
 ROOT_URLCONF = 'transcendence.urls'
