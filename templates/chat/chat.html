@@ -1,6 +1,7 @@
 {% load static %}
 
-<div class="offcanvas offcanvas-start w-50" tabindex="-1" id="chatCanvas" aria-labelledby="chatCanvas">
+{% block content %}
+<div class="offcanvas offcanvas-start w-50" data-bs-backdrop="static" tabindex="-1" id="chatCanvas" aria-labelledby="chatCanvas">
 	<div class="offcanvas-header">
 		<h4 class="offcanvas-title">Chat</h4>
 		<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
