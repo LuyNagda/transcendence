@@ -34,7 +34,7 @@ class Logger {
 			this.queue.push({ level, messages });
 			return;
 		}
-		if (this.levels[level.toUpperCase()] >= this.currentLevel) {
+		if (this.debugSettings && this.levels[level.toUpperCase()] >= this.currentLevel) {
 			console[level.toLowerCase()](...messages);
 		}
 	}
@@ -56,7 +56,6 @@ class Logger {
 	}
 }
 
-export default Logger;
-
 // Create and export a global logger instance
-export const logger = new Logger();
+const logger = new Logger();
+export default logger;

@@ -1,3 +1,4 @@
+import logger from '../utils/logger.js';
 import WSService from './WSService.js';
 import UserService from './UserService.js';
 import MessageService from './MessageService.js';
@@ -25,7 +26,7 @@ export default class ChatApp {
 	}
 
 	handleMessage(data) {
-		console.debug("Received data:", data);
+		logger.debug("Received data:", data);
 		switch (data.type) {
 			case 'chat_message':
 				this.messageService.addMessage(data.message, data.sender_id, data.timestamp, false);
@@ -47,17 +48,17 @@ export default class ChatApp {
 				alert("Error: " + data.error);
 				break;
 			default:
-				console.warn('Unknown message type:', data.type);
+				logger.warn('Unknown message type:', data.type);
 		}
 	}
 
 	handleClose() {
-		console.warn('WebSocket closed.');
+		logger.warn('WebSocket closed.');
 		this.WSService.handleReconnection();
 	}
 
 	handleOpen() {
-		console.debug('WebSocket connection established');
+		logger.debug('WebSocket connection established');
 		this.reconnectAttempts = 0;
 		this.WSService.processQueue();
 	}
@@ -80,7 +81,7 @@ export default class ChatApp {
 			return;
 		}
 
-		console.info(`Sending message to user ${recipientId}: ${message}`);
+		logger.info(`Sending message to user ${recipientId}: ${message}`);
 		this.WSService.send({
 			type: 'chat_message',
 			message: message,
@@ -116,20 +117,20 @@ export default class ChatApp {
 			.then(data => {
 				this.uiHandler.messageHistory.innerHTML = '';
 				this.messageCountByUser[userId] = data.length;
-				console.debug("Message history loaded:", data);
+				logger.debug("Message history loaded:", data);
 				data.forEach(message => {
 					try {
 						const isSent = message.sender_id === this.userService.currentUserId;
 						this.messageService.addMessage(message.content, message.sender_id, new Date(message.timestamp), isSent);
 					} catch (error) {
-						console.error('Error adding message:', error);
+						logger.error('Error adding message:', error);
 					}
 				});
 				this.uiHandler.messageHistory.scrollTop = this.uiHandler.messageHistory.scrollHeight;
 				this.updateChatHeading(userId);
 			})
 			.catch(error => {
-				console.error('Error loading message history:', error);
+				logger.error('Error loading message history:', error);
 			});
 	}
 
@@ -173,7 +174,7 @@ export default class ChatApp {
 				}
 			})
 			.catch(error => {
-				console.error('Error:', error);
+				logger.error('Error:', error);
 				alert('An error occurred while processing your request.');
 			});
 	}

@@ -1,4 +1,4 @@
-import { logger } from './logger.js';
+import logger from './logger.js';
 
 export function initializeErrorHandling() {
 	window.onerror = function (message, source, lineno, colno, error) {

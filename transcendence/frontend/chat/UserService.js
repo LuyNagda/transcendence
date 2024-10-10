@@ -1,3 +1,5 @@
+import logger from '../utils/logger.js';
+
 export default class UserService {
 	constructor() {
 		this.currentUserId = this.getCurrentUserId();
@@ -6,7 +8,7 @@ export default class UserService {
 	getCurrentUserId() {
 		const userId = document.body.dataset.userId;
 		if (!userId) {
-			console.error('User ID not found in body dataset.');
+			logger.error('User ID not found in body dataset.');
 			return null;
 		}
 		return parseInt(userId, 10);

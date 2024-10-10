@@ -1,4 +1,4 @@
-import { logger } from './utils/logger.js';
+import logger from './utils/logger.js';
 import { initializeErrorHandling, initializeHtmxLogging } from './utils/htmx-debug.js';
 import { initializeThemeAndFontSize } from './utils/theme.js';
 import UserService from './UserService.js';

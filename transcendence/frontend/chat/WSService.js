@@ -1,3 +1,5 @@
+import logger from '../utils/logger.js';
+
 export default class WSService {
 	constructor(url) {
 		this.url = url;
@@ -20,14 +22,14 @@ export default class WSService {
 
 	setupUserIdWatcher() {
 		const userId = this.getUserId();
-		console.log('Initial user ID:', userId);
+		logger.debug('Initial user ID:', userId);
 		if (userId && userId !== 'None') {
 			this.connect();
 		} else {
-			console.log('No valid user ID found. Waiting for user ID...');
+			logger.debug('No valid user ID found. Waiting for user ID...');
 			this.userIdCheckInterval = setInterval(() => {
 				const newUserId = this.getUserId();
-				console.log('Checking for new user ID:', newUserId);
+				logger.debug('Checking for new user ID:', newUserId);
 				if (newUserId && newUserId !== 'None') {
 					this.connect();
 					clearInterval(this.userIdCheckInterval);
@@ -40,7 +42,7 @@ export default class WSService {
 		this.socket = new WebSocket(this.url);
 
 		this.socket.onopen = () => {
-			console.debug('WebSocket connected');
+			logger.debug('WebSocket connected');
 			this.isConnected = true;
 			this.reconnectAttempts = 0;
 			this.processQueue();
@@ -53,14 +55,14 @@ export default class WSService {
 		};
 
 		this.socket.onclose = (e) => {
-			console.warn(`WebSocket closed: ${e.code}, Reason: ${e.reason}`);
+			logger.warn(`WebSocket closed: ${e.code}, Reason: ${e.reason}`);
 			this.isConnected = false;
 			this.onCloseCallbacks.forEach(callback => callback(e));
 			this.handleReconnection();
 		};
 
 		this.socket.onerror = (err) => {
-			console.error('WebSocket error:', err);
+			logger.error('WebSocket error:', err);
 			this.onErrorCallbacks.forEach(callback => callback(err));
 		};
 	}
@@ -68,19 +70,19 @@ export default class WSService {
 	handleReconnection() {
 		const userId = this.getUserId();
 		if (!userId) {
-			console.log('No user ID available. Skipping reconnection.');
+			logger.debug('No user ID available. Skipping reconnection.');
 			return;
 		}
 
 		if (this.reconnectAttempts < this.maxReconnectAttempts) {
 			const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 60000);
-			console.info(`Reconnect attempt ${this.reconnectAttempts + 1} in ${delay}ms`);
+			logger.info(`Reconnect attempt ${this.reconnectAttempts + 1} in ${delay}ms`);
 			setTimeout(() => {
 				this.reconnectAttempts++;
 				this.connect();
 			}, delay);
 		} else {
-			console.error('Max reconnect attempts reached.');
+			logger.error('Max reconnect attempts reached.');
 			alert('Unable to reconnect. Please refresh the page.');
 		}
 	}
@@ -93,7 +95,7 @@ export default class WSService {
 			};
 			this.socket.send(JSON.stringify(messageWithToken));
 		} else {
-			console.warn('WebSocket not connected. Queueing message.');
+			logger.warn('WebSocket not connected. Queueing message.');
 			this.messageQueue.push(message);
 			if (this.socket.readyState === WebSocket.CLOSED) {
 				this.connect();
