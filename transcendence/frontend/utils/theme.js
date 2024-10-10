@@ -65,14 +65,7 @@ function initializeThemeAndFontSize() {
 
 	if (toggleFontSizeBtn) {
 		toggleFontSizeBtn.checked = sizeLocal === 'large';
-		toggleFontSizeBtn.addEventListener('click', function () {
-			applyFontSize(this.checked ? 'large' : 'small');
-		});
 	}
-
-	document.getElementById('light')?.addEventListener('click', () => applyTheme('light'));
-	document.getElementById('dark')?.addEventListener('click', () => applyTheme('dark'));
-	document.getElementById('highContrast')?.addEventListener('click', () => applyTheme('high-contrast'));
 }
 
 export { initializeThemeAndFontSize, applyTheme, applyFontSize };
