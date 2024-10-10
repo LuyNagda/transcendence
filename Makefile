@@ -21,7 +21,6 @@ export BUILD_TYPE ?= prod
 export MY_UID ?= $(id -u)
 export NGINX_PORT_1 ?= 8000
 export NGINX_PORT_2 ?= 8001
-export CONTAINER ?= transcendence-$(BUILD_TYPE)
 export PORT ?= 8080
 
 SRC_ENV = set -a; source $(ENV_FILE); set +a;
@@ -39,11 +38,11 @@ run: daemon
 	@make logs
 
 daemon:
-	$(SRC_ENV) BUILD_TYPE=prod docker compose --profile prod up -d
+	$(SRC_ENV) docker compose --profile prod up -d
 
 dev: build
 	npm run dev & \
-	$(SRC_ENV) DEBUG=True BUILD_TYPE=dev docker compose --profile dev up --watch
+	$(SRC_ENV) docker compose --profile dev up --watch
 
 $(VENV)/bin/activate: requirements.txt
 	python3 -m venv $(VENV)
