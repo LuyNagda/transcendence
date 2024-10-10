@@ -5,44 +5,50 @@ from django.db import models
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
+from django.core.serializers.json import DjangoJSONEncoder
+from django.forms.models import model_to_dict
 
 User = get_user_model()
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def chat_view(request):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     users = User.objects.exclude(id=request.user.id)
-    blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user', flat=True)
-    return render(request, 'chat/chat.html', {'users': users, 'blocked_users': blocked_users, 'access_token': access_token, 'refresh_token': refresh_token})
+    blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user_id', flat=True)
+    return render(request, 'chat/chat.html', {
+        'users': users,
+        'blocked_users': blocked_users
+    })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def message_history(request, recipient_id):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     messages = ChatMessage.objects.filter(
         (models.Q(sender=request.user) & models.Q(recipient_id=recipient_id)) |
         (models.Q(sender_id=recipient_id) & models.Q(recipient=request.user))
     ).order_by('timestamp')
-    return render(request, 'chat/messages.html', {'messages': messages, 'access_token': access_token, 'refresh_token': refresh_token})
 
-@api_view(['GET'])
+    message_list = []
+    for message in messages:
+        message_dict = model_to_dict(message, fields=['content', 'timestamp'])
+        message_dict['sender_id'] = message.sender.id
+        message_dict['recipient_id'] = message.recipient.id
+        message_dict['timestamp'] = message.timestamp.isoformat()
+        message_list.append(message_dict)
+
+    return JsonResponse(message_list, safe=False, encoder=DjangoJSONEncoder)
+
+@api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def block_user(request, user_id):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     BlockedUser.objects.create(user=request.user, blocked_user_id=user_id)
-    return JsonResponse({'success': True, 'access_token': access_token, 'refresh_token': refresh_token})
+    return JsonResponse({'success': True})
 
-@api_view(['GET'])
+@api_view(['DELETE'])
 @permission_classes([IsAuthenticatedWithCookie])
 def unblock_user(request, user_id):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     BlockedUser.objects.filter(user=request.user, blocked_user_id=user_id).delete()
-    return JsonResponse({'success': True, 'acess_token': access_token, 'refresh_token': refresh_token})
+    return JsonResponse({'success': True})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])

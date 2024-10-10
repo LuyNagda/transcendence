@@ -14,7 +14,8 @@ from pathlib import Path
 from django.contrib import messages
 import environ
 from datetime import timedelta
-
+import os
+from .logger import get_logging_config
 # Load environment variables from .env file
 env = environ.Env()
 environ.Env.read_env()
@@ -30,39 +31,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-zw-ma$(zm6#8=njdjxk+@gd32fa&fd$-&tjxv-m#upwl(gt&ay'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', default=True)
+DEBUG = env.bool('DEBUG')
 
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'root': {
-        'level': 'ERROR',
-        'handlers': ['console'],
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
-        },
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'WARNING',
-        },
-        'channels': {
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
-        },
-        'chat': {
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
-        },
-    },
-}
+LOG_LEVEL = env('LOG_LEVEL', default='DEBUG')
+
+LOGGING = get_logging_config(LOG_LEVEL)
 
 # Application definition
 
@@ -94,6 +67,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
     'authentication.middleware.RedirectOn401Middleware',
+    'authentication.middleware.HtmxUserMiddleware',
 ]
 
 ROOT_URLCONF = 'transcendence.urls'
@@ -109,6 +83,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'transcendence.context.global_context',
             ],
         },
     },
@@ -217,6 +192,10 @@ STATIC_ROOT = BASE_DIR / 'static'
 STATICFILES_DIRS = [
     BASE_DIR / 'transcendence' / 'static',
 ]
+
+# esbuild configuration
+ESBUILD_BIN_PATH = os.path.join(BASE_DIR, 'node_modules', '.bin', 'esbuild')
+ESBUILD_CONFIG_PATH = os.path.join(BASE_DIR, 'esbuild.config.js')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
