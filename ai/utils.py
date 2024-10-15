@@ -4,7 +4,7 @@ import random
 WIDTH = 800
 HEIGHT = 600
 
-DISPLAY_GAME = "no"
+DISPLAY_GAME = "yes"
 DYSPLAY_LOG = "yes"
 AI_DELAY = "no"
 MAX_SCORE = 10

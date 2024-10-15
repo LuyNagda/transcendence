@@ -1,7 +1,8 @@
 import os, sys
 from ai import train_Ai, load_Ai
 from utils import SAVE_FILE, SAVE_FOLDER
-from pong import play_Ai
+# from pong import play_Ai
+from game import play_Ai
 
 # Run the game
 def main():
