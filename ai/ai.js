@@ -41,7 +41,7 @@ class Activation_SoftMax {
     }
 }
 
-export class Neuron_Network {
+window.Neuron_Network = class {
     constructor(neuron_json) {
         const setup = JSON.parse(neuron_json);
         if (!setup || !setup.layer1 || !setup.layer1.weights) {
@@ -61,6 +61,7 @@ export class Neuron_Network {
 
     decision(paddle, ball, height) {
         let X = [[ball.x / height, ball.y / height, ball.dx, ball.dy, paddle.y / height]];
+        console.log(X)
         let result = this.forward(X);
         return result[0].indexOf(Math.max(...result[0]));
     }
