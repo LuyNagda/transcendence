@@ -1,60 +1,60 @@
-{% extends 'base.html' %}
 {% load static %}
-
-{% block content %}
-
-{% block navbar %}{% include "navbar.html" %}{% endblock %}
-
-<div class="container x-auto my-4">
-	<div class="row">
-		<div class="col-4 user-list" role="navigation" aria-labelledby="userListHeading">
-			<h3 id="userListHeading">Users</h3>
-			<ul class="rounded bg-dark-subtle m-0 p-3" style="list-style-type: none;">
-				{% for user in users %}
-				<li>
-					<button href="#" class="btn btn-transparent btn-sm me-1 user-chat" data-user-id="{{ user.id }}" aria-label="Chat with {{ user.name|default:user.username }}">
-						<img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 20px;" alt="{{ user.name|default:user.username }}'s profile picture">
-						{{ user.name|default:user.username }}
-						<span class="status-icon" aria-live="polite">
-							{% if user.id not in blocked_users %}
-							{% if user.online %}
-							&#x1F7E2; <!-- Green circle -->
-							{% else %}
-							&#x26AA; <!-- White circle -->
-							{% endif %}
-							{% else %}
-							&#x1F534; <!-- Red circle -->
-							{% endif %}
-						</span>
-					</button>
-				</li>
-				{% endfor %}
-			</ul>
-		</div>
-		<div class="col-8 chat-messages" role="region" aria-labelledby="chatHeading">
-			<div class="d-flex align-items-start">
-				<h3 id="chatHeading">Chat</h3>
-				<span class="mb-2 ms-2 p-1 badge rounded-pill bg-danger" aria-live="polite">
-					99+
-					<span class="visually-hidden">Unread messages</span>
-				</span>
+<div class="offcanvas offcanvas-start w-50" tabindex="-1" id="chatCanvas" aria-labelledby="chatCanvas">
+	<div class="offcanvas-header">
+		<h4 class="offcanvas-title">Chat</h4>
+		<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+	</div>
+	<div class="offcanvas-body">
+		<div class="row">
+			<div class="col-4 user-list" role="navigation" aria-labelledby="userListHeading">
+				<h5 id="userListHeading">Users</h5>
+				<ul class="rounded bg-dark-subtle m-0 p-3" style="list-style-type: none;">
+					{% for user in users %}
+					<li>
+						<button href="#" class="btn btn-transparent btn-sm me-1 user-chat" data-user-id="{{ user.id }}" aria-label="Chat with {{ user.name|default:user.username }}">
+							<img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 20px;" alt="{{ user.name|default:user.username }}'s profile picture">
+							{{ user.name|default:user.username }}
+							<span class="status-icon" aria-live="polite">
+								{% if user.id not in blocked_users %}
+								{% if user.online %}
+								&#x1F7E2; <!-- Green circle -->
+								{% else %}
+								&#x26AA; <!-- White circle -->
+								{% endif %}
+								{% else %}
+								&#x1F534; <!-- Red circle -->
+								{% endif %}
+							</span>
+						</button>
+					</li>
+					{% endfor %}
+				</ul>
 			</div>
-			<div class="rounded m-0 p-3" style="background-color: var(--bs-dark-bg-subtle);">
-				<div class="rounded p-3" style="background-color: var(--bs-light-bg-subtle);" id="message-history" aria-live="polite"></div>
-				<div id="chat-form-div" style="display: none;">
-					<form id="chat-form" class="d-flex mt-2" aria-labelledby="chatFormHeading">
-						<h4 id="chatFormHeading" class="visually-hidden">Chat Form</h4>
-						<input type="text" class="form-control me-1" placeholder="Type your message..." id="chat-message" aria-label="Message input">
-						<button class="btn btn-primary" type="submit" id="button-addon2" aria-label="Send message">Send</button>
-					</form>
-					<div class="mt-2">
-						{% if user.id not in blocked_users %}
-						<button class="btn btn-danger block-user" data-user-id="{{ user.id }}" aria-label="Block {{ user.name|default:user.username }}">Block</button>
-						{% else %}
-						<button class="btn btn-danger unblock-user" data-user-id="{{ user.id }}" aria-label="Unblock {{ user.name|default:user.username }}">Unblock</button>
-						{% endif %}
-						<button class="btn btn-success invite-user" data-user-id="{{ user.id }}" aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite to Pong</button>
-						<button class="btn btn-primary view-profile" data-user-id="{{ user.id }}" aria-label="View profile of {{ user.name|default:user.username }}">View Profile</button>
+			<div class="col-8 chat-messages" role="region" aria-labelledby="chatHeading">
+				<div class="d-flex align-items-start">
+					<h5 id="chatHeading">Chat</h5>
+					<span class="mb-2 ms-2 p-1 badge rounded-pill bg-danger" aria-live="polite">
+						99+
+						<span class="visually-hidden">Unread messages</span>
+					</span>
+				</div>
+				<div class="rounded m-0 p-3" style="background-color: var(--bs-dark-bg-subtle);">
+					<div class="rounded p-3" style="background-color: var(--bs-light-bg-subtle);" id="message-history" aria-live="polite"></div>
+					<div id="chat-form-div" style="display: none;">
+						<form id="chat-form" class="d-flex mt-2" aria-labelledby="chatFormHeading">
+							<h4 id="chatFormHeading" class="visually-hidden">Chat Form</h4>
+							<input type="text" class="form-control me-1" placeholder="Type your message..." id="chat-message" aria-label="Message input">
+							<button class="btn btn-primary" type="submit" id="button-addon2" aria-label="Send message">Send</button>
+						</form>
+						<div class="mt-2">
+							{% if user.id not in blocked_users %}
+							<button class="btn btn-danger block-user" data-user-id="{{ user.id }}" aria-label="Block {{ user.name|default:user.username }}">Block</button>
+							{% else %}
+							<button class="btn btn-danger unblock-user" data-user-id="{{ user.id }}" aria-label="Unblock {{ user.name|default:user.username }}">Unblock</button>
+							{% endif %}
+							<button class="btn btn-success invite-user" data-user-id="{{ user.id }}" aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite to Pong</button>
+							<button class="btn btn-primary view-profile" data-user-id="{{ user.id }}" aria-label="View profile of {{ user.name|default:user.username }}">View Profile</button>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -63,7 +63,3 @@
 </div>
 
 <script src="{% static '/js/chat.js' %}"></script>
-
-{% block footer %}{% include "footer.html" %}{% endblock %}
-
-{% endblock %}

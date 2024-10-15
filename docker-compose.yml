@@ -8,6 +8,8 @@ services:
     volumes:
       - ./media:/app/media
       - ssl_certs:/certs
+      - ./:/app
+      - /app/static:/app/static
     depends_on:
       db:
         condition: service_healthy
@@ -82,17 +84,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          "CMD",
-          "pg_isready",
-          "-U",
-          "${DB_USER}",
-          "-h",
-          "localhost",
-          "-d",
-          "${DB_NAME}"
-        ]
+      test: [ "CMD", "pg_isready", "-U", "${DB_USER}", "-h", "localhost", "-d", "${DB_NAME}" ]
       interval: 1s
       retries: 30
       start_period: 40s

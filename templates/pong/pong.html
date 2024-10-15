@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+
+{% block title %}Pong Game{% endblock %}
+
+{% block content %}
+
+{% block navbar %}{% include "navbar.html" %}{% endblock %}
+
+<div id="index" class="container x-auto my-4">
+    <header class="text-center my-5">
+        <h1>Bienvenue sur le Jeu Pong</h1>
+        <p>Jouez à Pong en temps réel contre d'autres joueurs !</p>
+    </header>
+    <main>
+        <section id="about" class="my-5">
+            <h2>À propos du jeu</h2>
+            <p>Pong est un jeu de tennis de table en 2D. Le but est de marquer des points en envoyant la balle dans le camp de l'adversaire.</p>
+        </section>
+        <section id="features" class="my-5">
+            <h2>Fonctionnalités</h2>
+            <ul>
+                <li>Jeu en temps réel contre d'autres joueurs</li>
+                <li>Tournois et matchmaking</li>
+                <li>Chat en direct</li>
+                <li>Statistiques de jeu</li>
+            </ul>
+        </section>
+        <section id="cta" class="text-center my-5">
+            <h2>Prêt à jouer ?</h2>
+            <form action="{% url 'create_pong_room' %}" method="post" hx-post="{% url 'create_pong_room' %}" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">Commencer une partie</button>
+            </form>
+        </section>
+    </main>
+</div>
+
+{% block footer %}{% include "footer.html" %}{% endblock %}
+
+{% endblock %}

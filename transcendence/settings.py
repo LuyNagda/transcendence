@@ -30,7 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-zw-ma$(zm6#8=njdjxk+@gd32fa&fd$-&tjxv-m#upwl(gt&ay'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool('DEBUG', default=True)
 
 LOGGING = {
     'version': 1,
@@ -68,11 +68,6 @@ LOGGING = {
     },
 }
 
-BUGSNAG = {
-    'api_key': env('BUGSNAG_KEY'),
-    'project_root': BASE_DIR,
-}
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -86,10 +81,12 @@ INSTALLED_APPS = [
     'channels',
     'authentication',
     'chat',
+    'pong',
     'corsheaders',  # Added 'corsheaders' to INSTALLED_APPS
     'rest_framework_simplejwt',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+    'bugsnag.django',  # Added 'bugsnag.django' to INSTALLED_APPS
 ]
 
 MIDDLEWARE = [
@@ -204,6 +201,20 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
+
+if not DEBUG:
+    BUGSNAG = {
+        'api_key': env('BUGSNAG_KEY', default=None),
+        'project_root': BASE_DIR,
+    }
+
+    if BUGSNAG['api_key']:
+        MIDDLEWARE = ['bugsnag.django.middleware.BugsnagMiddleware'] + MIDDLEWARE
+        INSTALLED_APPS.append('bugsnag.django')
+
+    LOGGING['root']['handlers'] = ['bugsnag']
+else:
+    LOGGING['root']['handlers'] = ['console']
 
 
 # Static files (CSS, JavaScript, Images)
