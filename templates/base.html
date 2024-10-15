@@ -3,19 +3,19 @@
 <html data-bs-theme="light">
 
 <head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>{% block title %}Transcendence{% endblock %}</title>
-	<link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
-	<link href="{% static 'bootstrap/css/bootstrap.css' %}" rel="stylesheet">
-	<script src="https://unpkg.com/htmx.org@1.9.12"></script>
-	<script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Transcendence{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <link href="{% static 'bootstrap/css/bootstrap.css' %}" rel="stylesheet">
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 </head>
 
 <body data-user-id="{{ user.id|default:'None' }}" data-debug="{{ debug }}" data-log-level="{{ log_level }}">
-	<main id="content">
-		{% block content %}{% endblock %}
-	</main>
+    <main id="content">
+        {% block content %}{% endblock %}
+    </main>
 </body>
 
 <script type="module" src="{% static 'js/main.js' %}"></script>

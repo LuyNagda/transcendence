@@ -8,6 +8,10 @@ from authentication.decorators import IsAuthenticatedWithCookie
 from django.db import models
 import uuid
 import logging
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from django.db import IntegrityError
+from django.utils import timezone
 
 User = get_user_model()
 
@@ -39,13 +43,28 @@ def game_history(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def create_pong_room(request):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
-    players = [request.user]
-    room_id = str(uuid.uuid4())[:8]
-    room = PongRoom.objects.create(room_id=room_id)
-    room.players.set(players)
-    return redirect('pong_room', room_id=room.room_id)
+    try:
+        room_id = str(uuid.uuid4())[:8]
+        room = PongRoom.objects.create(
+            room_id=room_id,
+            owner=request.user,
+            mode=PongRoom.Mode.CLASSIC
+        )
+        room.players.add(request.user)
+        
+        return JsonResponse({
+            'status': 'success',
+            'room_id': room.room_id,
+            'mode': room.get_mode_display(),
+            'player_count': 1,
+            'max_players': room.max_players
+        })
+    except Exception as e:
+        logger.error(f"Erreur lors de la création de la salle : {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Impossible de créer la salle'
+        }, status=500)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -72,32 +91,20 @@ def pong_game(request, game_id):
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def pong_room_view(request, room_id):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     room = get_object_or_404(PongRoom, room_id=room_id)
-    
-    if request.method == 'POST':
-        mode = request.POST.get('mode')
-        room.mode = mode
-        room.save()
-        if mode == PongRoom.Mode.AI:
-            # Logique pour jouer contre l'AI
-            pass
-        elif mode == PongRoom.Mode.CLASSIC:
-            # Logique pour inviter un ami ou lancer un matchmaking
-            pass
-        elif mode == PongRoom.Mode.RANKED:
-            # Logique pour lancer un matchmaking
-            pass
-        elif mode == PongRoom.Mode.TOURNAMENT:
-            # Logique pour inviter des amis ou lancer un matchmaking
-            pass
-        return redirect('pong_room', room_id=room.room_id)
-    
-    return render(request, 'pong/pong-room.html', {
-        'room': room,
-        'access_token': access_token,
-        'refresh_token': refresh_token
+    room_state = {
+        'mode': room.get_mode_display(),
+        'owner': room.owner.username,
+        'players': list(room.players.values('id', 'username')),
+        'pending_invitations': list(room.pending_invitations.values('id', 'username')),
+        'max_players': room.max_players,
+        'available_slots': max(0, room.max_players - room.players.count() - room.pending_invitations.count()),
+        'state': 'LOBBY',
+    }
+    return render(request, 'pong/pong_room.html', {
+        'room': room, 
+        'room_state': room_state,
+        'current_user': request.user
     })
 
 @api_view(['POST'])
@@ -114,13 +121,36 @@ def invite_friend(request, room_id):
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def invite_friends(request, room_id):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     room = get_object_or_404(PongRoom, room_id=room_id)
     friend_ids = request.POST.getlist('friends')
     friends = User.objects.filter(id__in=friend_ids)
-    room.players.add(*friends)
-    return redirect('pong_room', room_id=room_id)
+
+    max_players = get_max_players_for_mode(room.mode)
+    current_players = room.players.count()
+    current_invitations = room.pending_invitations.count()
+    available_slots = max_players - current_players - current_invitations
+
+    if available_slots > 0:
+        invitations_to_send = min(available_slots, len(friends))
+        for friend in friends[:invitations_to_send]:
+            room.pending_invitations.add(friend)
+        
+        # Envoyer une mise à jour WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'pong_room_{room_id}',
+            {'type': 'update_players'}
+        )
+
+        return JsonResponse({"status": "invitations sent", "sent": invitations_to_send})
+    else:
+        return JsonResponse({"status": "room full", "sent": 0})
+
+def get_max_players_for_mode(mode):
+    if mode == 'TOURNAMENT':
+        return 8  # ou le nombre maximum de joueurs pour un tournoi
+    else:
+        return 2  # pour les modes CLASSIC et RANKED
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])

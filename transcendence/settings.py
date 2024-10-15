@@ -51,7 +51,7 @@ INSTALLED_APPS = [
     'authentication',
     'chat',
     'pong',
-    'corsheaders',  # Added 'corsheaders' to INSTALLED_APPS
+    'corsheaders',
     'rest_framework_simplejwt',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
@@ -127,9 +127,9 @@ DATABASES = {
 
 
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
 }
 
 
@@ -246,4 +246,3 @@ CORS_ALLOW_CREDENTIALS = True
 FT_CLIENT_ID = env('FT_CLIENT_ID')
 FT_CLIENT_SECRET = env('FT_CLIENT_SECRET')
 FT_REDIRECT_URI = env('FT_REDIRECT_URI')
-

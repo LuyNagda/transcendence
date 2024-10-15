@@ -21,12 +21,14 @@
         </section>
         <section id="cta" class="text-center my-5">
             <h2>Prêt à jouer ?</h2>
-            <form action="{% url 'create_pong_room' %}" method="post" hx-post="{% url 'create_pong_room' %}" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-primary">Commencer une partie</button>
-            </form>
+            <button id="create-room-btn" class="btn btn-primary">Commencer une partie</button>
         </section>
+        <div id="alert-container" class="mt-3" style="display: none;"></div>
     </main>
 </div>
 
-{% block footer %}{% include "footer.html" %}{% endblock %} {% endblock %}
+{% block footer %}{% include "footer.html" %}{% endblock %}
+
+<script src="{% static 'pong/js/pong_room_creation.js' %}"></script>
+
+{% endblock %}

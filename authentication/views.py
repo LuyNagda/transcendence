@@ -80,27 +80,28 @@ def login_view(request):
         else:
             logger.warning("Invalid form submission during login", extra={'user_id': user.id})
             messages.error(request, 'Invalid form submission.')
-
-    form = LoginForm()
-    FT_CLIENT_ID = settings.FT_CLIENT_ID
-    FT_REDIRECT_URI = settings.FT_REDIRECT_URI
-    context = {
-        'form': form,
-        'ft_client_id': FT_CLIENT_ID,
-        'ft_redirect_uri': FT_REDIRECT_URI,
-    }
-    response = render(request, 'login.html', context)
-    if 'access_token' in request.COOKIES:
-        response.delete_cookie('access_token')
-        response.delete_cookie('refresh_token')
-    return response
+    else:
+        form = LoginForm()
+    return render(request, 'login.html', {'form': form})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def index(request):
+    User = get_user_model()
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
-    return render(request, 'index.html', {'user': request.user, 'access_token': access_token, 'refresh_token': refresh_token})
+    
+    users = User.objects.all()  
+    blocked_users = request.user.blocked_users.all() if hasattr(request.user, 'blocked_users') else []
+    
+    context = {
+        'user': request.user,
+        'access_token': access_token,
+        'refresh_token': refresh_token,
+        'users': users,
+        'blocked_users': blocked_users,
+    }
+    return render(request, 'index.html', context)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
