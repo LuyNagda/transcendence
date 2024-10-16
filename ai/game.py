@@ -1,4 +1,4 @@
-import pygame, random, time
+import pygame, random, time, math
 
 # Set up the game window
 WIDTH = 80 * 6
@@ -10,7 +10,7 @@ AI_DELAY = "no"
 MAX_SCORE = 10
 NB_GENERATION = 100
 NB_SPECIES = 50
-MAX_FRAME_RATE = 0  # 0 = unlimited
+MAX_FRAME_RATE = 40  # 0 = unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
 SAVE_AI = "yes"
@@ -29,7 +29,7 @@ PADDLE_SPEED = 2
 BALL_SPEED = 2
 BALL_SIZE = 5
 
-class opponent_ball:
+class AI_ball:
     x: int
     y: int
     dx: int
@@ -40,8 +40,27 @@ class opponent_ball:
 
 def reset_ball(ball):
     ball.center = (WIDTH//2, HEIGHT//2)
-    return BALL_SPEED_X * random.choice((1, -1)), BALL_SPEED_Y * random.choice((1, -1))
 
+def update_AI_ball(ball, ai_ball, ball_dx, ball_dy):
+    ai_ball.x = ball.x
+    ai_ball.y = ball.y
+    ai_ball.dx = ball_dx
+    ai_ball.dy = ball_dy
+
+
+def collides(obj1, obj2):
+    return obj1.x < obj2.x + obj2.width and obj1.x + obj1.width > obj2.x and obj1.y < obj2.y + obj2.height and obj1.y + obj2.height > obj2.y
+
+def updateBallAngle(ball, ball_dy, paddle):
+    # Calculer la position relative de la collision sur la raquette
+    relativeIntersectY = (paddle.y + (paddle.height / 2)) - (ball.y + (ball.height / 2))
+    normalizedRelativeIntersectionY = relativeIntersectY / (paddle.height / 2)
+
+    # Calculer l'angle de rebond (maximum de 75 degrés)
+    bounceAngle = normalizedRelativeIntersectionY * (5 * math.pi / 12)
+
+    # Mettre à jour la vitesse verticale de la balle
+    ball_dy = BALL_SPEED * -math.sin(bounceAngle)
 
 def pong_game(Ai_selected, SHOW_MATCH):
     # Initialize Pygame
@@ -52,8 +71,8 @@ def pong_game(Ai_selected, SHOW_MATCH):
         pygame.display.set_caption("Pong")
 
     # Create paddles and ball
-    player = pygame.Rect(50, 0, PADDLE_WIDTH, HEIGHT)
-    opponent = pygame.Rect(WIDTH - 50 - PADDLE_WIDTH, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
+    leftPaddle = pygame.Rect(50, 0, PADDLE_WIDTH, HEIGHT)
+    rightPaddle = pygame.Rect(WIDTH - 50 - PADDLE_WIDTH, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
     ball = pygame.Rect(WIDTH//2 - BALL_SIZE//2, HEIGHT//2 - BALL_SIZE//2, BALL_SIZE, BALL_SIZE)
 
     # Set up the game clock
@@ -64,20 +83,17 @@ def pong_game(Ai_selected, SHOW_MATCH):
     ball_dy = 0
 
     # Score
-    player_score = 0
-    opponent_score = 0
+    left_score = 0
+    right_score = 0
 
     # Font for score display
     font = pygame.font.Font(None, 36)
 
-    # Update opponent's target position
-    ai_ball = opponent_ball()
-    ai_ball.x = ball.x
-    ai_ball.y = ball.y
-    ai_ball.dx = ball_dx
-    ai_ball.dy = ball_dy
+    # Update AI's target position
+    ai_ball = AI_ball()
+    update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
 
-    # # New variables for opponent's delayed reaction
+    # # New variables for AI's delayed reaction
     # last_update_time = time.time()
 
     # Game loop
@@ -98,15 +114,15 @@ def pong_game(Ai_selected, SHOW_MATCH):
             window.fill(BLACK)
 
             # Draw paddles and ball
-            pygame.draw.rect(window, WHITE, player)
-            pygame.draw.rect(window, WHITE, opponent)
+            pygame.draw.rect(window, WHITE, leftPaddle)
+            pygame.draw.rect(window, WHITE, rightPaddle)
             pygame.draw.ellipse(window, WHITE, ball)
 
             # Draw scores
-            player_text = font.render(str(player_score), True, WHITE)
-            opponent_text = font.render(str(opponent_score), True, WHITE)
-            window.blit(player_text, (WIDTH//4, 20))
-            window.blit(opponent_text, (3*WIDTH//4, 20))
+            left_text = font.render(str(left_score), True, WHITE)
+            right_text = font.render(str(right_score), True, WHITE)
+            window.blit(left_text, (WIDTH//4, 20))
+            window.blit(right_text, (3*WIDTH//4, 20))
 
             # Draw the center line
             pygame.draw.aaline(window, WHITE, (WIDTH//2, 0), (WIDTH//2, HEIGHT))
@@ -135,59 +151,55 @@ def pong_game(Ai_selected, SHOW_MATCH):
             # current_time = time.time()
             # if current_time - last_update_time >= 1:
             if i % 60 == 0:
-                ai_ball.x = ball.x
-                ai_ball.y = ball.y
-                ai_ball.dx = ball_dx
-                ai_ball.dy = ball_dy
+                update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
                 # last_update_time = current_time
         else:
-            ai_ball.x = ball.x
-            ai_ball.y = ball.y
-            ai_ball.dx = ball_dx
-            ai_ball.dy = ball_dy
+            update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
 
-        # Move the player's paddle
-        if keys[pygame.K_w] and player.top > 0:
-            player.y -= PADDLE_SPEED
-        if keys[pygame.K_s] and player.bottom < HEIGHT:
-            player.y += PADDLE_SPEED
+        # Move the left paddle
+        if keys[pygame.K_w] and leftPaddle.top > 0:
+            leftPaddle.y -= PADDLE_SPEED
+        if keys[pygame.K_s] and leftPaddle.bottom < HEIGHT:
+            leftPaddle.y += PADDLE_SPEED
 
-        # Move the opponent's paddle
-        match (Ai_selected.decision(opponent, ai_ball, HEIGHT)):
+        # Move the right paddle
+        match (Ai_selected.decision(rightPaddle, ai_ball, HEIGHT)):
             case 0:
-                if opponent.top > 0:
-                    opponent.y -= PADDLE_SPEED
+                if rightPaddle.top > 0:
+                    rightPaddle.y -= PADDLE_SPEED
             case 1:
                 pass
             case 2:
-                if opponent.bottom < HEIGHT:
-                    opponent.y += PADDLE_SPEED
+                if rightPaddle.bottom < HEIGHT:
+                    rightPaddle.y += PADDLE_SPEED
 
         # Ball collision with top and bottom
         if ball.top <= 0 or ball.bottom >= HEIGHT:
             ball_dy *= -1
 
         # Ball collision with paddles
-        if ball_dx < 0 and player.right >= ball.left and player.top <= ball.centery <= player.bottom:
-            if ball.left > player.left:
-                ball.left = player.right
+        if collides(ball, leftPaddle):
+            if ball.left > leftPaddle.left:
                 ball_dx *= -1
-        elif ball_dx > 0 and opponent.left <= ball.right and opponent.top <= ball.centery <= opponent.bottom:
-            if ball.right < opponent.right:
-                ball.right = opponent.left
+                ball.left = leftPaddle.right
+                updateBallAngle(ball, ball_dy, leftPaddle)
+        elif collides(ball, rightPaddle):
+            if ball.right < rightPaddle.right:
                 ball_dx *= -1
+                ball.right = rightPaddle.left
                 Ai_selected.ai_score += 1
+                updateBallAngle(ball, ball_dy, rightPaddle)
 
         # Ball out of bounds
         if ball.left <= 0:
-            opponent_score += 1
-            ball_dx, ball_dy = reset_ball(ball)
+            right_score += 1
+            reset_ball(ball)
         elif ball.right >= WIDTH:
-            player_score += 1
-            ball_dx, ball_dy = reset_ball(ball)
+            left_score += 1
+            reset_ball(ball)
 
         # End the game
-        if player_score >= MAX_SCORE:
+        if left_score >= MAX_SCORE:
             running = False
 
     # Quit the game
@@ -201,38 +213,35 @@ def play_Ai(Ai, demo):
     pygame.display.set_caption("Pong")
 
     # Create paddles and ball
-    player = pygame.Rect(50, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
-    opponent = pygame.Rect(WIDTH - 50 - PADDLE_WIDTH, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
+    leftPaddle = pygame.Rect(50, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
+    rightPaddle = pygame.Rect(WIDTH - 50 - PADDLE_WIDTH, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
     ball = pygame.Rect(WIDTH//2 - BALL_SIZE//2, HEIGHT//2 - BALL_SIZE//2, BALL_SIZE, BALL_SIZE)
 
     # Set up the game clock
     clock = pygame.time.Clock()
 
     # Ball movement
-    ball_dx = BALL_SPEED_X * random.choice((1, -1))
-    ball_dy = BALL_SPEED_Y * random.choice((1, -1))
+    ball_dx = BALL_SPEED * random.choice((1, -1))
+    ball_dy = 0
 
-    # Update opponent's target position
-    ai_ball = opponent_ball()
-    ai_ball.x = ball.x
-    ai_ball.y = ball.y
-    ai_ball.dx = ball_dx
-    ai_ball.dy = ball_dy
+    # Update AI's target position
+    ai_ball = AI_ball()
+    update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
 
-    ai2_ball = opponent_ball()
+    ai2_ball = AI_ball()
     ai2_ball.x = WIDTH - ball.x
     ai2_ball.y = ball.y
     ai2_ball.dx = ball_dx * -1
     ai2_ball.dy = ball_dy
 
     # Score
-    player_score = 0
-    opponent_score = 0
+    left_score = 0
+    right_score = 0
 
     # Font for score display
     font = pygame.font.Font(None, 36)
 
-    # New variables for opponent's delayed reaction
+    # New variables for AI's delayed reaction
     last_update_time = time.time()
 
     # Game loop
@@ -250,10 +259,7 @@ def play_Ai(Ai, demo):
         if (AI_DELAY == "yes"):
             current_time = time.time()
             if current_time - last_update_time >= 1:
-                ai_ball.x = ball.x
-                ai_ball.y = ball.y
-                ai_ball.dx = ball_dx
-                ai_ball.dy = ball_dy
+                update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
 
                 ai2_ball.x = WIDTH - ball.x
                 ai2_ball.y = ball.y
@@ -263,44 +269,42 @@ def play_Ai(Ai, demo):
                 last_update_time = current_time
         
         else:
-            ai_ball.x = ball.x
-            ai_ball.y = ball.y
-            ai_ball.dx = ball_dx
-            ai_ball.dy = ball_dy
+            update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
 
             ai2_ball.x = WIDTH - ball.x
             ai2_ball.y = ball.y
             ai2_ball.dx = ball_dx * -1
             ai2_ball.dy = ball_dy
 
-        # Move the player's paddle by AI
+        # Move the left paddle by AI
         if (demo == "yes"):
-            match (Ai.decision(opponent, ai2_ball, HEIGHT)):
+            match (Ai.decision(rightPaddle, ai2_ball, HEIGHT)):
                 case 0:
-                    if player.top > 0:
-                        player.y -= PADDLE_SPEED
+                    if leftPaddle.top > 0:
+                        leftPaddle.y -= PADDLE_SPEED
                 case 1:
                     pass
                 case 2:
-                    if player.bottom < HEIGHT:
-                        player.y += PADDLE_SPEED
-        # Move the player's paddle with keyboard inputs
-        else:
-            if keys[pygame.K_w] and player.top > 0:
-                player.y -= PADDLE_SPEED
-            if keys[pygame.K_s] and player.bottom < HEIGHT:
-                player.y += PADDLE_SPEED
+                    if leftPaddle.bottom < HEIGHT:
+                        leftPaddle.y += PADDLE_SPEED
 
-        # Move the opponent's paddle
-        match (Ai.decision(opponent, ai_ball, HEIGHT)):
+        # Move the left paddle with keyboard inputs
+        else:
+            if keys[pygame.K_w] and leftPaddle.top > 0:
+                leftPaddle.y -= PADDLE_SPEED
+            if keys[pygame.K_s] and leftPaddle.bottom < HEIGHT:
+                leftPaddle.y += PADDLE_SPEED
+
+        # Move the AI's paddle
+        match (Ai.decision(rightPaddle, ai_ball, HEIGHT)):
             case 0:
-                if opponent.top > 0:
-                    opponent.y -= PADDLE_SPEED
+                if rightPaddle.top > 0:
+                    rightPaddle.y -= PADDLE_SPEED
             case 1:
                 pass
             case 2:
-                if opponent.bottom < HEIGHT:
-                    opponent.y += PADDLE_SPEED
+                if rightPaddle.bottom < HEIGHT:
+                    rightPaddle.y += PADDLE_SPEED
 
         # Move the ball
         ball.x += ball_dx
@@ -311,40 +315,42 @@ def play_Ai(Ai, demo):
             ball_dy *= -1
 
         # Ball collision with paddles
-        if ball_dx < 0 and player.right >= ball.left and player.top <= ball.centery <= player.bottom:
-            if ball.left > player.left:
-                ball.left = player.right
+        if collides(ball, leftPaddle):
+            if ball.left > leftPaddle.left:
                 ball_dx *= -1
-        elif ball_dx > 0 and opponent.left <= ball.right and opponent.top <= ball.centery <= opponent.bottom:
-            if ball.right < opponent.right:
-                ball.right = opponent.left
+                ball.left = leftPaddle.right
+                updateBallAngle(ball, ball_dy, leftPaddle)
+        elif collides(ball, rightPaddle):
+            if ball.right < rightPaddle.right:
                 ball_dx *= -1
+                ball.right = rightPaddle.left
+                updateBallAngle(ball, ball_dy, rightPaddle)
 
         # Ball out of bounds
         if ball.left <= 0:
-            opponent_score += 1
-            ball_dx, ball_dy = reset_ball(ball)
+            right_score += 1
+            reset_ball(ball)
         elif ball.right >= WIDTH:
-            player_score += 1
-            ball_dx, ball_dy = reset_ball(ball)
+            left_score += 1
+            reset_ball(ball)
 
         # End the game
-        if player_score >= MAX_SCORE:
+        if left_score >= MAX_SCORE:
             running = False
 
         # Clear the screen
         window.fill(BLACK)
 
         # Draw paddles and ball
-        pygame.draw.rect(window, WHITE, player)
-        pygame.draw.rect(window, WHITE, opponent)
+        pygame.draw.rect(window, WHITE, leftPaddle)
+        pygame.draw.rect(window, WHITE, rightPaddle)
         pygame.draw.ellipse(window, WHITE, ball)
 
         # Draw scores
-        player_text = font.render(str(player_score), True, WHITE)
-        opponent_text = font.render(str(opponent_score), True, WHITE)
-        window.blit(player_text, (WIDTH//4, 20))
-        window.blit(opponent_text, (3*WIDTH//4, 20))
+        left_text = font.render(str(left_score), True, WHITE)
+        right_text = font.render(str(right_score), True, WHITE)
+        window.blit(left_text, (WIDTH//4, 20))
+        window.blit(right_text, (3*WIDTH//4, 20))
 
         # Draw the center line
         pygame.draw.aaline(window, WHITE, (WIDTH//2, 0), (WIDTH//2, HEIGHT))

@@ -1,5 +1,6 @@
 import pickle, os, json
-from pong import pong_game 
+# from pong import pong_game 
+from game import pong_game 
 from utils import DISPLAY_GAME, DYSPLAY_LOG, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
 import numpy as np
 
