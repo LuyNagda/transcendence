@@ -1,6 +1,5 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
 from .models import PongGame, PongRoom
 from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view, permission_classes
@@ -12,6 +11,8 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.db import IntegrityError
 from django.utils import timezone
+from django.urls import reverse
+from rest_framework.response import Response
 
 User = get_user_model()
 
@@ -52,16 +53,11 @@ def create_pong_room(request):
         )
         room.players.add(request.user)
         
-        return JsonResponse({
-            'status': 'success',
-            'room_id': room.room_id,
-            'mode': room.get_mode_display(),
-            'player_count': 1,
-            'max_players': room.max_players
-        })
+        url = reverse('pong_room', kwargs={'room_id': room_id})
+        return Response({'status': 'success', 'url': url})
     except Exception as e:
         logger.error(f"Erreur lors de la création de la salle : {str(e)}")
-        return JsonResponse({
+        return Response({
             'status': 'error',
             'message': 'Impossible de créer la salle'
         }, status=500)
@@ -88,23 +84,17 @@ def pong_game(request, game_id):
         'refresh_token': refresh_token
     })
 
-@api_view(['GET', 'POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def pong_room_view(request, room_id):
     room = get_object_or_404(PongRoom, room_id=room_id)
-    room_state = {
-        'mode': room.get_mode_display(),
-        'owner': room.owner.username,
-        'players': list(room.players.values('id', 'username')),
-        'pending_invitations': list(room.pending_invitations.values('id', 'username')),
-        'max_players': room.max_players,
-        'available_slots': max(0, room.max_players - room.players.count() - room.pending_invitations.count()),
-        'state': 'LOBBY',
-    }
     return render(request, 'pong/pong_room.html', {
-        'room': room, 
-        'room_state': room_state,
-        'current_user': request.user
+        'room_id': room_id,
+        'current_user': {
+            'id': request.user.id,
+            'username': request.user.username,
+            'email': request.user.email,
+        }
     })
 
 @api_view(['POST'])

@@ -1,44 +1,37 @@
 <div id="room-state">
-    <h3>Room Mode: {{ room_state.mode }}</h3>
-    <p>Owner: {{ room_state.owner }}</p>
-    <h4>Players in Room ({{ room_state.players|length }} / {{ room_state.max_players }})</h4>
+    <h3>Room Mode: <span v-text="pongRoom.mode"></span></h3>
+    <p>Owner: <span v-text="pongRoom.owner"></span></p>
+    <h4>Players in Room (<span v-text="pongRoom.players.length"></span> / <span v-text="pongRoom.maxPlayers"></span>)</h4>
     <ul class="list-group">
-        {% for player in room_state.players %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            {{ player.username }}
+        <li v-for="player in pongRoom.players" class="list-group-item d-flex justify-content-between align-items-center">
+            <span v-text="player.username"></span>
             <div>
-                {% if player.username == room_state.owner %}
-                <span class="badge bg-info rounded-pill me-2">Owner</span> {% endif %} {% if player.id == current_user.id %}
-                <span class="badge bg-primary rounded-pill me-2">You</span> {% endif %} {% if room_state.owner == current_user.username and player.id != current_user.id %}
-                <button class="btn btn-danger btn-sm" onclick="kickPlayer('{{ player.id }}')">Kick</button> {% endif %}
+                <span v-if="player.username === pongRoom.owner" class="badge bg-info rounded-pill me-2">Owner</span>
+                <span v-if="player.id === pongRoom.currentUser.id" class="badge bg-primary rounded-pill me-2">You</span>
+                <button v-if="pongRoom.owner === pongRoom.currentUser.username && player.id !== pongRoom.currentUser.id" class="btn btn-danger btn-sm" v-on:click="pongRoom.kickPlayer(player.id)">Kick</button>
             </div>
         </li>
-        {% empty %}
-        <li class="list-group-item">No players in the room yet.</li>
-        {% endfor %}
+        <li v-if="pongRoom.players.length === 0" class="list-group-item">No players in the room yet.</li>
     </ul>
 
-    {% if room_state.pending_invitations %}
-    <h4 class="mt-3">Pending Invitations</h4>
-    <ul class="list-group">
-        {% for invitation in room_state.pending_invitations %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            {{ invitation.username }}
-            <div>
-                <span class="badge bg-warning rounded-pill me-2">Pending</span> {% if room_state.owner == current_user.username %}
-                <button class="btn btn-danger btn-sm" onclick="cancelInvitation('{{ invitation.id }}')">Cancel</button> {% endif %}
-            </div>
-        </li>
-        {% endfor %}
-    </ul>
-    {% endif %} {% if room_state.available_slots > 0 %}
-    <p class="mt-3">Available slots: {{ room_state.available_slots }} / {{ room_state.max_players }}</p>
-    {% else %}
-    <p class="mt-3">Room is full ({{ room_state.max_players }} / {{ room_state.max_players }})</p>
-    {% endif %} {% if room_state.owner == current_user.username %}
-    <div class="mt-3">
-        <button class="btn btn-primary" onclick="showModeSelection()">Change Mode</button>
-        <button class="btn btn-success" onclick="startGame()">Start Game</button>
+    <div v-if="pongRoom.pendingInvitations.length > 0">
+        <h4 class="mt-3">Pending Invitations</h4>
+        <ul class="list-group">
+            <li v-for="invitation in pongRoom.pendingInvitations" class="list-group-item d-flex justify-content-between align-items-center">
+                <span v-text="invitation.username"></span>
+                <div>
+                    <span class="badge bg-warning rounded-pill me-2">Pending</span>
+                    <button v-if="pongRoom.owner === pongRoom.currentUser.username" class="btn btn-danger btn-sm" v-on:click="pongRoom.cancelInvitation(invitation.id)">Cancel</button>
+                </div>
+            </li>
+        </ul>
     </div>
-    {% endif %}
+
+    <p v-if="pongRoom.availableSlots > 0" class="mt-3">Available slots: <span v-text="pongRoom.availableSlots"></span> / <span v-text="pongRoom.maxPlayers"></span></p>
+    <p v-else class="mt-3">Room is full (<span v-text="pongRoom.maxPlayers"></span> / <span v-text="pongRoom.maxPlayers"></span>)</p>
+
+    <div v-if="pongRoom.owner === pongRoom.currentUser.username" class="mt-3">
+        <button class="btn btn-primary" v-on:click="pongRoom.showModeSelection()">Change Mode</button>
+        <button class="btn btn-success" v-on:click="pongRoom.startGame()">Start Game</button>
+    </div>
 </div>

@@ -17,12 +17,14 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from authentication.middleware import JWTAuthMiddleware, WebSocketNotFoundMiddleware
 import chat.routing
+import pong.routing
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
     "websocket": WebSocketNotFoundMiddleware(JWTAuthMiddleware(
         URLRouter(
-            chat.routing.websocket_urlpatterns
+            chat.routing.websocket_urlpatterns +  
+            pong.routing.websocket_urlpatterns 
         )
     )),
 })

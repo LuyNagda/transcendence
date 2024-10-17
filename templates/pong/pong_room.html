@@ -3,33 +3,26 @@
 <div id="pong-room" class="container-fluid my-4">
     <header class="text-center my-5">
         <h1>Pong Game Room</h1>
-        <p>Current Mode: <span id="current-mode-display">{{ room.get_mode_display }}</span></p>
-        <p>Room State: <span id="current-state-display">{{ room_state.state }}</span></p>
+        <p>Current Mode: <span v-text="pongRoom.mode"></span></p>
+        <p>Room State: <span v-text="pongRoom.state"></span></p>
     </header>
     <main class="d-flex flex-wrap">
         <div class="flex-grow-1 me-4" style="flex-basis: 300px;">
-            <!-- État de la salle à gauche -->
             <div id="room-state" class="mb-4">
-                {% include "pong/components/room_state.html" with room_state=room_state current_user=current_user %}
+                {% include "pong/components/room_state.html" %}
             </div>
         </div>
         <div class="flex-grow-1" style="flex-basis: 600px;">
-            <!-- Contenu dynamique à droite -->
             <div id="dynamic-content">
-                {% if room_state.state == 'LOBBY' %}
-                <div id="lobby-content">
-                    {% if room_state.owner == request.user.username %}
+                <div v-if="pongRoom.state === 'LOBBY'">
                     <div id="mode-selection-container" class="mb-4">
-                        {% include "pong/components/mode_selection.html" with current_user=current_user room=room %}
+                        {% include "pong/components/mode_selection.html" %}
                     </div>
-                    {% endif %}
                     <p>Waiting for the game to start...</p>
                 </div>
-                {% elif room_state.state == 'PLAYING' %}
-                <div id="game-content">
+                <div v-if="pongRoom.state === 'PLAYING'">
                     {% include "pong/components/game.html" %}
                 </div>
-                {% endif %}
             </div>
         </div>
     </main>
@@ -49,15 +42,9 @@
     }
 </style>
 
-<script src="{% static 'pong/js/pong_room_websocket.js' %}"></script>
-<script>
-    const currentUser = {
-        username: "{{ current_user.username }}",
-        id: "{{ current_user.id }}"
-    };
-    document.addEventListener('DOMContentLoaded', function() {
-        connectWebSocket('{{ room.room_id }}');
-    });
-</script>
+{{ room_id|json_script:"room-id" }} {{ current_user|json_script:"current-user-data" }}
+
+<script type="module" src="{% static 'js/dynamic_render.js' %}"></script>
+<script type="module" src="{% static 'pong/js/pong_room.js' %}"></script>
 
 {% endblock %}

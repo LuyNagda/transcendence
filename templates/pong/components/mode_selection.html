@@ -1,11 +1,10 @@
-{% if current_user.id == room.owner.id %}
-<section id="mode-selection" class="my-5">
+<section v-if="pongRoom.currentUser.id === pongRoom.owner.id" id="mode-selection" class="my-5">
     <h2>Choose Game Mode</h2>
     <form id="mode-form" method="post" onsubmit="return false;">
         {% csrf_token %}
         <div class="form-group">
             <label for="mode">Game Mode</label>
-            <select id="mode" name="mode" class="form-control" onchange="updateMode()">
+            <select id="mode" name="mode" class="form-control" v-model="pongRoom.mode" v-on:change="pongRoom.updateMode">
                 <option value="">Select a mode</option>
                 <option value="AI">AI</option>
                 <option value="CLASSIC">Classic</option>
@@ -15,8 +14,6 @@
         </div>
     </form>
 </section>
-{% else %}
-<section id="current-mode" class="my-5">
-    <h2>Current Game Mode: {{ room.get_mode_display }}</h2>
+<section v-else id="current-mode" class="my-5">
+    <h2>Current Game Mode: <span v-text="pongRoom.mode"></span></h2>
 </section>
-{% endif %}

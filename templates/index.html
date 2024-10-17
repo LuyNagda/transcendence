@@ -2,6 +2,11 @@
 
 <div id="index" class="container x-auto my-4">
     <h1>I am Index File !</h1>
-</div>
 
+    <div class="text-center mt-4">
+        <button class="btn btn-primary btn-lg" hx-get="{% url 'pong_view' %}" hx-target="#content" hx-swap="innerHTML" hx-push-url="true">
+		Jouer à Pong
+	</button>
+    </div>
+</div>
 {% block chat %}{% render_chat %}{% endblock %} {% block footer %}{% include "footer.html" %}{% endblock %} {% endblock %}
