@@ -42,9 +42,4 @@
     }
 </style>
 
-{{ room_id|json_script:"room-id" }} {{ current_user|json_script:"current-user-data" }}
-
-<script type="module" src="{% static 'js/dynamic_render.js' %}"></script>
-<script type="module" src="{% static 'pong/js/pong_room.js' %}"></script>
-
-{% endblock %}
+{{ room_id|json_script:"room-id" }} {{ current_user|json_script:"current-user-data" }} {% endblock %}

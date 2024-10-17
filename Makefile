@@ -41,6 +41,7 @@ daemon:
 	$(SRC_ENV) docker compose --profile prod up -d
 
 dev: build
+	npm i & \
 	npm run dev & \
 	$(SRC_ENV) docker compose --profile dev up --watch
 

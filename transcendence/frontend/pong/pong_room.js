@@ -1,4 +1,5 @@
-import DynamicRender from "/static/js/dynamic_render.js";
+import dynamicRender from "../utils/dynamic_render.js";
+import logger from "../utils/logger.js";
 
 export class PongRoom {
     constructor(roomId, currentUser) {
@@ -18,15 +19,16 @@ export class PongRoom {
         this._isInitialized = false;
 
         this.connect();
+        logger.info(`PongRoom instance created for room ${roomId}`);
     }
 
     getCookie(name) {
         let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
+        if (document.cookie && document.cookie !== "") {
+            const cookies = document.cookie.split(";");
             for (let i = 0; i < cookies.length; i++) {
                 const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                if (cookie.substring(0, name.length + 1) === name + "=") {
                     cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                     break;
                 }
@@ -41,8 +43,8 @@ export class PongRoom {
             return;
         }
 
-        const csrftoken = this.getCookie("csrftoken") ||
-            document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+        const csrftoken =
+            this.getCookie("csrftoken") || document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
 
         const wsUrl = `ws://${window.location.host}/ws/pong_room/${this._roomId}/?token=${csrftoken}`;
         console.log("Attempting to connect to WebSocket:", wsUrl);
@@ -210,27 +212,6 @@ export class PongRoom {
         this.maxPlayers = roomState.max_players;
         this.availableSlots = roomState.available_slots;
         this.state = roomState.state;
-    }
-
-    static initializePage() {
-        document.addEventListener("DOMContentLoaded", function() {
-            const roomId = JSON.parse(document.getElementById("room-id").textContent);
-            const currentUser = JSON.parse(
-                document.getElementById("current-user-data").textContent
-            );
-            const pongRoom = new PongRoom(roomId, currentUser);
-            window.pongRoom = pongRoom; // Pour le débogage
-            const dynamicRender = new DynamicRender(
-                document.getElementById("pong-room")
-            );
-            dynamicRender.addObservedObject("pongRoom", pongRoom);
-
-            document.addEventListener("roomUpdate", function(event) {
-                dynamicRender.scheduleUpdate();
-            });
-        });
+        dynamicRender.scheduleUpdate();
     }
 }
-
-// Initialiser la page
-PongRoom.initializePage();
