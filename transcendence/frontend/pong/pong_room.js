@@ -1,12 +1,12 @@
 import dynamicRender from "../utils/dynamic_render.js";
 import logger from "../utils/logger.js";
+import WSService from "../utils/WSService.js";
 
 export class PongRoom {
     constructor(roomId, currentUser) {
         this._roomId = roomId;
         this._currentUser = currentUser;
-        this._socket = null;
-        this._isConnected = false;
+        this._isInitialized = false;
 
         // Initialiser les autres propriétés avec des valeurs par défaut
         this._mode = "";
@@ -16,58 +16,21 @@ export class PongRoom {
         this._maxPlayers = 0;
         this._availableSlots = 0;
         this._state = "LOBBY";
-        this._isInitialized = false;
 
-        this.connect();
+        this.initializeWebSocket();
         logger.info(`PongRoom instance created for room ${roomId}`);
+        this.logCurrentState();  // Ajoutez cette ligne pour afficher l'état initial
     }
 
-    getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== "") {
-            const cookies = document.cookie.split(";");
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === name + "=") {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
+    initializeWebSocket() {
+        const wsUrl = `ws://${window.location.host}/ws/pong_room/${this._roomId}/`;
+        this.wsService = new WSService();
+        this.wsService.initializeConnection('pongRoom', wsUrl);
 
-    connect() {
-        if (this._isConnected) {
-            console.warn("WebSocket is already connected.");
-            return;
-        }
-
-        const csrftoken =
-            this.getCookie("csrftoken") || document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
-
-        const wsUrl = `ws://${window.location.host}/ws/pong_room/${this._roomId}/?token=${csrftoken}`;
-        console.log("Attempting to connect to WebSocket:", wsUrl);
-        this._socket = new WebSocket(wsUrl);
-
-        this._socket.onmessage = this.handleWebSocketMessage.bind(this);
-        this._socket.onclose = this.handleWebSocketClose.bind(this);
-        this._socket.onopen = this.handleWebSocketOpen.bind(this);
-        this._socket.onerror = this.handleWebSocketError.bind(this);
-    }
-
-    // Nouvelle méthode pour logger les valeurs initiales
-    logInitialValues() {
-        console.log("PongRoom - Valeurs initiales :");
-        console.log("Room ID:", this._roomId);
-        console.log("Mode:", this._mode);
-        console.log("Owner:", this._owner);
-        console.log("Players:", this._players);
-        console.log("Pending Invitations:", this._pendingInvitations);
-        console.log("Max Players:", this._maxPlayers);
-        console.log("Available Slots:", this._availableSlots);
-        console.log("State:", this._state);
-        console.log("Current User:", this._currentUser);
+        this.wsService.on('pongRoom', 'onMessage', this.handleWebSocketMessage.bind(this));
+        this.wsService.on('pongRoom', 'onClose', this.handleWebSocketClose.bind(this));
+        this.wsService.on('pongRoom', 'onOpen', this.handleWebSocketOpen.bind(this));
+        this.wsService.on('pongRoom', 'onError', this.handleWebSocketError.bind(this));
     }
 
     // Getters
@@ -98,46 +61,88 @@ export class PongRoom {
     get currentUser() {
         return this._currentUser;
     }
-
-    // Setters
+    
     set mode(value) {
-        this._mode = value;
-        this.notifyUpdate("mode", value);
+        if (this._mode !== value) {
+            logger.info(`Setting mode from ${this._mode} to ${value}`);
+            this._mode = value;
+            this.notifyUpdate("mode", value);
+            this.logCurrentState();
+        } else {
+            logger.debug(`Mode value unchanged: ${value}`);
+        }
     }
 
     set owner(value) {
-        this._owner = value;
-        this.notifyUpdate("owner", value);
+        if (this._owner.id !== value.id) {
+            logger.info(`Setting owner from ${this._owner.username} to ${value.username}`);
+            this._owner = value;
+            this.notifyUpdate("owner", value);
+            this.logCurrentState();
+        } else {
+            logger.debug(`Owner value unchanged: ${value.username}`);
+        }
     }
 
     set players(value) {
-        this._players = value;
-        this.notifyUpdate("players", value);
+        const currentIds = new Set(this._players.map(p => p.id));
+        const newIds = new Set(value.map(p => p.id));
+        if (currentIds.size !== newIds.size || ![...currentIds].every(id => newIds.has(id))) {
+            logger.info(`Setting players from ${JSON.stringify(this._players)} to ${JSON.stringify(value)}`);
+            this._players = value;
+            this.notifyUpdate("players", value);
+            this.logCurrentState();
+        } else {
+            logger.debug(`Players value unchanged: ${JSON.stringify(value)}`);
+        }
     }
 
     set pendingInvitations(value) {
-        this._pendingInvitations = value;
-        this.notifyUpdate("pending_invitations", value);
+        if (JSON.stringify(this._pendingInvitations) !== JSON.stringify(value)) {
+            logger.info(`Setting pending invitations from ${JSON.stringify(this._pendingInvitations)} to ${JSON.stringify(value)}`);
+            this._pendingInvitations = value;
+            this.notifyUpdate("pending_invitations", value);
+            this.logCurrentState();
+        } else {
+            logger.debug(`Pending invitations value unchanged: ${JSON.stringify(value)}`);
+        }
     }
 
     set maxPlayers(value) {
-        this._maxPlayers = value;
-        this.notifyUpdate("max_players", value);
+        if (this._maxPlayers !== value) {
+            logger.info(`Setting max players from ${this._maxPlayers} to ${value}`);
+            this._maxPlayers = value;
+            this.notifyUpdate("max_players", value);
+            this.logCurrentState();
+        } else {
+            logger.debug(`Max players value unchanged: ${value}`);
+        }
     }
 
     set availableSlots(value) {
-        this._availableSlots = value;
-        this.notifyUpdate("available_slots", value);
+        if (this._availableSlots !== value) {
+            logger.info(`Setting available slots from ${this._availableSlots} to ${value}`);
+            this._availableSlots = value;
+            this.notifyUpdate("available_slots", value);
+            this.logCurrentState();
+        } else {
+            logger.debug(`Available slots value unchanged: ${value}`);
+        }
     }
 
     set state(value) {
-        this._state = value;
-        this.notifyUpdate("state", value);
+        if (this._state !== value) {
+            logger.info(`Setting state from ${this._state} to ${value}`);
+            this._state = value;
+            this.notifyUpdate("state", value);
+            this.logCurrentState();
+        } else {
+            logger.debug(`State value unchanged: ${value}`);
+        }
     }
 
-    handleWebSocketMessage(event) {
-        console.log("WebSocket message received:", event.data);
-        const data = JSON.parse(event.data);
+    handleWebSocketMessage(data) {
+        logger.debug("WebSocket message received:", data);
         if (data.type === "room_update") {
             this.updateFromState(data.room_state);
             if (!this._isInitialized) {
@@ -148,44 +153,29 @@ export class PongRoom {
     }
 
     handleWebSocketClose(event) {
-        console.error("WebSocket closed unexpectedly", event);
-        this._isConnected = false;
+        logger.error("WebSocket closed unexpectedly", event);
         this._isInitialized = false;
-        setTimeout(() => this.connect(), 5000);
     }
 
     handleWebSocketOpen(event) {
-        console.log("WebSocket connection established", event);
-        this._isConnected = true;
+        logger.info("WebSocket connection established", event);
     }
 
     handleWebSocketError(event) {
-        console.error("WebSocket error:", event);
-        this._isConnected = false;
+        logger.error("WebSocket error:", event);
     }
 
     notifyUpdate(property, value) {
-        const event = new CustomEvent("roomUpdate", {
-            detail: { property: property, value: value },
-        });
-        document.dispatchEvent(event);
+        this.sendMessage("update_property", { property: property, value: value });
     }
 
     sendMessage(action, data = {}) {
-        if (this._socket && this._socket.readyState === WebSocket.OPEN) {
-            const message = JSON.stringify({
-                action: action,
-                ...data,
-            });
-            console.log("Sending message:", message);
-            this._socket.send(message);
-        } else {
-            console.error("WebSocket is not open. Unable to send message.");
-        }
-    }
-
-    updateMode(newMode) {
-        this.sendMessage("change_mode", { mode: newMode });
+        const message = {
+            action: action,
+            ...data,
+        };
+        logger.info(`Sending WebSocket message: ${JSON.stringify(message)}`);
+        this.wsService.send('pongRoom', message);
     }
 
     inviteFriend(friendId) {
@@ -205,13 +195,75 @@ export class PongRoom {
     }
 
     updateFromState(roomState) {
-        this.mode = roomState.mode;
-        this.owner = roomState.owner;
-        this.players = roomState.players;
-        this.pendingInvitations = roomState.pending_invitations;
-        this.maxPlayers = roomState.max_players;
-        this.availableSlots = roomState.available_slots;
-        this.state = roomState.state;
-        dynamicRender.scheduleUpdate();
+        let hasChanged = false;
+
+        if (this._mode !== roomState.mode) {
+            this._mode = roomState.mode;
+            hasChanged = true;
+        }
+        if (this._owner.id !== roomState.owner.id) {
+            this._owner = roomState.owner;
+            hasChanged = true;
+        }
+        if (JSON.stringify(this._players.map(p => p.id)) !== JSON.stringify(roomState.players.map(p => p.id))) {
+            this._players = roomState.players;
+            hasChanged = true;
+        }
+        if (JSON.stringify(this._pendingInvitations) !== JSON.stringify(roomState.pending_invitations)) {
+            this._pendingInvitations = roomState.pending_invitations;
+            hasChanged = true;
+        }
+        if (this._maxPlayers !== roomState.max_players) {
+            this._maxPlayers = roomState.max_players;
+            hasChanged = true;
+        }
+        if (this._availableSlots !== roomState.available_slots) {
+            this._availableSlots = roomState.available_slots;
+            hasChanged = true;
+        }
+        if (this._state !== roomState.state) {
+            this._state = roomState.state;
+            hasChanged = true;
+        }
+
+        if (hasChanged) {
+            this.logCurrentState();
+            dynamicRender.scheduleUpdate();
+        }
+    }
+
+    destroy() {
+        if (this.wsService) {
+            this.wsService.destroy('pongRoom');
+        }
+    }
+
+    logInitialValues() {
+        logger.debug("PongRoom - Valeurs initiales :", {
+            roomId: this._roomId,
+            mode: this._mode,
+            owner: this._owner,
+            players: this._players,
+            pendingInvitations: this._pendingInvitations,
+            maxPlayers: this._maxPlayers,
+            availableSlots: this._availableSlots,
+            state: this._state,
+            currentUser: this._currentUser
+        });
+    }
+
+    // Nouvelle méthode pour afficher l'état actuel
+    logCurrentState() {
+        logger.info("PongRoom - État actuel :", {
+            roomId: this._roomId,
+            mode: this._mode,
+            owner: this._owner,
+            players: this._players,
+            pendingInvitations: this._pendingInvitations,
+            maxPlayers: this._maxPlayers,
+            availableSlots: this._availableSlots,
+            state: this._state,
+            currentUser: this._currentUser
+        });
     }
 }

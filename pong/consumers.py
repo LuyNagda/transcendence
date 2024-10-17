@@ -2,288 +2,96 @@ import json
 import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import PongRoom, User
-from django.core.exceptions import ObjectDoesNotExist
-from enum import Enum
+from .models import PongRoom
 from django.contrib.auth import get_user_model
-import jwt
-from django.conf import settings
+from channels.exceptions import DenyConnection
 
-# Configurez le logger
 logger = logging.getLogger(__name__)
 
-class RoomState(Enum):
-    LOBBY = 'LOBBY'
-    PLAYING = 'PLAYING'
+User = get_user_model()
 
 class PongRoomConsumer(AsyncWebsocketConsumer):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._room = None
-        self._state = RoomState.LOBBY
-        self._players = []
-        self._pending_invitations = []
-        self._max_players = 0
-        self._available_slots = 0
-
-    @property
-    def room(self):
-        return self._room
-
-    @room.setter
-    @database_sync_to_async
-    def room(self, value):
-        self._room = value
-        if value:
-            self._room.save()
-
-    @property
-    def state(self):
-        return self._state
-
-    @state.setter
-    @database_sync_to_async
-    def state(self, value):
-        if isinstance(value, RoomState):
-            self._state = value
-
-    @property
-    def players(self):
-        return self._players
-
-    @players.setter
-    @database_sync_to_async
-    def players(self, value):
-        self._players = value
-        if self._room:
-            self._room.players.set([User.objects.get(id=player['id']) for player in value])
-
-    @property
-    def pending_invitations(self):
-        return self._pending_invitations
-
-    @pending_invitations.setter
-    @database_sync_to_async
-    def pending_invitations(self, value):
-        self._pending_invitations = value
-        if self._room:
-            self._room.pending_invitations.set([User.objects.get(id=inv['id']) for inv in value])
-
-    @property
-    def max_players(self):
-        return self._max_players
-
-    @max_players.setter
-    def max_players(self, value):
-        self._max_players = value
-
-    @property
-    def available_slots(self):
-        return self._available_slots
-
-    @available_slots.setter
-    def available_slots(self, value):
-        self._available_slots = value
-
     async def connect(self):
+        self.user = self.scope.get("user")
         self.room_id = self.scope['url_route']['kwargs']['room_id']
         self.room_group_name = f'pong_room_{self.room_id}'
-        self.user = None  # Initialiser l'attribut user
-        
-        logger.info(f"Tentative de connexion: room_id={self.room_id}")
-        
-        # Authentification de l'utilisateur
-        query_string = self.scope['query_string'].decode()
-        token = query_string.split('=')[1] if '=' in query_string else None
-        
-        if not token:
-            logger.error("Token manquant dans la requête WebSocket")
-            await self.close()
-            return
 
-        try:
-            User = get_user_model()
-            payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
-            user_id = payload['user_id']
-            self.user = await self.get_user(user_id)
-            logger.info(f"Utilisateur authentifié: user_id={user_id}")
-        except jwt.DecodeError:
-            logger.error("Token JWT invalide")
-            await self.close()
-            return
-        except Exception as e:
-            logger.error(f"Échec de l'authentification: {str(e)}")
-            await self.close()
-            return
+        logger.info('WebSocket connection attempt', extra={
+            'user_id': getattr(self.user, 'id', None),
+            'room_id': self.room_id,
+            'authenticated': self.user.is_authenticated
+        })
 
-        if self.user is None or self.user.is_anonymous:
-            logger.warning(f"Tentative de connexion d'un utilisateur anonyme ou inexistant: room_id={self.room_id}")
-            await self.close()
-            return
+        if not self.user or self.user.is_anonymous:
+            logger.warning("Unauthorized connection attempt", extra={'room_id': self.room_id})
+            raise DenyConnection("User not authenticated")
 
         try:
             self.room = await self.get_room()
             if not self.room:
-                logger.error(f"Salle non trouvée: room_id={self.room_id}")
-                await self.close()
-                return
+                logger.error(f"Room not found: room_id={self.room_id}")
+                raise DenyConnection("Room not found")
 
             await self.channel_layer.group_add(self.room_group_name, self.channel_name)
             await self.accept()
-            await self.update_room()
-            logger.info(f"Connexion réussie: user={self.user}, room_id={self.room_id}")
+            
+            success, message = await self.add_user_to_room()
+            if success:
+                await self.update_room()
+                logger.info(f"Connection successful: user={self.user}, room_id={self.room_id}, message={message}")
+            else:
+                logger.error(f"Failed to add user to room: user={self.user}, room_id={self.room_id}, message={message}")
+                await self.close()
         except Exception as e:
-            logger.error(f"Erreur lors de la connexion: {str(e)}")
+            logger.error(f"Error during connection: {str(e)}")
             await self.close()
 
     async def disconnect(self, close_code):
-        logger.info(f"Déconnexion: user={self.user}, room_id={self.room_id}, close_code={close_code}")
-        await self.remove_user_from_room()
-        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
-        await self.update_room()
-
-    @database_sync_to_async
-    def initialize_room(self):
-        try:
-            room = PongRoom.objects.get(room_id=self.room_id)
-            self.room = room
-            self.players = list(room.players.values('id', 'username'))
-            self.pending_invitations = list(room.pending_invitations.values('id', 'username'))
-            self.max_players = room.max_players
-            self.available_slots = max(0, self.max_players - len(self.players) - len(self.pending_invitations))
-            
-            User = get_user_model()
-            user = User.objects.get(id=self.scope["user"].id)
-            
-            room.players.add(user)
-            self.players = list(room.players.values('id', 'username'))
-            self.available_slots = max(0, self.max_players - len(self.players) - len(self.pending_invitations))
-            return True
-        except PongRoom.DoesNotExist:
-            logger.error(f"Room not found: room_id={self.room_id}")
-            return False
-        except Exception as e:
-            logger.error(f"Error in initialize_room: {str(e)}")
-            return False
-
-    @database_sync_to_async
-    def remove_user_from_room(self):
-        if self.room:
-            self.room.players.remove(self.user)
-            self.players = list(self.room.players.values('id', 'username'))
-            self.available_slots = max(0, self.max_players - len(self.players) - len(self.pending_invitations))
+        logger.info(f"Disconnection: user={self.user}, room_id={self.room_id}, close_code={close_code}")
+        if hasattr(self, 'room'):
+            await self.remove_user_from_room()
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+            await self.update_room()
 
     async def receive(self, text_data):
-        data = json.loads(text_data)
-        action = data.get('action')
-        logger.info(f"Message reçu: user={self.user}, room_id={self.room_id}, action={action}")
+        try:
+            data = json.loads(text_data)
+            action = data.get('action')
+            logger.info(f"Message received: user={self.user}, room_id={self.room_id}, action={action}")
 
-        if action == 'invite_friend':
-            success = await self.invite_friend(data['friend_id'])
-            logger.info(f"Invitation ami: user={self.user}, friend_id={data['friend_id']}, success={success}")
-            if success:
+            if action == 'update_property':
+                property = data.get('property')
+                value = data.get('value')
+                success = await self.update_room_property(property, value)
+                if success:
+                    await self.update_room()
+            elif action == 'invite_friend':
+                success = await self.invite_friend(data['friend_id'])
+                if success:
+                    await self.update_room()
+            elif action == 'cancel_invitation':
+                await self.cancel_invitation(data['invitation_id'])
                 await self.update_room()
-        elif action == 'cancel_invitation':
-            await self.cancel_invitation(data['invitation_id'])
-            logger.info(f"Annulation invitation: user={self.user}, invitation_id={data['invitation_id']}")
-            await self.update_room()
-        elif action == 'kick_player':
-            success = await self.kick_player(data['player_id'])
-            logger.info(f"Expulsion joueur: user={self.user}, player_id={data['player_id']}, success={success}")
-            if success:
-                await self.update_room()
-        elif action == 'change_mode':
-            success = await self.change_mode(data['mode'])
-            logger.info(f"Changement de mode: user={self.user}, mode={data['mode']}, success={success}")
-            if success:
-                await self.update_room()
-        elif action == 'start_game':
-            success = await self.start_game()
-            logger.info(f"Démarrage du jeu: user={self.user}, success={success}")
-            if success:
-                await self.update_room()
-
-    @database_sync_to_async
-    def invite_friend(self, friend_id):
-        friend = User.objects.get(id=friend_id)
-        if len(self.players) + len(self.pending_invitations) < self.max_players:
-            self.room.pending_invitations.add(friend)
-            self.pending_invitations = list(self.room.pending_invitations.values('id', 'username'))
-            self.available_slots = max(0, self.max_players - len(self.players) - len(self.pending_invitations))
-            return True
-        return False
-
-    @database_sync_to_async
-    def cancel_invitation(self, invitation_id):
-        invitation = User.objects.get(id=invitation_id)
-        self.room.pending_invitations.remove(invitation)
-        self.pending_invitations = list(self.room.pending_invitations.values('id', 'username'))
-        self.available_slots = max(0, self.max_players - len(self.players) - len(self.pending_invitations))
-
-    @database_sync_to_async
-    def kick_player(self, player_id):
-        if self.user == self.room.owner:
-            player = User.objects.get(id=player_id)
-            self.room.players.remove(player)
-            self.players = list(self.room.players.values('id', 'username'))
-            self.available_slots = max(0, self.max_players - len(self.players) - len(self.pending_invitations))
-            return True
-        return False
-
-    @database_sync_to_async
-    def change_mode(self, mode):
-        if self.user == self.room.owner:
-            self.room.mode = mode
-            self.room.save()
-            self.max_players = self.room.max_players
-            self.available_slots = max(0, self.max_players - len(self.players) - len(self.pending_invitations))
-            return True
-        return False
-
-    @database_sync_to_async
-    def start_game(self):
-        if self.user == self.room.owner and len(self.players) >= 2:
-            self.state = RoomState.PLAYING
-            # Logique pour démarrer le jeu
-            return True
-        return False
-
-    async def update_room(self):
-        room_state = await self.get_room_state()
-        if room_state is None:
-            logger.error(f"Tentative de mise à jour d'une salle inexistante: user={self.user}, room_id={self.room_id}")
-            await self.close()
-            return
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'send_room_update',
-                'room_state': room_state
-            }
-        )
-        logger.info(f"Mise à jour de la salle envoyée: room_id={self.room_id}")
-
-    @database_sync_to_async
-    def get_room_state(self):
-        if self.room is None:
-            return None
-        return {
-            'room_id': self.room.room_id,
-            'mode': self.room.get_mode_display(),
-            'owner': self.room.owner.username,
-            'players': self.players,
-            'pending_invitations': self.pending_invitations,
-            'max_players': self.max_players,
-            'available_slots': self.available_slots,
-            'state': self.state.value,
-        }
-
-    async def send_room_update(self, event):
-        await self.send(text_data=json.dumps({
-            'type': 'room_update',
-            'room_state': event['room_state']
-        }))
-        logger.info(f"Mise à jour de la salle envoyée au client: user={self.user}, room_id={self.room_id}")
+            elif action == 'kick_player':
+                success = await self.kick_player(data['player_id'])
+                if success:
+                    await self.update_room()
+            elif action == 'change_mode':
+                success = await self.change_mode(data['mode'])
+                if success:
+                    await self.update_room()
+            elif action == 'start_game':
+                success = await self.start_game()
+                if success:
+                    await self.update_room()
+            else:
+                logger.warning(f"Unknown action received: {action}")
+        except json.JSONDecodeError:
+            logger.error('Received invalid JSON data', extra={'user_id': self.user.id, 'room_id': self.room_id})
+        except KeyError as e:
+            logger.error('Missing key in received data', extra={'user_id': self.user.id, 'room_id': self.room_id, 'missing_key': str(e)})
+        except Exception as e:
+            logger.error(f'Unexpected error: {str(e)}', extra={'user_id': self.user.id, 'room_id': self.room_id})
 
     @database_sync_to_async
     def get_room(self):
@@ -293,49 +101,89 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             return None
 
     @database_sync_to_async
-    def get_user(self, user_id):
-        User = get_user_model()
-        try:
-            return User.objects.get(id=user_id)
-        except User.DoesNotExist:
+    def add_user_to_room(self):
+        if self.room:
+            if self.user not in self.room.players.all():
+                self.room.players.add(self.user)
+                return True, "User added to room"
+            else:
+                return True, "User already in room"
+        return False, "Room not found"
+
+    @database_sync_to_async
+    def remove_user_from_room(self):
+        if self.room:
+            self.room.players.remove(self.user)
+
+    @database_sync_to_async
+    def get_room_state(self):
+        if self.room is None:
             return None
-
-class NotificationConsumer(AsyncWebsocketConsumer):
-    async def connect(self):
-        self.user = self.scope["user"]
-        logger.info(f"Connexion au consommateur de notifications: user={self.user}")
-        await self.channel_layer.group_add(f"user_{self.user.id}", self.channel_name)
         
-        rooms = self.user.pong_rooms.all()
-        for room in rooms:
-            await self.channel_layer.group_add(f"room_{room.room_id}", self.channel_name)
-            logger.info(f"Utilisateur ajouté au groupe de la salle: user={self.user}, room_id={room.room_id}")
+        def user_to_dict(user):
+            return {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'profile_picture': user.profile_picture.url if user.profile_picture else None,
+                # Ajoutez d'autres champs d'utilisateur selon vos besoins
+            }
         
-        await self.accept()
-        logger.info(f"Connexion au consommateur de notifications acceptée: user={self.user}")
+        return {
+            'room_id': self.room.room_id,
+            'mode': self.room.get_mode_display(),
+            'owner': user_to_dict(self.room.owner),
+            'players': [user_to_dict(player) for player in self.room.players.all()],
+            'pending_invitations': [user_to_dict(user) for user in self.room.pending_invitations.all()],
+            'max_players': self.room.max_players,
+            'available_slots': self.room.max_players - self.room.players.count() - self.room.pending_invitations.count(),
+            'state': self.room.state,
+        }
 
-    async def disconnect(self, close_code):
-        logger.info(f"Déconnexion du consommateur de notifications: user={self.user}, close_code={close_code}")
-        await self.channel_layer.group_discard(f"user_{self.user.id}", self.channel_name)
+    async def update_room(self):
+        room_state = await self.get_room_state()
+        if room_state is None:
+            logger.error(f"Attempt to update non-existent room: user={self.user}, room_id={self.room_id}")
+            await self.close()
+            return
         
-        rooms = self.user.pong_rooms.all()
-        for room in rooms:
-            await self.channel_layer.group_discard(f"room_{room.room_id}", self.channel_name)
-            logger.info(f"Utilisateur retiré du groupe de la salle: user={self.user}, room_id={room.room_id}")
-
-    async def receive(self, text_data):
-        logger.info(f"Message reçu par le consommateur de notifications: user={self.user}, data={text_data}")
-
-    async def send_notification(self, event):
-        await self.send(text_data=json.dumps(event))
-        logger.info(f"Notification envoyée: user={self.user}, event={event}")
-
-    async def send_notification(self, user_id, message):
+        logger.info(f"Room state update: room_id={self.room_id}")
+        logger.debug(f"Detailed room state: {json.dumps(room_state, indent=2)}")
+        
         await self.channel_layer.group_send(
-            f"user_{user_id}",
+            self.room_group_name,
             {
-                'type': 'send_notification',
-                'message': message
+                'type': 'send_room_update',
+                'room_state': room_state
             }
         )
-        logger.info(f"Notification envoyée à l'utilisateur: user_id={user_id}, message={message}")
+        logger.info(f"Room update sent to group: room_id={self.room_id}")
+
+    async def send_room_update(self, event):
+        room_state = event['room_state']
+        await self.send(text_data=json.dumps({
+            'type': 'room_update',
+            'room_state': room_state
+        }))
+        logger.info(f"Room update sent to client: user={self.user}, room_id={self.room_id}")
+        logger.debug(f"Detailed room state sent to client: {json.dumps(room_state, indent=2)}")
+
+    @database_sync_to_async
+    def update_room_property(self, property, value):
+        if self.room:
+            if property == 'owner':
+                user = User.objects.get(id=value['id'])
+                self.room.owner = user
+            elif property == 'players':
+                player_ids = [player['id'] for player in value]
+                self.room.players.set(User.objects.filter(id__in=player_ids))
+            elif property == 'pending_invitations':
+                invitation_ids = [inv['id'] for inv in value]
+                self.room.pending_invitations.set(User.objects.filter(id__in=invitation_ids))
+            elif hasattr(self.room, property):
+                setattr(self.room, property, value)
+            self.room.save()
+            return True
+        return False

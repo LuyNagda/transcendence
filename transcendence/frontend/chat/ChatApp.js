@@ -1,12 +1,11 @@
 import logger from '../utils/logger.js';
-import WSService from './WSService.js';
+import WSService from '../utils/WSService.js';
 import UserService from './UserService.js';
 import MessageService from './MessageService.js';
 import UIHandler from './UIHandler.js';
 
 export default class ChatApp {
 	constructor() {
-		this.WSService = null;
 		this.userService = new UserService();
 		this.uiHandler = new UIHandler(this);
 		this.messageService = new MessageService(this.uiHandler, this.userService);
@@ -18,11 +17,12 @@ export default class ChatApp {
 		const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
 		const wsUrl = `${protocol}${window.location.host}/ws/chat/`;
 
-		this.WSService = new WSService(wsUrl);
+		this.wsService = new WSService();
+		this.wsService.initializeConnection('chat', wsUrl);
 
-		this.WSService.onMessage((data) => this.handleMessage(data));
-		this.WSService.onClose(() => this.handleClose());
-		this.WSService.onOpen(() => this.handleOpen());
+		this.wsService.on('chat', 'onMessage', this.handleMessage.bind(this));
+		this.wsService.on('chat', 'onClose', this.handleClose.bind(this));
+		this.wsService.on('chat', 'onOpen', this.handleOpen.bind(this));
 	}
 
 	handleMessage(data) {
@@ -54,13 +54,11 @@ export default class ChatApp {
 
 	handleClose() {
 		logger.warn('WebSocket closed.');
-		this.WSService.handleReconnection();
 	}
 
 	handleOpen() {
 		logger.debug('WebSocket connection established');
-		this.reconnectAttempts = 0;
-		this.WSService.processQueue();
+		this.wsService.processQueue('chat');
 	}
 
 	handleFormSubmit(e) {
@@ -82,7 +80,7 @@ export default class ChatApp {
 		}
 
 		logger.info(`Sending message to user ${recipientId}: ${message}`);
-		this.WSService.send({
+		this.wsService.send('chat', {
 			type: 'chat_message',
 			message: message,
 			recipient_id: recipientId
@@ -109,7 +107,7 @@ export default class ChatApp {
 		fetch(`/chat/history/${userId}/`, {
 			method: 'GET',
 			headers: {
-				'X-CSRFToken': this.WSService.getCSRFToken(),
+				'X-CSRFToken': this.wsService.getCSRFToken(),
 				'Content-Type': 'application/json'
 			}
 		})
@@ -150,7 +148,7 @@ export default class ChatApp {
 		fetch(`/chat/${action}/${userId}/`, {
 			method: method,
 			headers: {
-				'X-CSRFToken': this.WSService.getCSRFToken(),
+				'X-CSRFToken': this.wsService.getCSRFToken(),
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({})
@@ -188,7 +186,7 @@ export default class ChatApp {
 			? { type: 'game_invitation', recipient_id: userId, game_id: 'pong' }
 			: { type: 'user_profile', user_id: userId };
 
-		this.WSService.send(payload);
+		this.wsService.send('chat', payload);
 	}
 
 	handleGameInvitation(gameId, senderId) {
@@ -219,6 +217,6 @@ export default class ChatApp {
 	}
 
 	destroy() {
-		this.WSService.destroy();
+		this.wsService.destroy('chat');
 	}
 }

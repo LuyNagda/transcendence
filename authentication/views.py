@@ -24,6 +24,7 @@ import logging
 import json
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -88,7 +89,6 @@ def login_view(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def index(request):
-    User = get_user_model()
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     

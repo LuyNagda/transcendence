@@ -4,7 +4,7 @@
         {% csrf_token %}
         <div class="form-group">
             <label for="mode">Game Mode</label>
-            <select id="mode" name="mode" class="form-control" v-model="pongRoom.mode" v-on:change="pongRoom.updateMode">
+            <select id="mode" name="mode" class="form-control" v-model="pongRoom.mode">
                 <option value="">Select a mode</option>
                 <option value="AI">AI</option>
                 <option value="CLASSIC">Classic</option>

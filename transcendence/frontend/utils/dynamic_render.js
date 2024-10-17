@@ -124,10 +124,19 @@ class DynamicRender {
     bindModel() {
         this.root.querySelectorAll("[v-model]").forEach((el) => {
             const prop = el.getAttribute("v-model");
-            el.value = this.getPropValue(prop);
-            el.addEventListener("input", (e) => {
-                this.setPropValue(prop, e.target.value);
-            });
+            const value = this.getPropValue(prop);
+            
+            if (el.tagName === 'SELECT') {
+                el.value = value;
+                el.addEventListener("change", (e) => {
+                    this.setPropValue(prop, e.target.value);
+                });
+            } else {
+                el.value = value;
+                el.addEventListener("input", (e) => {
+                    this.setPropValue(prop, e.target.value);
+                });
+            }
         });
     }
 
@@ -147,12 +156,15 @@ class DynamicRender {
     setPropValue(prop, value) {
         const [objKey, ...path] = prop.split(".");
         const obj = this.observedObjects.get(objKey);
-        const target = path
-            .slice(0, -1)
-            .reduce((value, key) => value && value[key], obj);
-        const key = path[path.length - 1];
-        if (target && key) {
-            target[key] = value;
+        if (path.length === 0) {
+            // Si c'est une propriété directe de l'objet observé
+            obj[objKey] = value;
+        } else {
+            const target = path.slice(0, -1).reduce((value, key) => value && value[key], obj);
+            const key = path[path.length - 1];
+            if (target && key) {
+                target[key] = value; // Ceci déclenchera le setter
+            }
         }
     }
 

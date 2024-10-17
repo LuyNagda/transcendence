@@ -36,10 +36,15 @@ class PongRoom(models.Model):
         RANKED = 'RANKED', 'Ranked'
         TOURNAMENT = 'TOURNAMENT', 'Tournament'
 
+    class State(models.TextChoices):
+        LOBBY = 'LOBBY', 'Lobby'
+        PLAYING = 'PLAYING', 'Playing'
+
     room_id = models.CharField(max_length=10, unique=True)
     players = models.ManyToManyField(User, related_name='pong_rooms')
     pending_invitations = models.ManyToManyField(User, related_name='pending_pong_invitations')
     mode = models.CharField(max_length=20, choices=Mode.choices)
+    state = models.CharField(max_length=20, choices=State.choices, default=State.LOBBY)
     created_at = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_pong_rooms', null=True)
 
