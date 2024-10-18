@@ -53,8 +53,6 @@ def update_AI_ball(ball, ai_ball, ball_dx, ball_dy):
 
 def collides(ball, paddle):
     if ball.bottom > paddle.top and ball.top < paddle.bottom and ball.left < paddle.right and ball.right > paddle.left:
-        print("\n\nball:\n\ttop: ", ball.top, "\n\tleft: ", ball.left, "\n\tbottom: ", ball.bottom, "\n\tright: ", ball.right, "\n\tx: ", ball.x, "\n\ty: ", ball.y)
-        print("\npaddle:\n\ttop: ", paddle.top, "\n\tleft: ", paddle.left, "\n\tbottom: ", paddle.bottom, "\n\tright: ", paddle.right, "\n\tx: ", paddle.x, "\n\ty: ", paddle.y)
         return True
 
     return False
