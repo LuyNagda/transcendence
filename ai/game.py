@@ -51,8 +51,13 @@ def update_AI_ball(ball, ai_ball, ball_dx, ball_dy):
     ai_ball.dy = ball_dy
 
 
-def collides(obj1, obj2):
-    return obj1.x < obj2.x + obj2.width and obj1.x + obj1.width > obj2.x and obj1.y < obj2.y + obj2.height and obj1.y + obj2.height > obj2.y
+def collides(ball, paddle):
+    if ball.bottom > paddle.top and ball.top < paddle.bottom and ball.left < paddle.right and ball.right > paddle.left:
+        print("\n\nball:\n\ttop: ", ball.top, "\n\tleft: ", ball.left, "\n\tbottom: ", ball.bottom, "\n\tright: ", ball.right, "\n\tx: ", ball.x, "\n\ty: ", ball.y)
+        print("\npaddle:\n\ttop: ", paddle.top, "\n\tleft: ", paddle.left, "\n\tbottom: ", paddle.bottom, "\n\tright: ", paddle.right, "\n\tx: ", paddle.x, "\n\ty: ", paddle.y)
+        return True
+
+    return False
 
 def updateBallAngle(ball, ball_dy, paddle):
     # Calculer la position relative de la collision sur la raquette
