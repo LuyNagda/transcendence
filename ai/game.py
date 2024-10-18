@@ -5,13 +5,13 @@ WIDTH = 80 * 6
 HEIGHT = 24 * 10
 GRID = 5
 
-DISPLAY_GAME = "yes"
+DISPLAY_GAME = "no"
 DYSPLAY_LOG = "yes"
 AI_DELAY = "no"
 MAX_SCORE = 10
 NB_GENERATION = 100
 NB_SPECIES = 50
-MAX_FRAME_RATE = 60  # 0 = unlimited
+MAX_FRAME_RATE = 0  # 0 = unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
 SAVE_AI = "yes"
@@ -110,6 +110,7 @@ def pong_train(Ai_selected, SHOW_MATCH):
     # Game loop
     running = True
     i = 0
+    j= 0
     while running:
         # Limit the game time to 15 theorical minutes
         if i > (15 * 60 * 60):
@@ -192,7 +193,12 @@ def pong_train(Ai_selected, SHOW_MATCH):
             if ball.left > leftPaddle.left:
                 ball_dx *= -1
                 ball.left = leftPaddle.right
-                ball_dy = BALL_SPEED * -math.sin(generate_random_number(-75, 75))
+                if j == 0:
+                    ball_dy = BALL_SPEED * -math.sin(generate_random_number(-75, 75))
+                    j = 42
+                else:
+                    ball_dy = 0
+                    j = 0
         elif collides(ball, rightPaddle):
             if ball.right < rightPaddle.right:
                 ball_dx *= -1
