@@ -4,13 +4,13 @@ import pygame, random, time, math
 WIDTH = 80 * 6
 HEIGHT = 24 * 10
 
-DISPLAY_GAME = "yes"
+DISPLAY_GAME = "no"
 DYSPLAY_LOG = "yes"
 AI_DELAY = "no"
 MAX_SCORE = 10
 NB_GENERATION = 100
 NB_SPECIES = 50
-MAX_FRAME_RATE = 40  # 0 = unlimited
+MAX_FRAME_RATE = 0  # 0 = unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
 SAVE_AI = "yes"
@@ -28,6 +28,7 @@ PADDLE_SPEED = 2
 # Ball settings
 BALL_SPEED = 2
 BALL_SIZE = 5
+BALL_MIN_DY = 0.5
 
 class AI_ball:
     x: int
@@ -40,6 +41,7 @@ class AI_ball:
 
 def reset_ball(ball):
     ball.center = (WIDTH//2, HEIGHT//2)
+    return BALL_SPEED * random.choice((1, -1))
 
 def update_AI_ball(ball, ai_ball, ball_dx, ball_dy):
     ai_ball.x = ball.x
@@ -62,7 +64,12 @@ def updateBallAngle(ball, ball_dy, paddle):
     # Mettre à jour la vitesse verticale de la balle
     ball_dy = BALL_SPEED * -math.sin(bounceAngle)
 
-def pong_game(Ai_selected, SHOW_MATCH):
+    return ball_dy
+
+def generate_random_number(low, high):
+    return random.randint(low, high)
+
+def pong_train(Ai_selected, SHOW_MATCH):
     # Initialize Pygame
     pygame.init()
 
@@ -71,7 +78,7 @@ def pong_game(Ai_selected, SHOW_MATCH):
         pygame.display.set_caption("Pong")
 
     # Create paddles and ball
-    leftPaddle = pygame.Rect(50, 0, PADDLE_WIDTH, HEIGHT)
+    leftPaddle = pygame.Rect(50, 0, PADDLE_WIDTH, HEIGHT) # Wall for trainning purpose
     rightPaddle = pygame.Rect(WIDTH - 50 - PADDLE_WIDTH, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
     ball = pygame.Rect(WIDTH//2 - BALL_SIZE//2, HEIGHT//2 - BALL_SIZE//2, BALL_SIZE, BALL_SIZE)
 
@@ -156,12 +163,6 @@ def pong_game(Ai_selected, SHOW_MATCH):
         else:
             update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
 
-        # Move the left paddle
-        if keys[pygame.K_w] and leftPaddle.top > 0:
-            leftPaddle.y -= PADDLE_SPEED
-        if keys[pygame.K_s] and leftPaddle.bottom < HEIGHT:
-            leftPaddle.y += PADDLE_SPEED
-
         # Move the right paddle
         match (Ai_selected.decision(rightPaddle, ai_ball, HEIGHT)):
             case 0:
@@ -174,29 +175,37 @@ def pong_game(Ai_selected, SHOW_MATCH):
                     rightPaddle.y += PADDLE_SPEED
 
         # Ball collision with top and bottom
-        if ball.top <= 0 or ball.bottom >= HEIGHT:
+        if ball.top < 0:
+            ball.top = 0
             ball_dy *= -1
+            if abs(ball_dy) < BALL_MIN_DY:
+                ball_dy = BALL_MIN_DY if ball_dy >= 0 else -BALL_MIN_DY
+        elif ball.bottom > HEIGHT:
+            ball.bottom = HEIGHT
+            ball_dy *= -1
+            if abs(ball_dy) < BALL_MIN_DY:
+                ball_dy = BALL_MIN_DY if ball_dy >= 0 else -BALL_MIN_DY
 
         # Ball collision with paddles
         if collides(ball, leftPaddle):
             if ball.left > leftPaddle.left:
                 ball_dx *= -1
                 ball.left = leftPaddle.right
-                updateBallAngle(ball, ball_dy, leftPaddle)
+                ball_dy = BALL_SPEED * -math.sin(generate_random_number(-75, 75))
         elif collides(ball, rightPaddle):
             if ball.right < rightPaddle.right:
                 ball_dx *= -1
                 ball.right = rightPaddle.left
                 Ai_selected.ai_score += 1
-                updateBallAngle(ball, ball_dy, rightPaddle)
+                ball_dy = updateBallAngle(ball, ball_dy, rightPaddle)
 
         # Ball out of bounds
         if ball.left <= 0:
             right_score += 1
-            reset_ball(ball)
+            ball_dx = reset_ball(ball)
         elif ball.right >= WIDTH:
             left_score += 1
-            reset_ball(ball)
+            ball_dx = reset_ball(ball)
 
         # End the game
         if left_score >= MAX_SCORE:
@@ -319,20 +328,20 @@ def play_Ai(Ai, demo):
             if ball.left > leftPaddle.left:
                 ball_dx *= -1
                 ball.left = leftPaddle.right
-                updateBallAngle(ball, ball_dy, leftPaddle)
+                ball_dy = updateBallAngle(ball, ball_dy, leftPaddle)
         elif collides(ball, rightPaddle):
             if ball.right < rightPaddle.right:
                 ball_dx *= -1
                 ball.right = rightPaddle.left
-                updateBallAngle(ball, ball_dy, rightPaddle)
+                ball_dy = updateBallAngle(ball, ball_dy, rightPaddle)
 
         # Ball out of bounds
         if ball.left <= 0:
             right_score += 1
-            reset_ball(ball)
+            ball_dx = reset_ball(ball)
         elif ball.right >= WIDTH:
             left_score += 1
-            reset_ball(ball)
+            ball_dx = reset_ball(ball)
 
         # End the game
         if left_score >= MAX_SCORE:
