@@ -3,14 +3,15 @@ import pygame, random, time, math
 # Set up the game window
 WIDTH = 80 * 6
 HEIGHT = 24 * 10
+GRID = 5
 
-DISPLAY_GAME = "no"
+DISPLAY_GAME = "yes"
 DYSPLAY_LOG = "yes"
 AI_DELAY = "no"
 MAX_SCORE = 10
 NB_GENERATION = 100
 NB_SPECIES = 50
-MAX_FRAME_RATE = 0  # 0 = unlimited
+MAX_FRAME_RATE = 60  # 0 = unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
 SAVE_AI = "yes"
@@ -146,9 +147,6 @@ def pong_train(Ai_selected, SHOW_MATCH):
             pygame.quit()
             return "STOP"
 
-        if i < 90:
-            continue
-
         # Move the ball
         ball.x += ball_dx
         ball.y += ball_dy
@@ -175,16 +173,16 @@ def pong_train(Ai_selected, SHOW_MATCH):
                     rightPaddle.y += PADDLE_SPEED
 
         # Ball collision with top and bottom
-        if ball.top < 0:
-            ball.top = 0
+        if ball.top <= 0:
+            ball.top = GRID
             ball_dy *= -1
-            if abs(ball_dy) < BALL_MIN_DY:
-                ball_dy = BALL_MIN_DY if ball_dy >= 0 else -BALL_MIN_DY
-        elif ball.bottom > HEIGHT:
-            ball.bottom = HEIGHT
+            if abs(ball_dy) < 1:
+                ball_dy = 1 if ball_dy > 0 else -1
+        elif ball.bottom >= HEIGHT:
+            ball.bottom = HEIGHT - GRID
             ball_dy *= -1
-            if abs(ball_dy) < BALL_MIN_DY:
-                ball_dy = BALL_MIN_DY if ball_dy >= 0 else -BALL_MIN_DY
+            if abs(ball_dy) < 1:
+                ball_dy = 1 if ball_dy > 0 else -1
 
         # Ball collision with paddles
         if collides(ball, leftPaddle):
@@ -289,7 +287,7 @@ def play_Ai(Ai, demo):
         if (demo == "yes"):
             match (Ai.decision(rightPaddle, ai2_ball, HEIGHT)):
                 case 0:
-                    if leftPaddle.top > 0:
+                    if leftPaddle.top > 0 :
                         leftPaddle.y -= PADDLE_SPEED
                 case 1:
                     pass
@@ -320,8 +318,16 @@ def play_Ai(Ai, demo):
         ball.y += ball_dy
 
         # Ball collision with top and bottom
-        if ball.top <= 0 or ball.bottom >= HEIGHT:
+        if ball.top <= 0:
+            ball.top = GRID
             ball_dy *= -1
+            if abs(ball_dy) < 1:
+                ball_dy = 1 if ball_dy > 0 else -1
+        elif ball.bottom >= HEIGHT:
+            ball.bottom = HEIGHT - GRID
+            ball_dy *= -1
+            if abs(ball_dy) < 1:
+                ball_dy = 1 if ball_dy > 0 else -1
 
         # Ball collision with paddles
         if collides(ball, leftPaddle):
