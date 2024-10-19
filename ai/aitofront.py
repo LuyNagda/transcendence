@@ -1,5 +1,5 @@
 import os, pickle, json
-from utils import SAVE_FILE, SAVE_FOLDER
+from game import SAVE_FILE, SAVE_FOLDER
 from ai import Neuron_Network
 
 def main():
