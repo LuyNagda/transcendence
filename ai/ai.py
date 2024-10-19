@@ -1,5 +1,5 @@
 import pickle, os, json
-from game import pong_train, DISPLAY_GAME, DYSPLAY_LOG, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
+from game import pong_train, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
 import numpy as np
 
 np.random.seed()
@@ -167,13 +167,8 @@ def train_Ai(save_file, base):
             Ai_Sample[i].ai_score = 0
             if pong_train(Ai_Sample[i], DISPLAY_GAME) == "STOP":
                 return
-            if (DYSPLAY_LOG == "yes"):
-                print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
+            print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
         Save_Best_Ai(Ai_Sample, save_file)
-
-    if (DYSPLAY_LOG != "yes"):
-        for j in range(NB_SPECIES):
-            print(f"The AI opponent {j} send back the ball {Ai_Sample[j].ai_score} times")
 
     if (SAVE_AI == "no"):
         os.remove(SAVE_FILE)
