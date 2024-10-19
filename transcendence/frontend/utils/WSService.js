@@ -7,7 +7,7 @@ export default class WSService {
 		this.callbacks = {};
 		this.reconnectAttempts = {};
 		this.maxReconnectAttempts = 5;
-		this.userIdCheckInterval = null;
+		this.send = this.send.bind(this);
 	}
 
 	initializeConnection(name, url) {
@@ -31,9 +31,8 @@ export default class WSService {
 
 	connect(name, url) {
 		this.connections[name] = new WebSocket(url);
-
 		this.connections[name].onopen = () => {
-			logger.debug(`WebSocket '${name}' connected`);
+			logger.info(`WebSocket '${name}' connected`);
 			this.reconnectAttempts[name] = 0;
 			this.processQueue(name);
 			this.callbacks[name].onOpen.forEach(callback => callback());
@@ -45,7 +44,7 @@ export default class WSService {
 		};
 
 		this.connections[name].onclose = (e) => {
-			logger.warn(`WebSocket '${name}' closed: ${e.code}, Reason: ${e.reason}`);
+			logger.warn(`WebSocket '${name}' closed: ${e.code}`);
 			this.callbacks[name].onClose.forEach(callback => callback(e));
 			this.handleReconnection(name, url);
 		};
@@ -59,26 +58,26 @@ export default class WSService {
 	handleReconnection(name, url) {
 		if (this.reconnectAttempts[name] < this.maxReconnectAttempts) {
 			const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts[name]), 60000);
-			logger.info(`Reconnect attempt ${this.reconnectAttempts[name] + 1} for '${name}' in ${delay}ms`);
 			setTimeout(() => {
 				this.reconnectAttempts[name]++;
 				this.connect(name, url);
 			}, delay);
+			logger.info(`Reconnect attempt ${this.reconnectAttempts[name] + 1} for '${name}' in ${delay}ms`);
 		} else {
 			logger.error(`Max reconnect attempts reached for '${name}'.`);
 		}
 	}
 
 	send(name, message) {
+		const messageWithToken = {
+			...message,
+			csrfToken: this.getCSRFToken(),
+		};
+
 		if (this.connections[name] && this.connections[name].readyState === WebSocket.OPEN) {
-			const messageWithToken = {
-				...message,
-				csrfToken: this.getCSRFToken(),
-			};
 			this.connections[name].send(JSON.stringify(messageWithToken));
 		} else {
-			logger.warn(`WebSocket '${name}' not connected. Queueing message.`);
-			this.messageQueues[name].push(message);
+			this.messageQueues[name].push(messageWithToken);
 		}
 	}
 

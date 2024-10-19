@@ -6,20 +6,16 @@ export class PongRoom {
     constructor(roomId, currentUser) {
         this._roomId = roomId;
         this._currentUser = currentUser;
-        this._isInitialized = false;
-
-        // Initialiser les autres propriétés avec des valeurs par défaut
         this._mode = "";
-        this._owner = "";
+        this._owner = {};
         this._players = [];
         this._pendingInvitations = [];
         this._maxPlayers = 0;
-        this._availableSlots = 0;
         this._state = "LOBBY";
 
         this.initializeWebSocket();
         logger.info(`PongRoom instance created for room ${roomId}`);
-        this.logCurrentState();  // Ajoutez cette ligne pour afficher l'état initial
+        this.logCurrentState();
     }
 
     initializeWebSocket() {
@@ -53,7 +49,7 @@ export class PongRoom {
         return this._maxPlayers;
     }
     get availableSlots() {
-        return this._availableSlots;
+        return this._maxPlayers - this._players.length - this._pendingInvitations.length;
     }
     get state() {
         return this._state;
@@ -62,82 +58,65 @@ export class PongRoom {
         return this._currentUser;
     }
     
-    set mode(value) {
+    changeMode(event) {
+        const newMode = event.target.value;
+        logger.info(`Changing mode to ${newMode}`);
+        this.updateMode(newMode);
+    }
+
+    updateMode(value) {
         if (this._mode !== value) {
             logger.info(`Setting mode from ${this._mode} to ${value}`);
             this._mode = value;
             this.notifyUpdate("mode", value);
-            this.logCurrentState();
-        } else {
-            logger.debug(`Mode value unchanged: ${value}`);
+            dynamicRender.scheduleUpdate();
         }
     }
 
-    set owner(value) {
+    updateOwner(value) {
         if (this._owner.id !== value.id) {
             logger.info(`Setting owner from ${this._owner.username} to ${value.username}`);
             this._owner = value;
             this.notifyUpdate("owner", value);
-            this.logCurrentState();
-        } else {
-            logger.debug(`Owner value unchanged: ${value.username}`);
+            dynamicRender.scheduleUpdate();
         }
     }
 
-    set players(value) {
+    updatePlayers(value) {
         const currentIds = new Set(this._players.map(p => p.id));
         const newIds = new Set(value.map(p => p.id));
         if (currentIds.size !== newIds.size || ![...currentIds].every(id => newIds.has(id))) {
             logger.info(`Setting players from ${JSON.stringify(this._players)} to ${JSON.stringify(value)}`);
             this._players = value;
             this.notifyUpdate("players", value);
-            this.logCurrentState();
-        } else {
-            logger.debug(`Players value unchanged: ${JSON.stringify(value)}`);
+            dynamicRender.scheduleUpdate();
         }
     }
 
-    set pendingInvitations(value) {
+    updatePendingInvitations(value) {
         if (JSON.stringify(this._pendingInvitations) !== JSON.stringify(value)) {
             logger.info(`Setting pending invitations from ${JSON.stringify(this._pendingInvitations)} to ${JSON.stringify(value)}`);
             this._pendingInvitations = value;
             this.notifyUpdate("pending_invitations", value);
-            this.logCurrentState();
-        } else {
-            logger.debug(`Pending invitations value unchanged: ${JSON.stringify(value)}`);
+            dynamicRender.scheduleUpdate();
         }
     }
 
-    set maxPlayers(value) {
+    updateMaxPlayers(value) {
         if (this._maxPlayers !== value) {
             logger.info(`Setting max players from ${this._maxPlayers} to ${value}`);
             this._maxPlayers = value;
             this.notifyUpdate("max_players", value);
-            this.logCurrentState();
-        } else {
-            logger.debug(`Max players value unchanged: ${value}`);
+            dynamicRender.scheduleUpdate();
         }
     }
 
-    set availableSlots(value) {
-        if (this._availableSlots !== value) {
-            logger.info(`Setting available slots from ${this._availableSlots} to ${value}`);
-            this._availableSlots = value;
-            this.notifyUpdate("available_slots", value);
-            this.logCurrentState();
-        } else {
-            logger.debug(`Available slots value unchanged: ${value}`);
-        }
-    }
-
-    set state(value) {
+    updateState(value) {
         if (this._state !== value) {
             logger.info(`Setting state from ${this._state} to ${value}`);
             this._state = value;
             this.notifyUpdate("state", value);
-            this.logCurrentState();
-        } else {
-            logger.debug(`State value unchanged: ${value}`);
+            dynamicRender.scheduleUpdate();
         }
     }
 
@@ -145,10 +124,6 @@ export class PongRoom {
         logger.debug("WebSocket message received:", data);
         if (data.type === "room_update") {
             this.updateFromState(data.room_state);
-            if (!this._isInitialized) {
-                this.logInitialValues();
-                this._isInitialized = true;
-            }
         }
     }
 
@@ -217,16 +192,12 @@ export class PongRoom {
             this._maxPlayers = roomState.max_players;
             hasChanged = true;
         }
-        if (this._availableSlots !== roomState.available_slots) {
-            this._availableSlots = roomState.available_slots;
-            hasChanged = true;
-        }
         if (this._state !== roomState.state) {
             this._state = roomState.state;
             hasChanged = true;
         }
-
         if (hasChanged) {
+            logger.info("PongRoom - State has changed");
             this.logCurrentState();
             dynamicRender.scheduleUpdate();
         }
@@ -238,21 +209,6 @@ export class PongRoom {
         }
     }
 
-    logInitialValues() {
-        logger.debug("PongRoom - Valeurs initiales :", {
-            roomId: this._roomId,
-            mode: this._mode,
-            owner: this._owner,
-            players: this._players,
-            pendingInvitations: this._pendingInvitations,
-            maxPlayers: this._maxPlayers,
-            availableSlots: this._availableSlots,
-            state: this._state,
-            currentUser: this._currentUser
-        });
-    }
-
-    // Nouvelle méthode pour afficher l'état actuel
     logCurrentState() {
         logger.info("PongRoom - État actuel :", {
             roomId: this._roomId,
@@ -261,7 +217,7 @@ export class PongRoom {
             players: this._players,
             pendingInvitations: this._pendingInvitations,
             maxPlayers: this._maxPlayers,
-            availableSlots: this._availableSlots,
+            availableSlots: this.availableSlots,
             state: this._state,
             currentUser: this._currentUser
         });

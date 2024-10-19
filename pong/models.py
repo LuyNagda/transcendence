@@ -43,7 +43,7 @@ class PongRoom(models.Model):
     room_id = models.CharField(max_length=10, unique=True)
     players = models.ManyToManyField(User, related_name='pong_rooms')
     pending_invitations = models.ManyToManyField(User, related_name='pending_pong_invitations')
-    mode = models.CharField(max_length=20, choices=Mode.choices)
+    mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.CLASSIC)
     state = models.CharField(max_length=20, choices=State.choices, default=State.LOBBY)
     created_at = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_pong_rooms', null=True)
@@ -60,11 +60,10 @@ class PongRoom(models.Model):
     @property
     def max_players(self):
         if self.mode == self.Mode.TOURNAMENT:
-            return 8  # ou le nombre maximum de joueurs pour un tournoi
+            return 8
         else:
-            return 2  # pour les modes AI, CLASSIC et RANKED
+            return 2
 
     def save(self, *args, **kwargs):
-        # Assurez-vous que le mode est en majuscules
         self.mode = self.mode.upper()
         super().save(*args, **kwargs)
