@@ -5,15 +5,16 @@ WIDTH = 80 * 6
 HEIGHT = 24 * 10
 GRID = 5
 
-DISPLAY_GAME = "no"
+DISPLAY_GAME = "yes"
 AI_DELAY = "no"
 MAX_SCORE = 10
-NB_GENERATION = 100
+NB_GENERATION = 10
 NB_SPECIES = 50
-MAX_FRAME_RATE = 0  # 0 = unlimited
+MAX_FRAME_RATE = 60  # 0 = unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
 SAVE_AI = "yes"
+TIME_LIMIT = 30
 
 # Colors
 WHITE = (255, 255, 255)
@@ -48,6 +49,7 @@ def update_AI_ball(ball, ai_ball, ball_dx, ball_dy):
     ai_ball.y = ball.y
     ai_ball.dx = ball_dx
     ai_ball.dy = ball_dy
+    # print("update_AI_ball()")
 
 
 def collides(ball, paddle):
@@ -111,10 +113,10 @@ def pong_train(Ai_selected, SHOW_MATCH):
     i = 0
     j= 0
     while running:
-        # Limit the game time to 15 theorical minutes
-        if i > (15 * 60 * 60):
-            break
-        i += 1
+        # # Limit the game time to 30 theorical minutes
+        # if i > (TIME_LIMIT * 60 * 60):
+        #     break
+        # i += 1
 
         if (MAX_FRAME_RATE != 0):
             clock.tick(MAX_FRAME_RATE)
@@ -243,12 +245,6 @@ def play_Ai(Ai, demo):
     ai_ball = AI_ball()
     update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
 
-    ai2_ball = AI_ball()
-    ai2_ball.x = WIDTH - ball.x
-    ai2_ball.y = ball.y
-    ai2_ball.dx = ball_dx * -1
-    ai2_ball.dy = ball_dy
-
     # Score
     left_score = 0
     right_score = 0
@@ -267,6 +263,7 @@ def play_Ai(Ai, demo):
             if event.type == pygame.QUIT:
                 pygame.quit()
                 return "STOP"
+
         if keys[pygame.K_ESCAPE]:
             pygame.quit()
             return "STOP"
@@ -275,25 +272,13 @@ def play_Ai(Ai, demo):
             current_time = time.time()
             if current_time - last_update_time >= 1:
                 update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
-
-                ai2_ball.x = WIDTH - ball.x
-                ai2_ball.y = ball.y
-                ai2_ball.dx = ball_dx * -1
-                ai2_ball.dy = ball_dy
-
                 last_update_time = current_time
-        
         else:
             update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
 
-            ai2_ball.x = WIDTH - ball.x
-            ai2_ball.y = ball.y
-            ai2_ball.dx = ball_dx * -1
-            ai2_ball.dy = ball_dy
-
         # Move the left paddle by AI
         if (demo == "yes"):
-            match (Ai.decision(rightPaddle, ai2_ball, HEIGHT)):
+            match (Ai.decision_left(rightPaddle, ai_ball, HEIGHT)):
                 case 0:
                     if leftPaddle.top > 0 :
                         leftPaddle.y -= PADDLE_SPEED

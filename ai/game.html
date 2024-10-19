@@ -277,33 +277,6 @@ function collides(obj1, obj2) {
 
 let ai_loaded = load_ai();
 
-function load_ai() {
-  try {
-    const setupJson = JSON.stringify({
-      "layer1": {
-        "weights": [
-        [1.7459309375846652, -0.7099051207609994, 0.1713727458776159],
-        [-0.40818695450563763, -3.1141557792683146, 1.935333577814525],
-        [-2.8712334209585477, 0.41613053964538005, -0.19422844248535048],
-        [-0.01974791733035619, 1.3970845509697727, 1.5151147714933577],
-        [-1.4414682272576675, 4.123087660222533, -1.9853079103281146]
-        ]
-      }
-    });
-
-    if (typeof Neuron_Network === 'undefined') {
-      console.error("Neuron_Network is not defined. Make sure ai.js is loaded correctly.");
-      return null;
-    }
-
-    return new Neuron_Network(setupJson);
-  }
-  catch (error) {
-    console.error("Error in Neuron_Network initialization:", error);
-    return null;
-  }
-}
-
 function loop() {
   requestAnimationFrame(loop);
 

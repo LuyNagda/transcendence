@@ -74,3 +74,30 @@ window.Neuron_Network = class {
         };
     }
 }
+
+function load_ai() {
+  try {
+    const setupJson = JSON.stringify({
+      "layer1": {
+        "weights": [
+        [3.0366331909210933, -0.7099055470971871, 0.1713255040167374],
+        [-0.10891332866947781, -2.85917503037703, 2.1244329108142432],
+        [-2.6348884619116655, 0.46594910054674504, -0.19578153674784315],
+        [-0.18621651413825036, 1.4243400282019962, 1.4960372798459531],
+        [-1.5075185060079832, 4.116696996635465, -1.8092028510677776]
+        ]
+      }
+    });
+
+    if (typeof Neuron_Network === 'undefined') {
+      console.error("Neuron_Network is not defined. Make sure ai.js is loaded correctly.");
+      return null;
+    }
+
+    return new Neuron_Network(setupJson);
+  }
+  catch (error) {
+    console.error("Error in Neuron_Network initialization:", error);
+    return null;
+  }
+}

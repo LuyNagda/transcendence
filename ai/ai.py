@@ -52,6 +52,12 @@ class Neuron_Network:
 
         return response
 
+    def decision_left(self, paddle, ball, height):
+        X = [1 - ball.x / height, ball.y / height, ball.dx * -1, ball.dy, paddle.y / height]
+        response = np.argmax(self.forward(X))
+
+        return response
+
     def __lt__(self, other):
         return ((self.ai_score) < (other.ai_score))
     
