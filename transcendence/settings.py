@@ -14,7 +14,8 @@ from pathlib import Path
 from django.contrib import messages
 import environ
 from datetime import timedelta
-
+import os
+from .logger import get_logging_config
 # Load environment variables from .env file
 env = environ.Env()
 environ.Env.read_env()
@@ -30,43 +31,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-zw-ma$(zm6#8=njdjxk+@gd32fa&fd$-&tjxv-m#upwl(gt&ay'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env.bool('DEBUG', default=True)
+DEBUG = env.bool('DEBUG')
 
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'root': {
-        'level': 'ERROR',
-        'handlers': ['bugsnag'],
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-        'bugsnag': {
-            'level': 'INFO',
-            'class': 'bugsnag.handlers.BugsnagHandler',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
-        },
-        'django.db.backends': {
-            'handlers': ['console'],
-            'level': 'WARNING',
-        },
-        'channels': {
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
-        },
-        'chat': {
-            'handlers': ['console'],
-            'level': 'DEBUG' if DEBUG else 'INFO',
-        },
-    },
-}
+LOG_LEVEL = env('LOG_LEVEL', default='DEBUG')
+
+LOGGING = get_logging_config(LOG_LEVEL)
 
 # Application definition
 
@@ -82,16 +51,14 @@ INSTALLED_APPS = [
     'authentication',
     'chat',
     'pong',
-    'corsheaders',  # Added 'corsheaders' to INSTALLED_APPS
+    'corsheaders',
     'rest_framework_simplejwt',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
-    'bugsnag.django',  # Added 'bugsnag.django' to INSTALLED_APPS
 ]
 
 MIDDLEWARE = [
-    'bugsnag.django.middleware.BugsnagMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # Added CorsMiddleware to MIDDLEWARE
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -101,6 +68,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
     'authentication.middleware.RedirectOn401Middleware',
+    'authentication.middleware.HtmxUserMiddleware',
 ]
 
 ROOT_URLCONF = 'transcendence.urls'
@@ -116,13 +84,14 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'transcendence.context.global_context',
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = 'transcendence.wsgi.application'
-ASGI_APPLICATION = "transcendence.asgi.application"
+ASGI_APPLICATION = 'transcendence.asgi.application'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -158,9 +127,9 @@ DATABASES = {
 
 
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
 }
 
 
@@ -202,20 +171,19 @@ USE_I18N = True
 
 USE_TZ = True
 
-if not DEBUG:
+if env('BUGSNAG_KEY', default=None) is not None:
     BUGSNAG = {
         'api_key': env('BUGSNAG_KEY', default=None),
         'project_root': BASE_DIR,
     }
 
-    if BUGSNAG['api_key']:
-        MIDDLEWARE = ['bugsnag.django.middleware.BugsnagMiddleware'] + MIDDLEWARE
-        INSTALLED_APPS.append('bugsnag.django')
-
-    LOGGING['root']['handlers'] = ['bugsnag']
-else:
-    LOGGING['root']['handlers'] = ['console']
-
+    INSTALLED_APPS.append('bugsnag.django')
+    MIDDLEWARE.insert(0, 'bugsnag.django.middleware.BugsnagMiddleware')
+    LOGGING['handlers']['bugsnag'] = {
+        'level': 'ERROR',
+        'class': 'bugsnag.handlers.BugsnagHandler',
+    }
+    LOGGING['root']['handlers'].append('bugsnag')
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
@@ -225,6 +193,10 @@ STATIC_ROOT = BASE_DIR / 'static'
 STATICFILES_DIRS = [
     BASE_DIR / 'transcendence' / 'static',
 ]
+
+# esbuild configuration
+ESBUILD_BIN_PATH = os.path.join(BASE_DIR, 'node_modules', '.bin', 'esbuild')
+ESBUILD_CONFIG_PATH = os.path.join(BASE_DIR, 'esbuild.config.js')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
@@ -254,21 +226,23 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', env('DOMAIN')]
 CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
-    'https://' + env('DOMAIN'),
-	'ws://' + env('DOMAIN'),
-	'wss://' + env('DOMAIN'),
 ]
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
-    'https://' + env('DOMAIN'),
-	'ws://' + env('DOMAIN'),
-	'wss://' + env('DOMAIN'),
 ]
-#CSRF_COOKIE_DOMAIN = env('DOMAIN')
+
+if env('PROD', default='False') == 'True':
+    CSRF_TRUSTED_ORIGINS.append(f'https://{env("DOMAIN")}')
+    CSRF_TRUSTED_ORIGINS.append(f'ws://{env("DOMAIN")}')
+    CSRF_TRUSTED_ORIGINS.append(f'wss://{env("DOMAIN")}')
+    CORS_ALLOWED_ORIGINS.append(f'https://{env("DOMAIN")}')
+    CORS_ALLOWED_ORIGINS.append(f'ws://{env("DOMAIN")}')
+    CORS_ALLOWED_ORIGINS.append(f'wss://{env("DOMAIN")}')
+
+CSRF_COOKIE_DOMAIN = env('DOMAIN')
 CORS_ALLOW_CREDENTIALS = True
 FT_CLIENT_ID = env('FT_CLIENT_ID')
 FT_CLIENT_SECRET = env('FT_CLIENT_SECRET')
 FT_REDIRECT_URI = env('FT_REDIRECT_URI')
-

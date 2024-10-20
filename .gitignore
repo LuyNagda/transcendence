@@ -3,3 +3,8 @@
 .DS_Store
 .venv
 static/
+!transcendence/static/
+!transcendence/static/js/
+transcendence/static/js/main.js
+transcendence/static/js/main.js.map
+node_modules

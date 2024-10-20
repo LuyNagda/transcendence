@@ -31,16 +31,22 @@ class PongGame(models.Model):
 
 class PongRoom(models.Model):
     class Mode(models.TextChoices):
-        AI = 'ai'
-        CLASSIC = 'classic'
-        RANKED = 'ranked'
-        TOURNAMENT = 'tournament'
+        AI = 'AI', 'AI'
+        CLASSIC = 'CLASSIC', 'Classic'
+        RANKED = 'RANKED', 'Ranked'
+        TOURNAMENT = 'TOURNAMENT', 'Tournament'
+
+    class State(models.TextChoices):
+        LOBBY = 'LOBBY', 'Lobby'
+        PLAYING = 'PLAYING', 'Playing'
 
     room_id = models.CharField(max_length=10, unique=True)
-    max_players = models.IntegerField(default=2)
-    players = models.ManyToManyField(User, related_name='pong_room_users')
-    mode = models.CharField(max_length=10, choices=Mode.choices, default=Mode.CLASSIC)
+    players = models.ManyToManyField(User, related_name='pong_rooms')
+    pending_invitations = models.ManyToManyField(User, related_name='pending_pong_invitations')
+    mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.CLASSIC)
+    state = models.CharField(max_length=20, choices=State.choices, default=State.LOBBY)
     created_at = models.DateTimeField(auto_now_add=True)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_pong_rooms', null=True)
 
     def __str__(self):
         return f"PONGROOM[{self.room_id}]: {self.mode}"
@@ -50,3 +56,14 @@ class PongRoom(models.Model):
 
     def get_finished_games(self):
         return self.games.filter(status=PongGame.Status.FINISHED)
+
+    @property
+    def max_players(self):
+        if self.mode == self.Mode.TOURNAMENT:
+            return 8
+        else:
+            return 2
+
+    def save(self, *args, **kwargs):
+        self.mode = self.mode.upper()
+        super().save(*args, **kwargs)

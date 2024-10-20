@@ -25,6 +25,7 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
+from django.views.static import serve
 
 class UIDTokenConverter:
     regex = '[^/]+'
@@ -48,11 +49,13 @@ urlpatterns = [
     path('forgot-password', forgot_password, name='forgot-password'),
     path('settings', settings_view, name='settings'),
     path('change-password', change_password, name='change-password'),
-    path('chat/', include('chat.urls'), name='chat'),
-    path('pong/', include('pong.urls'), name='pong'),  # Added this line
+    path('chat/', include('chat.urls')),
+    path('users/', include('users.urls')),
+    path('pong/', include('pong.urls')),
     path('set-password', set_password, name='set-password'),
     path('callback', oauth_callback, name='callback'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('static/<path:path>', serve, {'document_root': settings.STATIC_ROOT, 'show_indexes': settings.DEBUG}),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) \
   + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
