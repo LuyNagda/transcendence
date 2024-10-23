@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load chat_tags %}
 
 {% block title %}Profile{% endblock %}
 
@@ -8,7 +9,8 @@
 
 <div class="container x-auto my-4" id="profile-form">
 	<h1 id="profile-heading">Profile</h1>
-	<form method="post" hx-post="{% url 'profile' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" enctype="multipart/form-data" aria-labelledby="profileHeading">
+	<form method="post" hx-post="{% url 'profile' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true"
+		enctype="multipart/form-data" aria-labelledby="profileHeading">
 		<div class="row">
 			<div class="col">
 				{% csrf_token %}
@@ -19,9 +21,9 @@
 					{% if field.errors %}
 					<div class="alert alert-danger my-1" role="alert">
 						<ul class="m-0 p-0" style="list-style-type: none;">
-						{% for error in field.errors %}
+							{% for error in field.errors %}
 							<li>{{ error }}</li>
-						{% endfor %}
+							{% endfor %}
 						</ul>
 					</div>
 					{% endif %}
@@ -30,22 +32,23 @@
 				<button class="btn btn-primary" type="submit" aria-label="Save profile changes">Save</button>
 			</div>
 			<div class="col">
-				<img src="{{ user.profile_picture.url }}" class="img-thumbnail" style="width: 200px" alt="Profile picture of {{ user.username }}">
+				<img src="{{ user.profile_picture.url }}" class="img-thumbnail" style="width: 200px"
+					alt="Profile picture of {{ user.username }}">
 			</div>
 		</div>
 	</form>
 	{% if messages %}
-		<div role="alert" aria-live="polite">
+	<div role="alert" aria-live="polite">
 		{% for message in messages %}
-			<div class="alert alert-{{ message.tags }} my-2">
-				<p class="m-0">{{ message }}</p>
-			</div>
-		{% endfor %}
+		<div class="alert alert-{{ message.tags }} my-2">
+			<p class="m-0">{{ message }}</p>
 		</div>
+		{% endfor %}
+	</div>
 	{% endif %}
 </div>
 
-{% block chat %}{% include "chat/chat.html" %}{% endblock %}
+{% block chat %}{% render_chat %}{% endblock %}
 
 {% block footer %}{% include "footer.html" %}{% endblock %}
 

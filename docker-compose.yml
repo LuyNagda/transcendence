@@ -47,6 +47,9 @@ services:
         - action: rebuild
           path: ./docker-compose.yml
           target: /app/
+        - action: rebuild
+          path: ./transcendence/.env
+          target: /app/transcendence/
         - action: sync+restart
           path: ./
           target: /app/

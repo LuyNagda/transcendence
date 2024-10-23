@@ -1,6 +1,6 @@
-FROM python:3.9-slim-bookworm AS builder
+FROM python:3.9-bookworm AS builder
 
-RUN apt-get update && apt-get install -y curl make git libpq-dev python3-venv
+RUN apt-get update && apt-get install -y libpq-dev python3-venv nodejs npm
 
 WORKDIR /app
 
@@ -11,7 +11,11 @@ RUN python3 -m venv /app/.venv
 RUN .venv/bin/pip install --upgrade pip && \
 	.venv/bin/pip install -r requirements.txt
 
-FROM python:3.9-slim-bookworm
+COPY package.json package-lock.json ./
+
+RUN npm install
+
+FROM python:3.9-bookworm
 
 ENV DB_NAME=${DB_NAME}
 ENV DB_HOST=${DB_HOST}
@@ -27,7 +31,7 @@ ENV DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
 ENV DEBUG=${DEBUG}
 ENV DOMAIN=${DOMAIN}
 
-RUN apt-get update && apt-get install -y curl make git libpq-dev openssl
+RUN apt-get update && apt-get install -y curl make git libpq-dev openssl nodejs npm
 
 SHELL ["/bin/bash", "-c"]
 
@@ -35,8 +39,11 @@ RUN mkdir /certs
 WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/node_modules /app/node_modules
 
 COPY . .
+
+RUN npm run build
 
 RUN chmod +x install.sh
 

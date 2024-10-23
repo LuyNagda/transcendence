@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load chat_tags %}
 
 {% block title %}Settings{% endblock %}
 
@@ -12,26 +13,29 @@
 		<h3 id="accountHeading">Account</h3>
 		<ul class="m-0 p-0" style="list-style-type: none;">
 			{% if user.password is not None %}
-				<li>
-					<button class="btn btn-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" aria-label="Change Password">Change Password</button>
-				</li>
+			<li>
+				<button class="btn btn-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content"
+					hx-swap="outerHTML" hx-push-url="true" aria-label="Change Password">Change Password</button>
+			</li>
 			{% else %}
-				<li>
-					<button class="btn btn-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" aria-label="Set Password">Set Password</button>
-				</li>
+			<li>
+				<button class="btn btn-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content"
+					hx-swap="outerHTML" hx-push-url="true" aria-label="Set Password">Set Password</button>
+			</li>
 			{% endif %}
 		</ul>
 	</div>
 	<div class="m-0 pt-3">
 		<h3 id="displayHeading">Display</h3>
 		<div class="form-check form-switch">
-			<input class="form-check-input" type="checkbox" role="switch" id="toggleFontSizeBtn" aria-labelledby="fontSizeLabel">
+			<input class="form-check-input" type="checkbox" role="switch" id="toggleFontSizeBtn"
+				aria-labelledby="fontSizeLabel">
 			<label class="form-check-label" for="toggleFontSizeBtn" id="fontSizeLabel">Increase font size</label>
 		</div>
 	</div>
 </div>
 
-{% block chat %}{% include "chat/chat.html" %}{% endblock %}
+{% block chat %}{% render_chat %}{% endblock %}
 
 {% block footer %}{% include "footer.html" %}{% endblock %}
 

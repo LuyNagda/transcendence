@@ -21,7 +21,6 @@ export BUILD_TYPE ?= prod
 export MY_UID ?= $(id -u)
 export NGINX_PORT_1 ?= 8000
 export NGINX_PORT_2 ?= 8001
-export CONTAINER ?= transcendence-$(BUILD_TYPE)
 export PORT ?= 8080
 
 SRC_ENV = set -a; source $(ENV_FILE); set +a;
@@ -30,7 +29,7 @@ VENV = .venv
 PYTHON = $(VENV)/bin/python
 PIP = $(VENV)/bin/pip
 
-all: build dev
+all: dev
 
 $(NAME):
 
@@ -39,10 +38,12 @@ run: daemon
 	@make logs
 
 daemon:
-	$(SRC_ENV) BUILD_TYPE=prod docker compose --profile prod up -d
+	$(SRC_ENV) docker compose --profile prod up -d
 
 dev: build
-	$(SRC_ENV) DEBUG=True BUILD_TYPE=dev docker compose --profile dev up --watch
+	npm i & \
+	npm run dev & \
+	$(SRC_ENV) docker compose --profile dev up --watch
 
 $(VENV)/bin/activate: requirements.txt
 	python3 -m venv $(VENV)
@@ -117,7 +118,7 @@ endef
 
 define run_migrations
 	$(SRC_ENV) \
-	container_id=$$(docker compose run --build --remove-orphans -d -v $(PWD):/host auth /bin/bash -c "chmod +x /app/makemigrations.sh && /app/makemigrations.sh $(if $(1),$(1))") && \
-	docker wait $$container_id && \
-	docker compose down
+	echo $(PWD) && \
+	container_id=$$(docker compose run --build --remove-orphans -d -v $(PWD):/host auth /bin/bash -c "chmod +x /app/makemigrations.sh && /app/makemigrations.sh $(if $(1),$(1))")
+
 endef
