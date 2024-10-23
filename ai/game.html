@@ -276,6 +276,10 @@ function collides(obj1, obj2) {
 }
 
 let ai_loaded = load_ai();
+let match_stats = [];
+let set_stats = [];
+let leftDecision = 1; // Player action vs AI
+let print_match = 1;
 
 function loop() {
   requestAnimationFrame(loop);
@@ -319,7 +323,9 @@ function loop() {
       rightScore++;
     } else {
       leftScore++;
+      match_stats.push(set_stats);
     }
+    set_stats = [];
 
     setTimeout(() => {
       ball.resetting = false;
@@ -348,6 +354,12 @@ function loop() {
         break;
       case 2:
         rightPaddle.y += paddleSpeed;
+    }
+
+    save_match(set_stats, ball, leftPaddle.y ,leftDecision);
+    if (print_match == 1 && (leftScore == 2 || rightScore == 2)) {
+      console.log(match_stats);
+      print_match = 0;
     }
   }
 
@@ -384,8 +396,10 @@ document.addEventListener('keydown', function(e) {
 
   if (e.which === 87) {
     leftPaddle.dy = -paddleSpeed;
+    leftDecision = 0;
   } else if (e.which === 83) {
     leftPaddle.dy = paddleSpeed;
+    leftDecision = 2;
   }
 });
 
@@ -396,6 +410,7 @@ document.addEventListener('keyup', function(e) {
 
   if (e.which === 83 || e.which === 87) {
     leftPaddle.dy = 0;
+    leftDecision = 1;
   }
 });
 

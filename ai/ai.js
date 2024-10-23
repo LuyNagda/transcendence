@@ -61,7 +61,6 @@ window.Neuron_Network = class {
 
     decision(paddle, ball, height) {
         let X = [[ball.x / height, ball.y / height, ball.dx, ball.dy, paddle.y / height]];
-        console.log(X)
         let result = this.forward(X);
         return result[0].indexOf(Math.max(...result[0]));
     }
@@ -102,3 +101,21 @@ function load_ai() {
   }
 }
 
+// Save the player's decision only when the ball is coming toward him
+function save_match(set_stats, ball, leftPaddle, playerDecision) {
+    if (ball.dx > 0)
+        return;
+
+    const state = {
+        ball : {
+            x: ball.x,
+            y: ball.y,
+            dx: ball.dx,
+            dy: ball.dy      
+        },
+        leftPaddle : leftPaddle,
+        playerDecision : playerDecision
+    };
+
+    set_stats.push(state)
+}
