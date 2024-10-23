@@ -77,7 +77,7 @@ window.Neuron_Network = class {
 
 function load_ai() {
   try {
-    const setupJson = JSON.stringify({
+    const setupJson = JSON.stringify({ // Insert respond from server
       "layer1": {
         "weights": [
         [3.0366331909210933, -0.7099055470971871, 0.1713255040167374],
@@ -101,3 +101,4 @@ function load_ai() {
     return null;
   }
 }
+
