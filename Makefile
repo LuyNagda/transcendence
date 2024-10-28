@@ -37,7 +37,8 @@ run: daemon
 	$(MAKE) wait-for-healthy
 	@make logs
 
-daemon:
+daemon: build
+	npm run build && \
 	$(SRC_ENV) docker compose --profile prod up -d
 
 dev: build
