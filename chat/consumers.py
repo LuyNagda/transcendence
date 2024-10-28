@@ -3,7 +3,9 @@ import logging
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
+from .models import BlockedUser
 from .handler import ChatHandler
+from channels.exceptions import DenyConnection
 
 User = get_user_model()
 
@@ -13,63 +15,95 @@ all = 'all_users'
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        if not self.channel_layer:
-            log.error(f"{self.user.id} - Channel layer is not initialized!")
+        self.user = self.scope.get("user")
+        log.info('WebSocket connection attempt', extra={
+            'user_id': getattr(self.user, 'id', None),
+            'authenticated': self.user.is_authenticated
+        })
+        if not self.user or self.user.is_anonymous:
             await self.close()
-            return
-        self.user = self.scope["user"]
-        self.user_group_name = f"chat_{self.user.id}"
-        self.handler = ChatHandler(self)
-        
-        await self.channel_layer.group_add(all, self.channel_name)
-        await self.channel_layer.group_add(self.user_group_name, self.channel_name)
-        await self.set_user_online()
-        await self.accept()
-        await self.broadcast_status('online')
-        log.info(f"{self.user.id} - WebSocket connected")
+        else:
+            await self.accept()
+            self.user_group_name = f"chat_{self.user.id}"
+            self.handler = ChatHandler(self)
+            
+            await self.channel_layer.group_add(all, self.channel_name)
+            await self.channel_layer.group_add(self.user_group_name, self.channel_name)
+            await self.set_user_online()
+            await self.broadcast_status('online')
+            log.info('WebSocket connected', extra={
+                'user_id': self.user.id
+            })
 
     async def disconnect(self, close_code):
-        await self.broadcast_status('offline')
-        await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
+        if hasattr(self, 'user') and self.user.is_authenticated:
+            await self.broadcast_status('offline')
+            await self.channel_layer.group_discard(self.user_group_name, self.channel_name)
+            await self.set_user_offline()
         await self.channel_layer.group_discard(all, self.channel_name)
-        await self.set_user_offline()
-        log.info(f"{self.user.id} - WebSocket disconnected")
+        log.info(f"WebSocket disconnected", extra={
+            'user_id': getattr(self.user, 'id', 'Unknown')
+        })
 
     async def receive(self, text_data):
-        log.debug(f"{self.user.id} - Received message: %s", text_data)
+        log.debug(f"Received data: {text_data}", extra={
+            'user_id': self.user.id
+        })
         try:
             data = json.loads(text_data)
-            message_type = data['type']
+            message_type = data.get('type')
+            if not message_type:
+                raise KeyError('type')
             await self.handler.handle_message(message_type, data)
         except json.JSONDecodeError:
-            log.error(f"{self.user.id} - Received invalid JSON data")
+            log.error('Received invalid JSON data', extra={
+                'user_id': self.user.id
+            })
             await self.send(text_data=json.dumps({'error': 'Invalid JSON data'}))
         except KeyError as e:
-            log.error(f"{self.user.id} - Missing key in received data: {str(e)}")
-            await self.send(text_data=json.dumps({'error': 'Missing keys in received data'}))
+            log.error('Missing key in received data', extra={
+                'user_id': self.user.id,
+                'missing_key': e.args[0]  # Message (f**k)
+            })
+            await self.send(text_data=json.dumps({'error': e.args[0]}))
+        except ValueError as e:
+            log.error('Value error in received data', extra={
+                'user_id': self.user.id,
+                'error': str(e)
+            })
+            await self.send(text_data=json.dumps({'error': 'Value error in received data'}))
         except Exception as e:
-            log.error(f"{self.user.id} - Error processing received data: {str(e)}")
+            log.error('Unexpected error', extra={
+                'user_id': self.user.id,
+                'error': str(e)
+            })
             await self.send(text_data=json.dumps({'error': 'An error occurred while processing your request'}))
 
     @database_sync_to_async
     def set_user_online(self):
-        self.user.online = True
-        self.user.save()
+        if self.user.is_authenticated:
+            self.user.online = True
+            self.user.save()
+        else:
+            log.warning("Attempted to set AnonymousUser online", extra={
+                'user_id': getattr(self.user, 'id', 'Unknown')
+            })
 
     @database_sync_to_async
     def set_user_offline(self):
-        self.user.online = False
-        self.user.save()
+        User.objects.filter(id=self.user.id).update(online=False)
 
     async def broadcast_status(self, status):
-        await self.channel_layer.group_send(
-            all,
-            {
-                "type": "user_status_change",
-                "user_id": self.user.id,
-                "status": status
-            }
-        )
+        user_ids = await self.get_allowed_user_ids()
+        for recipient_id in user_ids:
+            await self.channel_layer.group_send(
+                f"chat_{recipient_id}",
+                {
+                    "type": "user_status_change",
+                    "user_id": self.user.id,
+                    "status": status
+                }
+            )
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
@@ -86,9 +120,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
         }))
 
     async def game_invitation(self, event):
-        log.debug(f"{self.user.id} - Received game invitation")
+        log.debug(f"{self.user.id} - Received game invitation", extra={
+            'user_id': self.user.id,
+        })
         await self.send(text_data=json.dumps({
             'type': 'game_invitation',
             'game_id': event['game_id'],
             'sender_id': event['sender_id']
         }))
+
+    @database_sync_to_async
+    def get_allowed_user_ids(self):
+        if not self.user.is_authenticated:
+            return []
+        # Exclude users who have blocked the current user or whom the current user has blocked
+        blocked_by_ids = BlockedUser.objects.filter(blocked_user=self.user).values_list('user_id', flat=True)
+        blocking_ids = BlockedUser.objects.filter(user=self.user).values_list('blocked_user_id', flat=True)
+        excluded_ids = set(blocked_by_ids) | set(blocking_ids)
+        allowed_users = User.objects.exclude(id__in=excluded_ids).values_list('id', flat=True)
+        return list(allowed_users)
