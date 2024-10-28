@@ -29,21 +29,20 @@ VENV = .venv
 PYTHON = $(VENV)/bin/python
 PIP = $(VENV)/bin/pip
 
-all: build dev
+all: dev
 
 $(NAME):
 
 run: daemon
-	$(MAKE) wait-for-healthy
 	@make logs
 
-daemon: build
+daemon:
 	npm run build && \
-	$(SRC_ENV) docker compose --profile prod up -d
+	$(SRC_ENV) docker compose --profile prod up --build -d
 
-dev: build
+dev:
 	npm run dev & \
-	$(SRC_ENV) docker compose --profile dev up --watch
+	$(SRC_ENV) docker compose --profile dev up --build --watch
 
 $(VENV)/bin/activate: requirements.txt
 	python3 -m venv $(VENV)
@@ -67,9 +66,6 @@ db-update: makemigrations migrate
 db-clean:
 	$(SRC_ENV) docker compose down -v
 
-build:
-	$(SRC_ENV) docker build -t transcendence -f Dockerfile .
-
 rebuild:
 	$(SRC_ENV) BUILD_TYPE=dev docker compose --profile dev build
 
@@ -79,7 +75,7 @@ logs:
 stop:
 	$(SRC_ENV) docker compose stop
 
-test: stop build
+test: stop
 	$(SRC_ENV) docker compose up --build auth-test
 
 siege: stop daemon
@@ -104,7 +100,7 @@ re: fclean all
 debug_re: fclean debug
 
 .PHONY: all clean fclean re debug debug_re
-.PHONY: env test run daemon dev build logs stop
+.PHONY: env test run daemon dev logs stop
 .PHONY: docker-stop docker-fclean run_tests
 .PHONY: makemigrations makemigrations-% migrate db-update
 
