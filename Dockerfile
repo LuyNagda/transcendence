@@ -38,10 +38,10 @@ SHELL ["/bin/bash", "-c"]
 RUN mkdir /certs
 WORKDIR /app
 
+COPY . .
+RUN rm -rf /app/.venv /app/node_modules
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/node_modules /app/node_modules
-
-COPY . .
 
 RUN npm run build
 
