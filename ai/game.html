@@ -279,7 +279,6 @@ let ai_loaded = load_ai();
 let match_stats = [];
 let set_stats = [];
 let leftDecision = 1; // Player action vs AI
-let print_match = 1;
 
 function loop() {
   requestAnimationFrame(loop);
@@ -357,10 +356,6 @@ function loop() {
     }
 
     save_match(set_stats, ball, leftPaddle.y ,leftDecision);
-    if (print_match == 1 && (leftScore == 2 || rightScore == 2)) {
-      console.log(match_stats);
-      print_match = 0;
-    }
   }
 
   bufferContext.fillRect(ball.x, ball.y, ball.width, ball.height);
