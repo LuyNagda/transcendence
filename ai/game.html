@@ -323,6 +323,7 @@ function loop() {
     } else {
       leftScore++;
       match_stats.push(set_stats);
+      saveJsonAsDownload(JSON.stringify(match_stats, null, 2))
     }
     set_stats = [];
 

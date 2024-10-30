@@ -119,3 +119,31 @@ function save_match(set_stats, ball, leftPaddle, playerDecision) {
 
     set_stats.push(state)
 }
+
+function saveJsonAsDownload(jsonData) {
+    try {
+        // Create a Blob containing the JSON data
+        const blob = new Blob([jsonData], { type: 'application/json' });
+        
+        // Create a URL for the Blob
+        const url = URL.createObjectURL(blob);
+        
+        // Create a temporary anchor element
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'data.json';
+        
+        // Append to body, click, and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the URL
+        URL.revokeObjectURL(url);
+        
+        return true;
+    } catch (err) {
+        console.error('Error saving file:', err);
+        return false;
+    }
+}
