@@ -37,6 +37,12 @@ class AI_ball:
     dx: int
     dy: int
 
+    def __init__(self, x, y, dx, dy):
+        self.x = x
+        self.y = y
+        self.dx = dx
+        self.dy = dy
+
     def __repr__(self):
         return f"x = {self.x}\t\t\ty = {self.y} \ndx = {self.dx}\t\t\tdy = {self.dy}\n"
 
@@ -113,7 +119,7 @@ def pong_train(Ai_selected, SHOW_MATCH):
     i = 0
     j= 0
     while running:
-        # # Limit the game time to 30 theorical minutes
+        # # Limit the game time to 30 theoretical minutes
         # if i > (TIME_LIMIT * 60 * 60):
         #     break
         # i += 1

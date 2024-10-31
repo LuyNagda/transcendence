@@ -23,7 +23,7 @@ class Activation_ReLU:
         self.output = np.maximum(0, inputs)
         return self.output
 
-# Transforme the inputs into probabilities
+# Transform the inputs into probabilities
 class Activation_SoftMax:
     def forward(self, inputs):
         # Protect from overflow. In case of batch inputs, keeps it in the rigth format
@@ -57,6 +57,9 @@ class Neuron_Network:
         response = np.argmax(self.forward(X))
 
         return response
+    
+    def train_vs_human(self, match_stats):
+        pass
 
     def __lt__(self, other):
         return ((self.ai_score) < (other.ai_score))
@@ -113,7 +116,7 @@ def Init_Ai(base):
 def Crossover_mutation(Ai_Sample):
     # Crossover and then mutation
     while (len(Ai_Sample) < NB_SPECIES - 5):
-        # Choose 2 parent randomly fron the 5 best performing AI and instance a child
+        # Choose 2 parent randomly from the 5 best performing AI and instance a child
         parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
         child = Neuron_Network()
 
