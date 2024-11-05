@@ -182,32 +182,31 @@ def create_frame(frame_data):
 
 def get_human_inputs():
     # Read the file
-    with open("./data.json", 'r') as file:
-        json_string = file.read()
+    try:
+        with open("./data.json", 'r') as file:
+            json_string = file.read()
 
-        try:
-            # First, try to parse the JSON
-            parsed_data = json.loads(json_string)
-            
-            # If it's still a string, parse again
-            if isinstance(parsed_data, str):
-                parsed_data = json.loads(parsed_data)
-            
-            # Get first element if it's nested
-            if isinstance(parsed_data, list) and len(parsed_data) > 0:
-                match_stats = parsed_data[0]
+            try:
+                # First, try to parse the JSON
+                parsed_data = json.loads(json_string)
+                
+                # If it's still a string, parse again
+                if isinstance(parsed_data, str):
+                    parsed_data = json.loads(parsed_data)
+                
+                # Get first element if it's nested
+                if isinstance(parsed_data, list) and len(parsed_data) > 0:
+                    match_stats = parsed_data[0]
 
-            frames = [create_frame(frame) for frame in match_stats]
+                frames = [create_frame(frame) for frame in match_stats]
 
-            return frames
+                return frames
 
-        except json.JSONDecodeError as e:
-            print(f"JSON parsing error: {e}")
-            return
-        except Exception as e:
-            print(f"Other error: {e}")
-            return
-    return None
+            except json.JSONDecodeError as e:
+                print(f"JSON parsing error: {e}")
+                return
+    except Exception as e:
+        return None
 
 def train_vs_human(save_file, base):
     Ai_Sample = []
@@ -218,7 +217,6 @@ def train_vs_human(save_file, base):
         Ai_Sample = Init_Ai(base)
 
         for i in range(NB_SPECIES):
-            Ai_Sample[i].ai_score = 0
             if pong_train(Ai_Sample[i], DISPLAY_GAME) == "STOP":
                 return
             
@@ -227,7 +225,7 @@ def train_vs_human(save_file, base):
                 print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
                 continue
             
-            ai_ball = AI_ball()
+            ai_ball = AI_ball(frames[0].ball, 0, 0, 0)
             tick = 0
             for frame in frames:
                 # Update the ball's position every second
@@ -238,7 +236,7 @@ def train_vs_human(save_file, base):
 
                 # Compare the AI's decision with the player's decision
                 if (Ai_Sample[i].decision(frame.leftPaddle_y, ai_ball, HEIGHT) == frame.playerDecision):
-                    Ai_Sample[i].ai_score += 0.2
+                    Ai_Sample[i].ai_score += 0.5
                 
                 tick += 1
             print(f"The AI opponent {i} score is {Ai_Sample[i].ai_score:.1f}")
