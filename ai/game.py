@@ -5,12 +5,12 @@ WIDTH = 80 * 6
 HEIGHT = 24 * 10
 GRID = 5
 
-DISPLAY_GAME = "yes"
+DISPLAY_GAME = "no"
 AI_DELAY = "no"
 MAX_SCORE = 10
 NB_GENERATION = 10
 NB_SPECIES = 50
-MAX_FRAME_RATE = 60  # 0 = unlimited
+MAX_FRAME_RATE = 0  # 0 = unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
 SAVE_AI = "yes"
@@ -30,33 +30,39 @@ PADDLE_SPEED = 2
 BALL_SPEED = 2
 BALL_SIZE = 5
 BALL_MIN_DY = 0.5
+ball : pygame.rect
+ball_dx : float
+ball_dy : float
 
 class AI_ball:
-    x: int
-    y: int
-    dx: int
-    dy: int
+    x: float
+    y: float
+    dx: float
+    dy: float
 
-    def __init__(self, x, y, dx, dy):
-        self.x = x
-        self.y = y
-        self.dx = dx
-        self.dy = dy
+    def __init__(self, x, y=None, dx=None, dy=None):
+        if y == None:
+            ball = x
+            self.update(ball, ball_dx, ball_dy)
+        else:
+            self.x = x
+            self.y = y
+            self.dx = dx
+            self.dy = dy
 
     def __repr__(self):
         return f"x = {self.x}\t\t\ty = {self.y} \ndx = {self.dx}\t\t\tdy = {self.dy}\n"
+    
+    def update(self, ball, ball_dx, ball_dy):
+        self.x = ball.x
+        self.y = ball.y
+        self.dx = ball_dx
+        self.dy = ball_dy
 
 def reset_ball(ball):
     ball.center = (WIDTH//2, HEIGHT//2)
+
     return BALL_SPEED * random.choice((1, -1))
-
-def update_AI_ball(ball, ai_ball, ball_dx, ball_dy):
-    ai_ball.x = ball.x
-    ai_ball.y = ball.y
-    ai_ball.dx = ball_dx
-    ai_ball.dy = ball_dy
-    # print("update_AI_ball()")
-
 
 def collides(ball, paddle):
     if ball.bottom > paddle.top and ball.top < paddle.bottom and ball.left < paddle.right and ball.right > paddle.left:
@@ -108,21 +114,18 @@ def pong_train(Ai_selected, SHOW_MATCH):
     font = pygame.font.Font(None, 36)
 
     # Update AI's target position
-    ai_ball = AI_ball()
-    update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
-
-    # # New variables for AI's delayed reaction
-    # last_update_time = time.time()
+    ai_ball = AI_ball(ball, 0, 0, 0)
+    ai_ball.update(ball, ball_dx, ball_dy)
 
     # Game loop
     running = True
     i = 0
     j= 0
     while running:
-        # # Limit the game time to 30 theoretical minutes
-        # if i > (TIME_LIMIT * 60 * 60):
-        #     break
-        # i += 1
+        # Limit the game time to 30 theoretical minutes
+        if i > (TIME_LIMIT * 60 * 60):
+            break
+        i += 1
 
         if (MAX_FRAME_RATE != 0):
             clock.tick(MAX_FRAME_RATE)
@@ -167,10 +170,9 @@ def pong_train(Ai_selected, SHOW_MATCH):
             # current_time = time.time()
             # if current_time - last_update_time >= 1:
             if i % 60 == 0:
-                update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
-                # last_update_time = current_time
+                ai_ball.update(ball, ball_dx, ball_dy)
         else:
-            update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
+            ai_ball.update(ball, ball_dx, ball_dy)
 
         # Move the right paddle
         match (Ai_selected.decision(rightPaddle, ai_ball, HEIGHT)):
@@ -248,8 +250,8 @@ def play_Ai(Ai, demo):
     ball_dy = 0
 
     # Update AI's target position
-    ai_ball = AI_ball()
-    update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
+    ai_ball = AI_ball(ball, 0, 0, 0)
+    ai_ball.update(ball, ball_dx, ball_dy)
 
     # Score
     left_score = 0
@@ -277,10 +279,10 @@ def play_Ai(Ai, demo):
         if (AI_DELAY == "yes"):
             current_time = time.time()
             if current_time - last_update_time >= 1:
-                update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
+                ai_ball.update(ball, ball_dx, ball_dy)
                 last_update_time = current_time
         else:
-            update_AI_ball(ball, ai_ball, ball_dx, ball_dy)
+            ai_ball.update(ball, ball_dx, ball_dy)
 
         # Move the left paddle by AI
         if (demo == "yes"):
