@@ -6,7 +6,7 @@ HEIGHT = 24 * 10
 GRID = 5
 
 DISPLAY_GAME = "yes"
-AI_DELAY = "no"
+AI_DELAY = "yes"
 MAX_SCORE = 10
 NB_GENERATION = 10
 NB_SPECIES = 50
@@ -120,7 +120,7 @@ def pong_train(Ai_selected, SHOW_MATCH):
     i = 0
     j= 0
     while running:
-        # Limit the game time to 30 theoretical minutes
+        # Limit the game time to {TIME_LIMIT} theoretical minutes
         if i > (TIME_LIMIT * 60 * 60):
             break
         i += 1
