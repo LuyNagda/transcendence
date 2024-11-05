@@ -62,8 +62,6 @@ class AI_ball:
 def reset_ball(ball):
     ball.center = (WIDTH//2, HEIGHT//2)
 
-    return BALL_SPEED * random.choice((1, -1))
-
 def collides(ball, paddle):
     if ball.bottom > paddle.top and ball.top < paddle.bottom and ball.left < paddle.right and ball.right > paddle.left:
         return True
@@ -71,14 +69,14 @@ def collides(ball, paddle):
     return False
 
 def updateBallAngle(ball, ball_dy, paddle):
-    # Calculer la position relative de la collision sur la raquette
+    # Calculate the relative's position of the collision with the paddle
     relativeIntersectY = (paddle.y + (paddle.height / 2)) - (ball.y + (ball.height / 2))
     normalizedRelativeIntersectionY = relativeIntersectY / (paddle.height / 2)
 
-    # Calculer l'angle de rebond (maximum de 75 degrés)
+    # Calculate the rebound's angle (max 75 degrees)
     bounceAngle = normalizedRelativeIntersectionY * (5 * math.pi / 12)
 
-    # Mettre à jour la vitesse verticale de la balle
+    # Update the ball's vertical velocity
     ball_dy = BALL_SPEED * -math.sin(bounceAngle)
 
     return ball_dy
@@ -103,7 +101,7 @@ def pong_train(Ai_selected, SHOW_MATCH):
     clock = pygame.time.Clock()
 
     # Ball movement
-    ball_dx = BALL_SPEED * random.choice((1, -1))
+    ball_dx = BALL_SPEED
     ball_dy = 0
 
     # Score
@@ -204,10 +202,10 @@ def pong_train(Ai_selected, SHOW_MATCH):
                 ball.left = leftPaddle.right
                 if j == 0:
                     ball_dy = BALL_SPEED * -math.sin(generate_random_number(-75, 75))
-                    j = 42
+                    j = 3
                 else:
                     ball_dy = 0
-                    j = 0
+                    j -= 1
         elif collides(ball, rightPaddle):
             if ball.right < rightPaddle.right:
                 ball_dx *= -1
@@ -218,10 +216,10 @@ def pong_train(Ai_selected, SHOW_MATCH):
         # Ball out of bounds
         if ball.left <= 0:
             right_score += 1
-            ball_dx = reset_ball(ball)
+            reset_ball(ball)
         elif ball.right >= WIDTH:
             left_score += 1
-            ball_dx = reset_ball(ball)
+            reset_ball(ball)
 
         # End the game
         if left_score >= MAX_SCORE:
@@ -345,10 +343,10 @@ def play_Ai(Ai, demo):
         # Ball out of bounds
         if ball.left <= 0:
             right_score += 1
-            ball_dx = reset_ball(ball)
+            reset_ball(ball)
         elif ball.right >= WIDTH:
             left_score += 1
-            ball_dx = reset_ball(ball)
+            reset_ball(ball)
 
         # End the game
         if left_score >= MAX_SCORE:
