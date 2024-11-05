@@ -59,8 +59,8 @@ window.Neuron_Network = class {
         return output;
     }
 
-    decision(paddle, ball, height) {
-        let X = [[ball.x / height, ball.y / height, ball.dx, ball.dy, paddle.y / height]];
+    decision(paddle_y, ball, height) {
+        let X = [[ball.x / height, ball.y / height, ball.dx, ball.dy, paddle_y / height]];
         let result = this.forward(X);
         return result[0].indexOf(Math.max(...result[0]));
     }

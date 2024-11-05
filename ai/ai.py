@@ -46,21 +46,18 @@ class Neuron_Network:
         self.output = self.activation2.forward(self.output)
         return self.output
     
-    def decision(self, paddle, ball, height):
-        X = [ball.x / height, ball.y / height, ball.dx, ball.dy, paddle.y / height]
+    def decision(self, paddle_y, ball, height):
+        X = [ball.x / height, ball.y / height, ball.dx, ball.dy, paddle_y / height]
         response = np.argmax(self.forward(X))
 
         return response
 
-    def decision_left(self, paddle, ball, height):
-        X = [1 - ball.x / height, ball.y / height, ball.dx * -1, ball.dy, paddle.y / height]
+    def decision_left(self, paddle_y, ball, height):
+        X = [1 - ball.x / height, ball.y / height, ball.dx * -1, ball.dy, paddle_y / height]
         response = np.argmax(self.forward(X))
 
         return response
     
-    def train_vs_human(self, match_stats):
-        pass
-
     def __lt__(self, other):
         return ((self.ai_score) < (other.ai_score))
     
@@ -166,18 +163,14 @@ def Save_Best_Ai(Ai_Sample, save_file):
     # Clean the list
     Ai_Sample.clear()
 
-class Paddle:
-    def __init__(self, y):
-        self.y = y
-
 class Frame:
     ball : AI_ball
-    leftPaddle : Paddle
+    leftPaddle : float
     playerDecision : int
 
     def __init__(self, ball, leftPaddle, playerDecision):
         self.ball = ball
-        self.leftPaddle = Paddle(leftPaddle)
+        self.leftPaddle_y = leftPaddle
         self.playerDecision = playerDecision
 
 def create_frame(frame_data):
@@ -216,7 +209,7 @@ def get_human_inputs():
             return
     return None
 
-def train_Ai(save_file, base):
+def train_vs_human(save_file, base):
     Ai_Sample = []
     frames = get_human_inputs()
 
@@ -237,13 +230,14 @@ def train_Ai(save_file, base):
             ai_ball = AI_ball()
             tick = 0
             for frame in frames:
+                # Update the ball's position every second
                 if tick % 60 == 0:
                     # Mirror ball position for the Ai right's position
                     frame.ball.x = WIDTH - frame.ball.x
                     ai_ball.update(frame.ball, frame.ball.dx * -1, frame.ball.dy)
 
                 # Compare the AI's decision with the player's decision
-                if (Ai_Sample[i].decision(frame.leftPaddle, ai_ball, HEIGHT) == frame.playerDecision):
+                if (Ai_Sample[i].decision(frame.leftPaddle_y, ai_ball, HEIGHT) == frame.playerDecision):
                     Ai_Sample[i].ai_score += 0.2
                 
                 tick += 1

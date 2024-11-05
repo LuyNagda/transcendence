@@ -1,6 +1,6 @@
 import sys, json
 from game import WIDTH, HEIGHT, NB_GENERATION, NB_SPECIES, SAVE_FILE
-from ai import create_frame, train_Ai_human
+from ai import create_frame, train_vs_human
 
 def main():
     # Retrieve arguments from sys.argv
@@ -33,7 +33,7 @@ def main():
 
             frames = [create_frame(frame) for frame in match_stats]
 
-            if train_Ai_human(frames) != "STOP":
+            if train_vs_human(frames) != "STOP":
                 print("Training against human done")
             else:
                 print("Training as been interrupted")

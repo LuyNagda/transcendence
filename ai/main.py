@@ -1,5 +1,5 @@
 import os, sys
-from ai import train_Ai, load_Ai
+from ai import train_vs_human, load_Ai
 from game import play_Ai, SAVE_FILE, SAVE_FOLDER
 
 # Run the game
@@ -23,7 +23,7 @@ def main():
             if (len(sys.argv) > 3):
                 base = sys.argv[3]
             
-            train_Ai(save_file, base)
+            train_vs_human(save_file, base)
         
         case "play":
             if (len(sys.argv) > 2):

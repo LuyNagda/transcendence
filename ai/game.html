@@ -346,7 +346,7 @@ function loop() {
 
   // AI control
   if (ai_loaded) {
-    decision = ai_loaded.decision(rightPaddle, ball, bufferCanvas.height)
+    decision = ai_loaded.decision(rightPaddle.y, ball, bufferCanvas.height)
     switch(decision) {
       case 0:
         rightPaddle.y -= paddleSpeed;

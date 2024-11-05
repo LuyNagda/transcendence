@@ -175,7 +175,7 @@ def pong_train(Ai_selected, SHOW_MATCH):
             ai_ball.update(ball, ball_dx, ball_dy)
 
         # Move the right paddle
-        match (Ai_selected.decision(rightPaddle, ai_ball, HEIGHT)):
+        match (Ai_selected.decision(rightPaddle.y, ai_ball, HEIGHT)):
             case 0:
                 if rightPaddle.top > 0:
                     rightPaddle.y -= PADDLE_SPEED
@@ -304,7 +304,7 @@ def play_Ai(Ai, demo):
                 leftPaddle.y += PADDLE_SPEED
 
         # Move the AI's paddle
-        match (Ai.decision(rightPaddle, ai_ball, HEIGHT)):
+        match (Ai.decision(rightPaddle.y, ai_ball, HEIGHT)):
             case 0:
                 if rightPaddle.top > 0:
                     rightPaddle.y -= PADDLE_SPEED
