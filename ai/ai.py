@@ -1,5 +1,5 @@
 import pickle, os, json
-from game import pong_train, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
+from game import pong_train, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
 import numpy as np
 
 np.random.seed()
@@ -10,7 +10,7 @@ class Layer_Dense:
         self.weights = np.random.randn(n_inputs, n_neurons)
         
         # Biases are set to 0
-        self.biases = np.zeros((1, n_neurons))                          
+        self.biases = np.zeros((1, n_neurons))
     
     def forward(self, inputs):
         # Output are calculate by multiplying each input with theirs weight and then adding the biaises
@@ -166,8 +166,60 @@ def Save_Best_Ai(Ai_Sample, save_file):
     # Clean the list
     Ai_Sample.clear()
 
+class Paddle:
+    def __init__(self, y):
+        self.y = y
+
+class Frame:
+    ball : AI_ball
+    leftPaddle : Paddle
+    playerDecision : int
+
+    def __init__(self, ball, leftPaddle, playerDecision):
+        self.ball = ball
+        self.leftPaddle = Paddle(leftPaddle)
+        self.playerDecision = playerDecision
+
+def create_frame(frame_data):
+    return Frame(AI_ball(frame_data["ball"]["x"],
+                        frame_data["ball"]["y"],
+                        frame_data["ball"]["dx"],
+                        frame_data["ball"]["dy"]),
+                frame_data["leftPaddle"], frame_data["playerDecision"])
+
+def get_human_inputs():
+    # Read the file
+    with open("./data.json", 'r') as file:
+        json_string = file.read()
+
+        try:
+            # First, try to parse the JSON
+            parsed_data = json.loads(json_string)
+            
+            # If it's still a string, parse again
+            if isinstance(parsed_data, str):
+                parsed_data = json.loads(parsed_data)
+            
+            # Get first element if it's nested
+            if isinstance(parsed_data, list) and len(parsed_data) > 0:
+                match_stats = parsed_data[0]
+
+            frames = [create_frame(frame) for frame in match_stats]
+
+            return frames
+
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {e}")
+            return
+        except Exception as e:
+            print(f"Other error: {e}")
+            return
+    return None
+
 def train_Ai(save_file, base):
     Ai_Sample = []
+    frames = get_human_inputs()
+
     for j in range(NB_GENERATION):
         print(f"\n\n========== Generation #{j}===========\n")
         Ai_Sample = Init_Ai(base)
@@ -176,7 +228,26 @@ def train_Ai(save_file, base):
             Ai_Sample[i].ai_score = 0
             if pong_train(Ai_Sample[i], DISPLAY_GAME) == "STOP":
                 return
-            print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
+            
+            # Train against human's inputs
+            if frames == None:
+                print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
+                continue
+            
+            ai_ball = AI_ball()
+            tick = 0
+            for frame in frames:
+                if tick % 60 == 0:
+                    # Mirror ball position for the Ai right's position
+                    frame.ball.x = WIDTH - frame.ball.x
+                    ai_ball.update(frame.ball, frame.ball.dx * -1, frame.ball.dy)
+
+                # Compare the AI's decision with the player's decision
+                if (Ai_Sample[i].decision(frame.leftPaddle, ai_ball, HEIGHT) == frame.playerDecision):
+                    Ai_Sample[i].ai_score += 0.2
+                
+                tick += 1
+            print(f"The AI opponent {i} score is {Ai_Sample[i].ai_score:.1f}")
         Save_Best_Ai(Ai_Sample, save_file)
 
     if (SAVE_AI == "no"):
