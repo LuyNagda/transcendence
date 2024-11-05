@@ -2,6 +2,7 @@
 *.env*
 .DS_Store
 .venv
+.vscode/launch.json
 static/
 !transcendence/static/
 !transcendence/static/js/
