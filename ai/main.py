@@ -4,7 +4,7 @@ from game import play_Ai, SAVE_FILE, SAVE_FOLDER
 
 # Run the game
 def main():
-    print("\n\tThanks for tying my AI =)")
+    print("\n\tThanks for trying my AI =)")
 
     # Retrieve arguments from sys.argv
     nb_args = len(sys.argv[1:])
