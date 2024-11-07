@@ -1,5 +1,5 @@
 import pickle, os, json
-from game import pong_train, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
+from game import train_basic, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
 import numpy as np
 
 np.random.seed()
@@ -35,7 +35,7 @@ class Activation_SoftMax:
 
 class Neuron_Network:
     def __init__(self):
-        self.layer1 = Layer_Dense(5, 3)
+        self.layer1 = Layer_Dense(5, 5)
         self.activation1 = Activation_ReLU()
         self.activation2 = Activation_SoftMax()
         self.ai_score = 0
@@ -208,7 +208,7 @@ def get_human_inputs():
     except Exception as e:
         return None
 
-def train_vs_human(save_file, base):
+def train_ai(save_file, base):
     Ai_Sample = []
     frames = get_human_inputs()
 
@@ -217,12 +217,12 @@ def train_vs_human(save_file, base):
         Ai_Sample = Init_Ai(base)
 
         for i in range(NB_SPECIES):
-            if pong_train(Ai_Sample[i], DISPLAY_GAME) == "STOP":
+            if train_basic(Ai_Sample[i], DISPLAY_GAME) == "STOP":
                 return
             
             # Train against human's inputs
             if frames == None:
-                print(f"The AI opponent {i} send back the ball {Ai_Sample[i].ai_score} times")
+                print(f"AI {i}\tscore is {Ai_Sample[i].ai_score:.1f}")
                 continue
             
             ai_ball = AI_ball(frames[0].ball, 0, 0, 0)
@@ -239,7 +239,7 @@ def train_vs_human(save_file, base):
                     Ai_Sample[i].ai_score += 0.5
                 
                 tick += 1
-            print(f"The AI opponent {i} score is {Ai_Sample[i].ai_score:.1f}")
+            print(f"The AI {i} score is {Ai_Sample[i].ai_score:.1f}")
         Save_Best_Ai(Ai_Sample, save_file)
 
     if (SAVE_AI == "no"):
@@ -249,4 +249,3 @@ def load_Ai(save_file):
     with open(save_file, 'rb') as imp:
         Ai = pickle.load(imp)
         return (Ai)
-

@@ -1,4 +1,4 @@
-import pygame, random, time, math
+import pygame, random, time, math, os
 
 # Set up the game window
 WIDTH = 80 * 6
@@ -8,7 +8,7 @@ GRID = 5
 DISPLAY_GAME = "yes"
 AI_DELAY = "yes"
 MAX_SCORE = 10
-NB_GENERATION = 10
+NB_GENERATION = 1
 NB_SPECIES = 50
 MAX_FRAME_RATE = 0  # 0 = unlimited
 SAVE_FILE = "bestAI"
@@ -59,6 +59,12 @@ class AI_ball:
         self.dx = ball_dx
         self.dy = ball_dy
 
+def ai_bonus_score(ball_y, rightPaddle, Ai_selected):
+    dist = abs(ball_y - rightPaddle.top) / HEIGHT
+
+    if dist < 0.2:
+        Ai_selected.ai_score += 1 - dist
+
 def reset_ball(ball):
     ball.center = (WIDTH//2, HEIGHT//2)
 
@@ -84,7 +90,9 @@ def updateBallAngle(ball, ball_dy, paddle):
 def generate_random_number(low, high):
     return random.randint(low, high)
 
-def pong_train(Ai_selected, SHOW_MATCH):
+def train_basic(Ai_selected, SHOW_MATCH):
+    os.environ["SDL_AUDIODRIVER"] = "dumb"
+
     # Initialize Pygame
     pygame.init()
 
@@ -219,6 +227,7 @@ def pong_train(Ai_selected, SHOW_MATCH):
             reset_ball(ball)
         elif ball.right >= WIDTH:
             left_score += 1
+            ai_bonus_score(ball.y, rightPaddle, Ai_selected)
             reset_ball(ball)
 
         # End the game
@@ -229,6 +238,8 @@ def pong_train(Ai_selected, SHOW_MATCH):
     pygame.quit()
 
 def play_Ai(Ai, demo):
+    os.environ["SDL_AUDIODRIVER"] = "dumb"
+
     # Initialize Pygame
     pygame.init()
 
