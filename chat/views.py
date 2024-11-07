@@ -57,3 +57,18 @@ def get_user_status(request, user_id):
     refresh_token = request.COOKIES.get('refresh_token')
     user = User.objects.get(id=user_id)
     return JsonResponse({'status': 'online' if user.online else 'offline', 'access_token': access_token, 'refresh_token': refresh_token})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedWithCookie])
+def get_users(request):
+    users = User.objects.exclude(id=request.user.id)
+    user_list = []
+    for user in users:
+        user_list.append({
+            'id': user.id,
+            'username': user.username,
+            'name': getattr(user, 'name', ''),
+            'profile_picture': user.profile_picture.url if hasattr(user, 'profile_picture') and user.profile_picture else '',
+            'online': user.online
+        })
+    return JsonResponse(user_list, safe=False)
