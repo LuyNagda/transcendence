@@ -6,7 +6,8 @@ import UIHandler from './UIHandler.js';
 
 export default class ChatApp {
 	constructor() {
-		this.userService = new UserService();
+		this.WSService = null;
+		this.userService = new UserService(this);
 		this.uiHandler = new UIHandler(this);
 		this.messageService = new MessageService(this.uiHandler, this.userService);
 		this.messageCountByUser = {};
@@ -43,6 +44,7 @@ export default class ChatApp {
 				break;
 			case 'user_status_change':
 				this.userService.updateUserStatus(data.user_id, data.status);
+				this.userService.refreshUserList();
 				break;
 			case 'error':
 				alert("Error: " + data.error);

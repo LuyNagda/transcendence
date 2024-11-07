@@ -7,5 +7,5 @@ urlpatterns = [
     path('block/<int:user_id>/', views.block_user, name='block_user'),
     path('unblock/<int:user_id>/', views.unblock_user, name='unblock_user'),
     path('status/<int:user_id>/', views.get_user_status, name='get_user_status'),
-    path('load_chat_data/', views.load_chat_data, name='load_chat_data'),
+    path('users/', views.get_users, name='get_users'),
 ]
