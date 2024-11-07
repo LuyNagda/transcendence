@@ -1,5 +1,5 @@
 import os, sys
-from ai import train_vs_human, load_Ai
+from ai import train_ai, load_Ai
 from game import play_Ai, SAVE_FILE, SAVE_FOLDER
 
 # Run the game
@@ -23,7 +23,7 @@ def main():
             if (len(sys.argv) > 3):
                 base = sys.argv[3]
             
-            train_vs_human(save_file, base)
+            train_ai(save_file, base)
         
         case "play":
             if (len(sys.argv) > 2):
@@ -34,11 +34,7 @@ def main():
                     return print("Save file doesn't exist!")
 
             else:
-                file_path = os.path.join(SAVE_FOLDER, SAVE_FILE)
-                if (os.path.exists(file_path)):
-                    Ai = load_Ai(file_path)
-                else:
-                    return print("Save file doesn't exist!")
+                print("Please provide a saved AI!")
 
             play_Ai(Ai, "no")
 
@@ -50,11 +46,7 @@ def main():
                 else:
                     return print("Save file doesn't exist!")
             else:
-                file_path = os.path.join(SAVE_FOLDER, SAVE_FILE)
-                if (os.path.exists(file_path)):
-                    Ai = load_Ai(file_path)
-                else:
-                    return print("Save file doesn't exist!")
+                return print("Please provide a saved AI!")
             play_Ai(Ai, "yes")
 
         case _:
