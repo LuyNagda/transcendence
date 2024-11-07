@@ -1,9 +1,0 @@
-{% for message in messages %}
-<div class="mb-2 message {% if message.sender == request.user %}sent{% else %}received{% endif %}" role="article" aria-labelledby="message-{{ message.id }}" aria-live="polite">
-	<p id="message-{{ message.id }}" class="m-0">{{ message.content }}</p>
-	<small>
-		<span class="visually-hidden">Sent at </span>{{ message.timestamp|date:"H:i" }} - {{ message.sender.name|default:message.sender.username }}
-	</small>
-</div>
-
-{% endfor %}

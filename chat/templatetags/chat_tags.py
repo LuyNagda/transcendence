@@ -19,4 +19,4 @@ def render_chat(context):
         'user': request.user,
     }
     
-    return render_to_string('chat/chat.html', chat_context)
+    return render_to_string('chat.html', chat_context)

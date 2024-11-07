@@ -92,12 +92,15 @@ export default class ChatApp {
 		messageInput.value = '';
 	}
 
-	handleUserClick(e) {
-		e.preventDefault();
-		const userId = e.currentTarget.dataset.userId;
-		this.selectedUserId = userId;
-		document.querySelectorAll('.user-chat').forEach(el => el.classList.remove('active'));
-		e.currentTarget.classList.add('active');
+	handleUserClick(event) {
+		const button = event.currentTarget;
+		const userId = parseInt(button.dataset.userId);
+
+		this.userService.selectedUserId = userId;
+		document.querySelectorAll('.user-chat').forEach(btn => {
+			btn.classList.remove('active');
+		});
+		button.classList.add('active');
 		this.loadMessageHistory(userId);
 		document.getElementById('chat-form-div').style.display = 'block';
 		this.updateChatHeading(userId);

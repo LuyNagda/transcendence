@@ -15,7 +15,7 @@ User = get_user_model()
 def chat_view(request):
     users = User.objects.exclude(id=request.user.id)
     blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user_id', flat=True)
-    return render(request, 'chat/chat.html', {
+    return render(request, 'chat.html', {
         'users': users,
         'blocked_users': blocked_users
     })

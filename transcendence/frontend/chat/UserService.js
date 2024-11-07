@@ -4,6 +4,7 @@ export default class UserService {
 	constructor(chatApp) {
 		this.chatApp = chatApp;
 		this.currentUserId = this.getCurrentUserId();
+		this.selectedUserId = null;
 	}
 
 	getCurrentUserId() {
@@ -87,7 +88,9 @@ export default class UserService {
 
 		userList.innerHTML = users.map(user => `
 			<li>
-				<button href="#" class="btn btn-transparent btn-sm me-1 user-chat" data-user-id="${user.id}">
+				<button href="#" 
+					class="btn btn-transparent btn-sm me-1 user-chat ${user.id === this.selectedUserId ? 'active' : ''}" 
+					data-user-id="${user.id}">
 					<img src="${user.profile_picture}" class="rounded-circle" style="max-width: 20px;" 
 						alt="${user.name || user.username}'s profile picture">
 					<span class="user-name">${user.name || user.username}</span>
@@ -100,7 +103,11 @@ export default class UserService {
 
 		// Reattach event listeners using the chatApp instance
 		document.querySelectorAll('.user-chat').forEach(element => {
-			element.addEventListener('click', (e) => this.chatApp.handleUserClick(e));
+			element.addEventListener('click', (e) => {
+				const userId = parseInt(element.dataset.userId);
+				this.selectedUserId = userId;
+				this.chatApp.handleUserClick(e);
+			});
 		});
 	}
 }
