@@ -6,7 +6,7 @@ HEIGHT = 24 * 10
 GRID = 5
 
 DISPLAY_GAME = "no"
-AI_DELAY = "no"
+AI_DELAY = "yes"
 MAX_SCORE = 50
 NB_GENERATION = 1000
 NB_SPECIES = 100
@@ -226,7 +226,7 @@ def train_basic(Ai_selected, SHOW_MATCH):
             reset_ball(ball)
         elif ball.right >= WIDTH:
             left_score += 1
-            ai_bonus_score(ball.y, rightPaddle, Ai_selected)
+            # ai_bonus_score(ball.y, rightPaddle, Ai_selected)
             reset_ball(ball)
 
         # End the game
@@ -234,6 +234,7 @@ def train_basic(Ai_selected, SHOW_MATCH):
             running = False
 
     # Quit the game
+    pygame.display.quit()
     pygame.quit()
 
 def play_Ai(Ai, demo):
@@ -387,4 +388,5 @@ def play_Ai(Ai, demo):
             clock.tick(MAX_FRAME_RATE)
 
     # Quit the game
+    pygame.display.quit()
     pygame.quit()
