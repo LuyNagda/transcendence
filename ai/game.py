@@ -238,6 +238,7 @@ def train_basic(Ai_selected, SHOW_MATCH):
 
 def play_Ai(Ai, demo):
     os.environ["SDL_AUDIODRIVER"] = "dumb"
+    MAX_FRAME_RATE = 60
 
     # Initialize Pygame
     pygame.init()
