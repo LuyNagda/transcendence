@@ -1,5 +1,5 @@
 import pickle, os, json
-from game import train_basic, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_AI, SAVE_FILE, SAVE_FOLDER
+from game import train_basic, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_FILE, SAVE_FOLDER
 import numpy as np
 
 np.random.seed()
@@ -241,9 +241,6 @@ def train_ai(save_file, base):
                 tick += 1
             print(f"The AI {i} score is {Ai_Sample[i].ai_score:.1f}")
         Save_Best_Ai(Ai_Sample, save_file)
-
-    if (SAVE_AI == "no"):
-        os.remove(SAVE_FILE)
 
 def load_Ai(save_file):
     with open(save_file, 'rb') as imp:

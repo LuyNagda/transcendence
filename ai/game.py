@@ -5,16 +5,15 @@ WIDTH = 80 * 6
 HEIGHT = 24 * 10
 GRID = 5
 
-DISPLAY_GAME = "yes"
+DISPLAY_GAME = "no"
 AI_DELAY = "yes"
-MAX_SCORE = 10
-NB_GENERATION = 1
-NB_SPECIES = 50
-MAX_FRAME_RATE = 0  # 0 = unlimited
+MAX_SCORE = 50
+NB_GENERATION = 1000
+NB_SPECIES = 100
+MAX_FRAME_RATE = 0  # 0 == unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
-SAVE_AI = "yes"
-TIME_LIMIT = 30
+TIME_LIMIT = 0 # 0 == unlimited
 
 # Colors
 WHITE = (255, 255, 255)
@@ -62,8 +61,8 @@ class AI_ball:
 def ai_bonus_score(ball_y, rightPaddle, Ai_selected):
     dist = abs(ball_y - rightPaddle.top) / HEIGHT
 
-    if dist < 0.2:
-        Ai_selected.ai_score += 1 - dist
+    if dist < 0.05:
+        Ai_selected.ai_score = (1 - dist) / 10 + Ai_selected.ai_score 
 
 def reset_ball(ball):
     ball.center = (WIDTH//2, HEIGHT//2)
@@ -129,7 +128,7 @@ def train_basic(Ai_selected, SHOW_MATCH):
     j= 0
     while running:
         # Limit the game time to {TIME_LIMIT} theoretical minutes
-        if i > (TIME_LIMIT * 60 * 60):
+        if TIME_LIMIT != 0 and i > (TIME_LIMIT * 60 * 60):
             break
         i += 1
 
@@ -210,10 +209,10 @@ def train_basic(Ai_selected, SHOW_MATCH):
                 ball.left = leftPaddle.right
                 if j == 0:
                     ball_dy = BALL_SPEED * -math.sin(generate_random_number(-75, 75))
-                    j = 3
+                    j = 42
                 else:
                     ball_dy = 0
-                    j -= 1
+                    j = 0
         elif collides(ball, rightPaddle):
             if ball.right < rightPaddle.right:
                 ball_dx *= -1
