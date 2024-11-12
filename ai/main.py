@@ -30,13 +30,13 @@ def main():
                 save_file = sys.argv[2]
                 if (os.path.exists(save_file)):
                     Ai = load_Ai(save_file)
+                    play_Ai(Ai, "no")
                 else:
                     return print("Save file doesn't exist!")
 
             else:
                 print("Please provide a saved AI!")
 
-            play_Ai(Ai, "no")
 
         case "demo":
             if (len(sys.argv) > 2):
