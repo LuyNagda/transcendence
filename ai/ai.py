@@ -35,7 +35,8 @@ class Activation_SoftMax:
 
 class Neuron_Network:
     def __init__(self):
-        self.layer1 = Layer_Dense(5, 5)
+        self.layer1 = Layer_Dense(5, 3)
+        self.layer2 = Layer_Dense(3, 3)
         self.activation1 = Activation_ReLU()
         self.activation2 = Activation_SoftMax()
         self.ai_score = 0
@@ -43,6 +44,7 @@ class Neuron_Network:
     def forward(self, inputs):
         self.output = self.layer1.forward(inputs)
         self.output = self.activation1.forward(self.output)
+        self.output = self.layer2.forward(self.output)
         self.output = self.activation2.forward(self.output)
         return self.output
     
