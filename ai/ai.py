@@ -141,12 +141,14 @@ def Save_Best_Ai(Ai_Sample, save_file):
     Ai_Sample.sort(reverse=True)
 
     # If a save file's name is provided, set it as the save file for this run
-    if (len(save_file) > 0):
+    if (len(save_file) > 0) and not os.path.exists(save_file):
         SAVE_FILE = os.path.join("Saved_AI", save_file)
-
-    # Create the directory if it doesn't exist
-    os.makedirs(os.path.dirname(SAVE_FILE), exist_ok=True)
+        # Create the directory if it doesn't exist
+        os.makedirs(os.path.dirname(SAVE_FILE), exist_ok=True)
     
+    else :
+        SAVE_FILE = save_file
+
     # Overwrites any existing file.
     with open(SAVE_FILE, 'wb') as save:
         # Save the 5 best performing AI
