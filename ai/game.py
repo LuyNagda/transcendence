@@ -260,8 +260,7 @@ def play_Ai(Ai, demo):
     ball_dy = 0
 
     # Update AI's target position
-    ai_ball = AI_ball(ball, 0, 0, 0)
-    ai_ball.update(ball, ball_dx, ball_dy)
+    ai_ball = AI_ball(ball.x, ball.y, ball_dx, ball_dy)
 
     # Score
     left_score = 0
@@ -296,7 +295,7 @@ def play_Ai(Ai, demo):
 
         # Move the left paddle by AI
         if (demo == "yes"):
-            match (Ai.decision_left(rightPaddle, ai_ball, HEIGHT)):
+            match (Ai.decision_left(leftPaddle.y, ai_ball, HEIGHT)):
                 case 0:
                     if leftPaddle.top > 0 :
                         leftPaddle.y -= PADDLE_SPEED

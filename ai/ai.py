@@ -34,10 +34,10 @@ class Activation_SoftMax:
         return self.output
 
 class Neuron_Network:
-    def __init__(self):
-        self.layer1 = Layer_Dense(5, 3)
-        self.layer2 = Layer_Dense(3, 3)
+    def __init__(self, nb_inputs, nb_layer1_neurons, nb_layer2_neurons):
+        self.layer1 = Layer_Dense(nb_inputs, nb_layer1_neurons)
         self.activation1 = Activation_ReLU()
+        self.layer2 = Layer_Dense(nb_layer1_neurons, nb_layer2_neurons)
         self.activation2 = Activation_SoftMax()
         self.ai_score = 0
 
@@ -49,13 +49,21 @@ class Neuron_Network:
         return self.output
     
     def decision(self, paddle_y, ball, height):
-        X = [ball.x / height, ball.y / height, ball.dx, ball.dy, paddle_y / height]
+        ball_relative_x = ball.x / height
+        ball_relative_y = ball.y / height
+        paddle_relative_y = paddle_y / height
+
+        X = [ball_relative_x, ball_relative_y, ball.dx, ball.dy, paddle_relative_y]
         response = np.argmax(self.forward(X))
 
         return response
 
     def decision_left(self, paddle_y, ball, height):
-        X = [1 - ball.x / height, ball.y / height, ball.dx * -1, ball.dy, paddle_y / height]
+        ball_relative_x = 1 - ball.x / height
+        ball_relative_y = ball.y / height
+        paddle_relative_y = ball.dy, paddle_y / height
+
+        X = [ball_relative_x, ball_relative_y, ball.dx * -1, paddle_relative_y]
         response = np.argmax(self.forward(X))
 
         return response
@@ -70,11 +78,28 @@ class Neuron_Network:
         return {
             "layer1": {
                 "weights" : self.layer1.weights.tolist()
+            },
+            "layer2": {
+                "weights" : self.layer2.weights.tolist()
             }
         }
     
     def to_json(self):
         return json.dumps(self.to_dict())
+
+    def load_from_dict(self, data):
+        layer1_weights = np.array(data["layer1"]["weights"])
+        layer2_weights = np.array(data["layer2"]["weights"])
+
+        # Validate the weights shapes
+        if layer1_weights.shape != (5, 3):
+            raise ValueError("Unexpected shape for layer1 weights")
+        if layer2_weights.shape != (3, 3):
+            raise ValueError("Unexpected shape for layer2 weights")
+        
+        self.layer1.weights = layer1_weights
+        self.layer2.weights = layer2_weights
+
 
 def Init_Ai(base):
     Ai_Sample = []
@@ -97,13 +122,13 @@ def Init_Ai(base):
         # Add random AIs to reach NB_SPECIES
         remaining = NB_SPECIES - len(Ai_Sample)
         for i in range(remaining):
-            random_ai = Neuron_Network()
+            random_ai = Neuron_Network(5, 3, 3)
             Ai_Sample.append(random_ai)
 
     else:
         # Create NB_SPECIES random AIs
         for i in range(NB_SPECIES):
-            random_ai = Neuron_Network()
+            random_ai = Neuron_Network(5, 3, 3)
             Ai_Sample.append(random_ai)
     
     # Reset scores
@@ -117,7 +142,7 @@ def Crossover_mutation(Ai_Sample):
     while (len(Ai_Sample) < NB_SPECIES - 5):
         # Choose 2 parent randomly from the 5 best performing AI and instance a child
         parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
-        child = Neuron_Network()
+        child = Neuron_Network(5, 3, 3)
 
         # Crossover
         child.layer1.weights = (parent1.layer1.weights + parent2.layer1.weights) / 2
@@ -249,4 +274,10 @@ def train_ai(save_file, base):
 def load_Ai(save_file):
     with open(save_file, 'rb') as imp:
         Ai = pickle.load(imp)
-        return (Ai)
+
+        # Create a new Neuron_Network instance
+        network = Neuron_Network(5, 3, 3)
+        
+        # Load the network data from the saved Ai instance
+        network.load_from_dict(Ai.to_dict())
+        return (network)

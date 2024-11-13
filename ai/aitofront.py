@@ -18,8 +18,10 @@ def main():
     else:
         return print("Save file doesn't exist!")
     
-    ai_weights = Ai.layer1.weights
-    print("ai_weights:\n", ai_weights)
+    layer1_weights = Ai.layer1.weights
+    layer2_weights = Ai.layer2.weights
+    print("layer1_weights:\n", layer1_weights)
+    print("layer2_weights:\n", layer2_weights)
     
     neuron_json = Ai.to_json()
     print("\nneuron_json:\n", neuron_json)
