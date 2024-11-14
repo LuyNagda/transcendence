@@ -114,7 +114,7 @@ endef
 
 define run_migrations
 	$(SRC_ENV) \
-	container_id=$$(docker compose run --build --remove-orphans -d -v $(PWD):/host auth /bin/bash -c "chmod +x /app/makemigrations.sh && /app/makemigrations.sh $(if $(1),$(1))") && \
-	docker wait $$container_id && \
-	docker compose down
+	echo $(PWD) && \
+	container_id=$$(docker compose run --build --remove-orphans -d -v $(PWD):/host auth /bin/bash -c "chmod +x /app/makemigrations.sh && /app/makemigrations.sh $(if $(1),$(1))")
+
 endef

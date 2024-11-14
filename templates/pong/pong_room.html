@@ -1,0 +1,45 @@
+{% extends 'base.html' %} {% load static %} {% block title %}Pong Room{% endblock %} {% block content %} {% block navbar %}{% include "navbar.html" %}{% endblock %}
+
+<div id="pong-room" class="container-fluid my-4">
+    <header class="text-center my-5">
+        <h1>Pong Game Room</h1>
+        <p>Current Mode: <span v-text="pongRoom.mode"></span></p>
+        <p>Room State: <span v-text="pongRoom.state"></span></p>
+    </header>
+    <main class="d-flex flex-wrap">
+        <div class="flex-grow-1 me-4" style="flex-basis: 300px;">
+            <div id="room-state" class="mb-4">
+                {% include "pong/components/room_state.html" %}
+            </div>
+        </div>
+        <div class="flex-grow-1" style="flex-basis: 600px;">
+            <div id="dynamic-content">
+                <div v-if="pongRoom.state === 'LOBBY'">
+                    <div id="mode-selection-container" class="mb-4">
+                        {% include "pong/components/mode_selection.html" %}
+                    </div>
+                    <p>Waiting for the game to start...</p>
+                </div>
+                <div v-if="pongRoom.state === 'PLAYING'">
+                    {% include "pong/components/game.html" %}
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+{% block footer %}{% include "footer.html" %}{% endblock %}
+
+<style>
+    @media (max-width: 768px) {
+        main {
+            flex-direction: column;
+        }
+        main>div {
+            margin-right: 0 !important;
+            margin-bottom: 2rem;
+        }
+    }
+</style>
+
+{{ room_id|json_script:"room-id" }} {{ current_user|json_script:"current-user-data" }} {% endblock %}

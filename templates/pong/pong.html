@@ -1,0 +1,57 @@
+{% extends 'base.html' %} {% block title %}Pong Game{% endblock %} {% block content %} {% block navbar %}{% include "navbar.html" %}{% endblock %}
+
+<div id="pong-container">
+    <div id="index" class="container x-auto my-4">
+        <header class="text-center my-5">
+            <h1>Bienvenue sur le Jeu Pong</h1>
+            <p>Jouez à Pong en temps réel contre d'autres joueurs !</p>
+        </header>
+        <main>
+            <section id="about" class="my-5">
+                <h2>À propos du jeu</h2>
+                <p>Pong est un jeu de tennis de table en 2D. Le but est de marquer des points en envoyant la balle dans le camp de l'adversaire.</p>
+            </section>
+            <section id="features" class="my-5">
+                <h2>Fonctionnalités</h2>
+                <ul>
+                    <li>Jeu en temps réel contre d'autres joueurs</li>
+                    <li>Tournois et matchmaking</li>
+                    <li>Chat en direct</li>
+                    <li>Statistiques de jeu</li>
+                </ul>
+            </section>
+            <section id="cta" class="text-center my-5">
+                <h2>Prêt à jouer ?</h2>
+                <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-trigger="click" hx-target="#pong-container" hx-swap="none" class="btn btn-primary">
+                    Commencer une partie
+                </button>
+            </section>
+        </main>
+    </div>
+</div>
+
+{% block footer %}{% include "footer.html" %}{% endblock %}
+
+<script>
+    console.log('HTMX version:', htmx.version);
+    document.addEventListener('htmx:afterRequest', function(event) {
+        if (event.detail.elt.id === 'create-room-btn') {
+            if (event.detail.successful) {
+                try {
+                    const response = JSON.parse(event.detail.xhr.response);
+                    if (response.status === 'success' && response.url) {
+                        window.location.href = response.url;
+                    } else {
+                        console.error('Unexpected response:', response);
+                    }
+                } catch (error) {
+                    console.error('Error parsing response:', error);
+                }
+            } else {
+                console.error('Request failed:', event.detail.xhr.status);
+            }
+        }
+    });
+</script>
+
+{% endblock %}

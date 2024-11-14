@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'channels',
     'authentication',
     'chat',
+    'pong',
     'corsheaders',
     'rest_framework_simplejwt',
     'rest_framework',
@@ -90,7 +91,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'transcendence.wsgi.application'
-ASGI_APPLICATION = "transcendence.asgi.application"
+ASGI_APPLICATION = 'transcendence.asgi.application'
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -126,9 +127,9 @@ DATABASES = {
 
 
 CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-    },
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
 }
 
 
@@ -245,4 +246,3 @@ CORS_ALLOW_CREDENTIALS = True
 FT_CLIENT_ID = env('FT_CLIENT_ID')
 FT_CLIENT_SECRET = env('FT_CLIENT_SECRET')
 FT_REDIRECT_URI = env('FT_REDIRECT_URI')
-
