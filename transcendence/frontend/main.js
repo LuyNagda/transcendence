@@ -5,6 +5,7 @@ import UserService from './UserService.js';
 import ChatApp from './chat/ChatApp.js';
 import dynamicRender from './utils/dynamic_render.js';
 import { PongRoom } from './pong/pong_room.js';
+// import { PongGame } from './pong/pong_game.js';
 
 function initializeChatApp() {
 	try {
