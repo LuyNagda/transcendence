@@ -7,8 +7,8 @@ GRID = 5
 
 DISPLAY_GAME = "no"
 AI_DELAY = "yes"
-MAX_SCORE = 50
-NB_GENERATION = 1000
+MAX_SCORE = 250
+NB_GENERATION = 10000000000
 NB_SPECIES = 100
 MAX_FRAME_RATE = 0  # 0 == unlimited
 SAVE_FILE = "bestAI"
@@ -89,15 +89,14 @@ def updateBallAngle(ball, ball_dy, paddle):
 def generate_random_number(low, high):
     return random.randint(low, high)
 
-def train_basic(Ai_selected, SHOW_MATCH):
+def train_basic(Ai_selected):
     os.environ["SDL_AUDIODRIVER"] = "dumb"
 
     # Initialize Pygame
     pygame.init()
 
-    if SHOW_MATCH == "yes":
-        window = pygame.display.set_mode((WIDTH, HEIGHT))
-        pygame.display.set_caption("Pong")
+    window = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Pong")
 
     # Create paddles and ball
     leftPaddle = pygame.Rect(50, 0, PADDLE_WIDTH, HEIGHT) # Wall for trainning purpose
@@ -135,27 +134,25 @@ def train_basic(Ai_selected, SHOW_MATCH):
         if (MAX_FRAME_RATE != 0):
             clock.tick(MAX_FRAME_RATE)
 
-        # Display the game
-        if SHOW_MATCH == "yes":
-            # Clear the screen
-            window.fill(BLACK)
+        # Clear the screen
+        window.fill(BLACK)
 
-            # Draw paddles and ball
-            pygame.draw.rect(window, WHITE, leftPaddle)
-            pygame.draw.rect(window, WHITE, rightPaddle)
-            pygame.draw.ellipse(window, WHITE, ball)
+        # Draw paddles and ball
+        pygame.draw.rect(window, WHITE, leftPaddle)
+        pygame.draw.rect(window, WHITE, rightPaddle)
+        pygame.draw.ellipse(window, WHITE, ball)
 
-            # Draw scores
-            left_text = font.render(str(left_score), True, WHITE)
-            right_text = font.render(str(right_score), True, WHITE)
-            window.blit(left_text, (WIDTH//4, 20))
-            window.blit(right_text, (3*WIDTH//4, 20))
+        # Draw scores
+        left_text = font.render(str(left_score), True, WHITE)
+        right_text = font.render(str(right_score), True, WHITE)
+        window.blit(left_text, (WIDTH//4, 20))
+        window.blit(right_text, (3*WIDTH//4, 20))
 
-            # Draw the center line
-            pygame.draw.aaline(window, WHITE, (WIDTH//2, 0), (WIDTH//2, HEIGHT))
+        # Draw the center line
+        pygame.draw.aaline(window, WHITE, (WIDTH//2, 0), (WIDTH//2, HEIGHT))
 
-            # Update the display
-            pygame.display.flip()
+        # Update the display
+        pygame.display.flip()
 
         keys = pygame.key.get_pressed()
         for event in pygame.event.get():

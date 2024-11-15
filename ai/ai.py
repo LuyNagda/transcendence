@@ -1,5 +1,6 @@
 import pickle, os, json
 from game import train_basic, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_FILE, SAVE_FOLDER
+from gamesimulation import train_basic_no_display
 import numpy as np
 
 np.random.seed()
@@ -54,9 +55,9 @@ class Neuron_Network:
         paddle_relative_y = paddle_y / height
 
         X = [ball_relative_x, ball_relative_y, ball.dx, ball.dy, paddle_relative_y]
-        response = np.argmax(self.forward(X))
+        response = self.forward(X)
 
-        return response
+        return np.argmax(response)
 
     def decision_left(self, paddle_y, ball, height):
         ball_relative_x = 1 - ball.x / height
@@ -246,8 +247,11 @@ def train_ai(save_file, base):
         Ai_Sample = Init_Ai(base)
 
         for i in range(NB_SPECIES):
-            if train_basic(Ai_Sample[i], DISPLAY_GAME) == "STOP":
-                return
+            if DISPLAY_GAME == 'yes':
+                if train_basic(Ai_Sample[i]) == "STOP":
+                    return
+            else:
+                train_basic_no_display(Ai_Sample[i])
             
             # Train against human's inputs
             if frames == None:
