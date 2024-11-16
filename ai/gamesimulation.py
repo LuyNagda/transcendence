@@ -133,6 +133,7 @@ def train_basic_no_display(Ai_selected):
     )
 
     # Predifine game loop
+    total_predefined = 0
     for predefined_y in range(round(HEIGHT / 10), HEIGHT, round(HEIGHT / 10)):
         ball = Ball(
             x = 50,
@@ -141,6 +142,7 @@ def train_basic_no_display(Ai_selected):
         )
 
         for predefined_angle in range(-75, 76):
+            total_predefined += 1
             # Ball movement
             ball_dx = BALL_SPEED
             ball_dy = BALL_SPEED * -math.sin(predefined_angle)
@@ -195,7 +197,7 @@ def train_basic_no_display(Ai_selected):
                 
                 i += 1
 
-    print(f"\nScore before normal game: {Ai_selected.ai_score:.1f}")
+    print(f"\nScore before normal game: {Ai_selected.ai_score:.1f} / {total_predefined}")
 
     # Normal game loop
     running = True

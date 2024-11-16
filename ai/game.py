@@ -124,7 +124,7 @@ def train_basic(Ai_selected):
     # Game loop
     running = True
     i = 0
-    j= 0
+    j = 0
     while running:
         # Limit the game time to {TIME_LIMIT} theoretical minutes
         if TIME_LIMIT != 0 and i > (TIME_LIMIT * 60 * 60):
