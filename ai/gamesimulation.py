@@ -200,6 +200,18 @@ def train_basic_no_display(Ai_selected):
     print(f"\nScore before normal game: {Ai_selected.ai_score:.1f} / {total_predefined}")
 
     # Normal game loop
+    ball = Ball(
+        x = WIDTH / 2,
+        y = HEIGHT / 2,
+        size = BALL_SIZE
+    )
+    ball_dx = BALL_SPEED
+    ball_dy = 0
+
+    # Update AI's target position
+    ai_ball = AI_ball(ball, 0, 0, 0)
+    ai_ball.update(ball, ball_dx, ball_dy)
+
     running = True
     left_score = 0
     i = 0
