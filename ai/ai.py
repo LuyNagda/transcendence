@@ -7,12 +7,12 @@ np.random.seed()
 
 class Layer_Dense:
     def __init__(self, n_inputs, n_neurons):
-        # Weights are set with random numbers
+        # Weights and biases are set with random numbers
         self.weights = np.random.randn(n_inputs, n_neurons)
-        # self.biases = np.random.randn(1, n_neurons) * 0.1
+        self.biases = np.random.randn(1, n_neurons) * 0.1
         
-        # Biases are set to 0
-        self.biases = np.zeros((1, n_neurons))
+        # # Biases are set to 0
+        # self.biases = np.zeros((1, n_neurons))
     
     def forward(self, inputs):
         # Output are calculate by multiplying each input with theirs weight and then adding the biaises
@@ -97,15 +97,15 @@ class Neuron_Network:
         layer2_weights = np.array(data["layer2"]["weights"])
         layer2_biases = np.array(data["layer2"]["biases"])
 
-        # Validate the weights shapes
-        if layer1_weights.shape != (5, 3):
-            raise ValueError("Unexpected shape for layer1 weights")
-        if layer1_biases.shape != (1, 3):
-            raise ValueError("Unexpected shape for layer1 biases")
-        if layer2_weights.shape != (3, 3):
-            raise ValueError("Unexpected shape for layer2 weights")
-        if layer2_biases.shape != (1, 3):
-            raise ValueError("Unexpected shape for layer2 biases")
+        # # Validate the weights shapes
+        # if layer1_weights.shape != (5, 3):
+        #     raise ValueError("Unexpected shape for layer1 weights")
+        # if layer1_biases.shape != (1, 3):
+        #     raise ValueError("Unexpected shape for layer1 biases")
+        # if layer2_weights.shape != (3, 3):
+        #     raise ValueError("Unexpected shape for layer2 weights")
+        # if layer2_biases.shape != (1, 3):
+        #     raise ValueError("Unexpected shape for layer2 biases")
         
         self.layer1.weights = layer1_weights
         self.layer1.biases = layer1_biases
@@ -134,13 +134,13 @@ def Init_Ai(base):
         # Add random AIs to reach NB_SPECIES
         remaining = NB_SPECIES - len(Ai_Sample)
         for i in range(remaining):
-            random_ai = Neuron_Network(5, 3, 3)
+            random_ai = Neuron_Network(5, 5, 3)
             Ai_Sample.append(random_ai)
 
     else:
         # Create NB_SPECIES random AIs
         for i in range(NB_SPECIES):
-            random_ai = Neuron_Network(5, 3, 3)
+            random_ai = Neuron_Network(5, 5, 3)
             Ai_Sample.append(random_ai)
     
     # Reset scores
@@ -154,32 +154,50 @@ def Crossover_mutation(Ai_Sample):
     while (len(Ai_Sample) < NB_SPECIES - 5):
         # Choose 2 parent randomly from the 5 best performing AI and instance a child
         parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
-        child = Neuron_Network(5, 3, 3)
+        child = Neuron_Network(5, 5, 3)
 
-        # Crossover
+        # Crossover for both weights and biases
         child.layer1.weights = (parent1.layer1.weights + parent2.layer1.weights) / 2
+        child.layer1.biases = (parent1.layer1.biases + parent2.layer1.biases) / 2
         child.layer2.weights = (parent1.layer2.weights + parent2.layer2.weights) / 2
+        child.layer2.biases = (parent1.layer2.biases + parent2.layer2.biases) / 2
 
-        # Set the probability of the occurrence of a mutation
-        mutation_rate = 0.1
+        # Mutation rate can be different for weights and biases
+        weight_mutation_rate = 0.1
+        bias_mutation_rate = 0.05
 
-        # Create a matrix of random weight, shape like the neuron network's weight
-        weight_shape1 = child.layer1.weights.shape
-        random_values1 = np.random.random(weight_shape1)
-
-        weight_shape2 = child.layer2.weights.shape
-        random_values2 = np.random.random(weight_shape2)
-
-        # For each random weight if they are smaller than the mutation rate, mutate the weight of the child in this position
-        mutation_mask = random_values1 < mutation_rate
+        # Mutate weights
+        weight_shape = child.layer1.weights.shape
+        random_values = np.random.random(weight_shape)
+        mutation_mask = random_values < weight_mutation_rate
         nb_mutations = np.sum(mutation_mask)
-        mutation_value = np.random.randn(nb_mutations)
+        mutation_value = np.random.randn(nb_mutations) * 0.1
         child.layer1.weights[mutation_mask] += mutation_value
 
-        mutation_mask = random_values2 < mutation_rate
+        # Mutate biases
+        bias_shape = child.layer1.biases.shape
+        random_values = np.random.random(bias_shape)
+        mutation_mask = random_values < bias_mutation_rate
         nb_mutations = np.sum(mutation_mask)
-        mutation_value = np.random.randn(nb_mutations)
+        mutation_value = np.random.randn(nb_mutations) * 0.05
+        child.layer1.biases[mutation_mask] += mutation_value
+
+        # Do the same for layer2
+        # Weights
+        weight_shape = child.layer2.weights.shape
+        random_values = np.random.random(weight_shape)
+        mutation_mask = random_values < weight_mutation_rate
+        nb_mutations = np.sum(mutation_mask)
+        mutation_value = np.random.randn(nb_mutations) * 0.1
         child.layer2.weights[mutation_mask] += mutation_value
+
+        # Biases
+        bias_shape = child.layer2.biases.shape
+        random_values = np.random.random(bias_shape)
+        mutation_mask = random_values < bias_mutation_rate
+        nb_mutations = np.sum(mutation_mask)
+        mutation_value = np.random.randn(nb_mutations) * 0.05
+        child.layer2.biases[mutation_mask] += mutation_value
 
         # Add this mutated child to the AI's list
         Ai_Sample.append(child)
@@ -300,7 +318,7 @@ def load_Ai(save_file):
         Ai = pickle.load(imp)
 
         # Create a new Neuron_Network instance
-        network = Neuron_Network(5, 3, 3)
+        network = Neuron_Network(5, 5, 3)
         
         # Load the network data from the saved Ai instance
         network.load_from_dict(Ai.to_dict())
