@@ -253,7 +253,7 @@ def play_Ai(Ai, demo):
     clock = pygame.time.Clock()
 
     # Ball movement
-    ball_dx = BALL_SPEED * random.choice((1, -1))
+    ball_dx = BALL_SPEED
     ball_dy = 0
 
     # Update AI's target position
