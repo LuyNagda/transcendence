@@ -19,9 +19,13 @@ def main():
         return print("Save file doesn't exist!")
     
     layer1_weights = Ai.layer1.weights
+    layer1_biases = Ai.layer1.biases
     layer2_weights = Ai.layer2.weights
+    layer2_biases = Ai.layer2.biases
     print("layer1_weights:\n", layer1_weights)
+    print("layer1_biases:\n", layer1_biases)
     print("layer2_weights:\n", layer2_weights)
+    print("layer2_biases:\n", layer2_biases)
     
     neuron_json = Ai.to_json()
     print("\nneuron_json:\n", neuron_json)

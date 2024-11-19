@@ -9,6 +9,7 @@ class Layer_Dense:
     def __init__(self, n_inputs, n_neurons):
         # Weights are set with random numbers
         self.weights = np.random.randn(n_inputs, n_neurons)
+        # self.biases = np.random.randn(1, n_neurons) * 0.1
         
         # Biases are set to 0
         self.biases = np.zeros((1, n_neurons))
@@ -78,10 +79,12 @@ class Neuron_Network:
     def to_dict(self):
         return {
             "layer1": {
-                "weights" : self.layer1.weights.tolist()
+                "weights" : self.layer1.weights.tolist(),
+                "biases": self.layer1.biases.tolist()
             },
             "layer2": {
-                "weights" : self.layer2.weights.tolist()
+                "weights" : self.layer2.weights.tolist(),
+                "biases": self.layer2.biases.tolist()
             }
         }
     
@@ -90,16 +93,24 @@ class Neuron_Network:
 
     def load_from_dict(self, data):
         layer1_weights = np.array(data["layer1"]["weights"])
+        layer1_biases = np.array(data["layer1"]["biases"])
         layer2_weights = np.array(data["layer2"]["weights"])
+        layer2_biases = np.array(data["layer2"]["biases"])
 
         # Validate the weights shapes
         if layer1_weights.shape != (5, 3):
             raise ValueError("Unexpected shape for layer1 weights")
+        if layer1_biases.shape != (1, 3):
+            raise ValueError("Unexpected shape for layer1 biases")
         if layer2_weights.shape != (3, 3):
             raise ValueError("Unexpected shape for layer2 weights")
+        if layer2_biases.shape != (1, 3):
+            raise ValueError("Unexpected shape for layer2 biases")
         
         self.layer1.weights = layer1_weights
+        self.layer1.biases = layer1_biases
         self.layer2.weights = layer2_weights
+        self.layer2.biases = layer2_biases
 
 
 def Init_Ai(base):
@@ -147,19 +158,28 @@ def Crossover_mutation(Ai_Sample):
 
         # Crossover
         child.layer1.weights = (parent1.layer1.weights + parent2.layer1.weights) / 2
+        child.layer2.weights = (parent1.layer2.weights + parent2.layer2.weights) / 2
 
         # Set the probability of the occurrence of a mutation
         mutation_rate = 0.1
 
         # Create a matrix of random weight, shape like the neuron network's weight
-        weight_shape = child.layer1.weights.shape
-        random_values = np.random.random(weight_shape)
+        weight_shape1 = child.layer1.weights.shape
+        random_values1 = np.random.random(weight_shape1)
+
+        weight_shape2 = child.layer2.weights.shape
+        random_values2 = np.random.random(weight_shape2)
 
         # For each random weight if they are smaller than the mutation rate, mutate the weight of the child in this position
-        mutation_mask = random_values < mutation_rate
+        mutation_mask = random_values1 < mutation_rate
         nb_mutations = np.sum(mutation_mask)
         mutation_value = np.random.randn(nb_mutations)
         child.layer1.weights[mutation_mask] += mutation_value
+
+        mutation_mask = random_values2 < mutation_rate
+        nb_mutations = np.sum(mutation_mask)
+        mutation_value = np.random.randn(nb_mutations)
+        child.layer2.weights[mutation_mask] += mutation_value
 
         # Add this mutated child to the AI's list
         Ai_Sample.append(child)
