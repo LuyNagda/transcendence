@@ -27,6 +27,16 @@ function initializePongRoom() {
 	}
 }
 
+function initializeThemeButtons() {
+    document.getElementById('light')?.addEventListener('click', () => applyTheme('light'));
+    document.getElementById('dark')?.addEventListener('click', () => applyTheme('dark'));
+    document.getElementById('highContrast')?.addEventListener('click', () => applyTheme('high-contrast'));
+    
+    document.getElementById('toggleFontSizeBtn')?.addEventListener('change', (e) => {
+        applyFontSize(e.target.checked ? 'large' : 'small');
+    });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
 	logger.initialize();
 	initializeErrorHandling();
@@ -48,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Écouteur pour les événements HTMX
 document.body.addEventListener('htmx:afterSwap', (event) => {
+	initializeThemeButtons();
 	if (event.detail.elt.id === 'pong-room') {
 		initializePongRoom();
 	}
