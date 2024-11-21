@@ -341,3 +341,23 @@ def load_Ai(save_file):
         # Load the network data from the saved Ai instance
         network.load_from_dict(Ai.to_dict())
         return (network)
+
+def saved_ai_to_json(file_path):
+    with open(file_path, 'rb') as imp:
+        Ai : Neuron_Network
+        Ai = pickle.load(imp)
+    
+    layer1_weights = Ai.layer1.weights
+    layer1_biases = Ai.layer1.biases
+    layer2_weights = Ai.layer2.weights
+    layer2_biases = Ai.layer2.biases
+    layer3_weights = Ai.layer3.weights
+    layer3_biases = Ai.layer3.biases
+    print("layer1:\n\tweights:\n", layer1_weights)
+    print("\tbiases:\n", layer1_biases)
+    print("\nlayer2:\n\tweights:\n", layer2_weights)
+    print("\tbiases:\n", layer2_biases)
+    print("\nlayer3:\n\tweights:\n", layer3_weights)
+    print("\tbiases:\n", layer3_biases)
+    
+    return Ai.to_json()

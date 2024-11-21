@@ -1,6 +1,6 @@
 import os, pickle, sys
 from game import SAVE_FILE, SAVE_FOLDER
-from ai import Neuron_Network
+from ai import saved_ai_to_json
 
 def main():
     nb_args = len(sys.argv[1:])
@@ -12,23 +12,9 @@ def main():
         print("Usage: provide a AI's file")
 
     if (os.path.exists(file_path)):
-        with open(file_path, 'rb') as imp:
-            Ai : Neuron_Network
-            Ai = pickle.load(imp)
+        neuron_json = saved_ai_to_json(file_path)
     else:
         return print("Save file doesn't exist!")
-    
-    layer1_weights = Ai.layer1.weights
-    layer1_biases = Ai.layer1.biases
-    layer2_weights = Ai.layer2.weights
-    layer2_biases = Ai.layer2.biases
-    print("layer1_weights:\n", layer1_weights)
-    print("layer1_biases:\n", layer1_biases)
-    print("layer2_weights:\n", layer2_weights)
-    print("layer2_biases:\n", layer2_biases)
-    
-    neuron_json = Ai.to_json()
-    print("\nneuron_json:\n", neuron_json)
     
 if __name__ == "__main__":
     main()
