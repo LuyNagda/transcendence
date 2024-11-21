@@ -235,12 +235,12 @@ def Save_Best_Ai(Ai_Sample, save_file):
 
     # Overwrites any existing file.
     with open(SAVE_FILE, 'wb') as save:
-        # Save the 10 best performing AI
-        for i in range(10):
+        # Save the 5 best performing AI
+        for i in range(5):
             pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
 
         # Save AI having similar performance as the best one
-        for i in range(10, len(Ai_Sample)):
+        for i in range(5, len(Ai_Sample)):
             if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.95 ):
                 pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
             else:
