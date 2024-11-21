@@ -3,6 +3,11 @@ from game import train_basic, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATIO
 from gamesimulation import train_basic_no_display
 import numpy as np
 
+NB_INPUTS = 5
+NB_NEURONS_LAYER1 = 6
+NB_NEURONS_LAYER2 = 6
+NB_NEURONS_LAYER3 = 3
+
 np.random.seed()
 
 class Layer_Dense:
@@ -36,11 +41,13 @@ class Activation_SoftMax:
         return self.output
 
 class Neuron_Network:
-    def __init__(self, nb_inputs, nb_layer1_neurons, nb_layer2_neurons):
+    def __init__(self, nb_inputs, nb_layer1_neurons, nb_layer2_neurons, nb_layer3_neurons):
         self.layer1 = Layer_Dense(nb_inputs, nb_layer1_neurons)
         self.activation1 = Activation_ReLU()
         self.layer2 = Layer_Dense(nb_layer1_neurons, nb_layer2_neurons)
-        self.activation2 = Activation_SoftMax()
+        self.activation2 = Activation_ReLU()
+        self.layer3 = Layer_Dense(nb_layer2_neurons, nb_layer3_neurons)
+        self.activation3 = Activation_SoftMax()
         self.ai_score = 0
 
     def forward(self, inputs):
@@ -48,6 +55,8 @@ class Neuron_Network:
         self.output = self.activation1.forward(self.output)
         self.output = self.layer2.forward(self.output)
         self.output = self.activation2.forward(self.output)
+        self.output = self.layer3.forward(self.output)
+        self.output = self.activation3.forward(self.output)
         return self.output
     
     def decision(self, paddle_y, ball, height):
@@ -85,6 +94,10 @@ class Neuron_Network:
             "layer2": {
                 "weights" : self.layer2.weights.tolist(),
                 "biases": self.layer2.biases.tolist()
+            },
+            "layer3": {
+                "weights" : self.layer3.weights.tolist(),
+                "biases": self.layer3.biases.tolist()
             }
         }
     
@@ -92,26 +105,12 @@ class Neuron_Network:
         return json.dumps(self.to_dict())
 
     def load_from_dict(self, data):
-        layer1_weights = np.array(data["layer1"]["weights"])
-        layer1_biases = np.array(data["layer1"]["biases"])
-        layer2_weights = np.array(data["layer2"]["weights"])
-        layer2_biases = np.array(data["layer2"]["biases"])
-
-        # # Validate the weights shapes
-        # if layer1_weights.shape != (5, 3):
-        #     raise ValueError("Unexpected shape for layer1 weights")
-        # if layer1_biases.shape != (1, 3):
-        #     raise ValueError("Unexpected shape for layer1 biases")
-        # if layer2_weights.shape != (3, 3):
-        #     raise ValueError("Unexpected shape for layer2 weights")
-        # if layer2_biases.shape != (1, 3):
-        #     raise ValueError("Unexpected shape for layer2 biases")
-        
-        self.layer1.weights = layer1_weights
-        self.layer1.biases = layer1_biases
-        self.layer2.weights = layer2_weights
-        self.layer2.biases = layer2_biases
-
+        self.layer1.weights = np.array(data["layer1"]["weights"])
+        self.layer1.biases = np.array(data["layer1"]["biases"])
+        self.layer2.weights = np.array(data["layer2"]["weights"])
+        self.layer2.biases = np.array(data["layer2"]["biases"])
+        self.layer3.weights = np.array(data["layer3"]["weights"])
+        self.layer3.biases = np.array(data["layer3"]["biases"])
 
 def Init_Ai(base):
     Ai_Sample = []
@@ -134,13 +133,13 @@ def Init_Ai(base):
         # Add random AIs to reach NB_SPECIES
         remaining = NB_SPECIES - len(Ai_Sample)
         for i in range(remaining):
-            random_ai = Neuron_Network(5, 5, 3)
+            random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
             Ai_Sample.append(random_ai)
 
     else:
         # Create NB_SPECIES random AIs
         for i in range(NB_SPECIES):
-            random_ai = Neuron_Network(5, 5, 3)
+            random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
             Ai_Sample.append(random_ai)
     
     # Reset scores
@@ -154,13 +153,15 @@ def Crossover_mutation(Ai_Sample):
     while (len(Ai_Sample) < NB_SPECIES - 5):
         # Choose 2 parent randomly from the 5 best performing AI and instance a child
         parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
-        child = Neuron_Network(5, 5, 3)
+        child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
 
         # Crossover for both weights and biases
         child.layer1.weights = (parent1.layer1.weights + parent2.layer1.weights) / 2
         child.layer1.biases = (parent1.layer1.biases + parent2.layer1.biases) / 2
         child.layer2.weights = (parent1.layer2.weights + parent2.layer2.weights) / 2
         child.layer2.biases = (parent1.layer2.biases + parent2.layer2.biases) / 2
+        child.layer3.weights = (parent1.layer3.weights + parent2.layer3.weights) / 2
+        child.layer3.biases = (parent1.layer3.biases + parent2.layer3.biases) / 2
 
         # Mutation rate can be different for weights and biases
         weight_mutation_rate = 0.1
@@ -199,6 +200,23 @@ def Crossover_mutation(Ai_Sample):
         mutation_value = np.random.randn(nb_mutations) * 0.05
         child.layer2.biases[mutation_mask] += mutation_value
 
+        # Do the same for layer3
+        # Weights
+        weight_shape = child.layer3.weights.shape
+        random_values = np.random.random(weight_shape)
+        mutation_mask = random_values < weight_mutation_rate
+        nb_mutations = np.sum(mutation_mask)
+        mutation_value = np.random.randn(nb_mutations) * 0.1
+        child.layer3.weights[mutation_mask] += mutation_value
+
+        # Biases
+        bias_shape = child.layer3.biases.shape
+        random_values = np.random.random(bias_shape)
+        mutation_mask = random_values < bias_mutation_rate
+        nb_mutations = np.sum(mutation_mask)
+        mutation_value = np.random.randn(nb_mutations) * 0.05
+        child.layer3.biases[mutation_mask] += mutation_value
+
         # Add this mutated child to the AI's list
         Ai_Sample.append(child)
 
@@ -217,12 +235,12 @@ def Save_Best_Ai(Ai_Sample, save_file):
 
     # Overwrites any existing file.
     with open(SAVE_FILE, 'wb') as save:
-        # Save the 5 best performing AI
-        for i in range(5):
+        # Save the 10 best performing AI
+        for i in range(10):
             pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
 
         # Save AI having similar performance as the best one
-        for i in range(5, len(Ai_Sample)):
+        for i in range(10, len(Ai_Sample)):
             if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.95 ):
                 pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
             else:
@@ -318,7 +336,7 @@ def load_Ai(save_file):
         Ai = pickle.load(imp)
 
         # Create a new Neuron_Network instance
-        network = Neuron_Network(5, 5, 3)
+        network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
         
         # Load the network data from the saved Ai instance
         network.load_from_dict(Ai.to_dict())
