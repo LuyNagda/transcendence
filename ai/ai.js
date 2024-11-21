@@ -1,10 +1,11 @@
 class Layer_Dense {
-    constructor(weights) {
+    constructor(weights, biases) {
         this.weights = weights
+        this.biases = biases
     }
 
     forward(inputs){
-        this.output = this.matrixDot(inputs, this.weights)
+        this.output = this.matrixDot(inputs, this.weights) + this.biases
         return this.output
     }
 
@@ -44,18 +45,26 @@ class Activation_SoftMax {
 window.Neuron_Network = class {
     constructor(neuron_json) {
         const setup = JSON.parse(neuron_json);
-        if (!setup || !setup.layer1 || !setup.layer1.weights) {
-            throw new Error("Invalid neuron_json structure. Expected {layer1: {weights: [...]}}")
+        if (!setup || !setup.layer1 || !setup.layer1.weights
+            || !setup.layer2 || !setup.layer2.weights
+            || !setup.layer3 || !setup.layer3.weights) {
+            throw new Error("Invalid neuron_json structure. Expected:\n{\"layer1\": {\"weights\": [[...]], \"biases\":[[...]]}, \"layer2\": {\"weights\": [[...]], \"biases\":[[...]]}, \"layer3\": {\"weights\": [[...]], \"biases\":[[...]]},")
         }
         this.layer1 = new Layer_Dense(setup.layer1.weights);
+        this.layer2 = new Layer_Dense(setup.layer2.weights);
+        this.layer3 = new Layer_Dense(setup.layer3.weights);
         this.activation1 = new Activation_ReLU();
-        this.activation2 = new Activation_SoftMax();
+        this.activation2 = new Activation_ReLU();
+        this.activation3 = new Activation_SoftMax();
     }
 
     forward(inputs) {
         let output = this.layer1.forward(inputs);
         output = this.activation1.forward(output);
+        output = this.layer2.forward(output);
         output = this.activation2.forward(output);
+        output = this.layer3.forward(output);
+        output = this.activation3.forward(output);
         return output;
     }
 
@@ -68,8 +77,17 @@ window.Neuron_Network = class {
     toDict() {
         return {
             layer1: {
-                weights: this.layer1.weights
-            }
+                weights: this.layer1.weights,
+                biases: this.layer1.biases
+            },
+            layer2: {
+                weights: this.layer2.weights,
+                biases: this.layer2.biases
+            },
+            layer3: {
+                weights: this.layer3.weights,
+                biases: this.layer3.biases
+            },
         };
     }
 }
@@ -77,15 +95,38 @@ window.Neuron_Network = class {
 function load_ai() {
   try {
     const setupJson = JSON.stringify({ // Insert respond from server
-      "layer1": {
-        "weights": [
-        [3.0366331909210933, -0.7099055470971871, 0.1713255040167374],
-        [-0.10891332866947781, -2.85917503037703, 2.1244329108142432],
-        [-2.6348884619116655, 0.46594910054674504, -0.19578153674784315],
-        [-0.18621651413825036, 1.4243400282019962, 1.4960372798459531],
-        [-1.5075185060079832, 4.116696996635465, -1.8092028510677776]
-        ]
-      }
+    "layer1": {
+        "weights":
+            [[-0.77122871, 0.41526285, 0.52767287,-0.33445871, 0.12302013, 0.06649551],
+            [ 1.06295508, 0.23984624, -0.05647919, 1.11483603, 0.22362374, 1.43500877],
+            [ 0.16940373,-1.85075033, -1.11887775, -1.11044702, -0.53549401, 1.27106046],
+            [-1.43770982, 0.55878297, -0.62009402, -0.59799902, -1.54379893, 0.11580803],
+            [-0.17091211,-0.31699362, -0.60562698, -0.4307457, 0.77251168, 0.1782166 ]],
+        "biases":
+            [[ 0.03925517, -0.04614097, -0.03728665, 0.03021453, 0.12752094, 0.08719572]]
+        },
+    "layer2": {
+        "weights":
+            [[ 0.45876816, -0.77967134, 0.06071178, -0.47541534, -1.41814187, -0.30965651],
+            [-0.78593817, -1.0236146,   0.49336344, -0.97531939, -1.46952453,  0.51245849],
+            [-0.25305294,  0.22055684, -1.08828992,  1.12113069,  0.8659473,   0.50516511],
+            [ 0.66053507,  0.13860306,  0.7979378 ,  0.33391144, -0.30473416,  0.51275856],
+            [-0.1188813 ,  0.53757145,  1.03160834, -0.15643701,  0.63040006,  0.27304459],
+            [ 0.47189398, -0.50450811,  0.61304766,  0.37825662, -0.34945819,  0.72028791]],
+        "biases":
+            [[ 0.04167146, -0.02883263, -0.00028841,  0.00081215,  0.04262164,  0.02168512]]
+        },
+    "layer3": {
+        "weights":
+            [[-0.49685347,  0.58339559,  0.55374801],
+            [ 0.41489293,  0.59089499,  0.62306509],
+            [ 0.28206031, -0.04252524, -0.56009104],
+            [ 0.18392271,  1.83954997, -0.48803141],
+            [-1.49555131,  0.05271705, -0.70907336],
+            [-0.34078161, -0.60988726, -0.13804254]],
+        "biases":
+            [[-0.01222091 -0.01847086 -0.04137601]]
+        }
     });
 
     if (typeof Neuron_Network === 'undefined') {
