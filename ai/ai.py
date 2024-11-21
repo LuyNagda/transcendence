@@ -353,11 +353,11 @@ def saved_ai_to_json(file_path):
     layer2_biases = Ai.layer2.biases
     layer3_weights = Ai.layer3.weights
     layer3_biases = Ai.layer3.biases
-    print("layer1:\n\tweights:\n", layer1_weights)
-    print("\tbiases:\n", layer1_biases)
-    print("\nlayer2:\n\tweights:\n", layer2_weights)
-    print("\tbiases:\n", layer2_biases)
-    print("\nlayer3:\n\tweights:\n", layer3_weights)
-    print("\tbiases:\n", layer3_biases)
+    print("\"layer1\": {\n\t\"weights\":\n", layer1_weights)
+    print("\t\"biases\":\n", layer1_biases, "}\n")
+    print("\"layer2\": {\n\t\"weights\":\n", layer2_weights)
+    print("\t\"biases\":\n", layer2_biases, "}")
+    print("\"layer3\": {\n\t\"weights\":\n", layer3_weights)
+    print("\t\"biases\":\n", layer3_biases, "}")
     
     return Ai.to_json()
