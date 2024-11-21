@@ -7,13 +7,21 @@ GRID = 5
 
 DISPLAY_GAME = "no"
 AI_DELAY = "yes"
-MAX_SCORE = 250
 NB_GENERATION = 10000000000
 NB_SPECIES = 100
 MAX_FRAME_RATE = 0  # 0 == unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
 TIME_LIMIT = 0 # 0 == unlimited
+MAX_SCORE = 50
+
+def set_max_score(new_score):
+    global MAX_SCORE
+    MAX_SCORE = new_score
+    print("\033[91m {}\033[00m" .format("New MAX_SCORE is "), new_score)
+
+def get_max_score():
+    return MAX_SCORE
 
 # Colors
 WHITE = (255, 255, 255)

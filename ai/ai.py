@@ -1,5 +1,5 @@
 import pickle, os, json
-from game import train_basic, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_FILE, SAVE_FOLDER
+from game import train_basic, set_max_score, get_max_score, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_FILE, SAVE_FOLDER
 from gamesimulation import train_basic_no_display
 import numpy as np
 
@@ -239,6 +239,9 @@ def Save_Best_Ai(Ai_Sample, save_file):
         for i in range(5):
             pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
 
+        current_max_score = get_max_score()
+        if Ai_Sample[0].ai_score >  current_max_score / 2:
+            set_max_score(current_max_score * 2)
         # Save AI having similar performance as the best one
         for i in range(5, len(Ai_Sample)):
             if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.95 ):
@@ -300,6 +303,7 @@ def train_ai(save_file, base):
 
     for j in range(NB_GENERATION):
         print(f"\n\n========== Generation #{j}===========\n")
+        print("MAX_SCORE = ", get_max_score(), "\n\n")
         Ai_Sample = Init_Ai(base)
 
         for i in range(NB_SPECIES):
