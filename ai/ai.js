@@ -1,41 +1,89 @@
 class Layer_Dense {
     constructor(weights, biases) {
-        this.weights = weights
-        this.biases = biases
+        this.weights = weights;
+
+        // If biases is not provided, create a zero-filled bias array
+        if (!biases || !biases[0]) {
+            this.biases = new Array(weights[0].length).fill(0);
+        }
+        else {
+            // Ensure biases is a 1D array
+            this.biases = Array.isArray(biases[0])
+                ? biases[0]
+                : biases;
+        }
     }
 
     forward(inputs){
-        this.output = this.matrixDot(inputs, this.weights) + this.biases
-        return this.output
+        // Ensure inputs is a 2D array
+        const processed_inputs = Array.isArray(inputs[0])
+            ? inputs
+            : inputs.map(val => [val]);  // Wrap single values in an array;
+
+        // Perform matrix multiplication
+        const matrix_output = this.matrixDot(processed_inputs, this.weights);
+
+        // Ensure matrix_output exists before mapping
+        if (!matrix_output || !matrix_output.length) {
+            console.error('Matrix multiplication failed');
+            return processed_inputs;
+        }
+
+        // Add biases to each row of the output
+        this.output = matrix_output.map(row =>
+            row.map((val, i) => val + this.biases[i])
+        );
+
+        return this.output;
     }
 
     matrixDot(a, b) {
+        // Additional safety checks
+        if (!a || !a.length || !b || !b.length) {
+            console.error('Invalid matrix multiplication inputs');
+            return a;
+        }
+
         return a.map(row => 
             b[0].map((_, i) =>
                 row.reduce((sum, element, j) => sum + element * b[j][i], 0)
             )
-        )
-    };
+        );
+    }
 }
 
 class Activation_ReLU {
     forward(inputs) {
-        this.output = inputs.map(row => Array.isArray(row) ? row.map(val => Math.max(0, val)) : Math.max(0, row));
+        const processed_inputs = Array.isArray(inputs[0]) ? inputs : [inputs];
+
+        this.output = processed_inputs.map(row =>
+            Array.isArray(row)
+            ? row.map(val => Math.max(0, val))
+            : Math.max(0, row));
         return this.output;
     }
 }
 
 class Activation_SoftMax {
     forward(inputs) {
-        const exp_values = inputs.map(row => {
+        const processed_inputs = Array.isArray(inputs[0]) ? inputs : [inputs];
+
+        const exp_values = processed_inputs.map(row => {
             const max_value = Math.max(...(Array.isArray(row) ? row : [row]));
-            return Array.isArray(row) ? row.map(val => Math.exp(val - max_value)) : Math.exp(row - max_value);
+            return Array.isArray(row)
+                ? row.map(val => Math.exp(val - max_value))
+                : Math.exp(row - max_value);
         });
 
-        const sum_exp_values = exp_values.map(row => Array.isArray(row) ? row.reduce((a, b) => a + b, 0) : row);
+        const sum_exp_values = exp_values.map(row => 
+            Array.isArray(row) 
+                ? row.reduce((a, b) => a + b, 0)
+                : row);
 
         this.output = exp_values.map((row, i) =>
-            Array.isArray(row) ? row.map(val => val / sum_exp_values[i]) : row / sum_exp_values[i]
+            Array.isArray(row)
+                ? row.map(val => val / sum_exp_values[i])
+                : row / sum_exp_values[i]
         );
 
         return this.output;
@@ -66,12 +114,20 @@ window.Neuron_Network = class {
         output = this.layer3.forward(output);
         output = this.activation3.forward(output);
         return output;
+       
     }
-
+    
     decision(paddle_y, ball, height) {
-        let X = [[ball.x / height, ball.y / height, ball.dx, ball.dy, paddle_y / height]];
-        let result = this.forward(X);
-        return result[0].indexOf(Math.max(...result[0]));
+        try {
+            
+            let X = [[ball.x / height, ball.y / height, ball.dx, ball.dy, paddle_y / height]];
+            let result = this.forward(X);
+            return result[0].indexOf(Math.max(...result[0]));
+        }
+        catch (error) {
+            console.error("Error in Neuron_Network initialization:", error);
+            return 1;
+        }
     }
 
     toDict() {
@@ -94,40 +150,9 @@ window.Neuron_Network = class {
 
 function load_ai() {
   try {
-    const setupJson = JSON.stringify({ // Insert respond from server
-    "layer1": {
-        "weights":
-            [[-0.77122871, 0.41526285, 0.52767287,-0.33445871, 0.12302013, 0.06649551],
-            [ 1.06295508, 0.23984624, -0.05647919, 1.11483603, 0.22362374, 1.43500877],
-            [ 0.16940373,-1.85075033, -1.11887775, -1.11044702, -0.53549401, 1.27106046],
-            [-1.43770982, 0.55878297, -0.62009402, -0.59799902, -1.54379893, 0.11580803],
-            [-0.17091211,-0.31699362, -0.60562698, -0.4307457, 0.77251168, 0.1782166 ]],
-        "biases":
-            [[ 0.03925517, -0.04614097, -0.03728665, 0.03021453, 0.12752094, 0.08719572]]
-        },
-    "layer2": {
-        "weights":
-            [[ 0.45876816, -0.77967134, 0.06071178, -0.47541534, -1.41814187, -0.30965651],
-            [-0.78593817, -1.0236146,   0.49336344, -0.97531939, -1.46952453,  0.51245849],
-            [-0.25305294,  0.22055684, -1.08828992,  1.12113069,  0.8659473,   0.50516511],
-            [ 0.66053507,  0.13860306,  0.7979378 ,  0.33391144, -0.30473416,  0.51275856],
-            [-0.1188813 ,  0.53757145,  1.03160834, -0.15643701,  0.63040006,  0.27304459],
-            [ 0.47189398, -0.50450811,  0.61304766,  0.37825662, -0.34945819,  0.72028791]],
-        "biases":
-            [[ 0.04167146, -0.02883263, -0.00028841,  0.00081215,  0.04262164,  0.02168512]]
-        },
-    "layer3": {
-        "weights":
-            [[-0.49685347,  0.58339559,  0.55374801],
-            [ 0.41489293,  0.59089499,  0.62306509],
-            [ 0.28206031, -0.04252524, -0.56009104],
-            [ 0.18392271,  1.83954997, -0.48803141],
-            [-1.49555131,  0.05271705, -0.70907336],
-            [-0.34078161, -0.60988726, -0.13804254]],
-        "biases":
-            [[-0.01222091 -0.01847086 -0.04137601]]
-        }
-    });
+    const setupJson = JSON.stringify( // Insert respond from server
+        {"layer1": {"weights": [[-0.7515810547199705, 0.4925975552743896, 0.5279086693135954, -0.1139586378380533, 0.11955027861139103, 0.06649940241703813], [1.0569119613913214, 0.21867491438329917, -0.05156815465165615, 1.1314960354237944, 0.2391733432245025, 1.4147486841880692], [0.16228869300383514, -1.8598383818334798, -1.119694029651742, -1.110543671671019, -0.5347484282018915, 1.2610037366866511], [-1.461313545367413, 0.5578400838231194, -0.6963276428680141, -0.6272092911594809, -1.5835309126002388, 0.11912297449215906], [-0.16953467142025813, -0.3178855707569176, -0.6094645569711266, -0.40350907751749143, 0.791507661519704, 0.10514257885942428]], "biases": [[0.08284983591500729, -0.05215765022000345, -0.037344008171847604, 0.01601344772688661, 0.12752094023096316, 0.08719572327651195]]}, "layer2": {"weights": [[0.4519601456064453, -0.816892472401969, 0.08610248547238065, -0.40434755644227827, -1.4343317196466658, -0.35261158093090983], [-0.7977126703277359, -0.9889206890228264, 0.43204360889787696, -1.1095875757692284, -1.4447119876209593, 0.5093046356138855], [-0.2619407128485387, 0.22403138880468051, -0.9935986431602126, 1.1146739916798332, 0.8540912728179251, 0.5052191665939281], [0.634693566977792, 0.1272759679746157, 0.7979103307242188, 0.3441941085329288, -0.2641669680841891, 0.568468793444121], [-0.11913119088787293, 0.5654595790100289, 1.0395236522257083, -0.1563771859270764, 0.6302811029054762, 0.27879675516308744], [0.47189397741526484, -0.4932966731576448, 0.6459706176378439, 0.3119841739620979, -0.3028576746304973, 0.7203033188955006]], "biases": [[0.06851052740456462, -0.0288259442373991, -0.00020117373879043483, 0.0008650586543270734, 0.04481525969491678, 0.02140189987364574]]}, "layer3": {"weights": [[-0.4938730580019497, 0.606930420175947, 0.550482627996864], [0.312716292137034, 0.7815895605064572, 0.6229075716825336], [0.2821500766509822, -0.04252524267901836, -0.5966634372311503], [0.19020212165299766, 1.7328428951167034, -0.4435117172538613], [-1.5078776665989342, -0.034268185664355445, -0.7887878659167625], [-0.34095808085841106, -0.6098872620315158, -0.1394377699413026]], "biases": [[-0.018985687727857217, -0.018235200637551314, -0.04140061122476779]]}}
+    );
 
     if (typeof Neuron_Network === 'undefined') {
       console.error("Neuron_Network is not defined. Make sure ai.js is loaded correctly.");
