@@ -132,72 +132,72 @@ def train_basic_no_display(Ai_selected):
         height = PADDLE_HEIGHT
     )
 
-    # Predifine game loop
-    total_predefined = 0
-    for predefined_y in range(round(HEIGHT / 10), HEIGHT, round(HEIGHT / 10)):
-        ball = Ball(
-            x = 50,
-            y = predefined_y,
-            size = BALL_SIZE
-        )
+    # # Predifine game loop
+    # total_predefined = 0
+    # for predefined_y in range(round(HEIGHT / 10), HEIGHT, round(HEIGHT / 10)):
+    #     ball = Ball(
+    #         x = 50,
+    #         y = predefined_y,
+    #         size = BALL_SIZE
+    #     )
 
-        for predefined_angle in range(-75, 76):
-            total_predefined += 1
-            # Ball movement
-            ball_dx = BALL_SPEED
-            ball_dy = BALL_SPEED * -math.sin(predefined_angle)
+    #     for predefined_angle in range(-75, 76):
+    #         total_predefined += 1
+    #         # Ball movement
+    #         ball_dx = BALL_SPEED
+    #         ball_dy = BALL_SPEED * -math.sin(predefined_angle)
 
-            # Update AI's target position
-            ai_ball = AI_ball(ball, 0, 0, 0)
-            ai_ball.update(ball, ball_dx, ball_dy)
+    #         # Update AI's target position
+    #         ai_ball = AI_ball(ball, 0, 0, 0)
+    #         ai_ball.update(ball, ball_dx, ball_dy)
 
-            i = 0
-            while (True):
-                # Move the ball
-                ball.x += ball_dx
-                ball.y += ball_dy
+    #         i = 0
+    #         while (True):
+    #             # Move the ball
+    #             ball.x += ball_dx
+    #             ball.y += ball_dy
 
-                # Update the ai view
-                if i % 60 == 0:
-                    ai_ball.update(ball, ball_dx, ball_dy)
+    #             # Update the ai view
+    #             if i % 60 == 0:
+    #                 ai_ball.update(ball, ball_dx, ball_dy)
 
-                # Move the right paddle
-                match (Ai_selected.decision(rightPaddle.y, ai_ball, HEIGHT)):
-                    case 0:
-                        if rightPaddle.top > 0:
-                            rightPaddle.y -= PADDLE_SPEED
-                    case 1:
-                        pass
-                    case 2:
-                        if rightPaddle.bottom < HEIGHT:
-                            rightPaddle.y += PADDLE_SPEED
+    #             # Move the right paddle
+    #             match (Ai_selected.decision(rightPaddle.y, ai_ball, HEIGHT)):
+    #                 case 0:
+    #                     if rightPaddle.top > 0:
+    #                         rightPaddle.y -= PADDLE_SPEED
+    #                 case 1:
+    #                     pass
+    #                 case 2:
+    #                     if rightPaddle.bottom < HEIGHT:
+    #                         rightPaddle.y += PADDLE_SPEED
 
-                # Ball collision with top and bottom
-                if ball.top <= 0:
-                    ball.top = GRID
-                    ball_dy *= -1
-                    if abs(ball_dy) < 1:
-                        ball_dy = 1 if ball_dy > 0 else -1
-                elif ball.bottom >= HEIGHT:
-                    ball.bottom = HEIGHT - GRID
-                    ball_dy *= -1
-                    if abs(ball_dy) < 1:
-                        ball_dy = 1 if ball_dy > 0 else -1
+    #             # Ball collision with top and bottom
+    #             if ball.top <= 0:
+    #                 ball.top = GRID
+    #                 ball_dy *= -1
+    #                 if abs(ball_dy) < 1:
+    #                     ball_dy = 1 if ball_dy > 0 else -1
+    #             elif ball.bottom >= HEIGHT:
+    #                 ball.bottom = HEIGHT - GRID
+    #                 ball_dy *= -1
+    #                 if abs(ball_dy) < 1:
+    #                     ball_dy = 1 if ball_dy > 0 else -1
 
-                # Ball collision with AI's paddles
-                if collides(ball, rightPaddle):
-                    if ball.right < rightPaddle.right:
-                        Ai_selected.ai_score += 1
-                        break
+    #             # Ball collision with AI's paddles
+    #             if collides(ball, rightPaddle):
+    #                 if ball.right < rightPaddle.right:
+    #                     Ai_selected.ai_score += 1
+    #                     break
 
-                # Ball out of bounds
-                if ball.right >= WIDTH:
-                    ai_bonus_score(ball.y, rightPaddle, Ai_selected)
-                    break
+    #             # Ball out of bounds
+    #             if ball.right >= WIDTH:
+    #                 ai_bonus_score(ball.y, rightPaddle, Ai_selected)
+    #                 break
                 
-                i += 1
+    #             i += 1
 
-    print(f"\nScore before normal game: {Ai_selected.ai_score:.1f} / {total_predefined}")
+    # print(f"\nScore before normal game: {Ai_selected.ai_score:.1f} / {total_predefined}")
 
     # Normal game loop
     ball = Ball(
