@@ -66,12 +66,6 @@ class AI_ball:
         self.dx = ball_dx
         self.dy = ball_dy
 
-def ai_bonus_score(ball_y, rightPaddle, Ai_selected):
-    dist = abs(ball_y - rightPaddle.top) / HEIGHT
-
-    if dist < 0.05:
-        Ai_selected.ai_score = (1 - dist) / 10 + Ai_selected.ai_score 
-
 def reset_ball(ball):
     ball.center = (WIDTH//2, HEIGHT//2)
 
@@ -231,7 +225,6 @@ def train_basic(Ai_selected):
             reset_ball(ball)
         elif ball.right >= WIDTH:
             left_score += 1
-            # ai_bonus_score(ball.y, rightPaddle, Ai_selected)
             reset_ball(ball)
 
         # End the game
