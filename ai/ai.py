@@ -240,8 +240,10 @@ def Save_Best_Ai(Ai_Sample, save_file):
             pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
 
         current_max_score = get_max_score()
-        if Ai_Sample[0].ai_score >  current_max_score / 2:
+        while Ai_Sample[0].ai_score >  current_max_score / 2:
             set_max_score(current_max_score * 2)
+            current_max_score = get_max_score()
+
         # Save AI having similar performance as the best one
         for i in range(5, len(Ai_Sample)):
             if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.95 ):
