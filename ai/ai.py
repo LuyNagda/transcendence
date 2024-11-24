@@ -246,7 +246,7 @@ def Save_Best_Ai(Ai_Sample, save_file):
 
         # Save AI having similar performance as the best one
         for i in range(5, len(Ai_Sample)):
-            if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.95 ):
+            if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.80 ):
                 pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
             else:
                 break

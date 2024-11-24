@@ -13,7 +13,7 @@ MAX_FRAME_RATE = 0  # 0 == unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
 TIME_LIMIT = 0 # 0 == unlimited
-MAX_SCORE = 50
+MAX_SCORE = 250
 
 def set_max_score(new_score):
     global MAX_SCORE
@@ -228,7 +228,7 @@ def train_basic(Ai_selected):
             reset_ball(ball)
 
         # End the game
-        if left_score >= MAX_SCORE:
+        if left_score >= get_max_score():
             running = False
 
     # Quit the game
