@@ -5,6 +5,7 @@ import UserService from './UserService.js';
 import ChatApp from './chat/ChatApp.js';
 import dynamicRender from './utils/dynamic_render.js';
 import { PongRoom } from './pong/pong_room.js';
+// import { PongGame } from './pong/pong_game.js';
 
 function initializeChatApp() {
 	try {
@@ -24,6 +25,16 @@ function initializePongRoom() {
 		dynamicRender.addObservedObject("pongRoom", pongRoom);
 		logger.info('PongRoom initialized successfully');
 	}
+}
+
+function initializeThemeButtons() {
+    document.getElementById('light')?.addEventListener('click', () => applyTheme('light'));
+    document.getElementById('dark')?.addEventListener('click', () => applyTheme('dark'));
+    document.getElementById('highContrast')?.addEventListener('click', () => applyTheme('high-contrast'));
+    
+    document.getElementById('toggleFontSizeBtn')?.addEventListener('change', (e) => {
+        applyFontSize(e.target.checked ? 'large' : 'small');
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -47,6 +58,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Écouteur pour les événements HTMX
 document.body.addEventListener('htmx:afterSwap', (event) => {
+	initializeThemeButtons();
 	if (event.detail.elt.id === 'pong-room') {
 		initializePongRoom();
 	}

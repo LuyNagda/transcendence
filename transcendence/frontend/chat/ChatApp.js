@@ -6,7 +6,8 @@ import UIHandler from './UIHandler.js';
 
 export default class ChatApp {
 	constructor() {
-		this.userService = new UserService();
+		this.WSService = null;
+		this.userService = new UserService(this);
 		this.uiHandler = new UIHandler(this);
 		this.messageService = new MessageService(this.uiHandler, this.userService);
 		this.messageCountByUser = {};
@@ -43,6 +44,7 @@ export default class ChatApp {
 				break;
 			case 'user_status_change':
 				this.userService.updateUserStatus(data.user_id, data.status);
+				this.userService.refreshUserList();
 				break;
 			case 'error':
 				alert("Error: " + data.error);
@@ -90,12 +92,15 @@ export default class ChatApp {
 		messageInput.value = '';
 	}
 
-	handleUserClick(e) {
-		e.preventDefault();
-		const userId = e.currentTarget.dataset.userId;
-		this.selectedUserId = userId;
-		document.querySelectorAll('.user-chat').forEach(el => el.classList.remove('active'));
-		e.currentTarget.classList.add('active');
+	handleUserClick(event) {
+		const button = event.currentTarget;
+		const userId = parseInt(button.dataset.userId);
+
+		this.userService.selectedUserId = userId;
+		document.querySelectorAll('.user-chat').forEach(btn => {
+			btn.classList.remove('active');
+		});
+		button.classList.add('active');
 		this.loadMessageHistory(userId);
 		document.getElementById('chat-form-div').style.display = 'block';
 		this.updateChatHeading(userId);

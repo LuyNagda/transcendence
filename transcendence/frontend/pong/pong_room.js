@@ -1,6 +1,7 @@
 import dynamicRender from "../utils/dynamic_render.js";
 import logger from "../utils/logger.js";
 import WSService from "../utils/WSService.js";
+import { PongGame } from "./pong_game.js";
 
 export class PongRoom {
     constructor(roomId, currentUser) {
@@ -12,6 +13,7 @@ export class PongRoom {
         this._pendingInvitations = [];
         this._maxPlayers = 0;
         this._state = "LOBBY";
+        this._pongGame = null;
 
         this.initializeWebSocket();
         logger.info(`PongRoom instance created for room ${roomId}`);
@@ -57,7 +59,7 @@ export class PongRoom {
     get currentUser() {
         return this._currentUser;
     }
-    
+
     changeMode(event) {
         const newMode = event.target.value;
         logger.info(`Changing mode to ${newMode}`);
@@ -125,6 +127,16 @@ export class PongRoom {
         if (data.type === "room_update") {
             this.updateFromState(data.room_state);
         }
+        if (data.type === 'game_started') {
+            const isHost = this._currentUser.id === data.player1_id;
+
+            // Créer et connecter l'instance de PongGame
+            this._pongGame = new PongGame(data.game_id, this._currentUser, isHost);
+            this._pongGame.connect();
+
+            // Mettre à jour l'interface utilisateur si nécessaire
+            dynamicRender.scheduleUpdate();
+        }
     }
 
     handleWebSocketClose(event) {
@@ -165,8 +177,24 @@ export class PongRoom {
         this.sendMessage("kick_player", { player_id: playerId });
     }
 
-    startGame() {
-        this.sendMessage("start_game");
+    async startGame() {
+        try {
+            // Demander au serveur de créer la partie
+            const response = await this.wsService.send('pongRoom', {
+                action: 'start_game'
+            });
+
+            if (response.status === 'success') {
+                logger.info(`Game created with ID: ${response.game_id}`);
+                return response.game_id;
+            } else {
+                logger.error('Failed to create game:', response.message);
+                return null;
+            }
+        } catch (error) {
+            logger.error('Error starting game:', error);
+            return null;
+        }
     }
 
     updateFromState(roomState) {

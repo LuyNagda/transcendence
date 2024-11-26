@@ -15,7 +15,7 @@ User = get_user_model()
 def chat_view(request):
     users = User.objects.exclude(id=request.user.id)
     blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user_id', flat=True)
-    return render(request, 'chat/chat.html', {
+    return render(request, 'chat.html', {
         'users': users,
         'blocked_users': blocked_users
     })
@@ -60,10 +60,15 @@ def get_user_status(request, user_id):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
-def load_chat_data(request):
+def get_users(request):
     users = User.objects.exclude(id=request.user.id)
-    blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user', flat=True)
-    return JsonResponse({
-        'users': list(users.values('id', 'username', 'online')),
-        'blocked_users': list(blocked_users),
-    })
+    user_list = []
+    for user in users:
+        user_list.append({
+            'id': user.id,
+            'username': user.username,
+            'name': getattr(user, 'name', ''),
+            'profile_picture': user.profile_picture.url if hasattr(user, 'profile_picture') and user.profile_picture else '',
+            'online': user.online
+        })
+    return JsonResponse(user_list, safe=False)

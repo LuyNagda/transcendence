@@ -1,8 +1,10 @@
 import logger from '../utils/logger.js';
 
 export default class UserService {
-	constructor() {
+	constructor(chatApp) {
+		this.chatApp = chatApp;
 		this.currentUserId = this.getCurrentUserId();
+		this.selectedUserId = null;
 	}
 
 	getCurrentUserId() {
@@ -58,5 +60,54 @@ export default class UserService {
 				icon.classList.add(status);
 			});
 		}
+	}
+
+	async refreshUserList() {
+		try {
+			const response = await fetch('/chat/users/', {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				}
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to fetch users');
+			}
+
+			const users = await response.json();
+			this.updateUserListDOM(users);
+		} catch (error) {
+			logger.error('Error refreshing user list:', error);
+		}
+	}
+
+	updateUserListDOM(users) {
+		const userList = document.querySelector('.user-list ul');
+		if (!userList) return;
+
+		userList.innerHTML = users.map(user => `
+			<li>
+				<button href="#" 
+					class="btn btn-transparent btn-sm me-1 user-chat ${user.id === this.selectedUserId ? 'active' : ''}" 
+					data-user-id="${user.id}">
+					<img src="${user.profile_picture}" class="rounded-circle" style="max-width: 20px;" 
+						alt="${user.name || user.username}'s profile picture">
+					<span class="user-name">${user.name || user.username}</span>
+					<span class="status-icon">
+						${user.online ? '&#x1F7E2;' : '&#x26AA;'}
+					</span>
+				</button>
+			</li>
+		`).join('');
+
+		// Reattach event listeners using the chatApp instance
+		document.querySelectorAll('.user-chat').forEach(element => {
+			element.addEventListener('click', (e) => {
+				const userId = parseInt(element.dataset.userId);
+				this.selectedUserId = userId;
+				this.chatApp.handleUserClick(e);
+			});
+		});
 	}
 }
