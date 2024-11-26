@@ -1,5 +1,5 @@
 import os, sys
-from ai import train_ai, load_Ai, saved_ai_to_json
+from ai import train_ai, load_Ai, send_ai_to_front
 from game import play_Ai, SAVE_FILE, SAVE_FOLDER
 
 # Run the game
@@ -49,16 +49,16 @@ def main():
                 return print("Please provide a saved AI!")
             play_Ai(Ai, "yes")
 
-        case "json":
-            if (len(sys.argv[1:]) == 2):
-                file_path = sys.argv[2]
-                if (os.path.exists(file_path)):
-                    neuron_json = saved_ai_to_json(file_path)
-                    print("\n\nNeuron_json:\n", neuron_json)
-                else:
-                    return print("Save file doesn't exist!")
-            else:
-                print("Usage: provide a AI's file")
+        # case "json":
+        #     if (len(sys.argv[1:]) == 2):
+        #         file_path = sys.argv[2]
+        #         if (os.path.exists(file_path)):
+        #             neuron_json = send_ai_to_front()
+        #             print("\n\nNeuron_json:\n", neuron_json)
+        #         else:
+        #             return print("Save file doesn't exist!")
+        #     else:
+        #         print("Usage: provide a AI's file")
 
         case _:
             print("Usage:\n    train: \t\ttrain the AI\n    play [save_file]: \tplay against the best ai from the save\n    json [save_file]: convert ai's file to json")

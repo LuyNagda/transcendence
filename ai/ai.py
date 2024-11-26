@@ -1,7 +1,8 @@
 import pickle, os, json
+import numpy as np
+from django.http import JsonResponse
 from game import train_basic, set_max_score, get_max_score, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_FILE, SAVE_FOLDER
 from gamesimulation import train_basic_no_display
-import numpy as np
 
 NB_INPUTS = 5
 NB_NEURONS_LAYER1 = 6
@@ -348,22 +349,18 @@ def load_Ai(save_file):
         network.load_from_dict(Ai.to_dict())
         return (network)
 
-def saved_ai_to_json(file_path):
-    with open(file_path, 'rb') as imp:
-        Ai : Neuron_Network
-        Ai = pickle.load(imp)
+def send_ai_to_front(request):
+    file_path = "/Saved_Ai/bestAI"
+
+    try:
+        with open(file_path, 'rb') as imp:
+            Ai : Neuron_Network
+            Ai = pickle.load(imp)
+        
+        ai_dict = Ai.to_dict()
+        return JsonResponse(ai_dict)
     
-    layer1_weights = Ai.layer1.weights
-    layer1_biases = Ai.layer1.biases
-    layer2_weights = Ai.layer2.weights
-    layer2_biases = Ai.layer2.biases
-    layer3_weights = Ai.layer3.weights
-    layer3_biases = Ai.layer3.biases
-    print("\"layer1\": {\n\t\"weights\":\n", layer1_weights)
-    print("\t\"biases\":\n", layer1_biases, "}\n")
-    print("\"layer2\": {\n\t\"weights\":\n", layer2_weights)
-    print("\t\"biases\":\n", layer2_biases, "}")
-    print("\"layer3\": {\n\t\"weights\":\n", layer3_weights)
-    print("\t\"biases\":\n", layer3_biases, "}")
-    
-    return Ai.to_json()
+    except FileNotFoundError:
+            return JsonResponse({"error": "AI file not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
