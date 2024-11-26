@@ -12,8 +12,8 @@ NB_SPECIES = 100
 MAX_FRAME_RATE = 0  # 0 == unlimited
 SAVE_FILE = "bestAI"
 SAVE_FOLDER = "Saved_AI"
-TIME_LIMIT = 0 # 0 == unlimited
-MAX_SCORE = 250
+TIME_LIMIT = 120 # 0 == unlimited (minutes)
+MAX_SCORE = 10000
 
 def set_max_score(new_score):
     global MAX_SCORE
