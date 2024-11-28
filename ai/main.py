@@ -1,6 +1,6 @@
 import os, sys
 from ai import train_ai, load_Ai, send_ai_to_front
-from game import play_Ai, SAVE_FILE, SAVE_FOLDER
+from .game import play_Ai, SAVE_FILE, SAVE_FOLDER
 
 # Run the game
 def main():

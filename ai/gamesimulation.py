@@ -1,5 +1,5 @@
 import pygame, random, time, math, os
-from game import AI_ball, HEIGHT, WIDTH, BALL_SPEED, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE, TIME_LIMIT, AI_DELAY, PADDLE_SPEED, GRID, MAX_SCORE, MAX_FRAME_RATE, BLACK, WHITE
+from .game import AI_ball, HEIGHT, WIDTH, BALL_SPEED, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE, TIME_LIMIT, AI_DELAY, PADDLE_SPEED, GRID, MAX_SCORE, MAX_FRAME_RATE, BLACK, WHITE
 
 def ai_bonus_score(ball_y, rightPaddle, Ai_selected):
     dist = abs(ball_y - rightPaddle.top) / HEIGHT

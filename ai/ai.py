@@ -1,8 +1,8 @@
 import pickle, os, json
 import numpy as np
 from django.http import JsonResponse
-from game import train_basic, set_max_score, get_max_score, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_FILE, SAVE_FOLDER
-from gamesimulation import train_basic_no_display
+from .game import train_basic, set_max_score, get_max_score, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_FILE, SAVE_FOLDER
+from .gamesimulation import train_basic_no_display
 
 NB_INPUTS = 5
 NB_NEURONS_LAYER1 = 6
