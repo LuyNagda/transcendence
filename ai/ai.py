@@ -348,19 +348,3 @@ def load_Ai(save_file):
         # Load the network data from the saved Ai instance
         network.load_from_dict(Ai.to_dict())
         return (network)
-
-def send_ai_to_front(request):
-    file_path = "/Saved_Ai/bestAI"
-
-    try:
-        with open(file_path, 'rb') as imp:
-            Ai : Neuron_Network
-            Ai = pickle.load(imp)
-        
-        ai_dict = Ai.to_dict()
-        return JsonResponse(ai_dict)
-    
-    except FileNotFoundError:
-            return JsonResponse({"error": "AI file not found"}, status=404)
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
