@@ -22,12 +22,12 @@ def safe_pickle_load(file_path: str, target_module_name: str = 'ai') -> Optional
                 return pickle.load(imp)
 
         except Exception as e:
-                    print(f"Pickle loading error: {e}")
-                    traceback.print_exc()
-                    return None
+            print(f"Pickle loading error: {e}")
+            traceback.print_exc()
+            return None
 
     except FileNotFoundError:
-        raise FileNotFoundError()
+        raise
 
     except Exception as e:
         print(f"Unexpected error loading pickle: {e}")
@@ -45,6 +45,8 @@ def send_ai_to_front(request, ai_level="bestAI"):
             return JsonResponse({"error": "Failed to load AI"}, status=500)
     
     except FileNotFoundError:
+        print(f"FileNotFoundError:")
+        traceback.print_exc()
         return JsonResponse({"error": "No such AI found: " + ai_level}, status=404)
 
     ai_dict = saved_ai.to_dict()
