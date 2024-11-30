@@ -1,6 +1,6 @@
-import pickle, sys, traceback
 from django.http import JsonResponse
-from . import ai  # Current module
+from . import ai
+import pickle, sys, traceback
 from typing import Any, Optional
 
 # If pickel is called in a different folder that the pickel used to creat the save file,
@@ -52,3 +52,10 @@ def send_ai_to_front(request, ai_level="bestAI"):
     ai_dict = saved_ai.to_dict()
 
     return JsonResponse(ai_dict)
+
+def training(request, ai_name="bestAI"):
+    save_file = "./Saved_AI/" + ai_name
+
+    log = ai.train_ai(save_file)
+    return JsonResponse(log, safe=False)
+    

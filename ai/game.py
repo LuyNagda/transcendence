@@ -1,4 +1,4 @@
-import pygame, random, time, math, os
+import pygame, random, math, os
 
 # Set up the game window
 WIDTH = 80 * 6
@@ -6,14 +6,11 @@ HEIGHT = 24 * 10
 GRID = 5
 
 DISPLAY_GAME = "no"
-AI_DELAY = "yes"
-NB_GENERATION = 10000000000
+NB_GENERATION = 1
 NB_SPECIES = 100
 MAX_FRAME_RATE = 0  # 0 == unlimited
-SAVE_FILE = "bestAI"
-SAVE_FOLDER = "Saved_AI"
-TIME_LIMIT = 120 # 0 == unlimited (minutes)
-MAX_SCORE = 10000
+TIME_LIMIT = 60 # 0 == unlimited (minutes)
+MAX_SCORE = 50
 
 def set_max_score(new_score):
     global MAX_SCORE
@@ -170,12 +167,7 @@ def train_basic(Ai_selected):
         ball.y += ball_dy
 
         # Update the ai view
-        if (AI_DELAY == "yes"):
-            # current_time = time.time()
-            # if current_time - last_update_time >= 1:
-            if i % 60 == 0:
-                ai_ball.update(ball, ball_dx, ball_dy)
-        else:
+        if i % 60 == 0:
             ai_ball.update(ball, ball_dx, ball_dy)
 
         # Move the right paddle
@@ -235,155 +227,152 @@ def train_basic(Ai_selected):
     pygame.display.quit()
     pygame.quit()
 
-def play_Ai(Ai, demo):
-    os.environ["SDL_AUDIODRIVER"] = "dumb"
-    MAX_FRAME_RATE = 60
+# def play_Ai(Ai, demo):
+#     os.environ["SDL_AUDIODRIVER"] = "dumb"
+#     MAX_FRAME_RATE = 60
 
-    # Initialize Pygame
-    pygame.init()
+#     # Initialize Pygame
+#     pygame.init()
 
-    window = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Pong")
+#     window = pygame.display.set_mode((WIDTH, HEIGHT))
+#     pygame.display.set_caption("Pong")
 
-    # Create paddles and ball
-    leftPaddle = pygame.Rect(50, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
-    rightPaddle = pygame.Rect(WIDTH - 50 - PADDLE_WIDTH, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
-    ball = pygame.Rect(WIDTH//2 - BALL_SIZE//2, HEIGHT//2 - BALL_SIZE//2, BALL_SIZE, BALL_SIZE)
+#     # Create paddles and ball
+#     leftPaddle = pygame.Rect(50, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
+#     rightPaddle = pygame.Rect(WIDTH - 50 - PADDLE_WIDTH, HEIGHT//2 - PADDLE_HEIGHT//2, PADDLE_WIDTH, PADDLE_HEIGHT)
+#     ball = pygame.Rect(WIDTH//2 - BALL_SIZE//2, HEIGHT//2 - BALL_SIZE//2, BALL_SIZE, BALL_SIZE)
 
-    # Set up the game clock
-    clock = pygame.time.Clock()
+#     # Set up the game clock
+#     clock = pygame.time.Clock()
 
-    # Ball movement
-    ball_dx = BALL_SPEED
-    ball_dy = 0
+#     # Ball movement
+#     ball_dx = BALL_SPEED
+#     ball_dy = 0
 
-    # Update AI's target position
-    ai_ball = AI_ball(ball.x, ball.y, ball_dx, ball_dy)
+#     # Update AI's target position
+#     ai_ball = AI_ball(ball.x, ball.y, ball_dx, ball_dy)
 
-    # Score
-    left_score = 0
-    right_score = 0
+#     # Score
+#     left_score = 0
+#     right_score = 0
 
-    # Font for score display
-    font = pygame.font.Font(None, 36)
+#     # Font for score display
+#     font = pygame.font.Font(None, 36)
 
-    # New variables for AI's delayed reaction
-    last_update_time = time.time()
+#     # New variables for AI's delayed reaction
+#     last_update_time = time.time()
 
-    # Game loop
-    running = True
-    while running:
-        keys = pygame.key.get_pressed()
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                return "STOP"
+#     # Game loop
+#     running = True
+#     while running:
+#         keys = pygame.key.get_pressed()
+#         for event in pygame.event.get():
+#             if event.type == pygame.QUIT:
+#                 pygame.quit()
+#                 return "STOP"
 
-        if keys[pygame.K_ESCAPE]:
-            pygame.quit()
-            return "STOP"
+#         if keys[pygame.K_ESCAPE]:
+#             pygame.quit()
+#             return "STOP"
 
-        if (AI_DELAY == "yes"):
-            current_time = time.time()
-            if current_time - last_update_time >= 1:
-                ai_ball.update(ball, ball_dx, ball_dy)
-                last_update_time = current_time
-        else:
-            ai_ball.update(ball, ball_dx, ball_dy)
+        # current_time = time.time()
+        # if current_time - last_update_time >= 1:
+        #     ai_ball.update(ball, ball_dx, ball_dy)
+        #     last_update_time = current_time
 
-        # Move the left paddle by AI
-        if (demo == "yes"):
-            match (Ai.decision_left(leftPaddle.y, ai_ball, HEIGHT)):
-                case 0:
-                    if leftPaddle.top > 0 :
-                        leftPaddle.y -= PADDLE_SPEED
-                case 1:
-                    pass
-                case 2:
-                    if leftPaddle.bottom < HEIGHT:
-                        leftPaddle.y += PADDLE_SPEED
+#         # Move the left paddle by AI
+#         if (demo == "yes"):
+#             match (Ai.decision_left(leftPaddle.y, ai_ball, HEIGHT)):
+#                 case 0:
+#                     if leftPaddle.top > 0 :
+#                         leftPaddle.y -= PADDLE_SPEED
+#                 case 1:
+#                     pass
+#                 case 2:
+#                     if leftPaddle.bottom < HEIGHT:
+#                         leftPaddle.y += PADDLE_SPEED
 
-        # Move the left paddle with keyboard inputs
-        else:
-            if keys[pygame.K_w] and leftPaddle.top > 0:
-                leftPaddle.y -= PADDLE_SPEED
-            if keys[pygame.K_s] and leftPaddle.bottom < HEIGHT:
-                leftPaddle.y += PADDLE_SPEED
+#         # Move the left paddle with keyboard inputs
+#         else:
+#             if keys[pygame.K_w] and leftPaddle.top > 0:
+#                 leftPaddle.y -= PADDLE_SPEED
+#             if keys[pygame.K_s] and leftPaddle.bottom < HEIGHT:
+#                 leftPaddle.y += PADDLE_SPEED
 
-        # Move the AI's paddle
-        match (Ai.decision(rightPaddle.y, ai_ball, HEIGHT)):
-            case 0:
-                if rightPaddle.top > 0:
-                    rightPaddle.y -= PADDLE_SPEED
-            case 1:
-                pass
-            case 2:
-                if rightPaddle.bottom < HEIGHT:
-                    rightPaddle.y += PADDLE_SPEED
+#         # Move the AI's paddle
+#         match (Ai.decision(rightPaddle.y, ai_ball, HEIGHT)):
+#             case 0:
+#                 if rightPaddle.top > 0:
+#                     rightPaddle.y -= PADDLE_SPEED
+#             case 1:
+#                 pass
+#             case 2:
+#                 if rightPaddle.bottom < HEIGHT:
+#                     rightPaddle.y += PADDLE_SPEED
 
-        # Move the ball
-        ball.x += ball_dx
-        ball.y += ball_dy
+#         # Move the ball
+#         ball.x += ball_dx
+#         ball.y += ball_dy
 
-        # Ball collision with top and bottom
-        if ball.top <= 0:
-            ball.top = GRID
-            ball_dy *= -1
-            if abs(ball_dy) < 1:
-                ball_dy = 1 if ball_dy > 0 else -1
-        elif ball.bottom >= HEIGHT:
-            ball.bottom = HEIGHT - GRID
-            ball_dy *= -1
-            if abs(ball_dy) < 1:
-                ball_dy = 1 if ball_dy > 0 else -1
+#         # Ball collision with top and bottom
+#         if ball.top <= 0:
+#             ball.top = GRID
+#             ball_dy *= -1
+#             if abs(ball_dy) < 1:
+#                 ball_dy = 1 if ball_dy > 0 else -1
+#         elif ball.bottom >= HEIGHT:
+#             ball.bottom = HEIGHT - GRID
+#             ball_dy *= -1
+#             if abs(ball_dy) < 1:
+#                 ball_dy = 1 if ball_dy > 0 else -1
 
-        # Ball collision with paddles
-        if collides(ball, leftPaddle):
-            if ball.left > leftPaddle.left:
-                ball_dx *= -1
-                ball.left = leftPaddle.right
-                ball_dy = updateBallAngle(ball, ball_dy, leftPaddle)
-        elif collides(ball, rightPaddle):
-            if ball.right < rightPaddle.right:
-                ball_dx *= -1
-                ball.right = rightPaddle.left
-                ball_dy = updateBallAngle(ball, ball_dy, rightPaddle)
+#         # Ball collision with paddles
+#         if collides(ball, leftPaddle):
+#             if ball.left > leftPaddle.left:
+#                 ball_dx *= -1
+#                 ball.left = leftPaddle.right
+#                 ball_dy = updateBallAngle(ball, ball_dy, leftPaddle)
+#         elif collides(ball, rightPaddle):
+#             if ball.right < rightPaddle.right:
+#                 ball_dx *= -1
+#                 ball.right = rightPaddle.left
+#                 ball_dy = updateBallAngle(ball, ball_dy, rightPaddle)
 
-        # Ball out of bounds
-        if ball.left <= 0:
-            right_score += 1
-            reset_ball(ball)
-        elif ball.right >= WIDTH:
-            left_score += 1
-            reset_ball(ball)
+#         # Ball out of bounds
+#         if ball.left <= 0:
+#             right_score += 1
+#             reset_ball(ball)
+#         elif ball.right >= WIDTH:
+#             left_score += 1
+#             reset_ball(ball)
 
-        # End the game
-        if left_score >= MAX_SCORE:
-            running = False
+#         # End the game
+#         if left_score >= MAX_SCORE:
+#             running = False
 
-        # Clear the screen
-        window.fill(BLACK)
+#         # Clear the screen
+#         window.fill(BLACK)
 
-        # Draw paddles and ball
-        pygame.draw.rect(window, WHITE, leftPaddle)
-        pygame.draw.rect(window, WHITE, rightPaddle)
-        pygame.draw.ellipse(window, WHITE, ball)
+#         # Draw paddles and ball
+#         pygame.draw.rect(window, WHITE, leftPaddle)
+#         pygame.draw.rect(window, WHITE, rightPaddle)
+#         pygame.draw.ellipse(window, WHITE, ball)
 
-        # Draw scores
-        left_text = font.render(str(left_score), True, WHITE)
-        right_text = font.render(str(right_score), True, WHITE)
-        window.blit(left_text, (WIDTH//4, 20))
-        window.blit(right_text, (3*WIDTH//4, 20))
+#         # Draw scores
+#         left_text = font.render(str(left_score), True, WHITE)
+#         right_text = font.render(str(right_score), True, WHITE)
+#         window.blit(left_text, (WIDTH//4, 20))
+#         window.blit(right_text, (3*WIDTH//4, 20))
 
-        # Draw the center line
-        pygame.draw.aaline(window, WHITE, (WIDTH//2, 0), (WIDTH//2, HEIGHT))
+#         # Draw the center line
+#         pygame.draw.aaline(window, WHITE, (WIDTH//2, 0), (WIDTH//2, HEIGHT))
 
-        # Update the display
-        pygame.display.flip()
+#         # Update the display
+#         pygame.display.flip()
 
-        if (MAX_FRAME_RATE != 0):
-            clock.tick(MAX_FRAME_RATE)
+#         if (MAX_FRAME_RATE != 0):
+#             clock.tick(MAX_FRAME_RATE)
 
-    # Quit the game
-    pygame.display.quit()
-    pygame.quit()
+#     # Quit the game
+#     pygame.display.quit()
+#     pygame.quit()

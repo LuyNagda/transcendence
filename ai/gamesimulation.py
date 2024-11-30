@@ -1,5 +1,5 @@
 import random, math
-from .game import AI_ball, HEIGHT, WIDTH, BALL_SPEED, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE, TIME_LIMIT, AI_DELAY, PADDLE_SPEED, GRID, MAX_SCORE, MAX_FRAME_RATE, BLACK, WHITE
+from .game import AI_ball, HEIGHT, WIDTH, BALL_SPEED, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE, TIME_LIMIT, PADDLE_SPEED, GRID, MAX_SCORE, MAX_FRAME_RATE, BLACK, WHITE
 
 def ai_bonus_score(ball_y, rightPaddle, Ai_selected):
     dist = abs(ball_y - rightPaddle.top) / HEIGHT
@@ -227,10 +227,7 @@ def train_basic_no_display(Ai_selected):
         ball.y += ball_dy
 
         # Update the ai view
-        if (AI_DELAY == "yes"):
-            if i % 60 == 0:
-                ai_ball.update(ball, ball_dx, ball_dy)
-        else:
+        if i % 60 == 0:
             ai_ball.update(ball, ball_dx, ball_dy)
 
         # Move the right paddle

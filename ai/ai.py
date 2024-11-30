@@ -1,7 +1,6 @@
 import pickle, os, json
 import numpy as np
-from django.http import JsonResponse
-from .game import train_basic, set_max_score, get_max_score, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES, SAVE_FILE, SAVE_FOLDER
+from .game import set_max_score, get_max_score, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES
 from .gamesimulation import train_basic_no_display
 
 NB_INPUTS = 5
@@ -113,14 +112,13 @@ class Neuron_Network:
         self.layer3.weights = np.array(data["layer3"]["weights"])
         self.layer3.biases = np.array(data["layer3"]["biases"])
 
-def Init_Ai(base):
+def Init_Ai(save_file):
     Ai_Sample = []
     Ai_Sample.clear()
-    file_path = os.path.join(SAVE_FOLDER, SAVE_FILE)
 
-    if (os.path.exists(file_path) and base != "yes"):
+    if (os.path.exists(save_file)):
         # Load all AI from the save file
-        with open(file_path, 'rb') as imp:
+        with open(save_file, 'rb') as imp:
             while (len(Ai_Sample) < NB_SPECIES):
                 try:
                     Saved_Ai = pickle.load(imp)
@@ -136,12 +134,16 @@ def Init_Ai(base):
         for i in range(remaining):
             random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
             Ai_Sample.append(random_ai)
+        
+        print(f"AIs from {save_file} successfully loaded")
 
     else:
         # Create NB_SPECIES random AIs
         for i in range(NB_SPECIES):
             random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
             Ai_Sample.append(random_ai)
+        
+        print(f"Random AIs successfully loaded")
     
     # Reset scores
     for i in range(NB_SPECIES):
@@ -225,17 +227,11 @@ def Save_Best_Ai(Ai_Sample, save_file):
     # Sort AI from the best performer to the least one
     Ai_Sample.sort(reverse=True)
 
-    # If a save file's name is provided, set it as the save file for this run
-    if (len(save_file) > 0) and save_file.find("Saved_AI") == -1:
-        SAVE_FILE = os.path.join("Saved_AI", save_file)
-    else :
-        SAVE_FILE = save_file
-
     # Create the directory if it doesn't exist
-    os.makedirs(os.path.dirname(SAVE_FILE), exist_ok=True)
+    os.makedirs(os.path.dirname(save_file), exist_ok=True)
 
     # Overwrites any existing file.
-    with open(SAVE_FILE, 'wb') as save:
+    with open(save_file, 'wb') as save:
         # Save the 5 best performing AI
         for i in range(5):
             pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
@@ -300,25 +296,34 @@ def get_human_inputs():
     except Exception as e:
         return None
 
-def train_ai(save_file, base):
+def train_ai(save_file):
     Ai_Sample = []
     frames = get_human_inputs()
+    log = ""
 
     for j in range(NB_GENERATION):
-        print(f"\n\n========== Generation #{j}===========\n")
-        print("MAX_SCORE = ", get_max_score(), "\n\n")
-        Ai_Sample = Init_Ai(base)
+        tmp : str
+
+        tmp = """
+        
+        ========== Generation #{} ===========
+        MAX_SCORE = {}
+        
+        """ .format(j, get_max_score())
+
+        log = log + tmp
+        print(tmp)
+        Ai_Sample = Init_Ai(save_file)
 
         for i in range(NB_SPECIES):
-            if DISPLAY_GAME == 'yes':
-                if train_basic(Ai_Sample[i]) == "STOP":
-                    return
-            else:
-                train_basic_no_display(Ai_Sample[i])
+            tmp = ""
+            train_basic_no_display(Ai_Sample[i])
             
             # Train against human's inputs
             if frames == None:
-                print(f"AI {i}\tscore is {Ai_Sample[i].ai_score:.1f}")
+                tmp = f"AI {i}\tscore is  {Ai_Sample[i].ai_score:.1f}"
+                print(tmp)
+                log = log + tmp
                 continue
             
             ai_ball = AI_ball(frames[0].ball, 0, 0, 0)
@@ -335,8 +340,13 @@ def train_ai(save_file, base):
                     Ai_Sample[i].ai_score += 0.5
                 
                 tick += 1
-            print(f"The AI {i} score is {Ai_Sample[i].ai_score:.1f}")
+            
+            tmp = tmp + f"The AI {i} score is {Ai_Sample[i].ai_score:.1f}"
+            print(tmp)
+            log = log + tmp
         Save_Best_Ai(Ai_Sample, save_file)
+    
+    return log
 
 def load_Ai(save_file):
     with open(save_file, 'rb') as imp:
