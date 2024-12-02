@@ -1,7 +1,8 @@
 import pickle, os, json
 import numpy as np
-from .game import set_max_score, get_max_score, AI_ball, WIDTH, HEIGHT, DISPLAY_GAME, NB_GENERATION, NB_SPECIES
+from .game import AI_ball, WIDTH, HEIGHT
 from .gamesimulation import train_basic_no_display
+from .gameconfig import get_game_config
 
 NB_INPUTS = 5
 NB_NEURONS_LAYER1 = 6
@@ -119,7 +120,7 @@ def Init_Ai(save_file):
     if (os.path.exists(save_file)):
         # Load all AI from the save file
         with open(save_file, 'rb') as imp:
-            while (len(Ai_Sample) < NB_SPECIES):
+            while (len(Ai_Sample) < get_game_config('nb_species')[0]):
                 try:
                     Saved_Ai = pickle.load(imp)
                     Ai_Sample.append(Saved_Ai)
@@ -129,8 +130,8 @@ def Init_Ai(save_file):
         # Mix weights of the 5 best performing AIs
         Crossover_mutation(Ai_Sample)
         
-        # Add random AIs to reach NB_SPECIES
-        remaining = NB_SPECIES - len(Ai_Sample)
+        # Add random AIs to reach get_game_config('nb_species')
+        remaining = get_game_config('nb_species')[0] - len(Ai_Sample)
         for i in range(remaining):
             random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
             Ai_Sample.append(random_ai)
@@ -138,22 +139,22 @@ def Init_Ai(save_file):
         print(f"AIs from {save_file} successfully loaded")
 
     else:
-        # Create NB_SPECIES random AIs
-        for i in range(NB_SPECIES):
+        # Create get_game_config('nb_species') random AIs
+        for i in range(get_game_config('nb_species')[0]):
             random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
             Ai_Sample.append(random_ai)
         
         print(f"Random AIs successfully loaded")
     
     # Reset scores
-    for i in range(NB_SPECIES):
+    for i in range(get_game_config('nb_species')[0]):
         Ai_Sample[i].ai_score = 0
 
     return Ai_Sample
     
 def Crossover_mutation(Ai_Sample):
     # Crossover and then mutation
-    while (len(Ai_Sample) < NB_SPECIES - 5):
+    while (len(Ai_Sample) < get_game_config('nb_species')[0] - 5):
         # Choose 2 parent randomly from the 5 best performing AI and instance a child
         parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
         child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
@@ -236,11 +237,6 @@ def Save_Best_Ai(Ai_Sample, save_file):
         for i in range(5):
             pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
 
-        current_max_score = get_max_score()
-        while Ai_Sample[0].ai_score >  current_max_score * 0.95:
-            set_max_score(current_max_score * 2)
-            current_max_score = get_max_score()
-
         # Save AI having similar performance as the best one
         for i in range(5, len(Ai_Sample)):
             if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.80 ):
@@ -301,22 +297,21 @@ def train_ai(save_file):
     frames = get_human_inputs()
     log = ""
 
-    for j in range(NB_GENERATION):
-        tmp : str
-
-        tmp = """
+    nb_generation = get_game_config('nb_generation')[0]
+    for j in range(nb_generation):
+        tmp = f"""
         
-        ========== Generation #{} ===========
-        MAX_SCORE = {}
+        ========== Generation #{j} ===========
+        Max score = {get_game_config('max_score')[0]}
         
-        """ .format(j, get_max_score())
+        """
 
         log = log + tmp
         print(tmp)
+
         Ai_Sample = Init_Ai(save_file)
 
-        for i in range(NB_SPECIES):
-            tmp = ""
+        for i in range(get_game_config('nb_species')[0]):
             train_basic_no_display(Ai_Sample[i])
             
             # Train against human's inputs
@@ -341,8 +336,9 @@ def train_ai(save_file):
                 
                 tick += 1
             
-            tmp = tmp + f"The AI {i} score is {Ai_Sample[i].ai_score:.1f}"
+            tmp = f"The AI {i} score is {Ai_Sample[i].ai_score:.1f}"
             print(tmp)
+
             log = log + tmp
         Save_Best_Ai(Ai_Sample, save_file)
     

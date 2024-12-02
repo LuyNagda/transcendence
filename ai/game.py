@@ -1,24 +1,12 @@
 import pygame, random, math, os
+from .gameconfig import get_game_config
 
 # Set up the game window
 WIDTH = 80 * 6
 HEIGHT = 24 * 10
 GRID = 5
-
-DISPLAY_GAME = "no"
-NB_GENERATION = 1
-NB_SPECIES = 100
 MAX_FRAME_RATE = 0  # 0 == unlimited
-TIME_LIMIT = 60 # 0 == unlimited (minutes)
-MAX_SCORE = 50
-
-def set_max_score(new_score):
-    global MAX_SCORE
-    MAX_SCORE = new_score
-    print("\033[91m {}\033[00m" .format("New MAX_SCORE is "), new_score)
-
-def get_max_score():
-    return MAX_SCORE
+DISPLAY_GAME = "no"
 
 # Colors
 WHITE = (255, 255, 255)
@@ -125,8 +113,9 @@ def train_basic(Ai_selected):
     i = 0
     j = 0
     while running:
-        # Limit the game time to {TIME_LIMIT} theoretical minutes
-        if TIME_LIMIT != 0 and i > (TIME_LIMIT * 60 * 60):
+        # Limit the game time to GAME_CONF[time_limit] theoretical minutes
+        if get_game_config('time_limit')[0]!= 0 \
+            and i > (get_game_config('time_limit')[0] * 60 * 60):
             break
         i += 1
 
@@ -220,7 +209,7 @@ def train_basic(Ai_selected):
             reset_ball(ball)
 
         # End the game
-        if left_score >= get_max_score():
+        if left_score >= get_game_config('max_score')[0]:
             running = False
 
     # Quit the game
@@ -347,7 +336,7 @@ def train_basic(Ai_selected):
 #             reset_ball(ball)
 
 #         # End the game
-#         if left_score >= MAX_SCORE:
+#         if left_score >= get_game_config('max_score'):
 #             running = False
 
 #         # Clear the screen

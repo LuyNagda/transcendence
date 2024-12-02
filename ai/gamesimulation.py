@@ -1,5 +1,6 @@
 import random, math
-from .game import AI_ball, HEIGHT, WIDTH, BALL_SPEED, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE, TIME_LIMIT, PADDLE_SPEED, GRID, MAX_SCORE, MAX_FRAME_RATE, BLACK, WHITE
+from .game import AI_ball, HEIGHT, WIDTH, BALL_SPEED, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE, PADDLE_SPEED, GRID, BLACK, WHITE
+from .gameconfig import get_game_config
 
 def ai_bonus_score(ball_y, rightPaddle, Ai_selected):
     dist = abs(ball_y - rightPaddle.top) / HEIGHT
@@ -217,8 +218,9 @@ def train_basic_no_display(Ai_selected):
     i = 0
     j = 0
     while running:
-        # Limit the game time to {TIME_LIMIT} theoretical minutes
-        if TIME_LIMIT != 0 and i > (TIME_LIMIT * 60 * 60):
+        # Limit the game time to GAME_CONF['time_limit'] theoretical minutes
+        if get_game_config('time_limit')[0] != 0 \
+            and i > (get_game_config('time_limit')[0] * 60 * 60):
             break
         i += 1
 
@@ -281,6 +283,6 @@ def train_basic_no_display(Ai_selected):
             reset_ball(ball)
 
         # End the game
-        if left_score >= MAX_SCORE:
+        if left_score >= get_game_config('max_score')[0]:
             running = False
 

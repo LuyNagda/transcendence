@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from . import ai
+from .gameconfig import get_game_config, set_game_config, reset_game_config
 import pickle, sys, traceback
 from typing import Any, Optional
 
@@ -53,9 +54,19 @@ def send_ai_to_front(request, ai_level="bestAI"):
 
     return JsonResponse(ai_dict)
 
-def training(request, ai_name="bestAI"):
+def training(request, ai_name="default"):
     save_file = "./Saved_AI/" + ai_name
 
+    config_copy = get_game_config()
+
+    for param, (default, converter) in config_copy.items():
+        try:
+            value = request.GET.get(param)  # Fetch the query parameter value
+            set_game_config(**{param: converter(value) if value is not None else default})
+        except ValueError:
+            set_game_config(**{param: default})  # Use default on conversion error
+
     log = ai.train_ai(save_file)
-    return JsonResponse(log, safe=False)
-    
+
+    reset_game_config()
+    return JsonResponse({"log": log}, safe=False)
