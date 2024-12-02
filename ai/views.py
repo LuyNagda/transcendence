@@ -35,8 +35,8 @@ def safe_pickle_load(file_path: str, target_module_name: str = 'ai') -> Optional
         traceback.print_exc()
         return None
 
-def send_ai_to_front(request, ai_level="bestAI"):
-    file_path = "./Saved_AI/" + ai_level
+def send_ai_to_front(request, ai_name="bestAI"):
+    file_path = "./Saved_AI/" + ai_name
     
     try: 
         saved_ai : ai.Neuron_Network
@@ -48,7 +48,7 @@ def send_ai_to_front(request, ai_level="bestAI"):
     except FileNotFoundError:
         print(f"FileNotFoundError:")
         traceback.print_exc()
-        return JsonResponse({"error": "No such AI found: " + ai_level}, status=404)
+        return JsonResponse({"error": "No such AI found: " + ai_name}, status=404)
 
     ai_dict = saved_ai.to_dict()
 
