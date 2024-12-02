@@ -1,5 +1,5 @@
 import random, math
-from .game import AI_ball, HEIGHT, WIDTH, BALL_SPEED, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE, PADDLE_SPEED, GRID, BLACK, WHITE
+from .game import AI_ball, HEIGHT, WIDTH, BALL_SPEED, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_SIZE, PADDLE_SPEED, GRID
 from .gameconfig import get_game_config
 
 def ai_bonus_score(ball_y, rightPaddle, Ai_selected):

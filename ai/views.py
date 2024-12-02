@@ -1,7 +1,7 @@
 from django.http import JsonResponse
 from . import ai
 from .gameconfig import get_game_config, set_game_config, reset_game_config
-import pickle, sys, traceback
+import pickle, sys, traceback, os
 from typing import Any, Optional
 
 # If pickel is called in a different folder that the pickel used to creat the save file,
@@ -70,3 +70,21 @@ def training(request, ai_name="default"):
 
     reset_game_config()
     return JsonResponse({"log": log}, safe=False)
+
+def list_saved_ai(request):
+    """
+    View to list all saved AI files in the './Saved_AI' directory.
+    """
+    folder_path = "./Saved_AI"
+    try:
+        # Check if the folder exists
+        if not os.path.exists(folder_path):
+            return JsonResponse({"error": "Folder does not exist."}, status=404)
+
+        # List all files in the folder
+        ai_files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
+        
+        return JsonResponse({"saved_ai": ai_files})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
