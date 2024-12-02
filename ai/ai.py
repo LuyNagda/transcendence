@@ -1,7 +1,7 @@
 import pickle, os, json
 import numpy as np
-from .game import AI_ball, WIDTH, HEIGHT
-from .gamesimulation import train_basic_no_display
+from .gamesimulation import AI_ball, WIDTH, HEIGHT
+from .gamesimulation import train_basic
 from .gameconfig import get_game_config
 
 NB_INPUTS = 5
@@ -312,7 +312,7 @@ def train_ai(save_file):
         Ai_Sample = Init_Ai(save_file)
 
         for i in range(get_game_config('nb_species')[0]):
-            train_basic_no_display(Ai_Sample[i])
+            train_basic(Ai_Sample[i])
             
             # Train against human's inputs
             if frames == None:
