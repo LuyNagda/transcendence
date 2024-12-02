@@ -6,4 +6,5 @@ urlpatterns = [
     path('get-ai/<str:ai_level>/', views.send_ai_to_front, name='send_ai_with_level'),
     path('train/<str:ai_name>', views.training, name='training'),
     path('list-saved-ai', views.list_saved_ai, name='list_saved_ai'),
+    path('delete-saved-ai/<str:ai_name>', views.delete_saved_ai, name='delete_saved_ai'),
 ]

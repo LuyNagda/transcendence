@@ -88,3 +88,15 @@ def list_saved_ai(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+    
+def delete_saved_ai(request, ai_name):
+    if ai_name == "bestAI":
+        return JsonResponse(f"The file '{ai_name}' cannot be removed", safe=False, status=403)        
+
+    save_file = "./Saved_AI/" + ai_name
+
+    if os.path.exists(save_file):
+        os.remove(save_file)
+        return JsonResponse(f"The file '{ai_name}' as been removed", safe=False)
+    else:
+        return JsonResponse(f"The file '{ai_name}' does not exist", safe=False, status=404)
