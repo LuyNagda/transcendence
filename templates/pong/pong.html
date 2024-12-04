@@ -1,4 +1,9 @@
-{% extends 'base.html' %} {% block title %}Pong Game{% endblock %} {% block content %} {% block navbar %}{% include "navbar.html" %}{% endblock %}
+{% extends 'base.html' %}
+
+{% block title %}Pong Game{% endblock %}
+
+{% block content %}
+{% block navbar %}{% include "navbar.html" %}{% endblock %}
 
 <div id="pong-container">
     <div id="index" class="container x-auto my-4">
@@ -22,36 +27,16 @@
             </section>
             <section id="cta" class="text-center my-5">
                 <h2>Prêt à jouer ?</h2>
-                <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-trigger="click" hx-target="#pong-container" hx-swap="none" class="btn btn-primary">
+                <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#cta" hx-swap="innerHTML" class="btn btn-primary">
                     Commencer une partie
                 </button>
             </section>
+            <div id="enter-room"></div>
+            <br><br><br><br>
         </main>
     </div>
 </div>
 
 {% block footer %}{% include "footer.html" %}{% endblock %}
-
-<script>
-    console.log('HTMX version:', htmx.version);
-    document.addEventListener('htmx:afterRequest', function(event) {
-        if (event.detail.elt.id === 'create-room-btn') {
-            if (event.detail.successful) {
-                try {
-                    const response = JSON.parse(event.detail.xhr.response);
-                    if (response.status === 'success' && response.url) {
-                        window.location.href = response.url;
-                    } else {
-                        console.error('Unexpected response:', response);
-                    }
-                } catch (error) {
-                    console.error('Error parsing response:', error);
-                }
-            } else {
-                console.error('Request failed:', event.detail.xhr.status);
-            }
-        }
-    });
-</script>
 
 {% endblock %}

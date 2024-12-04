@@ -41,7 +41,7 @@ def game_history(request):
     ).order_by('created_at')
     return render(request, 'pong/game_history.html', {'games': games, 'access_token': access_token, 'refresh_token': refresh_token})
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def create_pong_room(request):
     try:
@@ -52,15 +52,12 @@ def create_pong_room(request):
             mode=PongRoom.Mode.CLASSIC
         )
         room.players.add(request.user)
-        
-        url = reverse('pong_room', kwargs={'room_id': room_id})
-        return Response({'status': 'success', 'url': url})
+        logger.info(f"Room created with ID {room_id} by user {request.user.username}")
+        return render(request, 'pong/pong_room_partial.html', {'room_id': room_id})
     except Exception as e:
         logger.error(f"Erreur lors de la création de la salle : {str(e)}")
-        return Response({
-            'status': 'error',
-            'message': 'Impossible de créer la salle'
-        }, status=500)
+        logger.error(f"Error creating room for user {request.user.username}")
+        return JsonResponse({'status': 'error'})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
