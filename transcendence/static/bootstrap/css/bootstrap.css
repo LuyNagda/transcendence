@@ -5400,6 +5400,10 @@ textarea.form-control-lg {
   filter: var(--bs-btn-close-white-filter);
 }
 
+[data-bs-theme=high-contrast] .btn-close {
+  filter: var(--bs-btn-close-white-filter);
+}
+
 .toast {
   --bs-toast-zindex: 1090;
   --bs-toast-padding-x: 0.75rem;
@@ -12173,23 +12177,5 @@ textarea.form-control-lg {
   --bs-form-invalid-color: #ff4500;
   --bs-form-invalid-border-color: #ff4500;
 
-  /*
-  .form-control {
-    font-size: 2rem;
-    padding-top: 4rem;
-    padding-bottom: 3rem;
-  }
-
-  .form-control:focus {
-    font-size: 2rem;
-    padding-top: 4rem;
-    padding-bottom: 3rem;
-  }
-
-  .form-control:not(:placeholder-shown){
-    padding-top: 4rem;
-    padding-bottom: 3rem;
-  }
-  */
 }
 /*# sourceMappingURL=bootstrap.css.map */

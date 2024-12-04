@@ -24,6 +24,12 @@ function applyFontSize(size) {
 				formControl.style.paddingBottom = '2rem';
 			});
 		}
+		document.querySelectorAll('h4').forEach(function (h4) {
+			h4.style.fontSize = '2rem';
+		});
+		document.querySelectorAll('h5').forEach(function (h5) {
+			h5.style.fontSize = '1.75rem';
+		});
 	} else {
 		localStorage.setItem('sizeLocal', 'small');
 		document.body.style.fontSize = '1rem';
@@ -35,6 +41,12 @@ function applyFontSize(size) {
 				formControl.style.padding = '0.375rem 0.75rem';
 			});
 		}
+		document.querySelectorAll('h4').forEach(function (h4) {
+			h4.style.fontSize = '1.5rem';
+		});
+		document.querySelectorAll('h5').forEach(function (h5) {
+			h5.style.fontSize = '1.25rem';
+		});
 	}
 }
 
