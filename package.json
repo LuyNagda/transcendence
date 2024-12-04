@@ -5,5 +5,9 @@
   },
   "devDependencies": {
     "esbuild": "^0.24.0"
+  },
+  "dependencies": {
+    "gl-matrix": "^3.4.3",
+    "regl": "^2.1.1"
   }
 }

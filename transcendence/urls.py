@@ -29,7 +29,6 @@ from django.views.static import serve
 """
 Place holder before consultation with mates
 """
-from ai.ai import send_ai_to_front
 
 class UIDTokenConverter:
     regex = '[^/]+'
