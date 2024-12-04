@@ -277,8 +277,8 @@ def train_ai(save_file):
         # Prepare arguments for parallel processing
         training_args = [(Ai_Sample[i], i) for i in range(get_game_config('nb_species')[0])]
 
-        # Use all available CPU cores
-        with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+        # Use all available CPU cores except one
+        with multiprocessing.Pool(processes=(multiprocessing.cpu_count() - 1)) as pool:
             training_results = pool.map(train_species_wrapper, training_args)
 
         for training_log, point, Ai_nb in training_results:
