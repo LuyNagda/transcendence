@@ -1,5 +1,6 @@
 import logger from "../utils/logger.js";
 import WSService from "../utils/WSService.js";
+import WebGLConsole from "./pong_webgl.js";
 
 export class PongGame {
   constructor(gameId, currentUser, isHost) {
@@ -48,6 +49,9 @@ export class PongGame {
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.handleKeyUp = this.handleKeyUp.bind(this);
     this.gameLoop = this.gameLoop.bind(this);
+
+    // Instantiate WebGLConsole
+    this.webglConsole = new WebGLConsole();
   }
 
   // Méthode pour démarrer la connexion
@@ -61,6 +65,9 @@ export class PongGame {
       // Configurer le canvas et les contrôles
       this.setupCanvas();
       this.setupGameControls();
+
+      // Initialize WebGLConsole
+      this.webglConsole.initializeWebGL();
 
       // Si c'est l'hôte, initialiser WebRTC immédiatement
       if (this._isHost) {

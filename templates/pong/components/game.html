@@ -31,14 +31,3 @@
         src: url('{% static "pong/fonts/pong-score.ttf" %}');
     }
 </style>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gl-matrix/2.8.1/gl-matrix-min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/regl/1.3.11/regl.min.js"></script>
-<script src="{% static 'pong/js/pong_game_logic.js' %}"></script>
-<script src="{% static 'pong/js/pong_webgl.js' %}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        initializeWebGL();
-        initializeGame();
-    });
-</script>

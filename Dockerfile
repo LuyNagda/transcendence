@@ -1,4 +1,4 @@
-FROM python:3.9-bookworm AS builder
+FROM python:3.10-bookworm AS builder
 
 RUN apt-get update && apt-get install -y libpq-dev python3-venv nodejs npm
 
@@ -15,7 +15,7 @@ COPY package.json package-lock.json ./
 
 RUN npm install
 
-FROM python:3.9-bookworm
+FROM python:3.10-bookworm
 
 ENV DB_NAME=${DB_NAME}
 ENV DB_HOST=${DB_HOST}
