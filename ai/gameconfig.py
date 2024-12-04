@@ -1,8 +1,8 @@
 GAME_CONF = {
     'nb_generation' : (1, int),
-    'nb_species' : (100, int),
+    'nb_species' : (50, int),
     'time_limit' : (60, int), # 0 == unlimited (minutes)
-    'max_score' : (50, int)
+    'max_score' : (500, int)
 }
 
 DEFAULT_GAME_CONF = GAME_CONF.copy()
@@ -33,12 +33,31 @@ def set_game_config(**kwargs):
     global GAME_CONF
     
     for key, value in kwargs.items():
-        # Get the type converter for this key (or keep original)
+        # Get the type converter for this key (_ means we will ignore the value there)
         _, type_converter = GAME_CONF[key]
         
         # Convert value to appropriate type
         converted_value = type_converter(value)
         
+        # Verify the value ask
+        match key:
+            case 'nb_generation':
+                if converted_value < 1 or converted_value > 100:
+                    print("error: invalid value: 1 <= nb_generation <= 100")
+                    continue
+            case 'nb_species':
+                if converted_value < 6 or converted_value > 100:
+                    print("error: invalid value: 6 <= nb_species <= 100")
+                    continue
+            case 'time_limit':
+                if converted_value < 0 or converted_value > 120:
+                    print("error: invalid value: 0 <= time_limit <= 120")
+                    continue
+            case 'max_score':
+                if converted_value < 10 or converted_value > 1000:
+                    print("error: invalid value: 10 <= max_score <= 1000")
+                    continue
+
         # Update the configuration
         GAME_CONF[key] = (converted_value, type_converter)
 
