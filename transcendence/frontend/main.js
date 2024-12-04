@@ -22,7 +22,7 @@ function initializePongRoom() {
 		const roomId = JSON.parse(document.getElementById("room-id").textContent);
 		const currentUser = JSON.parse(document.getElementById("current-user-data").textContent);
 		const pongRoom = new PongRoom(roomId, currentUser);
-		dynamicRender.addObservedObject("pongRoom", pongRoom);
+		dynamicRender.addObservedObject('pongRoom', pongRoom);
 		logger.info('PongRoom initialized successfully');
 	}
 }
