@@ -83,9 +83,20 @@ class DynamicRender {
     bindIf() {
         this.root.querySelectorAll("[v-if]").forEach((el) => {
             if (!el.closest("[v-for]")) {
-                // Ne traite pas les v-if à l'intérieur des v-for ici
                 const condition = el.getAttribute("v-if");
-                el.style.setProperty('display', this.evaluateExpression(condition) ? '' : 'none', 'important');
+                const wasVisible = el.style.display !== 'none';
+                const isVisible = this.evaluateExpression(condition);
+
+                // Si l'élément devient visible
+                if (!wasVisible && isVisible) {
+                    el.style.removeProperty('display');
+                    // Réinitialiser les bindings sur l'élément et ses enfants
+                    this.bindOnForElement(el);
+                    this.bindTextForElement(el);
+                    this.bindModelForElement(el);
+                } else if (wasVisible && !isVisible) {
+                    el.style.setProperty('display', 'none', 'important');
+                }
             }
         });
     }
@@ -95,7 +106,7 @@ class DynamicRender {
             const forAttr = el.getAttribute("v-for");
             const [item, items] = forAttr.split(" in ").map((s) => s.trim());
             let itemsArray = this.getPropValue(items);
-            
+
             console.log(`Binding v-for for ${items}:`, itemsArray); // Log pour le débogage
 
             // Vérifier si itemsArray est un Proxy et le dé-proxifier si nécessaire
@@ -123,20 +134,26 @@ class DynamicRender {
             itemsArray.forEach((itemData, index) => {
                 const clone = el.cloneNode(true);
                 clone.removeAttribute("v-for");
-                // Réinitialiser le style display du clone
                 clone.style.removeProperty('display');
+
                 this.replaceTemplateStrings(clone, {
                     [item]: itemData,
                     [`${item}Index`]: index,
                 });
+
                 this.bindIfForElement(clone, {
                     [item]: itemData,
                     pongRoom: this.observedObjects.get('pongRoom'),
                 });
+
                 this.bindTextForElement(clone, {
                     [item]: itemData,
                     pongRoom: this.observedObjects.get('pongRoom'),
                 });
+
+                // Ajouter le binding des événements pour le clone
+                this.bindOnForElement(clone);
+
                 container.appendChild(clone);
             });
 
@@ -148,7 +165,64 @@ class DynamicRender {
     bindIfForElement(element, localContext) {
         element.querySelectorAll("[v-if]").forEach((el) => {
             const condition = el.getAttribute("v-if");
-            el.style.setProperty('display', this.evaluateExpression(condition, localContext) ? '' : 'none', 'important');
+            const isVisible = this.evaluateExpression(condition, localContext);
+            el.style.setProperty('display', isVisible ? '' : 'none', 'important');
+
+            // Rebind les événements si l'élément devient visible
+            if (isVisible) {
+                this.bindOnForElement(el);
+            }
+        });
+    }
+
+    bindOnForElement(element) {
+        // Bind sur l'élément lui-même
+        if (element.hasAttribute("v-on:click")) {
+            const method = element.getAttribute("v-on:click");
+            logger.debug(`Binding click event with method: ${method}`);
+            element.onclick = (event) => {
+                logger.debug(`Click event triggered for method: ${method}`);
+                this.callMethod(method, event);
+            };
+        }
+        if (element.hasAttribute("v-on:change")) {
+            const method = element.getAttribute("v-on:change");
+            element.onchange = (event) => this.callMethod(method, event);
+        }
+
+        // Bind sur les enfants
+        element.querySelectorAll("[v-on\\:click], [v-on\\:change]").forEach((el) => {
+            if (el.hasAttribute("v-on:click")) {
+                const method = el.getAttribute("v-on:click");
+                logger.debug(`Binding click event on child with method: ${method}`);
+                el.onclick = (event) => {
+                    logger.debug(`Click event triggered on child for method: ${method}`);
+                    this.callMethod(method, event);
+                };
+            }
+            if (el.hasAttribute("v-on:change")) {
+                const method = el.getAttribute("v-on:change");
+                el.onchange = (event) => this.callMethod(method, event);
+            }
+        });
+    }
+
+    bindModelForElement(element) {
+        element.querySelectorAll("[v-model]").forEach((el) => {
+            const prop = el.getAttribute("v-model");
+            const value = this.getPropValue(prop);
+
+            if (el.tagName === 'SELECT') {
+                el.value = value;
+                el.addEventListener("change", (e) => {
+                    this.setPropValue(prop, e.target.value);
+                });
+            } else {
+                el.value = value;
+                el.addEventListener("input", (e) => {
+                    this.setPropValue(prop, e.target.value);
+                });
+            }
         });
     }
 
@@ -156,7 +230,7 @@ class DynamicRender {
         this.root.querySelectorAll("[v-model]").forEach((el) => {
             const prop = el.getAttribute("v-model");
             const value = this.getPropValue(prop);
-            
+
             if (el.tagName === 'SELECT') {
                 el.value = value;
                 el.addEventListener("change", (e) => {
@@ -172,16 +246,7 @@ class DynamicRender {
     }
 
     bindOn() {
-        this.root.querySelectorAll("[v-on\\:click], [v-on\\:change]").forEach((el) => {
-            if (el.hasAttribute("v-on:click")) {
-                const method = el.getAttribute("v-on:click");
-                el.onclick = (event) => this.callMethod(method, event);
-            }
-            if (el.hasAttribute("v-on:change")) {
-                const method = el.getAttribute("v-on:change");
-                el.onchange = (event) => this.callMethod(method, event);
-            }
-        });
+        this.bindOnForElement(this.root);
     }
 
     getPropValue(prop) {
@@ -208,8 +273,28 @@ class DynamicRender {
     callMethod(method, event) {
         const [objKey, methodName] = method.split(".");
         const obj = this.observedObjects.get(objKey);
+
+        logger.debug("Attempting to call method", {
+            method,
+            objKey,
+            methodName,
+            objectKeys: obj ? Object.keys(obj) : null,
+            objectType: obj ? typeof obj : null,
+            methodType: obj ? typeof obj[methodName] : null
+        });
+
         if (obj && typeof obj[methodName] === "function") {
-            obj[methodName](event);
+            try {
+                obj[methodName](event);
+            } catch (error) {
+                logger.error(`Error executing method ${method}:`, error);
+            }
+        } else {
+            logger.error(`Method ${method} not found or not callable`, {
+                objectExists: !!obj,
+                methodExists: obj && typeof obj[methodName] === "function",
+                availableMethods: obj ? Object.getOwnPropertyNames(obj) : []
+            });
         }
     }
 

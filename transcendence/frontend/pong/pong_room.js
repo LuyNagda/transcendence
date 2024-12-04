@@ -124,19 +124,28 @@ export class PongRoom {
 
     handleWebSocketMessage(data) {
         logger.debug("WebSocket message received:", data);
+
         if (data.type === "room_update") {
             this.updateFromState(data.room_state);
         }
-        if (data.type === 'game_started') {
-            const isHost = this._currentUser.id === data.player1_id;
-
-            // Créer et connecter l'instance de PongGame
-            this._pongGame = new PongGame(data.game_id, this._currentUser, isHost);
-            this._pongGame.connect();
-
-            // Mettre à jour l'interface utilisateur si nécessaire
-            dynamicRender.scheduleUpdate();
+        else if (data.type === 'game_started') {
+            this.handleGameStarted(data);
         }
+    }
+
+    async handleGameStarted(data) {
+        logger.info("Game started event received", data);
+
+        // Si nous n'avons pas déjà une instance de jeu (cas du non-hôte)
+        if (!this._pongGame) {
+            const isHost = this._currentUser.id === data.player1_id;
+            this._pongGame = new PongGame(data.game_id, this._currentUser, isHost);
+            await this._pongGame.connect();
+        }
+
+        // Mettre à jour l'interface utilisateur
+        this.updateState('PLAYING');
+        dynamicRender.scheduleUpdate();
     }
 
     handleWebSocketClose(event) {
@@ -178,7 +187,14 @@ export class PongRoom {
     }
 
     async startGame() {
+        logger.info("startGame method called");
         try {
+            logger.info("Starting game...");
+            if (this._players.length < 2) {
+                logger.error("Cannot start game: not enough players");
+                return null;
+            }
+
             // Demander au serveur de créer la partie
             const response = await this.wsService.send('pongRoom', {
                 action: 'start_game'
@@ -186,6 +202,17 @@ export class PongRoom {
 
             if (response.status === 'success') {
                 logger.info(`Game created with ID: ${response.game_id}`);
+
+                // Créer l'instance de PongGame immédiatement pour l'hôte
+                const isHost = this._currentUser.id === response.player1_id;
+                this._pongGame = new PongGame(response.game_id, this._currentUser, isHost);
+
+                // Initialiser la connexion P2P
+                await this._pongGame.connect();
+
+                // Mettre à jour l'état de la room
+                this.updateState('PLAYING');
+
                 return response.game_id;
             } else {
                 logger.error('Failed to create game:', response.message);
@@ -232,6 +259,10 @@ export class PongRoom {
     }
 
     destroy() {
+        if (this._pongGame) {
+            this._pongGame.destroy();
+            this._pongGame = null;
+        }
         if (this.wsService) {
             this.wsService.destroy('pongRoom');
         }

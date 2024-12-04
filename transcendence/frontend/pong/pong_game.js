@@ -47,13 +47,32 @@ export class PongGame {
     // Lier les méthodes pour éviter les problèmes de contexte
     this.handleKeyDown = this.handleKeyDown.bind(this);
     this.handleKeyUp = this.handleKeyUp.bind(this);
+    this.gameLoop = this.gameLoop.bind(this);
   }
 
   // Méthode pour démarrer la connexion
   async connect() {
-    this.initializeWebSocket();
-    this.setupCanvas();
-    this.setupGameControls();
+    try {
+      logger.info(`Connecting to game ${this._gameId} as ${this._isHost ? 'host' : 'guest'}`);
+
+      // Initialiser le WebSocket
+      this.initializeWebSocket();
+
+      // Configurer le canvas et les contrôles
+      this.setupCanvas();
+      this.setupGameControls();
+
+      // Si c'est l'hôte, initialiser WebRTC immédiatement
+      if (this._isHost) {
+        logger.info("Host initializing WebRTC connection");
+        await this.initializeWebRTC();
+      }
+
+      return true;
+    } catch (error) {
+      logger.error('Error connecting to game:', error);
+      return false;
+    }
   }
 
   setupCanvas() {
