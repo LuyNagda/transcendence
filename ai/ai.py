@@ -1,7 +1,6 @@
-import pickle, os, json
+import pickle, os, json, multiprocessing
 import numpy as np
-from .gamesimulation import AI_ball, WIDTH, HEIGHT
-from .gamesimulation import train_basic
+from .gamesimulation import train_predefined, train_normal, train_human
 from .gameconfig import get_game_config
 
 NB_INPUTS = 5
@@ -239,7 +238,7 @@ def Save_Best_Ai(Ai_Sample, save_file):
 
         # Save AI having similar performance as the best one
         for i in range(5, len(Ai_Sample)):
-            if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.80 ):
+            if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.90 ):
                 pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
             else:
                 break
@@ -247,100 +246,47 @@ def Save_Best_Ai(Ai_Sample, save_file):
     # Clean the list
     Ai_Sample.clear()
 
-class Frame:
-    ball : AI_ball
-    leftPaddle : float
-    playerDecision : int
-
-    def __init__(self, ball, leftPaddle, playerDecision):
-        self.ball = ball
-        self.leftPaddle_y = leftPaddle
-        self.playerDecision = playerDecision
-
-def create_frame(frame_data):
-    return Frame(AI_ball(frame_data["ball"]["x"],
-                        frame_data["ball"]["y"],
-                        frame_data["ball"]["dx"],
-                        frame_data["ball"]["dy"]),
-                frame_data["leftPaddle"], frame_data["playerDecision"])
-
-def get_human_inputs():
-    # Read the file
-    try:
-        with open("./data.json", 'r') as file:
-            json_string = file.read()
-
-            try:
-                # First, try to parse the JSON
-                parsed_data = json.loads(json_string)
-                
-                # If it's still a string, parse again
-                if isinstance(parsed_data, str):
-                    parsed_data = json.loads(parsed_data)
-                
-                # Get first element if it's nested
-                if isinstance(parsed_data, list) and len(parsed_data) > 0:
-                    match_stats = parsed_data[0]
-
-                frames = [create_frame(frame) for frame in match_stats]
-
-                return frames
-
-            except json.JSONDecodeError as e:
-                print(f"JSON parsing error: {e}")
-                return
-    except Exception as e:
-        return None
+def train_species_wrapper(args):
+    """
+    Wrapper function to unpack arguments for train_normal
+    
+    :param args: Tuple (Ai_selected, Ai_nb)
+    :return: Training result or log
+    """
+    Ai_selected, Ai_nb = args
+    training_log = train_normal(Ai_selected, Ai_nb)
+    print(training_log)
+    point = Ai_selected.ai_score
+    return training_log, point, Ai_nb
 
 def train_ai(save_file):
     Ai_Sample = []
-    frames = get_human_inputs()
     log = ""
 
     nb_generation = get_game_config('nb_generation')[0]
     for j in range(nb_generation):
-        tmp = f"""
+        log_gen = (
+            f"\n        ========== Generation #{j} ===========\n"
+            f"Max score = {get_game_config('max_score')[0]}\n\n"
+        )
         
-        ========== Generation #{j} ===========
-        Max score = {get_game_config('max_score')[0]}
-        
-        """
-
-        log = log + tmp
-        print(tmp)
+        print(log_gen)
 
         Ai_Sample = Init_Ai(save_file)
 
-        for i in range(get_game_config('nb_species')[0]):
-            train_basic(Ai_Sample[i])
-            
-            # Train against human's inputs
-            if frames == None:
-                tmp = f"AI {i}\tscore is  {Ai_Sample[i].ai_score:.1f}"
-                print(tmp)
-                log = log + tmp
-                continue
-            
-            ai_ball = AI_ball(frames[0].ball, 0, 0, 0)
-            tick = 0
-            for frame in frames:
-                # Update the ball's position every second
-                if tick % 60 == 0:
-                    # Mirror ball position for the Ai right's position
-                    frame.ball.x = WIDTH - frame.ball.x
-                    ai_ball.update(frame.ball, frame.ball.dx * -1, frame.ball.dy)
+        # Prepare arguments for parallel processing
+        training_args = [(Ai_Sample[i], i) for i in range(get_game_config('nb_species')[0])]
 
-                # Compare the AI's decision with the player's decision
-                if (Ai_Sample[i].decision(frame.leftPaddle_y, ai_ball, HEIGHT) == frame.playerDecision):
-                    Ai_Sample[i].ai_score += 0.5
-                
-                tick += 1
-            
-            tmp = f"The AI {i} score is {Ai_Sample[i].ai_score:.1f}"
-            print(tmp)
+        # Use all available CPU cores
+        with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+            training_results = pool.map(train_species_wrapper, training_args)
 
-            log = log + tmp
+        for training_log, point, Ai_nb in training_results:
+            log_gen += training_log + "\n"
+            Ai_Sample[Ai_nb].ai_score = point
+
         Save_Best_Ai(Ai_Sample, save_file)
+        log += log_gen
     
     return log
 

@@ -1,4 +1,4 @@
-import random, math, pygame
+import random, math, pygame, json
 from .gameconfig import get_game_config
 
 # Set up the game window
@@ -140,6 +140,16 @@ class Ball:
         self.x = value - self.size/2
         self._center = (self.x, self.y)
 
+class Frame:
+    ball : AI_ball
+    leftPaddle : float
+    playerDecision : int
+
+    def __init__(self, ball, leftPaddle, playerDecision):
+        self.ball = ball
+        self.leftPaddle_y = leftPaddle
+        self.playerDecision = playerDecision
+
 def ai_bonus_score(ball_y, rightPaddle, Ai_selected):
     dist = abs(ball_y - rightPaddle.top) / HEIGHT
 
@@ -171,11 +181,7 @@ def updateBallAngle(ball, ball_dy, paddle):
 def generate_random_number(low, high):
     return random.randint(low, high)
 
-def train_basic(Ai_selected):
-    # train_predefined(Ai_selected)
-    train_normal(Ai_selected)
-
-def train_predefined(Ai_selected):
+def train_predefined(Ai_selected, Ai_nb):
     # Initialize game objects
     rightPaddle = Paddle(
         x = WIDTH - 50 - PADDLE_WIDTH,
@@ -251,7 +257,7 @@ def train_predefined(Ai_selected):
 
     print(f"\nScore before normal game: {Ai_selected.ai_score:.1f} / {total_predefined}")
 
-def train_normal(Ai_selected):
+def train_normal(Ai_selected, Ai_nb):
     # Initialize game objects
     rightPaddle = Paddle(
         x = WIDTH - 50 - PADDLE_WIDTH,
@@ -345,3 +351,64 @@ def train_normal(Ai_selected):
         # End the game
         if left_score >= get_game_config('max_score')[0]:
             running = False
+    
+    species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f}"
+    return species_log
+
+def create_frame(frame_data):
+    return Frame(AI_ball(frame_data["ball"]["x"],
+                        frame_data["ball"]["y"],
+                        frame_data["ball"]["dx"],
+                        frame_data["ball"]["dy"]),
+                frame_data["leftPaddle"], frame_data["playerDecision"])
+
+def get_human_inputs():
+    # Read the file
+    try:
+        with open("./data.json", 'r') as file:
+            json_string = file.read()
+
+            try:
+                # First, try to parse the JSON
+                parsed_data = json.loads(json_string)
+                
+                # If it's still a string, parse again
+                if isinstance(parsed_data, str):
+                    parsed_data = json.loads(parsed_data)
+                
+                # Get first element if it's nested
+                if isinstance(parsed_data, list) and len(parsed_data) > 0:
+                    match_stats = parsed_data[0]
+
+                frames = [create_frame(frame) for frame in match_stats]
+
+                return frames
+
+            except json.JSONDecodeError as e:
+                print(f"JSON parsing error: {e}")
+                return
+    except Exception as e:
+        return None
+
+
+# Train against human's inputs
+def train_human(Ai_selected, Ai_nb):
+    frames = get_human_inputs()
+
+    if frames == None:
+        return
+
+    ai_ball = AI_ball(frames[0].ball, 0, 0, 0)
+    tick = 0
+    for frame in frames:
+        # Update the ball's position every second
+        if tick % 60 == 0:
+            # Mirror ball position for the Ai right's position
+            frame.ball.x = WIDTH - frame.ball.x
+            ai_ball.update(frame.ball, frame.ball.dx * -1, frame.ball.dy)
+
+        # Compare the AI's decision with the player's decision
+        if (Ai_selected.decision(frame.leftPaddle_y, ai_ball, HEIGHT) == frame.playerDecision):
+            Ai_selected.ai_score += 0.5
+        
+        tick += 1
