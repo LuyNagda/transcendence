@@ -2,9 +2,11 @@
 *.env*
 .DS_Store
 .venv
+.vscode/launch.json
 static/
 !transcendence/static/
 !transcendence/static/js/
 transcendence/static/js/main.js
 transcendence/static/js/main.js.map
 node_modules
+ai/myenv/
