@@ -15,11 +15,8 @@ export default class ChatApp {
 	}
 
 	initializeWebSocket() {
-		const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-		const wsUrl = `${protocol}${window.location.host}/ws/chat/`;
-
 		this.wsService = new WSService();
-		this.wsService.initializeConnection('chat', wsUrl);
+		this.wsService.initializeConnection('chat', '/ws/chat/');
 
 		this.wsService.on('chat', 'onMessage', this.handleMessage.bind(this));
 		this.wsService.on('chat', 'onClose', this.handleClose.bind(this));

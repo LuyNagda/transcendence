@@ -1,4 +1,11 @@
-{% extends 'base.html' %} {% load static %} {% block title %}Pong Room{% endblock %} {% block content %} {% block navbar %}{% include "navbar.html" %}{% endblock %}
+{% extends 'base.html' %}
+{% load chat_tags %}
+
+{% block title %}Pong Room{% endblock %}
+
+{% block content %}
+
+{% block navbar %}{% include "navbar.html" %}{% endblock %}
 
 <div id="pong-room" class="container-fluid my-4">
     <header class="text-center my-5">
@@ -23,13 +30,13 @@
                 <div v-if="pongRoom.state === 'PLAYING'">
                     {% include "pong/components/game.html" %}
                 </div>
+                <br><br>
             </div>
         </div>
     </main>
 </div>
 
 {% block footer %}{% include "footer.html" %}{% endblock %}
-
 <style>
     @media (max-width: 768px) {
         main {
@@ -41,5 +48,4 @@
         }
     }
 </style>
-
 {{ room_id|json_script:"room-id" }} {{ current_user|json_script:"current-user-data" }} {% endblock %}

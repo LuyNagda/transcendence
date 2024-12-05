@@ -6,13 +6,14 @@ from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 from django.db import models
 import uuid
-import logging
+import logging, json
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.db import IntegrityError
 from django.utils import timezone
 from django.urls import reverse
 from rest_framework.response import Response
+from django.core.serializers.json import DjangoJSONEncoder
 
 User = get_user_model()
 
@@ -41,7 +42,7 @@ def game_history(request):
     ).order_by('created_at')
     return render(request, 'pong/game_history.html', {'games': games, 'access_token': access_token, 'refresh_token': refresh_token})
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def create_pong_room(request):
     try:
@@ -52,15 +53,38 @@ def create_pong_room(request):
             mode=PongRoom.Mode.CLASSIC
         )
         room.players.add(request.user)
+        logger.info(f"Room created with ID {room_id} by user {request.user.username}")
         
-        url = reverse('pong_room', kwargs={'room_id': room_id})
-        return Response({'status': 'success', 'url': url})
+        # Create initial room state
+        room_data = {
+            'id': room_id,
+            'mode': room.mode,
+            'owner': {
+                'id': room.owner.id,
+                'username': room.owner.username,
+            },
+            'players': [{
+                'id': request.user.id,
+                'username': request.user.username,
+            }],
+            'pendingInvitations': [],
+            'maxPlayers': room.max_players,
+            'state': room.state,
+            'currentUser': {
+                'id': request.user.id,
+                'username': request.user.username,
+            },
+            'availableSlots': room.max_players - 1
+        }
+        
+        json_data = json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
+        return render(request, 'pong/pong_room_partial.html', {
+            'room_id': room_id,
+            'pongRoom': json_data
+        })
     except Exception as e:
-        logger.error(f"Erreur lors de la création de la salle : {str(e)}")
-        return Response({
-            'status': 'error',
-            'message': 'Impossible de créer la salle'
-        }, status=500)
+        logger.error(f"Error creating room: {str(e)}")
+        return JsonResponse({'status': 'error'})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -88,14 +112,41 @@ def pong_game(request, game_id):
 @permission_classes([IsAuthenticatedWithCookie])
 def pong_room_view(request, room_id):
     room = get_object_or_404(PongRoom, room_id=room_id)
+    
+    # Create room state data
+    room_data = {
+        'id': room_id,
+        'mode': room.mode,
+        'owner': {
+            'id': room.owner.id,
+            'username': room.owner.username,
+        },
+        'players': [{
+            'id': player.id,
+            'username': player.username,
+        } for player in room.players.all()],
+        'pendingInvitations': [{
+            'id': user.id,
+            'username': user.username,
+        } for user in room.pending_invitations.all()],
+        'maxPlayers': room.max_players,
+        'state': room.state,
+        'currentUser': {
+            'id': request.user.id,
+            'username': request.user.username,
+        },
+        'availableSlots': room.max_players - room.players.count()
+    }
+    
+    json_data = json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
     return render(request, 'pong/pong_room.html', {
         'room_id': room_id,
+        'pongRoom': json_data,
         'current_user': {
             'id': request.user.id,
             'username': request.user.username,
-            'email': request.user.email,
         }
-    })
+    }) 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -151,3 +202,40 @@ def start_ai_game(request, room_id):
     game = PongGame.objects.create(room=room, player1=player1, player2_is_ai=True, status=PongGame.Status.ONGOING)
     logger.info(f"Partie AI créée avec succès. ID de la partie : {game.id}")
     return redirect('pong_game', game_id=game.id)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedWithCookie])
+def pong_room_state(request, room_id):
+    room = get_object_or_404(PongRoom, room_id=room_id)
+    room_data = {
+        'id': room_id,
+        'mode': room.mode,
+        'owner': {
+            'id': room.owner.id,
+            'username': room.owner.username,
+        },
+        'players': [{
+            'id': player.id,
+            'username': player.username,
+        } for player in room.players.all()],
+        'pendingInvitations': [{
+            'id': user.id,
+            'username': user.username,
+        } for user in room.pending_invitations.all()],
+        'maxPlayers': room.max_players,
+        'state': room.state,
+        'currentUser': {
+            'id': request.user.id,
+            'username': request.user.username,
+        },
+        'availableSlots': room.max_players - room.players.count()
+    }
+    
+    # Ensure proper JSON encoding without extra whitespace
+    json_data = json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
+    logger.info(f"Sending room state JSON (length: {len(json_data)}): {json_data[:200]}...")
+    
+    return render(request, 'pong/components/room_state.html', {
+        'room_id': room_id,
+        'pongRoom': json_data
+    })
