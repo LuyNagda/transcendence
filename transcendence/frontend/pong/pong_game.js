@@ -3,10 +3,11 @@ import WSService from "../utils/WSService.js";
 import WebGLConsole from "./pong_webgl.js";
 
 export class PongGame {
-  constructor(gameId, currentUser, isHost) {
+  constructor(gameId, currentUser, isHost, useWebGL) {
     this._gameId = gameId;
     this._currentUser = currentUser;
     this._isHost = isHost;
+    this._useWebGL = useWebGL;
     this._isConnected = false;
     this._peer = null;
     this._dataChannel = null;
@@ -50,8 +51,7 @@ export class PongGame {
     this.handleKeyUp = this.handleKeyUp.bind(this);
     this.gameLoop = this.gameLoop.bind(this);
 
-    // Instantiate WebGLConsole
-    this.webglConsole = new WebGLConsole();
+    this.webglConsole = null;
   }
 
   // Méthode pour démarrer la connexion
@@ -59,25 +59,60 @@ export class PongGame {
     try {
       logger.info(`Connecting to game ${this._gameId} as ${this._isHost ? 'host' : 'guest'}`);
 
-      // Initialiser le WebSocket
-      this.initializeWebSocket();
+      if (!this._gameId)
+        throw new Error('Game ID is required');
 
-      // Configurer le canvas et les contrôles
+      await new Promise((resolve, reject) => {
+        this.initializeWebSocket();
+
+        const timeout = setTimeout(() => {
+          reject(new Error('WebSocket connection timeout'));
+        }, 5000);
+
+        this.wsService.once('pongGame', 'onOpen', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+
+        this.wsService.once('pongGame', 'onError', (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
+
+      // Setup basic canvas first
       this.setupCanvas();
       this.setupGameControls();
 
-      // Initialize WebGLConsole
-      this.webglConsole.initializeWebGL();
-
-      // Si c'est l'hôte, initialiser WebRTC immédiatement
-      if (this._isHost) {
-        logger.info("Host initializing WebRTC connection");
-        await this.initializeWebRTC();
+      // Initialize WebGL only if it was enabled at game start
+      if (this._useWebGL) {
+        try {
+          this.webglConsole = new WebGLConsole();
+          const success = this.webglConsole.initializeWebGL();
+          if (!success) {
+            logger.warn("WebGL initialization failed, falling back to 2D canvas");
+            this._useWebGL = false;
+          }
+        } catch (error) {
+          logger.error("WebGL error:", error);
+          this._useWebGL = false;
+        }
       }
+
+      // WebRTC implementation
+      // if (this._isHost) {
+      //   logger.info("Host initializing WebRTC connection");
+      //   await this.initializeWebRTC();
+      // }
+
+      // Set connected state directly instead of waiting for WebRTC
+      this._isConnected = true;
+      this.startGameLoop();
 
       return true;
     } catch (error) {
       logger.error('Error connecting to game:', error);
+      this.destroy();
       return false;
     }
   }
@@ -92,34 +127,47 @@ export class PongGame {
   }
 
   initializeWebSocket() {
-    const wsUrl = `ws://${window.location.host}/ws/pong_game/${this._gameId}/`;
     this.wsService = new WSService();
-    this.wsService.initializeConnection('pongGame', wsUrl);
+    this.wsService.initializeConnection('pongGame', `/ws/pong_game/${this._gameId}/`);
 
     this.wsService.on('pongGame', 'onMessage', this.handleWebSocketMessage.bind(this));
     this.wsService.on('pongGame', 'onClose', this.handleWebSocketClose.bind(this));
     this.wsService.on('pongGame', 'onOpen', () => {
-      logger.info('WebSocket connection established');
-      // Signaler que le joueur est prêt
-      this.wsService.send('pongGame', { type: 'player_ready' });
+      logger.info(`WebSocket connection established for game ${this._gameId}`);
+      // Send player ready message with additional info
+      this.wsService.send('pongGame', {
+        type: 'player_ready',
+        gameId: this._gameId,
+        userId: this._currentUser.id,
+        isHost: this._isHost
+      });
     });
   }
 
   handleWebSocketMessage(data) {
     if (data.type === 'player_ready') {
-      // Un autre joueur est prêt, on peut démarrer la connexion P2P
+      // WebRTC implementation - Un autre joueur est prêt, on peut démarrer la connexion P2P
       if (this._isHost && !this._peer) {
         this.initializeWebRTC();
+      } else if (data.type === 'webrtc_signal') {
+        this.handleWebRTCSignal(data.signal);
       }
-    } else if (data.type === 'webrtc_signal') {
-      this.handleWebRTCSignal(data.signal);
+
+      // Check if AI mode is enabled and adjust max players
+      if (data.is_ai_opponent) {
+        this._gameState.maxPlayers = 1;
+        this._gameState.availableSlots = 0;
+      }
     } else if (data.type === 'player_disconnected') {
       this.handlePlayerDisconnected(data.user_id);
     }
   }
 
-  handleWebSocketClose() {
-    logger.warn('WebSocket connection closed');
+  handleWebSocketClose(event) {
+    logger.warn('WebSocket connection closed', event);
+    if (event.code === 4004) {
+      logger.error('Invalid game ID provided for WebSocket connection');
+    }
     this.destroy();
   }
 
@@ -130,13 +178,22 @@ export class PongGame {
   }
 
   setupGameControls() {
-    // Utiliser les méthodes liées
-    document.addEventListener('keydown', this.handleKeyDown);
-    document.addEventListener('keyup', this.handleKeyUp);
+    logger.info('Setting up game controls');
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
   }
 
   handleKeyDown(e) {
-    if (!this._isConnected) return;
+    if (['w', 's', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+      e.preventDefault();
+    }
+
+    logger.debug(`Key pressed: ${e.key}`);
+
+    if (!this._isConnected) {
+      logger.debug('Not connected, ignoring key press');
+      return;
+    }
 
     const paddleMove = {
       type: 'paddle_move',
@@ -153,6 +210,7 @@ export class PongGame {
     }
 
     if (paddleMove.direction) {
+      logger.debug(`Sending paddle move: ${paddleMove.direction}`);
       this.sendGameMessage(paddleMove);
       this.updatePaddleMovement(paddleMove);
     }
@@ -285,16 +343,19 @@ export class PongGame {
     this.bufferContext.fillStyle = '#000';
     this.bufferContext.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Dessiner les raquettes
+    // Draw paddles
     this.bufferContext.fillStyle = '#fff';
     this.drawPaddle(this._gameState.leftPaddle);
     this.drawPaddle(this._gameState.rightPaddle);
 
-    // Dessiner la balle
+    // Draw ball
     this.bufferContext.fillStyle = '#fff';
     this.drawBall(this._gameState.ball);
 
-    this.context.drawImage(this.bufferCanvas, 0, 0);
+    if (this._useWebGL && this.webglConsole)
+      this.webglConsole.updateWebGLTexture(this.bufferCanvas);
+    else
+      this.context.drawImage(this.bufferCanvas, 0, 0);
   }
 
   drawPaddle(paddle) {
@@ -352,14 +413,16 @@ export class PongGame {
 
   setupDataChannel() {
     this._dataChannel.onopen = () => {
-      logger.info('Canal de données P2P ouvert');
+      logger.info('P2P data channel opened');
       this._isConnected = true;
+      logger.debug(`Connection state after data channel open: ${this._isConnected}`);
       this.startGameLoop();
     };
 
     this._dataChannel.onclose = () => {
-      logger.info('Canal de données P2P fermé');
+      logger.info('P2P data channel closed');
       this._isConnected = false;
+      logger.debug(`Connection state after data channel close: ${this._isConnected}`);
     };
 
     this._dataChannel.onmessage = (event) => {
@@ -423,9 +486,11 @@ export class PongGame {
   // Utiliser cette vérification dans les méthodes critiques
   sendGameMessage(message) {
     if (!this.checkConnectionState()) return;
-
-    if (this._isConnected && this._dataChannel) {
-      this._dataChannel.send(JSON.stringify(message));
+    // if (this._isConnected && this._dataChannel) {
+    //   this._dataChannel.send(JSON.stringify(message));
+    // }
+    if (this._isConnected && this.wsService) {
+      this.wsService.send('pongGame', message);
     }
   }
 
@@ -453,12 +518,26 @@ export class PongGame {
       logger.error('Invalid game state received');
       return;
     }
-    this._gameState = state;
+
+    const timestamp = Date.now();
+    if (timestamp < this._gameState.lastUpdateTimestamp) {
+      logger.warn("Received outdated game state, ignoring");
+      return;
+    }
+
+    this._gameState = {
+      ...state,
+      lastUpdateTimestamp: timestamp
+    };
+
     this.drawGame();
   }
 
   destroy() {
     this._gameLoopStarted = false;
+    if (this.webglConsole) {
+      this.webglConsole = null;
+    }
     if (this._peer) {
       this._peer.close();
       this._peer = null;
@@ -470,8 +549,8 @@ export class PongGame {
     if (this.wsService) {
       this.wsService.destroy('pongGame');
     }
-    document.removeEventListener('keydown', this.handleKeyDown);
-    document.removeEventListener('keyup', this.handleKeyUp);
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
   }
 
   handleGameEnd() {

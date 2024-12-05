@@ -10,7 +10,7 @@ export default class WSService {
 		this.send = this.send.bind(this);
 	}
 
-	initializeConnection(name, url) {
+	initializeConnection(name, endpoint) {
 		if (this.connections[name]) {
 			logger.warn(`WebSocket connection '${name}' already exists.`);
 			return;
@@ -26,10 +26,18 @@ export default class WSService {
 		};
 		this.reconnectAttempts[name] = 0;
 
+		const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+		const url = `${protocol}${window.location.host}${endpoint}`;
+
 		this.connect(name, url);
 	}
 
 	connect(name, url) {
+		if (!this.callbacks[name]) {
+			logger.error(`Callbacks not initialized for connection '${name}'`);
+			return;
+		}
+
 		this.connections[name] = new WebSocket(url);
 		this.connections[name].onopen = () => {
 			logger.info(`WebSocket '${name}' connected`);
@@ -93,6 +101,32 @@ export default class WSService {
 			this.callbacks[name][event].push(callback);
 		} else {
 			logger.error(`Invalid event type or connection name: ${event}, ${name}`);
+		}
+	}
+
+	once(name, event, callback) {
+		if (!this.callbacks[name] || !this.callbacks[name][event]) {
+			logger.error(`Invalid event type or connection name: ${event}, ${name}`);
+			return;
+		}
+
+		const wrappedCallback = (...args) => {
+			this.off(name, event, wrappedCallback);
+			callback(...args);
+		};
+
+		this.callbacks[name][event].push(wrappedCallback);
+	}
+
+	off(name, event, callback) {
+		if (!this.callbacks[name] || !this.callbacks[name][event]) {
+			logger.error(`Invalid event type or connection name: ${event}, ${name}`);
+			return;
+		}
+
+		const index = this.callbacks[name][event].indexOf(callback);
+		if (index !== -1) {
+			this.callbacks[name][event].splice(index, 1);
 		}
 	}
 

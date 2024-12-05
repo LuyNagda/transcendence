@@ -3,27 +3,104 @@ import logger from "../utils/logger.js";
 import WSService from "../utils/WSService.js";
 import { PongGame } from "./pong_game.js";
 
+// Initialize dynamic render immediately
+dynamicRender.initialize();
+
+// Create a global PongRoom state manager
+class PongRoomManager {
+    constructor() {
+        this.instance = null;
+        logger.info("PongRoomManager initialized");
+    }
+
+    initialize(roomState) {
+        logger.info("PongRoomManager.initialize called with state:", roomState);
+
+        if (!this.instance) {
+            logger.info("Creating new PongRoom instance");
+            this.instance = new PongRoom(roomState.id, roomState.currentUser);
+            logger.info("Adding PongRoom to observed objects");
+            dynamicRender.addObservedObject('pongRoom', this.instance);
+        }
+
+        logger.info("Updating PongRoom state");
+        this.instance.updateFromState(roomState);
+
+        logger.info("Current observed objects:", {
+            keys: Array.from(dynamicRender.observedObjects.keys()),
+            pongRoomExists: dynamicRender.observedObjects.has('pongRoom')
+        });
+
+        this.instance.setStarted(false);
+    }
+}
+
+// Create global instance
+window.pongRoomManager = new PongRoomManager();
+
+// HTMX initialization function
+window.initializePongRoomData = function (roomState) {
+    logger.info("initializePongRoomData called");
+    if (!roomState || !roomState.roomId) {
+        logger.error("Invalid room state:", roomState);
+        return;
+    }
+    window.pongRoomManager.initialize(roomState);
+};
+
+// Add HTMX event listener for before content swap
+document.body.addEventListener('htmx:beforeSwap', function (event) {
+    logger.info("htmx:beforeSwap event fired");
+    try {
+        // Create a temporary div to parse the HTML string
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = event.detail.serverResponse;
+
+        // Look for the room state data
+        const roomStateScript = tempDiv.querySelector('#room-state-data');
+        if (roomStateScript) {
+            logger.info("Found room state script");
+            const roomState = JSON.parse(roomStateScript.textContent.trim());
+            logger.info("Parsed room state:", roomState);
+            window.pongRoomManager.initialize(roomState);
+        }
+    } catch (error) {
+        logger.error("Error processing beforeSwap:", error);
+    }
+});
+
 export class PongRoom {
     constructor(roomId, currentUser) {
+        if (!roomId) {
+            const roomIdElement = document.getElementById('room-id');
+            if (roomIdElement) {
+                roomId = JSON.parse(roomIdElement.textContent);
+            }
+            if (!roomId) {
+                throw new Error('Room ID is required');
+            }
+        }
+
         this._roomId = roomId;
         this._currentUser = currentUser;
-        this._mode = "";
+        this._mode = 'CLASSIC';
         this._owner = {};
         this._players = [];
         this._pendingInvitations = [];
         this._maxPlayers = 0;
         this._state = "LOBBY";
         this._pongGame = null;
+        this._useWebGL = false;
 
         this.initializeWebSocket();
+        this.initializeEventListeners();
         logger.info(`PongRoom instance created for room ${roomId}`);
         this.logCurrentState();
     }
 
     initializeWebSocket() {
-        const wsUrl = `ws://${window.location.host}/ws/pong_room/${this._roomId}/`;
         this.wsService = new WSService();
-        this.wsService.initializeConnection('pongRoom', wsUrl);
+        this.wsService.initializeConnection('pongRoom', `/ws/pong_room/${this._roomId}/`);
 
         this.wsService.on('pongRoom', 'onMessage', this.handleWebSocketMessage.bind(this));
         this.wsService.on('pongRoom', 'onClose', this.handleWebSocketClose.bind(this));
@@ -31,40 +108,26 @@ export class PongRoom {
         this.wsService.on('pongRoom', 'onError', this.handleWebSocketError.bind(this));
     }
 
-    // Getters
-    get roomId() {
-        return this._roomId;
-    }
-    get mode() {
-        return this._mode;
-    }
-    get owner() {
-        return this._owner;
-    }
-    get players() {
-        return this._players;
-    }
-    get pendingInvitations() {
-        return this._pendingInvitations;
-    }
-    get maxPlayers() {
-        return this._maxPlayers;
-    }
-    get availableSlots() {
-        return this._maxPlayers - this._players.length - this._pendingInvitations.length;
-    }
-    get state() {
-        return this._state;
-    }
-    get currentUser() {
-        return this._currentUser;
+    initializeEventListeners() {
+        // Use event delegation to handle dynamically added buttons
+        document.addEventListener('click', (event) => {
+            if (event.target && event.target.id === 'startGameBtn') {
+                this.startGame();
+            }
+        });
     }
 
-    changeMode(event) {
-        const newMode = event.target.value;
-        logger.info(`Changing mode to ${newMode}`);
-        this.updateMode(newMode);
-    }
+    // Getters
+    get roomId() { return this._roomId; }
+    get mode() { return this._mode; }
+    get owner() { return this._owner; }
+    get players() { return this._players; }
+    get pendingInvitations() { return this._pendingInvitations; }
+    get maxPlayers() { return this._maxPlayers; }
+    get availableSlots() { return this._maxPlayers - this._players.length - this._pendingInvitations.length; }
+    get state() { return this._state; }
+    get currentUser() { return this._currentUser; }
+    get useWebGL() { return this._useWebGL; }
 
     updateMode(value) {
         if (this._mode !== value) {
@@ -122,6 +185,7 @@ export class PongRoom {
         }
     }
 
+    // WebSocket event handlers
     handleWebSocketMessage(data) {
         logger.debug("WebSocket message received:", data);
 
@@ -136,16 +200,39 @@ export class PongRoom {
     async handleGameStarted(data) {
         logger.info("Game started event received", data);
 
-        // Si nous n'avons pas déjà une instance de jeu (cas du non-hôte)
-        if (!this._pongGame) {
-            const isHost = this._currentUser.id === data.player1_id;
-            this._pongGame = new PongGame(data.game_id, this._currentUser, isHost);
-            await this._pongGame.connect();
+        // Create new game instance with WebGL preference
+        const isHost = this._currentUser.id === data.player1_id;
+        this._pongGame = new PongGame(data.game_id, this._currentUser, isHost, this._useWebGL);
+
+        // Add delay and retry logic for connection
+        let retryCount = 0;
+        const maxRetries = 3;
+        const retryDelay = 1000; // 1 second
+
+        while (retryCount < maxRetries) {
+            try {
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                await this._pongGame.connect();
+                this.setStarted(true);
+                break;
+            } catch (error) {
+                retryCount++;
+                const shouldRetry = this.handleConnectionError(error.code);
+                if (!shouldRetry || retryCount === maxRetries) {
+                    logger.error("Max retry attempts reached for game connection");
+                    this._pongGame = null;
+                    this.updateState('LOBBY');
+                    return;
+                }
+            }
         }
 
-        // Mettre à jour l'interface utilisateur
+        // Update UI state
+        this.setStarted(true);
         this.updateState('PLAYING');
         dynamicRender.scheduleUpdate();
+        if (this._pongGame)
+            this._pongGame.startGameLoop();
     }
 
     handleWebSocketClose(event) {
@@ -162,16 +249,21 @@ export class PongRoom {
     }
 
     notifyUpdate(property, value) {
-        this.sendMessage("update_property", { property: property, value: value });
+        this.sendMessage("update_property", { property, value });
     }
 
     sendMessage(action, data = {}) {
-        const message = {
-            action: action,
-            ...data,
-        };
+        const message = { action, ...data };
         logger.info(`Sending WebSocket message: ${JSON.stringify(message)}`);
         this.wsService.send('pongRoom', message);
+    }
+
+    // User actions
+    changeMode(event) {
+        const newMode = event.target.value;
+        logger.debug('Setting mode from', this.mode, 'to', newMode);
+        this.updateMode(newMode);
+        this.sendMessage('update_property', { property: 'mode', value: newMode });
     }
 
     inviteFriend(friendId) {
@@ -187,74 +279,62 @@ export class PongRoom {
     }
 
     async startGame() {
-        logger.info("startGame method called");
         try {
-            logger.info("Starting game...");
-            if (this._players.length < 2) {
-                logger.error("Cannot start game: not enough players");
-                return null;
-            }
-
-            // Demander au serveur de créer la partie
-            const response = await this.wsService.send('pongRoom', {
-                action: 'start_game'
-            });
-
-            if (response.status === 'success') {
-                logger.info(`Game created with ID: ${response.game_id}`);
-
-                // Créer l'instance de PongGame immédiatement pour l'hôte
-                const isHost = this._currentUser.id === response.player1_id;
-                this._pongGame = new PongGame(response.game_id, this._currentUser, isHost);
-
-                // Initialiser la connexion P2P
-                await this._pongGame.connect();
-
-                // Mettre à jour l'état de la room
-                this.updateState('PLAYING');
-
-                return response.game_id;
-            } else {
-                logger.error('Failed to create game:', response.message);
-                return null;
-            }
+            this._useWebGL = document.getElementById('webgl-toggle')?.checked || false;
+            this.sendMessage('start_game', { id: Date.now() });
+            this.setLoading(true);
         } catch (error) {
-            logger.error('Error starting game:', error);
-            return null;
+            console.error('Error sending start game request:', error);
+            this.setLoading(false);
         }
     }
 
     updateFromState(roomState) {
+        logger.info("updateFromState called with:", roomState);
         let hasChanged = false;
 
-        if (this._mode !== roomState.mode) {
-            this._mode = roomState.mode;
-            hasChanged = true;
-        }
-        if (this._owner.id !== roomState.owner.id) {
-            this._owner = roomState.owner;
-            hasChanged = true;
-        }
-        if (JSON.stringify(this._players.map(p => p.id)) !== JSON.stringify(roomState.players.map(p => p.id))) {
-            this._players = roomState.players;
-            hasChanged = true;
-        }
-        if (JSON.stringify(this._pendingInvitations) !== JSON.stringify(roomState.pending_invitations)) {
-            this._pendingInvitations = roomState.pending_invitations;
-            hasChanged = true;
-        }
-        if (this._maxPlayers !== roomState.max_players) {
-            this._maxPlayers = roomState.max_players;
-            hasChanged = true;
-        }
-        if (this._state !== roomState.state) {
-            this._state = roomState.state;
-            hasChanged = true;
-        }
+        const logChange = (property, oldValue, newValue) => {
+            logger.info(`Property ${property} changed:`, { old: oldValue, new: newValue });
+        };
+
+        // Check and update each property
+        const updates = [
+            { prop: '_mode', value: roomState.mode },
+            { prop: '_owner', value: roomState.owner, compare: (a, b) => a.id === b.id },
+            {
+                prop: '_players', value: roomState.players, compare: (a, b) =>
+                    JSON.stringify(a.map(p => p.id)) === JSON.stringify(b.map(p => p.id))
+            },
+            {
+                prop: '_pendingInvitations', value: roomState.pendingInvitations,
+                compare: (a, b) => JSON.stringify(a) === JSON.stringify(b)
+            },
+            { prop: '_maxPlayers', value: roomState.maxPlayers },
+            { prop: '_state', value: roomState.state }
+        ];
+
+        updates.forEach(({ prop, value, compare }) => {
+            if (compare ? !compare(this[prop], value) : this[prop] !== value) {
+                logChange(prop, this[prop], value);
+                this[prop] = value;
+                hasChanged = true;
+            }
+        });
+
         if (hasChanged) {
-            logger.info("PongRoom - State has changed");
+            logger.info("PongRoom state has changed, current state:", {
+                mode: this._mode,
+                owner: this._owner,
+                players: this._players,
+                pendingInvitations: this._pendingInvitations,
+                maxPlayers: this._maxPlayers,
+                state: this._state,
+                currentUser: this._currentUser
+            });
             this.logCurrentState();
             dynamicRender.scheduleUpdate();
+        } else {
+            logger.info("No state changes detected");
         }
     }
 
@@ -269,7 +349,7 @@ export class PongRoom {
     }
 
     logCurrentState() {
-        logger.info("PongRoom - État actuel :", {
+        logger.info("PongRoom - Current state:", {
             roomId: this._roomId,
             mode: this._mode,
             owner: this._owner,
@@ -281,4 +361,37 @@ export class PongRoom {
             currentUser: this._currentUser
         });
     }
+
+    setLoading(isLoading) {
+        const startButton = document.querySelector('#startGameBtn');
+        if (startButton) {
+            startButton.disabled = isLoading;
+            startButton.textContent = isLoading ? 'Starting...' : 'Start Game';
+        }
+    }
+
+    setStarted(isStarted) {
+        const startButton = document.querySelector('#startGameBtn');
+        if (startButton) {
+            startButton.disabled = isStarted;
+            startButton.textContent = isStarted ? 'Started' : 'Start Game';
+        }
+    }
+
+    // Add helper method for connection error handling
+    handleConnectionError(code) {
+        const errorMessages = {
+            4001: "Authentication failed. Please refresh the page and try again.",
+            4003: "You are not authorized to join this game.",
+            4004: "Game not found. It may have been deleted.",
+            1006: "Connection closed abnormally. Will retry..."
+        };
+
+        const message = errorMessages[code] || `Connection failed with code ${code}`;
+        logger.error(message);
+
+        return code === 1006; // Only retry on abnormal closure
+    }
 }
+
+export default PongRoom;

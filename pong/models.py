@@ -59,11 +59,17 @@ class PongRoom(models.Model):
 
     @property
     def max_players(self):
-        if self.mode == self.Mode.TOURNAMENT:
+        if self.mode == self.Mode.AI:
+            return 1
+        elif self.mode == self.Mode.TOURNAMENT:
             return 8
         else:
             return 2
 
     def save(self, *args, **kwargs):
-        self.mode = self.mode.upper()
+        if self.mode:
+            self.mode = self.mode.upper()
+            if self.mode not in dict(self.Mode.choices):
+                raise ValueError(f"Invalid mode: {self.mode}")
         super().save(*args, **kwargs)
+
