@@ -1,18 +1,14 @@
+import logging, json, uuid
+from django.core.serializers.json import DjangoJSONEncoder
+from django.db import models
 from django.shortcuts import get_object_or_404, redirect, render
 from django.http import JsonResponse
-from .models import PongGame, PongRoom
 from django.contrib.auth import get_user_model
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
-from django.db import models
-import uuid
-import logging
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
-from django.db import IntegrityError
-from django.utils import timezone
-from django.urls import reverse
-from rest_framework.response import Response
+from .models import PongGame, PongRoom
 
 User = get_user_model()
 
@@ -41,7 +37,7 @@ def game_history(request):
     ).order_by('created_at')
     return render(request, 'pong/game_history.html', {'games': games, 'access_token': access_token, 'refresh_token': refresh_token})
 
-@api_view(['GET', 'POST'])
+@api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def create_pong_room(request):
     try:
@@ -53,20 +49,16 @@ def create_pong_room(request):
         )
         room.players.add(request.user)
         logger.info(f"Room created with ID {room_id} by user {request.user.username}")
-        return render(request, 'pong/pong_room_partial.html', {'room_id': room_id})
+        room_data = room.serialize()
+        room_data['currentUser'] = request.user.player_data
+        json_data = json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
+        return render(request, 'pong/pong_room_partial.html', {
+            'room_id': room_id,
+            'pongRoom': json_data
+        })
     except Exception as e:
-        logger.error(f"Erreur lors de la création de la salle : {str(e)}")
-        logger.error(f"Error creating room for user {request.user.username}")
+        logger.error(f"Error creating room: {str(e)}")
         return JsonResponse({'status': 'error'})
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticatedWithCookie])
-def update_pong_game_state(request, game_id):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
-    game = get_object_or_404(PongGame, id=game_id)
-    # Logique pour mettre à jour l'état du jeu
-    return JsonResponse({'status': 'updated', 'access_token': access_token, 'refresh_token': refresh_token})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -84,15 +76,23 @@ def pong_game(request, game_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def pong_room_view(request, room_id):
-    room = get_object_or_404(PongRoom, room_id=room_id)
-    return render(request, 'pong/pong_room.html', {
-        'room_id': room_id,
-        'current_user': {
-            'id': request.user.id,
-            'username': request.user.username,
-            'email': request.user.email,
-        }
-    })
+    try:
+        room = get_object_or_404(PongRoom, room_id=room_id)
+        logger.info(f"Accessing room with ID {room_id} by user {request.user.username}")
+        room_data = room.serialize()
+        room_data['currentUser'] = request.user.player_data
+        json_data = json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
+        return render(request, 'pong/pong_room.html', {
+            'room_id': room_id,
+            'pongRoom': json_data,
+            'current_user': {
+                'id': request.user.id,
+                'username': request.user.username,
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error accessing room: {str(e)}")
+        return JsonResponse({'status': 'error'})
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -135,16 +135,25 @@ def invite_friends(request, room_id):
 
 def get_max_players_for_mode(mode):
     if mode == 'TOURNAMENT':
-        return 8  # ou le nombre maximum de joueurs pour un tournoi
+        return 8  # Or maximum players for tournament mode
+    elif mode == 'AI':
+        return 1
     else:
-        return 2  # pour les modes CLASSIC et RANKED
+        return 2  # For CLASSIC and RANKED modes
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
-def start_ai_game(request, room_id):
-    logger.info(f"Requête reçue pour démarrer une partie AI dans la salle {room_id} par l'utilisateur {request.user.username}")
-    room = get_object_or_404(PongRoom, room_id=room_id)
-    player1 = request.user
-    game = PongGame.objects.create(room=room, player1=player1, player2_is_ai=True, status=PongGame.Status.ONGOING)
-    logger.info(f"Partie AI créée avec succès. ID de la partie : {game.id}")
-    return redirect('pong_game', game_id=game.id)
+def pong_room_state(request, room_id):
+    try:
+        room = get_object_or_404(PongRoom, room_id=room_id)
+        room_data = room.serialize(request.user)
+        room_data['currentUser'] = request.user.player_data
+        json_data = json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
+        logger.info(f"Sending room state JSON (length: {len(json_data)}): {json_data[:200]}...")
+        return render(request, 'pong/components/room_state.html', {
+            'room_id': room_id,
+            'pongRoom': json_data
+        })
+    except Exception as e:
+        logger.error(f"Error getting room state: {str(e)}")
+        return JsonResponse({'error': 'Failed to get room state'}, status=500)

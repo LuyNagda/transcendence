@@ -36,6 +36,7 @@ export default class WebGLConsole {
         this.createSpriteTexture();
         this.createQuadCommand();
         this.startWebGLLoop();
+        return true;
     }
 
     setupCanvas() {
