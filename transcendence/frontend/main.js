@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	RoomService.getInstance();
 	dynamicRender.initialize();
 	initializeChatApp();
-	initializePongRoom(); // Appel initial pour la première charge de page
+	initializePongRoom();
 	initializeThemeButtons();
 	logger.info('Frontend app initialized');
 });

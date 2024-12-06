@@ -234,6 +234,7 @@ export class PongRoom {
 
                 // Initialize and start the game
                 const initialized = await this._pongGame.initialize();
+                this._pongGame.setAIMode(true);
                 if (!initialized) {
                     throw new Error("Game initialization failed");
                 }

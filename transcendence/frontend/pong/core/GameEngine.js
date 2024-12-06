@@ -1,3 +1,5 @@
+import logger from '../../utils/logger';
+
 export class GameEngine {
 	constructor() {
 		this._gameState = null;
@@ -17,6 +19,7 @@ export class GameEngine {
 	start() {
 		if (this._isRunning) return;
 		this._isRunning = true;
+		this._components.get('aiHandler').initialize();
 		this._gameLoop = requestAnimationFrame(this._update.bind(this));
 	}
 
@@ -49,6 +52,10 @@ export class GameEngine {
 		if (this._components.get('controller')) {
 			this._components.get('controller').launchBall();
 		}
+
+		// Update AI
+		if (this._components.get('aiHandler'))
+			this._components.get('aiHandler').update();
 
 		// Update renderer
 		const renderer = this._components.get('renderer');
