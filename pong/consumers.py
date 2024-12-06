@@ -171,7 +171,11 @@ class PongGameConsumer(AsyncWebsocketConsumer):
     async def relay_webrtc_signal(self, event):
         # Vérifier que le signal provient bien d'un des joueurs
         sender_id = event['from_user']
-        if sender_id not in [self.game.player1.id, self.game.player2.id]:
+        valid_player_ids = [self.game.player1.id]
+        if self.game.player2:  # Add player2's ID only if they exist (not AI)
+            valid_player_ids.append(self.game.player2.id)
+
+        if sender_id not in valid_player_ids:
             logger.error(f"Unauthorized WebRTC signal from user {sender_id}")
             return
 

@@ -1,7 +1,7 @@
 import dynamicRender from "../utils/dynamic_render.js";
 import logger from "../utils/logger.js";
 import WSService from "../utils/WSService.js";
-import { PongGame } from "./pong_game.js";
+import { PongGameController } from "./PongGameController.js";
 
 // Initialize dynamic render immediately
 dynamicRender.initialize();
@@ -219,11 +219,11 @@ export class PongRoom {
     async handleGameStarted(data) {
         logger.info("Game started event received", data);
 
-        // Create new game instance with WebGL preference
+        // Create new game instance
         const isHost = this._currentUser.id === data.player1_id;
-        this._pongGame = new PongGame(data.game_id, this._currentUser, isHost, this._useWebGL);
+        this._pongGame = new PongGameController(data.game_id, this._currentUser, isHost, this._useWebGL);
 
-        // Add delay and retry logic for connection
+        // Add delay and retry logic for initialization
         let retryCount = 0;
         const maxRetries = 3;
         const retryDelay = 1000; // 1 second
@@ -231,29 +231,47 @@ export class PongRoom {
         while (retryCount < maxRetries) {
             try {
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
-                await this._pongGame.connect();
+
+                // Initialize and start the game
+                const initialized = await this._pongGame.initialize();
+                if (!initialized) {
+                    throw new Error("Game initialization failed");
+                }
+
+                const started = await this._pongGame.start();
+                if (!started) {
+                    throw new Error("Game start failed");
+                }
+
                 this.setStarted(true);
-                break;
+                this.updateState('PLAYING');
+                dynamicRender.scheduleUpdate();
+                return;
+
             } catch (error) {
                 retryCount++;
-                const shouldRetry = this.handleConnectionError(error.code);
-                if (!shouldRetry || retryCount === maxRetries) {
-                    logger.error("Max retry attempts reached for game connection");
-                    this._pongGame = null;
+                logger.error("Game initialization/start attempt failed:", error);
+
+                if (retryCount === maxRetries) {
+                    logger.error("Max retry attempts reached for game initialization");
+                    if (this._pongGame) {
+                        this._pongGame.destroy();
+                        this._pongGame = null;
+                    }
                     this.updateState('LOBBY');
                     return;
                 }
             }
         }
-
-        this.updateState('PLAYING');
-        dynamicRender.scheduleUpdate();
-        if (this._pongGame)
-            this._pongGame.startGameLoop();
     }
 
     handleWebSocketClose(event) {
-        logger.error("WebSocket closed unexpectedly", event);
+        // Normal closure (1000) or Going Away (1001) are expected during page reload
+        if (event.code !== 1000 && event.code !== 1001) {
+            logger.error("WebSocket closed unexpectedly", event);
+        } else {
+            logger.debug("WebSocket closed normally", event);
+        }
         this._isInitialized = false;
     }
 

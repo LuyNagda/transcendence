@@ -141,7 +141,7 @@ class DynamicRender {
         this.root.querySelectorAll("[v-text]").forEach((el) => {
             const prop = el.getAttribute("v-text");
             el.textContent = this.getPropValue(prop);
-            console.log(`Binding v-text for ${prop}:`, el.textContent); // Log pour le débogage
+            logger.debug(`Binding v-text for ${prop}:`, el.textContent); // Log pour le débogage
         });
     }
 

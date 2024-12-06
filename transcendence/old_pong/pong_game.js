@@ -1,5 +1,5 @@
-import logger from "../utils/logger.js";
-import WSService from "../utils/WSService.js";
+import logger from "../frontend/utils/logger.js";
+import WSService from "../frontend/utils/WSService.js";
 import WebGLConsole from "./pong_webgl.js";
 
 export class PongGame {
@@ -39,12 +39,16 @@ export class PongGame {
       rightScore: 0
     };
 
-    // Configuration WebRTC
+    // Enhanced WebRTC Configuration with TURN servers
     this._rtcConfig = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' }
-      ]
+      iceServers: [{ urls: 'stun:freestun.net:3478' }, { urls: 'turn:freestun.net:3478', username: 'free', credential: 'free' }],
+      iceCandidatePoolSize: 10,
+      iceTransportPolicy: 'all'
     };
+
+    this._pendingCandidates = [];
+    this._isICEGatheringComplete = false;
+    this._hasRemoteDescription = false;
 
     // Lier les méthodes pour éviter les problèmes de contexte
     this.handleKeyDown = this.handleKeyDown.bind(this);
@@ -52,6 +56,13 @@ export class PongGame {
     this.gameLoop = this.gameLoop.bind(this);
 
     this.webglConsole = null;
+
+    // Add state reconciliation properties
+    this._stateBuffer = [];
+    this._lastProcessedStateTimestamp = 0;
+    this._stateSequenceNumber = 0;
+    this._lastConfirmedState = null;
+    this._reconciliationInterval = 100; // ms
   }
 
   // Méthode pour démarrer la connexion
@@ -100,10 +111,8 @@ export class PongGame {
       }
 
       // WebRTC init if it's the host
-      // if (this._isHost) {
-      //   logger.info("Host initializing WebRTC connection");
-      //   await this.initializeWebRTC();
-      // }
+      logger.info("Host initializing WebRTC connection");
+      await this.initializeWebRTC();
 
       // Set connected state directly instead of waiting for WebRTC
       this._isConnected = true;
@@ -360,11 +369,22 @@ export class PongGame {
 
   async initializeWebRTC() {
     try {
+      if (this._peer) {
+        this._peer.close();
+      }
+
+      this._pendingCandidates = [];
+      this._isICEGatheringComplete = false;
+      this._hasRemoteDescription = false;
+
       this._peer = new RTCPeerConnection(this._rtcConfig);
 
-      // Création du canal de données
+      // Set up data channel
       if (this._isHost) {
-        this._dataChannel = this._peer.createDataChannel('gameData');
+        this._dataChannel = this._peer.createDataChannel('gameData', {
+          ordered: true,
+          maxRetransmits: 1
+        });
         this.setupDataChannel();
       } else {
         this._peer.ondatachannel = (event) => {
@@ -373,7 +393,7 @@ export class PongGame {
         };
       }
 
-      // Gestion des candidats ICE
+      // Enhanced ICE candidate handling
       this._peer.onicecandidate = (event) => {
         if (event.candidate) {
           this.wsService.send('pongGame', {
@@ -386,9 +406,35 @@ export class PongGame {
         }
       };
 
-      // Si hôte, créer et envoyer l'offre
+      this._peer.onicegatheringstatechange = () => {
+        logger.info(`ICE gathering state: ${this._peer.iceGatheringState}`);
+        if (this._peer.iceGatheringState === 'complete') {
+          this._isICEGatheringComplete = true;
+          this.processPendingCandidates();
+        }
+      };
+
+      this._peer.oniceconnectionstatechange = () => {
+        logger.info(`ICE connection state: ${this._peer.iceConnectionState}`);
+        if (this._peer.iceConnectionState === 'failed') {
+          this.handleICEFailure();
+        }
+      };
+
+      this._peer.onconnectionstatechange = () => {
+        logger.info(`WebRTC connection state changed to: ${this._peer.connectionState}`);
+        if (this._peer.connectionState === 'failed') {
+          this.handleConnectionFailure();
+        }
+      };
+
+      // Create and send offer if host
       if (this._isHost) {
-        const offer = await this._peer.createOffer();
+        const offer = await this._peer.createOffer({
+          iceRestart: true,
+          offerToReceiveAudio: false,
+          offerToReceiveVideo: false
+        });
         await this._peer.setLocalDescription(offer);
         this.wsService.send('pongGame', {
           type: 'webrtc_signal',
@@ -399,7 +445,8 @@ export class PongGame {
         });
       }
     } catch (error) {
-      logger.error('Erreur WebRTC:', error);
+      logger.error('WebRTC initialization error:', error);
+      throw error;
     }
   }
 
@@ -416,44 +463,127 @@ export class PongGame {
     };
 
     this._dataChannel.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      this.handleGameMessage(data);
+      try {
+        const data = JSON.parse(event.data);
+        this.handleGameMessage(data);
+      } catch (error) {
+        logger.error('Error processing data channel message:', error);
+      }
+    };
+
+    // Add error handler
+    this._dataChannel.onerror = (error) => {
+      logger.error('Data channel error:', error);
+      // Implement fallback strategy if needed
     };
   }
 
   async handleWebRTCSignal(signal) {
     try {
-      // Vérifier que le peer existe
       if (!this._peer) {
         logger.error('Received WebRTC signal but peer connection not initialized');
         return;
       }
 
-      // Vérifier que le signal provient du bon joueur
-      const expectedPeerId = this._isHost ? this.game.player2.id : this.game.player1.id;
-      if (signal.from_user !== expectedPeerId) {
-        logger.error('Received WebRTC signal from unexpected user');
-        return;
-      }
-
       if (signal.type === 'offer') {
-        await this._peer.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-        const answer = await this._peer.createAnswer();
-        await this._peer.setLocalDescription(answer);
+        if (!this._isHost && this._peer.signalingState === 'stable') {
+          await this._peer.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          this._hasRemoteDescription = true;
+          this.processPendingCandidates();
+
+          const answer = await this._peer.createAnswer();
+          await this._peer.setLocalDescription(answer);
+          this.wsService.send('pongGame', {
+            type: 'webrtc_signal',
+            signal: {
+              type: 'answer',
+              sdp: answer
+            }
+          });
+        }
+      }
+      else if (signal.type === 'answer') {
+        if (this._isHost && this._peer.signalingState === 'have-local-offer') {
+          await this._peer.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          this._hasRemoteDescription = true;
+          this.processPendingCandidates();
+        }
+      }
+      else if (signal.type === 'ice_candidate') {
+        await this.handleICECandidate(signal.candidate);
+      }
+    } catch (error) {
+      logger.error('Error handling WebRTC signal:', error);
+      await this.handleSignalingError(error);
+    }
+  }
+
+  async handleICECandidate(candidate) {
+    if (!this._hasRemoteDescription) {
+      // Store candidate for later if remote description isn't set yet
+      this._pendingCandidates.push(candidate);
+      return;
+    }
+
+    try {
+      await this._peer.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (error) {
+      logger.warn('Error adding ICE candidate:', error);
+      // Don't throw - just log the error and continue
+    }
+  }
+
+  async processPendingCandidates() {
+    if (!this._hasRemoteDescription) return;
+
+    while (this._pendingCandidates.length > 0) {
+      const candidate = this._pendingCandidates.shift();
+      try {
+        await this._peer.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+        logger.warn('Error adding pending ICE candidate:', error);
+      }
+    }
+  }
+
+  async handleICEFailure() {
+    logger.warn('ICE connection failed, attempting ICE restart');
+
+    if (this._isHost) {
+      try {
+        const offer = await this._peer.createOffer({ iceRestart: true });
+        await this._peer.setLocalDescription(offer);
         this.wsService.send('pongGame', {
           type: 'webrtc_signal',
           signal: {
-            type: 'answer',
-            sdp: answer
+            type: 'offer',
+            sdp: offer
           }
         });
-      } else if (signal.type === 'answer') {
-        await this._peer.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-      } else if (signal.type === 'ice_candidate') {
-        await this._peer.addIceCandidate(new RTCIceCandidate(signal.candidate));
+      } catch (error) {
+        logger.error('ICE restart failed:', error);
+        await this.handleConnectionFailure();
       }
-    } catch (error) {
-      logger.error('Erreur signal WebRTC:', error);
+    }
+  }
+
+  async handleSignalingError(error) {
+    logger.warn('Attempting to recover from signaling error:', error);
+
+    if (this._peer.signalingState !== 'stable') {
+      try {
+        // Reset the connection if it's in an unstable state
+        await this._peer.setLocalDescription({ type: "rollback" });
+        logger.info('Successfully rolled back signaling state');
+
+        // Reinitialize the connection
+        await this.initializeWebRTC();
+      } catch (recoveryError) {
+        logger.error('Failed to recover from signaling error:', recoveryError);
+        // If recovery fails, destroy and recreate the connection
+        this.destroy();
+        await this.connect();
+      }
     }
   }
 
@@ -466,7 +596,8 @@ export class PongGame {
     const state = this._peer.connectionState;
     if (state === 'failed' || state === 'closed') {
       logger.error(`WebRTC connection in invalid state: ${state}`);
-      this.destroy();
+      // Implement fallback to WebSocket if needed
+      this._isConnected = false;
       return false;
     }
 
@@ -476,10 +607,16 @@ export class PongGame {
   // Utiliser cette vérification dans les méthodes critiques
   sendGameMessage(message) {
     if (!this.checkConnectionState()) return;
-    // if (this._isConnected && this._dataChannel) {
-    //   this._dataChannel.send(JSON.stringify(message));
-    // }
-    if (this._isConnected && this.wsService) {
+
+    // Add sequence number to game state messages
+    if (message.type === 'game_state') {
+      message.sequenceNumber = ++this._stateSequenceNumber;
+    }
+
+    // Use WebRTC data channel for game state if available
+    if (this._useWebRTC && this._dataChannel && this._dataChannel.readyState === 'open') {
+      this._dataChannel.send(JSON.stringify(message));
+    } else {
       this.wsService.send('pongGame', message);
     }
   }
@@ -509,18 +646,70 @@ export class PongGame {
       return;
     }
 
-    const timestamp = Date.now();
-    if (timestamp < this._gameState.lastUpdateTimestamp) {
-      logger.warn("Received outdated game state, ignoring");
-      return;
+    // Buffer states and process them in order
+    this._stateBuffer.push({
+      timestamp: state.timestamp,
+      sequenceNumber: state.sequenceNumber,
+      state: state
+    });
+
+    // Sort buffer by sequence number
+    this._stateBuffer.sort((a, b) => a.sequenceNumber - b.sequenceNumber);
+
+    // Process states in order
+    while (this._stateBuffer.length > 0) {
+      const nextState = this._stateBuffer[0];
+
+      // Skip outdated states
+      if (nextState.sequenceNumber <= this._lastProcessedStateTimestamp) {
+        this._stateBuffer.shift();
+        continue;
+      }
+
+      // Apply state and remove from buffer
+      this._gameState = this.reconcileGameState(nextState.state);
+      this._lastProcessedStateTimestamp = nextState.sequenceNumber;
+      this._stateBuffer.shift();
     }
 
-    this._gameState = {
-      ...state,
-      lastUpdateTimestamp: timestamp
-    };
+    // Cleanup old states (keep last 2 seconds)
+    const twoSecondsAgo = Date.now() - 2000;
+    this._stateBuffer = this._stateBuffer.filter(s => s.timestamp > twoSecondsAgo);
 
     this.drawGame();
+  }
+
+  reconcileGameState(receivedState) {
+    // If this is the first state or we're the guest, just accept it
+    if (!this._lastConfirmedState || !this._isHost) {
+      this._lastConfirmedState = receivedState;
+      return receivedState;
+    }
+
+    // Calculate interpolated state for smooth transitions
+    const interpolatedState = {
+      leftPaddle: this.interpolateObject(this._lastConfirmedState.leftPaddle, receivedState.leftPaddle),
+      rightPaddle: this.interpolateObject(this._lastConfirmedState.rightPaddle, receivedState.rightPaddle),
+      ball: this.interpolateObject(this._lastConfirmedState.ball, receivedState.ball),
+      leftScore: receivedState.leftScore,
+      rightScore: receivedState.rightScore
+    };
+
+    this._lastConfirmedState = receivedState;
+    return interpolatedState;
+  }
+
+  interpolateObject(oldObj, newObj) {
+    const result = {};
+    for (const key in oldObj) {
+      if (typeof oldObj[key] === 'number') {
+        // Smooth transition between old and new values
+        result[key] = oldObj[key] + (newObj[key] - oldObj[key]) * 0.5;
+      } else {
+        result[key] = newObj[key];
+      }
+    }
+    return result;
   }
 
   destroy() {
@@ -555,5 +744,29 @@ export class PongGame {
 
     // Arrêter la boucle de jeu
     this._gameLoopStarted = false;
+  }
+
+  async handleConnectionFailure() {
+    logger.warn('WebRTC connection failed, switching to WebSocket fallback');
+
+    // Close existing WebRTC connections
+    if (this._dataChannel) {
+      this._dataChannel.close();
+    }
+    if (this._peer) {
+      this._peer.close();
+    }
+
+    // Switch to WebSocket-only mode
+    this._useWebRTC = false;
+    this._isConnected = false;
+
+    // Reinitialize WebSocket connection if needed
+    if (!this.wsService.isConnected('pongGame')) {
+      this.initializeWebSocket();
+    }
+
+    // Start game loop using WebSocket
+    this.startGameLoop();
   }
 }
