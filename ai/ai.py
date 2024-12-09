@@ -1,7 +1,9 @@
-import pickle, os, json, multiprocessing
+import os, json, multiprocessing, re
 import numpy as np
-from .gamesimulation import train_predefined, train_normal, train_human
-from .gameconfig import get_game_config
+from django.core.files.storage import default_storage
+from ai.gamesimulation import train_predefined, train_normal, train_human
+from ai.gameconfig import get_game_config
+
 
 NB_INPUTS = 5
 NB_NEURONS_LAYER1 = 6
@@ -16,9 +18,6 @@ class Layer_Dense:
         self.weights = np.random.randn(n_inputs, n_neurons)
         self.biases = np.random.randn(1, n_neurons) * 0.1
         
-        # # Biases are set to 0
-        # self.biases = np.zeros((1, n_neurons))
-    
     def forward(self, inputs):
         # Output are calculate by multiplying each input with theirs weight and then adding the biaises
         self.output = np.dot(inputs, self.weights) + self.biases
@@ -49,6 +48,7 @@ class Neuron_Network:
         self.layer3 = Layer_Dense(nb_layer2_neurons, nb_layer3_neurons)
         self.activation3 = Activation_SoftMax()
         self.ai_score = 0
+        self.sample_gen = 0
 
     def forward(self, inputs):
         self.output = self.layer1.forward(inputs)
@@ -287,6 +287,7 @@ def train_ai(save_file):
             Ai_Sample[Ai_nb].ai_score = point
 
         Save_Best_Ai(Ai_Sample, save_file)
+        backup_file(save_file, j + 1)
         log += log_gen
     
     return log
@@ -302,3 +303,63 @@ def load_Ai(save_file):
         # Load the network data from the saved Ai dictionary
         network.load_from_dict(Ai_dict)
         return network
+
+def backup_file(filename, nb_generation):
+    if(nb_generation % 10 != 0):
+        return
+
+    new_filename = generate_unique_filename(filename, nb_generation)
+
+    try:
+        # Open source file in binary read mode
+        with open(filename, 'rb') as source_file:
+            # Open destination file in binary write mode
+            with open(new_filename, 'wb') as dest_file:
+                # Read and write file contents in chunks to handle large files
+                while True:
+                    chunk = source_file.read(4096)  # Read 4KB at a time
+                    if not chunk:
+                        break
+                    # Save the file with the new name
+                    dest_file.write(chunk)
+
+    except Exception as e:
+        print(f"Save copy error: {e}")
+        return
+
+def generate_unique_filename(filename, nb_generation):
+    """
+    Generate a unique filename by adding version suffixes if the file already exists.
+    
+    :param filename: Original filename
+    :param nb_generation: Generation number to append
+    :return: A unique filename that doesn't exist
+    """
+
+    # Extract the base filename and existing number (if any)
+    match = re.search(r'(.+)_(\d+)(?:_v\d+)?$', filename)
+        # (.+) captures the base filename
+        # _(\d+) captures the underscore and the number
+        # (?:_v\d+)? is a non-capturing group that optionally matches _v followed by one or more digits
+        # $ ensures this pattern is at the end of the filename
+
+    if match:
+        # If file already has a number, increment it
+        base_name = match.group(1)
+        current_number = int(match.group(2))
+        new_number = current_number + nb_generation
+        new_filename = f"{base_name}_{new_number}"
+    else:
+        # If no number exists, append the generation number
+        new_filename = f"{filename}_{nb_generation}"
+    
+    # Check if the file exists, and if so, add version suffixes
+    version = 2
+    original_new_filename = new_filename
+    
+    while os.path.exists(new_filename):
+        # Add or increment version suffix
+        new_filename = f"{original_new_filename}_v{version}"
+        version += 1
+    
+    return new_filename
