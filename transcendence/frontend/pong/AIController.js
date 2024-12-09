@@ -59,6 +59,7 @@ class Layer_Dense {
     }
 }
 
+// Activation with rectified linear unit: negative output are set to 0
 class Activation_ReLU {
     forward(inputs) {
         logger.debug('ReLU activation forward pass starting');
@@ -73,6 +74,7 @@ class Activation_ReLU {
     }
 }
 
+// Activation_SoftMax takes input numbers and normalizes it into a probability distribution
 class Activation_SoftMax {
     forward(inputs) {
         logger.debug('SoftMax activation forward pass starting');
@@ -204,7 +206,7 @@ export class AIController {
         };
     }
 
-    // Save the player's decision only when the ball is coming toward him
+    // Save the player's decision only when the ball is coming toward him and don't miss it
     save_match(set_stats, ball, leftPaddle, playerDecision) {
         if (ball.dx > 0) {
             logger.debug('Ball moving away, skipping state save');
