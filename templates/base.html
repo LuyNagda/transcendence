@@ -12,10 +12,15 @@
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>
 </head>
 
-<body data-user-id="{{ user.id|default:'None' }}" data-debug="{{ debug }}" data-log-level="{{ log_level }}">
-    <main id="content">
+<body class="d-flex flex-column min-vh-100" data-user-id="{{ user.id|default:'None' }}" data-debug="{{ debug }}" data-log-level="{{ log_level }}">
+    <main class="flex-grow-1" id="content">
         {% block content %}{% endblock %}
     </main>
+    {% block footer %}
+    {% if not request.htmx %}
+        {% include "footer.html" %}
+    {% endif %}
+    {% endblock %}
 </body>
 
 <script type="module" src="{% static 'js/main.js' %}"></script>
