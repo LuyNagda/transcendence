@@ -36,6 +36,8 @@ def safe_pickle_load(file_path: str, target_module_name: str = 'ai') -> Optional
         return None
 
 def send_ai_to_front(request, ai_name="bestAI"):
+    # TODO : Voir comment gérer les fichiers avec Django
+    # file_path = "/app/ai/Saved_AI/" + ai_name
     file_path = "./Saved_AI/" + ai_name
     
     try: 

@@ -73,3 +73,15 @@ class PongRoom(models.Model):
                 raise ValueError(f"Invalid mode: {self.mode}")
         super().save(*args, **kwargs)
 
+    def serialize(self):
+        """Returns a dictionary representation of the room state"""
+        return {
+            'id': self.room_id,
+            'mode': self.mode,
+            'owner': self.owner.player_data,
+            'players': [player.player_data for player in self.players.all()],
+            'pendingInvitations': [user.player_data for user in self.pending_invitations.all()],
+            'maxPlayers': self.max_players,
+            'state': self.state,
+            'availableSlots': self.max_players - self.players.count()
+        }

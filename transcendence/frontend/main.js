@@ -6,7 +6,6 @@ import RoomService from './RoomService.js';
 import ChatApp from './chat/ChatApp.js';
 import dynamicRender from './utils/dynamic_render.js';
 import { PongRoom } from './pong/pong_room.js';
-import { PongGame } from './pong/pong_game.js';
 
 function initializeChatApp() {
 	try {
@@ -26,10 +25,6 @@ function initializePongRoom() {
 		const pongRoom = new PongRoom(roomId, currentUser);
 		dynamicRender.addObservedObject('pongRoom', pongRoom);
 		logger.info('PongRoom initialized successfully');
-
-		const pongGame = new PongGame(roomId, currentUser, true); // Current user is host
-		pongGame.connect();
-		logger.info('PongGame initialized successfully');
 	}
 }
 
@@ -37,7 +32,6 @@ function initializeThemeButtons() {
 	document.getElementById('light')?.addEventListener('click', () => applyTheme('light'));
 	document.getElementById('dark')?.addEventListener('click', () => applyTheme('dark'));
 	document.getElementById('highContrast')?.addEventListener('click', () => applyTheme('high-contrast'));
-
 	document.getElementById('toggleFontSizeBtn')?.addEventListener('change', (e) => {
 		applyFontSize(e.target.checked ? 'large' : 'small');
 	});
@@ -52,15 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
 	RoomService.getInstance();
 	dynamicRender.initialize();
 	initializeChatApp();
-	initializePongRoom(); // Appel initial pour la première charge de page
+	initializePongRoom();
+	initializeThemeButtons();
 	logger.info('Frontend app initialized');
-
-	document.getElementById('light')?.addEventListener('click', () => applyTheme('light'));
-	document.getElementById('dark')?.addEventListener('click', () => applyTheme('dark'));
-	document.getElementById('highContrast')?.addEventListener('click', () => applyTheme('high-contrast'));
-	document.getElementById('toggleFontSizeBtn')?.addEventListener('change', (e) => {
-		applyFontSize(e.target.checked ? 'large' : 'small');
-	});
 });
 
 // Écouteur pour les événements HTMX

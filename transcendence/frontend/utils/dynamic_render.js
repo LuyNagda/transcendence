@@ -1,3 +1,47 @@
+/**
+ * DynamicRender - A lightweight Vue.js-inspired reactive framework
+ * 
+ * This micro-framework implements a subset of Vue.js functionality for simple reactive data binding.
+ * It is not meant to be a full Vue.js replacement but rather a minimal implementation for basic use cases.
+ * 
+ * Supported Vue.js Features:
+ * - v-text: Text content binding (equivalent to Vue's v-text or {{}} interpolation)
+ * - v-if: Conditional rendering
+ * - v-for: List rendering (simplified, only supports "item in items" syntax)
+ * - v-model: Two-way data binding (supports input and select elements)
+ * - v-on: Event handling (supports click and change via v-on:click and v-on:change)
+ * 
+ * Key Differences from Vue.js:
+ * - No virtual DOM - uses direct DOM manipulation
+ * - No component system - works with plain objects and DOM elements
+ * - Limited reactivity - only tracks direct property changes
+ * - No computed properties or watchers, lifecycle hooks, directives system, slots or scoped slots, transitions/animations
+ * 
+ * Usage Example:
+ * ```js
+ * // Initialize the framework
+ * dynamicRender.initialize();
+ * 
+ * // Add reactive object
+ * dynamicRender.addObservedObject('myData', {
+ *   message: 'Hello',
+ *   items: ['a', 'b', 'c']
+ * });
+ * ```
+ * 
+ * HTML Template Example:
+ * ```html
+ * <div v-text="myData.message"></div>
+ * <div v-if="myData.items.length > 0">
+ *   <ul>
+ *     <li v-for="item in myData.items" v-text="item"></li>
+ *   </ul>
+ * </div>
+ * <input v-model="myData.message">
+ * <button v-on:click="myData.handleClick">Click me</button>
+ * ```
+ */
+
 import logger from "./logger.js";
 
 class DynamicRender {
@@ -5,6 +49,10 @@ class DynamicRender {
         this.initialized = false;
     }
 
+    /**
+     * Initialize the framework. Must be called before any other operations.
+     * Unlike Vue.js which creates a new app instance, this initializes a singleton.
+     */
     initialize() {
         if (this.initialized) {
             logger.warn("DynamicRender is already initialized");
@@ -17,6 +65,12 @@ class DynamicRender {
         logger.info("DynamicRender initialized");
     }
 
+    /**
+     * Add a reactive object to be observed.
+     * Unlike Vue.js data option, objects are added explicitly with a key.
+     * @param {string} key - Identifier for the reactive object
+     * @param {Object} object - Object to make reactive
+     */
     addObservedObject(key, object) {
         if (!this.initialized) {
             logger.warn("DynamicRender is not initialized. Call initialize() first.");
@@ -26,6 +80,10 @@ class DynamicRender {
         this.scheduleUpdate();
     }
 
+    /**
+     * Makes an object reactive using ES6 Proxy
+     * Simpler than Vue.js reactivity system - no deep reactivity
+     */
     makeReactive(obj, parentKey) {
         if (typeof obj !== "object" || obj === null) {
             return obj;
@@ -50,6 +108,10 @@ class DynamicRender {
         return new Proxy(obj, handler);
     }
 
+    /**
+     * Schedule a DOM update using microtask queue
+     * Simpler than Vue.js nextTick - no callback support
+     */
     scheduleUpdate() {
         if (!this.updateScheduled) {
             this.updateScheduled = true;
@@ -60,6 +122,9 @@ class DynamicRender {
         }
     }
 
+    /**
+     * Update all bindings in the DOM
+     */
     update() {
         if (!this.initialized) {
             logger.warn("DynamicRender is not initialized. Call initialize() first.");
@@ -76,7 +141,7 @@ class DynamicRender {
         this.root.querySelectorAll("[v-text]").forEach((el) => {
             const prop = el.getAttribute("v-text");
             el.textContent = this.getPropValue(prop);
-            console.log(`Binding v-text for ${prop}:`, el.textContent); // Log pour le débogage
+            logger.debug(`Binding v-text for ${prop}:`, el.textContent); // Log pour le débogage
         });
     }
 
@@ -163,12 +228,24 @@ class DynamicRender {
     }
 
     bindIfForElement(element, localContext) {
+        logger.debug('Binding if for element with context:', {
+            element: element.outerHTML,
+            localContext: Object.keys(localContext)
+        });
+
         element.querySelectorAll("[v-if]").forEach((el) => {
             const condition = el.getAttribute("v-if");
             const isVisible = this.evaluateExpression(condition, localContext);
+
+            logger.debug('v-if evaluation:', {
+                condition,
+                isVisible,
+                context: Object.keys(localContext)
+            });
+
             el.style.setProperty('display', isVisible ? '' : 'none', 'important');
 
-            // Rebind les événements si l'élément devient visible
+            // Rebind events if element becomes visible
             if (isVisible) {
                 this.bindOnForElement(el);
             }
@@ -303,10 +380,38 @@ class DynamicRender {
             ...Object.fromEntries(this.observedObjects),
             ...localContext,
         };
+
+        // Check if we're in a v-for context by looking for typical v-for variables
+        const isInVForContext = expression.includes('player.') || expression.includes('item.') || expression.includes('invitation.');
+
         try {
-            return new Function(...Object.keys(data), `return ${expression}`)(...Object.values(data));
+            const result = new Function(...Object.keys(data), `
+                try {
+                    return ${expression};
+                } catch (e) {
+                    if (e instanceof ReferenceError && ${isInVForContext}) {
+                        return false;
+                    }
+                    throw e;
+                }
+            `)(...Object.values(data));
+
+            if (result !== false) {
+                logger.debug('Expression result:', {
+                    expression,
+                    result,
+                    context: Object.keys(data)
+                });
+            }
+            return result;
         } catch (error) {
-            console.error(`Error evaluating expression: ${expression}`, error);
+            if (!isInVForContext) {
+                logger.error(`Error evaluating expression: ${expression}`, {
+                    error,
+                    context: Object.keys(data),
+                    localContext: Object.keys(localContext)
+                });
+            }
             return false;
         }
     }

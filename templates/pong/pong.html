@@ -7,28 +7,27 @@
 
 <div id="pong-container">
     <div id="index" class="container x-auto my-4">
-        <header class="text-center my-5">
-            <h1>Bienvenue sur le Jeu Pong</h1>
-            <p>Jouez à Pong en temps réel contre d'autres joueurs !</p>
+        <header class="text-center mb-5">
+            <h1>Welcome to Pong Game</h1>
+            <p>Play Pong in real-time against other players!</p>
         </header>
         <main>
             <section id="about" class="my-5">
-                <h2>À propos du jeu</h2>
-                <p>Pong est un jeu de tennis de table en 2D. Le but est de marquer des points en envoyant la balle dans le camp de l'adversaire.</p>
+                <h2>About the Game</h2>
+                <p>Pong is a 2D table tennis game. The goal is to score points by sending the ball into the opponent's side.</p>
             </section>
             <section id="features" class="my-5">
-                <h2>Fonctionnalités</h2>
-                <ul>
-                    <li>Jeu en temps réel contre d'autres joueurs</li>
-                    <li>Tournois et matchmaking</li>
-                    <li>Chat en direct</li>
-                    <li>Statistiques de jeu</li>
+                <h3>Features</h3>
+                <ul class="list-group">
+                    <li class="list-group-item">Real-time play against other players</li>
+                    <li class="list-group-item">Tournaments and matchmaking</li>
+                    <li class="list-group-item">Live chat</li>
+                    <li class="list-group-item">Game statistics</li>
                 </ul>
             </section>
             <section id="cta" class="text-center my-5">
-                <h2>Prêt à jouer ?</h2>
-                <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#cta" hx-swap="innerHTML" class="btn btn-primary">
-                    Commencer une partie
+                <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#cta" hx-swap="innerHTML" class="btn btn-lg btn-success shadow-lg">
+                    Start a Game
                 </button>
             </section>
             <div id="enter-room"></div>
@@ -36,7 +35,5 @@
         </main>
     </div>
 </div>
-
-{% block footer %}{% include "footer.html" %}{% endblock %}
 
 {% endblock %}

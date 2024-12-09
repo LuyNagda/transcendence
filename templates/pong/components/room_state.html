@@ -11,30 +11,18 @@
         <h6 class="mt-4">Players (<span v-text="pongRoom.players.length"></span> / <span
                 v-text="pongRoom.maxPlayers"></span>)</h6>
         <ul class="list-group mb-3">
-            <template v-for="player in pongRoom.players">
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div class="d-flex align-items-center">
-                        <span v-text="player.username"></span>
-                        <div class="ms-2">
-                            <template v-if="pongRoom.owner && player">
-                                <span v-if="player.id === pongRoom.owner.id"
-                                    class="badge bg-info rounded-pill me-2">Owner</span>
-                            </template>
-                            <template v-if="pongRoom.currentUser && player">
-                                <span v-if="player.id === pongRoom.currentUser.id"
-                                    class="badge bg-primary rounded-pill me-2">You</span>
-                            </template>
-                        </div>
-                    </div>
-                    <template v-if="pongRoom.owner && pongRoom.currentUser && player">
-                        <button
-                            v-if="pongRoom.owner.id === pongRoom.currentUser.id && player.id !== pongRoom.currentUser.id"
-                            class="btn btn-danger btn-sm" @click="pongRoom.kickPlayer(player.id)">
-                            Kick
-                        </button>
-                    </template>
-                </li>
-            </template>
+            <li v-for="player in pongRoom.players"
+                class="list-group-item d-flex justify-content-between align-items-center">
+                <span v-text="player.username"></span>
+                <div>
+                    <span v-if="player.id === pongRoom.owner.id" class="badge bg-info rounded-pill me-2">Owner</span>
+                    <span v-if="player.id === pongRoom.currentUser.id"
+                        class="badge bg-primary rounded-pill me-2">You</span>
+                    <button
+                        v-if="pongRoom.owner.id === pongRoom.currentUser.id && player.id !== pongRoom.currentUser.id"
+                        class="btn btn-danger btn-sm" v-on:click="pongRoom.kickPlayer(player.id)">Kick</button>
+                </div>
+            </li>
             <li v-if="!pongRoom.players || pongRoom.players.length === 0" class="list-group-item">No players in the room
                 yet.</li>
         </ul>

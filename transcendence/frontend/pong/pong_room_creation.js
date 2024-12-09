@@ -3,48 +3,34 @@ function initializePongRoom() {
 	const alertContainer = document.getElementById("alert-container");
 
 	if (createRoomBtn) {
-		createRoomBtn.addEventListener("click", function () {
-			console.log("createRoomBtn clicked");
-
-			fetch("/pong/create-room/", {
-				method: "POST",
-				headers: {
-					"X-CSRFToken": getCookie("csrftoken"),
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({}),
-			})
-				.then((response) => {
-					console.log("Response status:", response.status);
-					return response.json();
-				})
-				.then((data) => {
-					console.log("Response data:", data);
-					if (data.status === "success") {
-						console.log("Room created successfully, loading room page...");
-						return fetch(`/pong/room/${data.room_id}/`).then((response) => {
-							return { roomHtml: response.text(), roomId: data.room_id };
-						});
-					} else {
-						throw new Error(
-							data.message ||
-								"Une erreur est survenue lors de la création de la salle."
-						);
-					}
-				})
-				.then(({ roomHtml, roomId }) => {
-					console.log("Room page loaded, updating DOM...");
-					document.body.innerHTML = roomHtml;
-					history.pushState(null, "", `/pong/room/${roomId}/`);
-				})
-				.catch((error) => {
-					console.error("Error:", error);
-					showAlert(
-						"error",
-						error.message ||
-							"Une erreur est survenue lors de la création de la salle."
-					);
+		createRoomBtn.addEventListener("click", async function () {
+			try {
+				const response = await fetch("/pong/create-room/", {
+					method: "POST",
+					headers: {
+						"X-CSRFToken": getCookie("csrftoken"),
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({}),
 				});
+
+				const data = await response.json();
+
+				if (data.status === "success") {
+					const roomResponse = await fetch(`/pong/room/${data.room_id}/`);
+					const roomHtml = await roomResponse.text();
+
+					document.body.innerHTML = roomHtml;
+					history.pushState(null, "", `/pong/room/${data.room_id}/`);
+
+					// Let the HTMX handlers initialize the room
+				} else {
+					throw new Error(data.message || "Une erreur est survenue lors de la création de la salle.");
+				}
+			} catch (error) {
+				console.error("Error:", error);
+				showAlert("error", error.message || "Une erreur est survenue lors de la création de la salle.");
+			}
 		});
 	}
 
@@ -52,9 +38,8 @@ function initializePongRoom() {
 		console.log("Showing alert:", type, message);
 		if (alertContainer) {
 			alertContainer.innerHTML = `
-						<div class="alert alert-${
-							type === "error" ? "danger" : "success"
-						} alert-dismissible fade show" role="alert">
+						<div class="alert alert-${type === "error" ? "danger" : "success"
+				} alert-dismissible fade show" role="alert">
 								${message}
 								<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 						</div>

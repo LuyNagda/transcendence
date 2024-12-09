@@ -15,4 +15,12 @@ class User(AbstractUser):
     otp = models.CharField(max_length=8, blank=True, null=True, default=None)
     online = models.BooleanField(default=False)
 
+    @property
+    def player_data(self):
+        """Returns a dictionary with basic player information"""
+        return {
+            'id': self.id,
+            'username': self.username,
+        }
+
 # TODO: Remove fields already present in AbstractUser
