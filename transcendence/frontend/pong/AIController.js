@@ -168,6 +168,7 @@ export class AIController {
         const currentTime = Date.now();
         const timeLastUpdate = currentTime - this.lastBallUpdate;
 
+        // Update the ai's ball every seconde (1000ms)
         if (this.lastBallUpdate == 0 || timeLastUpdate >= 1000){
             this.lastBallUpdate = currentTime;
             this.aiBall = gameState.ball;
