@@ -114,6 +114,8 @@ export class AIController {
         this.activation1 = null;
         this.activation2 = null;
         this.activation3 = null;
+        this.aiBall = null;
+        this.lastBallUpdate = 0;
     }
 
     static async init(difficulty) {
@@ -163,9 +165,22 @@ export class AIController {
     }
 
     decision(gameState) {
+        const currentTime = Date.now();
+        const timeLastUpdate = currentTime - this.lastBallUpdate;
+
+        if (this.lastBallUpdate == 0 || timeLastUpdate >= 1000){
+            this.lastBallUpdate = currentTime;
+            this.aiBall = gameState.ball;
+        }
+
         try {
             logger.debug('Making AI decision', { gameState });
-            let X = [[gameState.ball.x / height, gameState.ball.y / height, gameState.ball.dx, gameState.ball.dy, gameState.leftPaddle.y / height]];
+            let X = [[this.aiBall.x / height,
+                this.aiBall.y / height,
+                this.aiBall.dx,
+                this.aiBall.dy,
+                gameState.leftPaddle.y / height]];
+
             let result = this.forward(X);
             logger.debug('AI decision result', { result });
             return result[0].indexOf(Math.max(...result[0]));
