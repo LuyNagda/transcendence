@@ -116,15 +116,15 @@ def Init_Ai(save_file):
     Ai_Sample = []
     Ai_Sample.clear()
 
-    if (os.path.exists(save_file)):
-        # Load all AI from the save file
-        with open(save_file, 'rb') as imp:
-            while (len(Ai_Sample) < get_game_config('nb_species')[0]):
-                try:
-                    Saved_Ai = pickle.load(imp)
-                    Ai_Sample.append(Saved_Ai)
-                except EOFError:
-                    break
+    if os.path.exists(save_file):
+        with open(save_file, 'r') as imp:
+            ai_data_list = json.load(imp)
+            
+            while len(Ai_Sample) < get_game_config('nb_species')[0] and ai_data_list:
+                Saved_Ai_dict = ai_data_list.pop(0)
+                network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
+                network.load_from_dict(Saved_Ai_dict)
+                Ai_Sample.append(network)
 
         # Mix weights of the 5 best performing AIs
         Crossover_mutation(Ai_Sample)
@@ -230,18 +230,19 @@ def Save_Best_Ai(Ai_Sample, save_file):
     # Create the directory if it doesn't exist
     os.makedirs(os.path.dirname(save_file), exist_ok=True)
 
-    # Overwrites any existing file.
-    with open(save_file, 'wb') as save:
-        # Save the 5 best performing AI
-        for i in range(5):
-            pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
-
-        # Save AI having similar performance as the best one
-        for i in range(5, len(Ai_Sample)):
-            if( Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.90 ):
-                pickle.dump(Ai_Sample[i], save, pickle.HIGHEST_PROTOCOL)
-            else:
-                break
+    ai_data_list = []
+    for i in range(5):
+        ai_data_list.append(Ai_Sample[i].to_dict())
+    
+    for i in range(5, len(Ai_Sample)):
+        if Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.90:
+            ai_data_list.append(Ai_Sample[i].to_dict())
+        else:
+            break
+    
+    # Save entire list as JSON
+    with open(save_file, 'w') as save:
+        json.dump(ai_data_list, save)
 
     # Clean the list
     Ai_Sample.clear()
@@ -291,12 +292,13 @@ def train_ai(save_file):
     return log
 
 def load_Ai(save_file):
-    with open(save_file, 'rb') as imp:
-        Ai = pickle.load(imp)
+    with open(save_file, 'r') as imp:
+        # Load first AI from JSON
+        Ai_dict = json.load(imp)
 
         # Create a new Neuron_Network instance
         network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
         
-        # Load the network data from the saved Ai instance
-        network.load_from_dict(Ai.to_dict())
-        return (network)
+        # Load the network data from the saved Ai dictionary
+        network.load_from_dict(Ai_dict)
+        return network
