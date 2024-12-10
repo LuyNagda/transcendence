@@ -163,6 +163,7 @@ export class AIController {
     }
 
     decision(gameState) {
+        logger.debug('Making AI decision', { gameState });
         const currentTime = Date.now();
         const timeLastUpdate = currentTime - this.lastBallUpdate;
 
@@ -173,7 +174,6 @@ export class AIController {
         }
 
         try {
-            logger.debug('Making AI decision', { gameState });
             let X = [[this.aiBall.x / height,
                 this.aiBall.y / height,
                 this.aiBall.dx,
