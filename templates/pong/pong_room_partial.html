@@ -1,8 +1,6 @@
 <div id="pong-room-{{ room_id }}">
-    <script id="room-state-data" type="application/json">{{ pongRoom|safe }}</script>
     <h2>Room created successfully</h2>
-    <button id="enter-room-btn" hx-get="{% url 'pong_room' room_id=room_id %}" hx-target="#content" hx-swap="innerHTML"
-        hx-push-url="true" class="btn btn-primary">
+    <button id="enter-room-btn" hx-get="{% url 'pong_room' room_id=room_id %}" hx-target="#content" hx-swap="innerHTML" hx-push-url="true" class="btn btn-primary">
         Enter Room
     </button>
 </div>
