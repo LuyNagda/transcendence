@@ -1,24 +1,33 @@
-<section v-if="pongRoom.currentUser.id === pongRoom.owner.id" id="mode-selection" class="my-5">
-    <h2>Choose Game Mode</h2>
-    <form id="mode-form" method="post" onsubmit="return false;">
+<section v-if="pongRoom.currentUser.id === pongRoom.owner.id" id="mode-selection" class="my-5" aria-labelledby="mode-selection-heading">
+    <h2 id="mode-selection-heading">Choose Game Mode</h2>
+    <form id="mode-form" method="post" onsubmit="return false;" aria-labelledby="mode-selection-heading">
         {% csrf_token %}
+        
         <div class="mb-3 form-check">
-            <input type="checkbox" class="form-check-input" id="webgl-toggle">
+            <input type="checkbox" class="form-check-input" id="webgl-toggle" aria-describedby="retro-look-description">
             <label class="form-check-label" for="webgl-toggle">Enable retro look (WebGL)</label>
+            <small id="retro-look-description" class="form-text text-muted">
+                Enabling the retro look will switch the game to a nostalgic visual style using WebGL.
+            </small>
         </div>
+
         <div class="form-group mb-3">
-            <label for="mode">Game Mode</label>
-            <select id="mode" name="mode" class="form-control" v-on:change="pongRoom.changeMode">
+            <label for="mode" id="mode-label">Game Mode</label>
+            <select id="mode" name="mode" class="form-control" v-on:change="pongRoom.changeMode" aria-labelledby="mode-label" aria-describedby="mode-description">
                 <option value="">Select a mode</option>
                 <option value="AI">AI</option>
                 <option value="CLASSIC">Classic</option>
                 <option value="RANKED">Ranked</option>
                 <option value="TOURNAMENT">Tournament</option>
             </select>
+            <small id="mode-description" class="form-text text-muted">
+                Choose a mode for your game: AI for playing against the computer, Classic for a standard match, Ranked for competitive play, or Tournament for a multi-round competition.
+            </small>
         </div>
     </form>
 </section>
-<section v-else id="current-mode" class="my-5">
-    <h2>Current Game Mode: <span v-text="pongRoom.mode"></span></h2>
+
+<section v-else id="current-mode" class="my-5" aria-labelledby="current-mode-heading">
+    <h2 id="current-mode-heading">Current Game Mode: <span v-text="pongRoom.mode"></span></h2>
     {% include "pong/components/game_settings.html" %}
 </section>

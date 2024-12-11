@@ -1,6 +1,4 @@
 <div id="pong-room-{{ room_id }}">
-    <h2>Room created successfully</h2>
-    <button id="enter-room-btn" hx-get="{% url 'pong_room' room_id=room_id %}" hx-target="#content" hx-swap="innerHTML" hx-push-url="true" class="btn btn-primary">
-        Enter Room
-    </button>
+    <h2 id="room-creation-success">Room Created Successfully</h2>
+    <button id="enter-room-btn" hx-get="{% url 'pong_room' room_id=room_id %}" hx-target="#content" hx-swap="innerHTML" hx-push-url="true" class="btn btn-primary" aria-labelledby="enter-room-btn room-creation-success">Enter Room</button>
 </div>

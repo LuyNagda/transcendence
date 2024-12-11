@@ -1,28 +1,31 @@
 <div v-if="pongRoom.mode && pongRoom.currentUser.id === pongRoom.owner.id" class="mt-4">
-    <h3>Game Parameters</h3>
-    <div v-if="pongRoom.mode === 'AI'" class="mb-3">
-        <label for="ai-difficulty" class="form-label">AI Difficulty</label>
-        <select id="ai-difficulty" class="form-select" v-model="pongRoom.aiDifficulty">
+    <h3 id="game-parameters-heading">Game Parameters</h3>
+        <div v-if="pongRoom.mode === 'AI'" class="mb-3">
+        <label for="ai-difficulty" class="form-label" id="ai-difficulty-label">AI Difficulty</label>
+        <select id="ai-difficulty" class="form-select" v-model="pongRoom.aiDifficulty" aria-labelledby="ai-difficulty-label">
             <option value="easy">Easy</option>
             <option value="medium">Medium</option>
             <option value="hard">Hard</option>
         </select>
     </div>
+    
     <div v-if="pongRoom.mode === 'CLASSIC' || pongRoom.mode === 'RANKED'" class="mb-3">
-        <label for="max-score" class="form-label">Max Score</label>
-        <input type="number" id="max-score" class="form-control" v-model="pongRoom.maxScore" min="1" max="20">
+        <label for="max-score" class="form-label" id="max-score-label">Max Score</label>
+        <input type="number" id="max-score" class="form-control" v-model="pongRoom.maxScore" min="1" max="20" aria-labelledby="max-score-label">
     </div>
+    
     <div v-if="pongRoom.mode === 'TOURNAMENT'" class="mb-3">
-        <label for="num-players" class="form-label">Number of Players</label>
-        <input type="number" id="num-players" class="form-control" v-model="pongRoom.numPlayers" min="4" max="16" step="4">
+        <label for="num-players" class="form-label" id="num-players-label">Number of Players</label>
+        <input type="number" id="num-players" class="form-control" v-model="pongRoom.numPlayers" min="4" max="16" step="4" aria-labelledby="num-players-label">
     </div>
+    
     <div class="mb-3">
-        <label for="ball-speed" class="form-label">Ball Speed</label>
-        <input type="range" class="form-range" id="ball-speed" v-model="pongRoom.ballSpeed" min="1" max="10">
+        <label for="ball-speed" class="form-label" id="ball-speed-label">Ball Speed</label>
+        <input type="range" class="form-range" id="ball-speed" v-model="pongRoom.ballSpeed" min="1" max="10" aria-labelledby="ball-speed-label">
     </div>
+    
     <div class="mb-3">
-        <label for="paddle-size" class="form-label">Paddle Size</label>
-        <input type="range" class="form-range" id="paddle-size" v-model="pongRoom.paddleSize" min="1" max="10">
+        <label for="paddle-size" class="form-label" id="paddle-size-label">Paddle Size</label>
+        <input type="range" class="form-range" id="paddle-size" v-model="pongRoom.paddleSize" min="1" max="10" aria-labelledby="paddle-size-label">
     </div>
 </div>
-

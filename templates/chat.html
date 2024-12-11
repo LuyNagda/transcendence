@@ -1,10 +1,10 @@
 {% load static %}
 {% block content %}
 <div class="offcanvas offcanvas-start w-50" data-bs-backdrop="static" tabindex="-1" id="chatCanvas"
-    aria-labelledby="chatCanvas">
+    aria-labelledby="chatCanvasLabel">
     <div class="offcanvas-header">
-        <h4 class="offcanvas-title">Chat</h4>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        <h4 id="chatCanvasLabel" class="offcanvas-title">Chat</h4>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
     </div>
     <div class="offcanvas-body">
         <div class="row">
@@ -21,12 +21,12 @@
                             <span class="status-icon" aria-live="polite">
                                 {% if blocked_users is not None and user.id not in blocked_users %}
                                 {% if user.online %}
-                                &#x1F7E2; <!-- Green circle -->
+                                &#x1F7E2; <!-- Green circle indicating online status -->
                                 {% else %}
-                                &#x26AA; <!-- White circle -->
+                                &#x26AA; <!-- White circle indicating offline status -->
                                 {% endif %}
                                 {% elif blocked_users is not None %}
-                                &#x1F534; <!-- Red circle -->
+                                &#x1F534; <!-- Red circle indicating blocked user -->
                                 {% endif %}
                             </span>
                         </button>
@@ -54,15 +54,17 @@
                                 aria-label="Send message">Send</button>
                         </form>
                         <div class="mt-2">
-                            {% if blocked_users is not None %} {% if user.id not in blocked_users %}
-                            <button class="btn btn-danger block-user" data-user-id="{{ user.id }}"
-                                aria-label="Block {{ user.name|default:user.username }}">Block</button> {% else %}
-                            <button class="btn btn-danger unblock-user" data-user-id="{{ user.id }}"
-                                aria-label="Unblock {{ user.name|default:user.username }}">Unblock</button> {% endif %}
+                            {% if blocked_users is not None %} 
+                                {% if user.id not in blocked_users %}
+                                <button class="btn btn-danger block-user" data-user-id="{{ user.id }}"
+                                    aria-label="Block {{ user.name|default:user.username }}">Block</button> 
+                                {% else %}
+                                <button class="btn btn-danger unblock-user" data-user-id="{{ user.id }}"
+                                    aria-label="Unblock {{ user.name|default:user.username }}">Unblock</button> 
+                                {% endif %}
                             {% endif %}
                             <button class="btn btn-success invite-user" data-user-id="{{ user.id }}"
-                                aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite to
-                                Pong</button>
+                                aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite to Pong</button>
                             <button class="btn btn-primary view-profile" data-user-id="{{ user.id }}"
                                 aria-label="View profile of {{ user.name|default:user.username }}">View Profile</button>
                         </div>
@@ -74,11 +76,12 @@
 </div>
 
 <button class="btn btn-link position-relative chat-icon" data-bs-toggle="offcanvas" data-bs-target="#chatCanvas"
-    aria-controls="chatCanvas">
-    <i class="bi bi-chat-dots fs-4"></i>
+    aria-controls="chatCanvas" aria-label="Open chat">
+    <i class="bi bi-chat-dots fs-4" aria-hidden="true"></i>
     <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger chat-badge"
-        style="display: none;">
+        style="display: none;" aria-live="assertive">
         0
+        <span class="visually-hidden">Unread messages</span>
     </span>
 </button>
 
