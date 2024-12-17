@@ -20,7 +20,6 @@ class Layer_Dense {
     }
 
     forward(inputs) {
-        logger.debug('Layer_Dense forward pass starting');
         // Ensure inputs is a 2D array
         const processed_inputs = Array.isArray(inputs[0])
             ? inputs
@@ -40,12 +39,10 @@ class Layer_Dense {
             row.map((val, i) => val + this.biases[i])
         );
 
-        logger.debug('Layer_Dense forward pass completed');
         return this.output;
     }
 
     matrixDot(a, b) {
-        logger.debug('Starting matrix multiplication');
         // Additional safety checks
         if (!a || !a.length || !b || !b.length) {
             logger.error('Invalid matrix multiplication inputs', { a, b });
@@ -63,14 +60,12 @@ class Layer_Dense {
 // Activation with rectified linear unit: negative output are set to 0
 class Activation_ReLU {
     forward(inputs) {
-        logger.debug('ReLU activation forward pass starting');
         const processed_inputs = Array.isArray(inputs[0]) ? inputs : [inputs];
 
         this.output = processed_inputs.map(row =>
             Array.isArray(row)
                 ? row.map(val => Math.max(0, val))
                 : Math.max(0, row));
-        logger.debug('ReLU activation forward pass completed');
         return this.output;
     }
 }
@@ -78,7 +73,6 @@ class Activation_ReLU {
 // Activation_SoftMax takes input numbers and normalizes it into a probability distribution
 class Activation_SoftMax {
     forward(inputs) {
-        logger.debug('SoftMax activation forward pass starting');
         const processed_inputs = Array.isArray(inputs[0]) ? inputs : [inputs];
 
         const exp_values = processed_inputs.map(row => {
@@ -99,7 +93,6 @@ class Activation_SoftMax {
                 : row / sum_exp_values[i]
         );
 
-        logger.debug('SoftMax activation forward pass completed');
         return this.output;
     }
 }
@@ -130,41 +123,57 @@ export class AIController {
             this.instance = new AIController();
 
             logger.info(`Initializing AI with difficulty: ${difficulty}`);
-
-            const response = await fetch(`/ai/get-ai`); // Place holder for the correct api fetch
-            if (!response.ok) {
-                logger.error(`Failed to fetch AI data: ${response.status}`);
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
+            // Fetch AI data based on difficulty
+            const response = await fetch(`/ai/get-ai?difficulty=${difficulty}`);
+            if (!response.ok)
+                throw new Error(`Failed to fetch AI data: ${response.status}`);
             const setup = await response.json();
-            logger.debug('Received AI data from server', setup);
             if (!setup || !setup.layer1 || !setup.layer1.weights
                 || !setup.layer2 || !setup.layer2.weights
                 || !setup.layer3 || !setup.layer3.weights) {
-                logger.error('Invalid AI data structure received');
-                throw new Error("Invalid neuron_json structure. Expected:\n{\"layer1\": {\"weights\": [[...]], \"biases\":[[...]]}, \"layer2\": {\"weights\": [[...]], \"biases\":[[...]]}, \"layer3\": {\"weights\": [[...]], \"biases\":[[...]]},")
+                throw new Error('Invalid AI data structure received from server');
             }
 
-            logger.info('Initializing neural network layers');
-            this.layer1 = new Layer_Dense(setup.layer1.weights);
-            this.layer2 = new Layer_Dense(setup.layer2.weights);
-            this.layer3 = new Layer_Dense(setup.layer3.weights);
-            this.activation1 = new Activation_ReLU();
-            this.activation2 = new Activation_ReLU();
-            this.activation3 = new Activation_SoftMax();
+            logger.info('Initializing neural network layers with weights:', {
+                layer1: {
+                    weights: setup.layer1.weights,
+                    biases: setup.layer1.biases,
+                    shape: `${setup.layer1.weights.length}x${setup.layer1.weights[0].length}`
+                },
+                layer2: {
+                    weights: setup.layer2.weights,
+                    biases: setup.layer2.biases,
+                    shape: `${setup.layer2.weights.length}x${setup.layer2.weights[0].length}`
+                },
+                layer3: {
+                    weights: setup.layer3.weights,
+                    biases: setup.layer3.biases,
+                    shape: `${setup.layer3.weights.length}x${setup.layer3.weights[0].length}`
+                }
+            });
+
+            this.instance.layer1 = new Layer_Dense(setup.layer1.weights, setup.layer1.biases);
+            this.instance.layer2 = new Layer_Dense(setup.layer2.weights, setup.layer2.biases);
+            this.instance.layer3 = new Layer_Dense(setup.layer3.weights, setup.layer3.biases);
+            this.instance.activation1 = new Activation_ReLU();
+            this.instance.activation2 = new Activation_ReLU();
+            this.instance.activation3 = new Activation_SoftMax();
 
             logger.info('AIController initialization completed successfully');
             return this.instance;
         }
         catch (error) {
             logger.error('Error in AIController initialization:', error);
-            return null;
+            throw error;
         }
     }
 
     decision(gameState) {
-        logger.debug('Making AI decision', { gameState });
+        if (!this.layer1 || !this.layer2 || !this.layer3) {
+            logger.error('Neural network layers not initialized');
+            return 1; // Default to staying still
+        }
+
         const currentTime = Date.now();
         const timeLastUpdate = currentTime - this.lastBallUpdate;
 
@@ -177,15 +186,14 @@ export class AIController {
         try {
             // Normalize inputs for the neural network
             let X = [[
-                this.aiBall.x / GameRules.CANVAS_HEIGHT,  // Changed from height to CANVAS_HEIGHT constant
+                this.aiBall.x / GameRules.CANVAS_HEIGHT,
                 this.aiBall.y / GameRules.CANVAS_HEIGHT,
                 this.aiBall.dx,
                 this.aiBall.dy,
-                gameState.rightPaddle.y / GameRules.CANVAS_HEIGHT  // Changed from leftPaddle to rightPaddle since AI is guest
+                gameState.rightPaddle.y / GameRules.CANVAS_HEIGHT
             ]];
 
             let result = this.forward(X);
-            logger.debug('AI decision result', { result });
 
             // Map neural network output to paddle movement:
             // 0 = move up
@@ -200,14 +208,12 @@ export class AIController {
     }
 
     forward(inputs) {
-        logger.debug('Starting forward propagation', { inputs });
         let output = this.layer1.forward(inputs);
         output = this.activation1.forward(output);
         output = this.layer2.forward(output);
         output = this.activation2.forward(output);
         output = this.layer3.forward(output);
         output = this.activation3.forward(output);
-        logger.debug('Forward propagation completed', { output });
         return output;
     }
 

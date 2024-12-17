@@ -100,6 +100,7 @@ export class PongRoom {
         this._state = "LOBBY";
         this._pongGame = null;
         this._useWebGL = false;
+        this._aiDifficulty = 'medium';
 
         this.initializeWebSocket();
         this.initializeEventListeners();
@@ -142,6 +143,10 @@ export class PongRoom {
     get state() { return this._state; }
     get currentUser() { return this._currentUser; }
     get useWebGL() { return this._useWebGL; }
+    get aiDifficulty() { return this._aiDifficulty; }
+    set aiDifficulty(value) {
+        this.updateAIDifficulty(value);
+    }
 
     //////////////////////////////////////////////////////////////
     // Setters
@@ -202,6 +207,18 @@ export class PongRoom {
         }
     }
 
+    updateAIDifficulty(value) {
+        if (this._aiDifficulty !== value) {
+            logger.info(`Setting AI difficulty from ${this._aiDifficulty} to ${value}`);
+            this._aiDifficulty = value;
+            this.notifyUpdate("ai_difficulty", value);
+            if (this._pongGame) {
+                this._pongGame.setAIMode(true, value);
+            }
+            dynamicRender.scheduleUpdate();
+        }
+    }
+
     //////////////////////////////////////////////////////////////
     // WebSocket event handlers
     //////////////////////////////////////////////////////////////
@@ -231,19 +248,13 @@ export class PongRoom {
         while (retryCount < maxRetries) {
             try {
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
-
-                // Initialize and start the game
                 const initialized = await this._pongGame.initialize();
-                this._pongGame.setAIMode(true);
-                if (!initialized) {
+                if (!initialized)
                     throw new Error("Game initialization failed");
-                }
-
+                this._pongGame.setAIMode(true, this._aiDifficulty);
                 const started = await this._pongGame.start();
-                if (!started) {
+                if (!started)
                     throw new Error("Game start failed");
-                }
-
                 this.setStarted(true);
                 this.updateState('PLAYING');
                 dynamicRender.scheduleUpdate();

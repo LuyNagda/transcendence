@@ -6,8 +6,7 @@ import { NetworkManager } from './NetworkManager.js';
 import { InputHandler } from './InputHandler.js';
 import logger from '../utils/logger.js';
 import { AIController } from './AIController.js';
-
-const PADDLE_SPEED = 2; // Changed to match the network handler speed
+import { GameRules } from './core/GameRules.js';
 
 export class PongGameController {
 	constructor(gameId, currentUser, isHost, useWebGL = true) {
@@ -37,7 +36,7 @@ export class PongGameController {
 		// Register input handlers
 		this._inputHandler.onInput('paddleMove', ({ direction, isHost }) => {
 			if (isHost === this._isHost) {
-				const speed = direction === 'up' ? -PADDLE_SPEED : PADDLE_SPEED;
+				const speed = direction === 'up' ? -GameRules.PADDLE_SPEED : GameRules.PADDLE_SPEED;
 				const paddle = this._isHost ? 'leftPaddle' : 'rightPaddle';
 				const currentState = this._gameState.getState();
 
@@ -81,50 +80,54 @@ export class PongGameController {
 		});
 
 		// Add AI input handling
-		this._gameEngine.registerComponent('aiHandler', {
-			initialize: async () => {
-				logger.warn("AI handler initialize");
-				logger.warn("AI mode :", this._isAIMode);
-				logger.warn("Host :", this._isHost);
-				if (!this._isAIMode) return;
-				this._aiController = await AIController.init('easy');
-			},
-			update: () => {
-				if (!this._isAIMode || this._isHost) return;
+		if (this._isAIMode && this._isHost) {
+			this._gameEngine.registerComponent('aiHandler', {
+				initialize: async () => {
+					logger.warn("AI handler initialize");
+				},
+				update: () => {
+					if (!this._aiController) return;
 
-				const currentState = this._gameState.getState();
-				const aiDecision = this._aiController.decision(currentState);
+					const currentState = this._gameState.getState();
+					const aiDecision = this._aiController.decision(currentState);
 
-				// Handle AI decision like a player input
-				const paddle = this._isHost ? 'leftPaddle' : 'rightPaddle';
+					// Handle AI decision like a player input
+					const paddle = 'rightPaddle';
 
-				switch (aiDecision) {
-					case 0: // Move up
-						this._gameState.updateState({
-							[paddle]: {
-								...currentState[paddle],
-								dy: -PADDLE_SPEED
-							}
-						});
-						break;
-					case 2: // Move down
-						this._gameState.updateState({
-							[paddle]: {
-								...currentState[paddle],
-								dy: PADDLE_SPEED
-							}
-						});
-						break;
-					default: // Stop
-						this._gameState.updateState({
-							[paddle]: {
-								...currentState[paddle],
-								dy: 0
-							}
-						});
+					switch (aiDecision) {
+						case 0: // Move up
+							this._gameState.updateState({
+								[paddle]: {
+									...currentState[paddle],
+									dy: -GameRules.PADDLE_SPEED
+								}
+							});
+							break;
+						case 2: // Move down
+							this._gameState.updateState({
+								[paddle]: {
+									...currentState[paddle],
+									dy: GameRules.PADDLE_SPEED
+								}
+							});
+							break;
+						default: // Stop
+							this._gameState.updateState({
+								[paddle]: {
+									...currentState[paddle],
+									dy: 0
+								}
+							});
+					}
 				}
-			}
-		});
+			});
+		} else {
+			// Register a dummy aiHandler to avoid errors in GameEngine
+			this._gameEngine.registerComponent('aiHandler', {
+				initialize: () => { },
+				update: () => { }
+			});
+		}
 	}
 
 	async initialize() {
@@ -232,7 +235,7 @@ export class PongGameController {
 		this._networkManager.onGameMessage('paddleMove', (data) => {
 			if (data.isHost !== this._isHost) {
 				const paddle = data.isHost ? 'leftPaddle' : 'rightPaddle';
-				const dy = data.direction === 'up' ? -PADDLE_SPEED : PADDLE_SPEED;
+				const dy = data.direction === 'up' ? -GameRules.PADDLE_SPEED : GameRules.PADDLE_SPEED;
 
 				logger.debug('Received remote paddle move:', {
 					paddle,
@@ -308,15 +311,69 @@ export class PongGameController {
 		logger.info('Game controller destroyed');
 	}
 
-	setAIMode(enabled) {
+	async setAIMode(enabled, difficulty = 'medium') {
 		this._isAIMode = enabled;
-		if (enabled && !this._aiController) {
-			this._aiController = new AIController();
-		}
 
-		// Disable network features in AI mode
 		if (enabled) {
+			try {
+				// Initialize AI controller properly with difficulty
+				this._aiController = await AIController.init(difficulty);
+			} catch (error) {
+				logger.error('Failed to initialize AI controller:', error);
+				this.destroy();
+				throw new Error('Failed to start AI game: Could not initialize AI controller');
+			}
+
+			// Re-register the AI handler component
+			this._gameEngine.registerComponent('aiHandler', {
+				initialize: async () => {
+					logger.warn("AI handler initialize");
+				},
+				update: () => {
+					if (!this._aiController) return;
+
+					const currentState = this._gameState.getState();
+					const aiDecision = this._aiController.decision(currentState);
+
+					// Handle AI decision like a player input
+					const paddle = 'rightPaddle';
+
+					switch (aiDecision) {
+						case 0: // Move up
+							this._gameState.updateState({
+								[paddle]: {
+									...currentState[paddle],
+									dy: -GameRules.PADDLE_SPEED
+								}
+							});
+							break;
+						case 2: // Move down
+							this._gameState.updateState({
+								[paddle]: {
+									...currentState[paddle],
+									dy: GameRules.PADDLE_SPEED
+								}
+							});
+							break;
+						default: // Stop
+							this._gameState.updateState({
+								[paddle]: {
+									...currentState[paddle],
+									dy: 0
+								}
+							});
+					}
+				}
+			});
+
+			// Disable network features in AI mode
 			this._networkManager.destroy();
+		} else {
+			// Register a dummy aiHandler when AI mode is disabled
+			this._gameEngine.registerComponent('aiHandler', {
+				initialize: () => { },
+				update: () => { }
+			});
 		}
 
 		// Disable input for AI-controlled paddle
