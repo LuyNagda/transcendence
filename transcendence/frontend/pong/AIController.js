@@ -1,4 +1,5 @@
 import logger from "../utils/logger.js";
+import { GameRules } from './core/GameRules.js';
 
 class Layer_Dense {
     constructor(weights, biases) {
@@ -135,7 +136,7 @@ export class AIController {
                 logger.error(`Failed to fetch AI data: ${response.status}`);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-            
+
             const setup = await response.json();
             logger.debug('Received AI data from server', setup);
             if (!setup || !setup.layer1 || !setup.layer1.weights
@@ -167,26 +168,34 @@ export class AIController {
         const currentTime = Date.now();
         const timeLastUpdate = currentTime - this.lastBallUpdate;
 
-        // Update the ai's ball every seconde (1000ms)
-        if (this.lastBallUpdate == 0 || timeLastUpdate >= 1000){
+        // Update the ai's ball every second (1000ms)
+        if (this.lastBallUpdate == 0 || timeLastUpdate >= 1000) {
             this.lastBallUpdate = currentTime;
-            this.aiBall = gameState.ball;
+            this.aiBall = { ...gameState.ball }; // Create a copy of the ball state
         }
 
         try {
-            let X = [[this.aiBall.x / height,
-                this.aiBall.y / height,
+            // Normalize inputs for the neural network
+            let X = [[
+                this.aiBall.x / GameRules.CANVAS_HEIGHT,  // Changed from height to CANVAS_HEIGHT constant
+                this.aiBall.y / GameRules.CANVAS_HEIGHT,
                 this.aiBall.dx,
                 this.aiBall.dy,
-                gameState.leftPaddle.y / height]];
+                gameState.rightPaddle.y / GameRules.CANVAS_HEIGHT  // Changed from leftPaddle to rightPaddle since AI is guest
+            ]];
 
             let result = this.forward(X);
             logger.debug('AI decision result', { result });
+
+            // Map neural network output to paddle movement:
+            // 0 = move up
+            // 1 = stay still
+            // 2 = move down
             return result[0].indexOf(Math.max(...result[0]));
         }
         catch (error) {
             logger.error('Error in AI decision making:', error);
-            return 1;
+            return 1; // Default to staying still on error
         }
     }
 

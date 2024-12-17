@@ -1,8 +1,9 @@
-<section v-if="pongRoom.currentUser.id === pongRoom.owner.id" id="mode-selection" class="my-5" aria-labelledby="mode-selection-heading">
+<section v-if="pongRoom.currentUser.id === pongRoom.owner.id" id="mode-selection" class="my-5"
+    aria-labelledby="mode-selection-heading">
     <h2 id="mode-selection-heading">Choose Game Mode</h2>
     <form id="mode-form" method="post" onsubmit="return false;" aria-labelledby="mode-selection-heading">
         {% csrf_token %}
-        
+
         <div class="mb-3 form-check">
             <input type="checkbox" class="form-check-input" id="webgl-toggle" aria-describedby="retro-look-description">
             <label class="form-check-label" for="webgl-toggle">Enable retro look (WebGL)</label>
@@ -13,15 +14,16 @@
 
         <div class="form-group mb-3">
             <label for="mode" id="mode-label">Game Mode</label>
-            <select id="mode" name="mode" class="form-control" v-on:change="pongRoom.changeMode" aria-labelledby="mode-label" aria-describedby="mode-description">
-                <option value="">Select a mode</option>
+            <select id="mode" name="mode" class="form-control" v-on:change="pongRoom.changeMode"
+                aria-labelledby="mode-label" aria-describedby="mode-description">
                 <option value="AI">AI</option>
                 <option value="CLASSIC">Classic</option>
                 <option value="RANKED">Ranked</option>
                 <option value="TOURNAMENT">Tournament</option>
             </select>
             <small id="mode-description" class="form-text text-muted">
-                Choose a mode for your game: AI for playing against the computer, Classic for a standard match, Ranked for competitive play, or Tournament for a multi-round competition.
+                Choose a mode for your game: AI for playing against the computer, Classic for a standard match, Ranked
+                for competitive play, or Tournament for a multi-round competition.
             </small>
         </div>
     </form>

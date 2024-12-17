@@ -92,7 +92,7 @@ export class PongRoom {
 
         this._roomId = roomId;
         this._currentUser = currentUser;
-        this._mode = 'CLASSIC';
+        this._mode = 'AI';
         this._owner = { id: null, username: null };
         this._players = [];
         this._pendingInvitations = [];
