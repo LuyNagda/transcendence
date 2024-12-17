@@ -2,6 +2,8 @@ import dynamicRender from "../utils/dynamic_render.js";
 import logger from "../utils/logger.js";
 import WSService from "../utils/WSService.js";
 import { PongGameController } from "./PongGameController.js";
+import { GameRules } from './core/GameRules.js';
+import { SettingsManager } from './core/SettingsManager.js';
 
 // Initialize dynamic render immediately
 dynamicRender.initialize();
@@ -100,7 +102,21 @@ export class PongRoom {
         this._state = "LOBBY";
         this._pongGame = null;
         this._useWebGL = false;
-        this._aiDifficulty = 'medium';
+        this._settings = { ...GameRules.DEFAULT_SETTINGS };
+        this._aiDifficulty = this._settings.aiDifficulty;
+
+        // Initialize settings manager
+        this._settingsManager = new SettingsManager({
+            ...GameRules.DEFAULT_SETTINGS,
+            aiDifficulty: 'medium'
+        });
+
+        // Add settings change listener
+        this._settingsManager.addListener((newSettings, oldSettings) => {
+            if (newSettings.aiDifficulty !== oldSettings.aiDifficulty) {
+                this._handleAIDifficultyChange(newSettings.aiDifficulty);
+            }
+        });
 
         this.initializeWebSocket();
         this.initializeEventListeners();
@@ -145,7 +161,41 @@ export class PongRoom {
     get useWebGL() { return this._useWebGL; }
     get aiDifficulty() { return this._aiDifficulty; }
     set aiDifficulty(value) {
-        this.updateAIDifficulty(value);
+        this._settingsManager.updateSettings({ aiDifficulty: value });
+    }
+
+    get ballSpeed() { return this._settings.ballSpeed; }
+    set ballSpeed(value) {
+        this._settings.ballSpeed = value;
+        if (this._pongGame) {
+            this._pongGame.updateSettings({ ballSpeed: value });
+        }
+    }
+
+    get paddleSize() { return this._settings.paddleSize; }
+    set paddleSize(value) {
+        this._settings.paddleSize = value;
+        if (this._pongGame) {
+            this._pongGame.updateSettings({ paddleSize: value });
+        }
+    }
+
+    get maxScore() { return this._settings.maxScore; }
+    set maxScore(value) {
+        this._settings.maxScore = value;
+        if (this._pongGame) {
+            this._pongGame.updateSettings({ maxScore: value });
+        }
+    }
+
+    get paddleSpeed() { return this._settings.paddleSpeed; }
+    set paddleSpeed(value) {
+        logger.debug('Setting paddle speed to:', value);
+        this._settings.paddleSpeed = Number(value);
+        if (this._pongGame) {
+            logger.debug('Updating game settings with new paddle speed');
+            this._pongGame.updateSettings({ paddleSpeed: Number(value) });
+        }
     }
 
     //////////////////////////////////////////////////////////////
@@ -207,16 +257,12 @@ export class PongRoom {
         }
     }
 
-    updateAIDifficulty(value) {
-        if (this._aiDifficulty !== value) {
-            logger.info(`Setting AI difficulty from ${this._aiDifficulty} to ${value}`);
-            this._aiDifficulty = value;
-            this.notifyUpdate("ai_difficulty", value);
-            if (this._pongGame) {
-                this._pongGame.setAIMode(true, value);
-            }
-            dynamicRender.scheduleUpdate();
-        }
+    _handleAIDifficultyChange(difficulty) {
+        logger.info(`Setting AI difficulty to ${difficulty}`);
+        if (this._pongGame)
+            this._pongGame.setAIMode(true, difficulty);
+        this.notifyUpdate("ai_difficulty", difficulty);
+        dynamicRender.scheduleUpdate();
     }
 
     //////////////////////////////////////////////////////////////
@@ -238,7 +284,13 @@ export class PongRoom {
 
         // Create new game instance
         const isHost = this._currentUser.id === data.player1_id;
-        this._pongGame = new PongGameController(data.game_id, this._currentUser, isHost, this._useWebGL);
+        this._pongGame = new PongGameController(
+            data.game_id,
+            this._currentUser,
+            isHost,
+            this._useWebGL,
+            this._settings
+        );
 
         // Add delay and retry logic for initialization
         let retryCount = 0;
