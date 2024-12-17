@@ -1,9 +1,8 @@
 import os, json, multiprocessing, re
 import numpy as np
 from django.core.files.storage import default_storage
-from ai.gamesimulation import train_predefined, train_normal, train_human
+from ai.gamesimulation import train_normal
 from ai.gameconfig import get_game_config
-
 
 NB_INPUTS = 5
 NB_NEURONS_LAYER1 = 6

@@ -19,9 +19,9 @@ BALL_SIZE = 5
 BALL_MIN_DY = 0.5
 
 GAME_CONF = {
-    'nb_generation' : (1, int),
+    'nb_generation' : (100, int),
     'nb_species' : (50, int),
-    'time_limit' : (60, int), # 0 == unlimited (minutes)
+    'time_limit' : (0, int), # 0 == unlimited (minutes)
     'max_score' : (500, int)
 }
 
