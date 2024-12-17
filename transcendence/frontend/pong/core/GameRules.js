@@ -1,16 +1,61 @@
 export class GameRules {
-	static WINNING_SCORE = 11;
-	static BALL_SPEED = 107;
-	static LEFT_PADDLE_X = 15;
-	static PADDLE_HEIGHT = 50;
-	static PADDLE_WIDTH = 5;
-	static PADDLE_SPEED = 15;
-	static INITIAL_BALL_SPEED = 2;
+	static DEFAULT_SETTINGS = {
+		ballSpeed: 5,          // Scale 1-10
+		paddleSize: 5,         // Scale 1-10
+		paddleSpeed: 5,        // Scale 1-10
+		maxScore: 11,
+		aiDifficulty: 'medium',
+		relaunchTime: 2000     // In ms
+	};
+
+	// Game constants
+	static BASE_BALL_SPEED = 15;
+	static BASE_PADDLE_SPEED = 12;
+	static BASE_PADDLE_HEIGHT = 50;
 	static CANVAS_WIDTH = 858;
 	static CANVAS_HEIGHT = 525;
 
-	constructor(gameState) {
+	constructor(gameState, settings = {}) {
 		this._gameState = gameState;
+		this._settings = {
+			ballSpeed: settings.ballSpeed || GameRules.DEFAULT_SETTINGS.ballSpeed,
+			paddleSize: settings.paddleSize || GameRules.DEFAULT_SETTINGS.paddleSize,
+			paddleSpeed: settings.paddleSpeed || GameRules.DEFAULT_SETTINGS.paddleSpeed,
+			maxScore: settings.maxScore || GameRules.DEFAULT_SETTINGS.maxScore,
+			relaunchTime: settings.relaunchTime || GameRules.DEFAULT_SETTINGS.relaunchTime
+		};
+	}
+
+	updateSettings(settings) {
+		this._settings = {
+			...this._settings,
+			ballSpeed: settings.ballSpeed !== undefined ? settings.ballSpeed : this._settings.ballSpeed,
+			paddleSize: settings.paddleSize !== undefined ? settings.paddleSize : this._settings.paddleSize,
+			paddleSpeed: settings.paddleSpeed !== undefined ? settings.paddleSpeed : this._settings.paddleSpeed,
+			maxScore: settings.maxScore !== undefined ? settings.maxScore : this._settings.maxScore,
+			relaunchTime: settings.relaunchTime !== undefined ? settings.relaunchTime : this._settings.relaunchTime
+		};
+	}
+
+	get ballSpeed() {
+		return GameRules.BASE_BALL_SPEED * (this._settings.ballSpeed / 5);
+	}
+
+	get paddleSpeed() {
+		const scaleFactor = 0.4 + (this._settings.paddleSpeed / 5);
+		return GameRules.BASE_PADDLE_SPEED * scaleFactor;
+	}
+
+	get paddleHeight() {
+		return GameRules.BASE_PADDLE_HEIGHT * (this._settings.paddleSize / 5);
+	}
+
+	get winningScore() {
+		return this._settings.maxScore;
+	}
+
+	get relaunchTime() {
+		return this._settings.relaunchTime;
 	}
 
 	handleBallCollisions(deltaTime) {
@@ -29,9 +74,9 @@ export class GameRules {
 			return { type: 'goal', scoringSide, ball: this._getResetBall() };
 		}
 
-		// Update position
-		ball.x += ball.dx * deltaTime * GameRules.BALL_SPEED;
-		ball.y += ball.dy * deltaTime * GameRules.BALL_SPEED;
+		// Update position using configured ball speed and deltaTime
+		ball.x += ball.dx * this.ballSpeed * deltaTime;
+		ball.y += ball.dy * this.ballSpeed * deltaTime;
 
 		return { type: 'move', ball };
 	}
@@ -60,7 +105,8 @@ export class GameRules {
 		const relativeIntersectY = (paddle.y + (paddle.height / 2)) - (ball.y + (ball.height / 2));
 		const normalizedRelativeIntersectionY = relativeIntersectY / (paddle.height / 2);
 		const bounceAngle = normalizedRelativeIntersectionY * (5 * Math.PI / 12);
-		ball.dy = GameRules.INITIAL_BALL_SPEED * -Math.sin(bounceAngle);
+		ball.dy = this.ballSpeed * -Math.sin(bounceAngle);
+		ball.dx = (ball.dx > 0 ? 1 : -1) * this.ballSpeed * Math.cos(bounceAngle);
 	}
 
 	_getResetBall() {
@@ -76,9 +122,10 @@ export class GameRules {
 	}
 
 	getInitialBallVelocity() {
+		const angle = (Math.random() * 2 - 1) * Math.PI / 4; // Random angle between -45 and 45 degrees
 		return {
-			dx: GameRules.INITIAL_BALL_SPEED * (Math.random() > 0.5 ? 1 : -1),
-			dy: GameRules.INITIAL_BALL_SPEED * (Math.random() * 2 - 1)
+			dx: this.ballSpeed * (Math.random() > 0.5 ? 1 : -1) * Math.cos(angle),
+			dy: this.ballSpeed * Math.sin(angle)
 		};
 	}
 

@@ -2,6 +2,8 @@ import dynamicRender from "../utils/dynamic_render.js";
 import logger from "../utils/logger.js";
 import WSService from "../utils/WSService.js";
 import { PongGameController } from "./PongGameController.js";
+import { GameRules } from './core/GameRules.js';
+import { SettingsManager } from './core/SettingsManager.js';
 
 // Initialize dynamic render immediately
 dynamicRender.initialize();
@@ -105,7 +107,6 @@ export class PongRoom {
 
         this.initializeWebSocket();
         this.initializeEventListeners();
-        this.fetchSavedAI();
         logger.info(`PongRoom instance created for room ${roomId}`);
         this.logCurrentState();
     }
@@ -128,52 +129,23 @@ export class PongRoom {
         });
     }
 
-    // // // TODO: New fetch to implement
-    // // Fetch saved AIs and populate the dropdown
-    // async function fetchSavedAIs() {
-    //     const dropdown = document.getElementById('ai-difficulty');
-
-    //     try {
-    //         const response = await fetch('/ai/list-saved-ai', {
-    //             method: 'GET'
-    //         });
-
-    //         if (!response.ok) {
-    //             const data = await response.json();
-    //             throw new Error(data.error || 'Fetching saved AIs failed');
-    //         }
-
-    //         const data = await response.json();
-    //         dropdown.innerHTML = '<option value="" disabled selected>Select AI</option>';
-    //         data.saved_ai.forEach(ai => {
-    //             const option = document.createElement("option");
-    //             option.value = ai;
-    //             option.textContent = ai;
-    //             dropdown.appendChild(option);
-    //         });
-    //     } catch(error) {
-    //         managingLog.className = 'alert alert-danger';
-    //         managingLog.innerText = `Error: ${error.message}`;
-    //     }
-    // }
-
     // Fetch AI list from the backend
     async fetchSavedAI() {
         const apiUrl = '/ai/list-saved-ai'; // Adjust the endpoint if necessary
         try {
             const response = await fetch(apiUrl);
-        if (!response.ok) {
-            throw new Error('Network response was not ok ' + response.statusText);
-        }
+            if (!response.ok) {
+                throw new Error('Network response was not ok ' + response.statusText);
+            }
 
-        const data = await response.json();
-        this._savedAI = data.saved_ai;
-        this.populateDropdown(); // Populate the dropdown once data is fetched
+            const data = await response.json();
+            this._savedAI = data.saved_ai;
+            this.populateDropdown(); // Populate the dropdown once data is fetched
         } catch (error) {
             console.error('Error fetching saved AI:', error);
         }
     }
-    
+
     // Populate the dropdown dynamically
     populateDropdown() {
         const selectElement = document.getElementById('ai-difficulty');
@@ -181,10 +153,10 @@ export class PongRoom {
             console.error('Dropdown element not found');
             return;
         }
-        
+
         // Clear existing options
         selectElement.innerHTML = '';
-        
+
         // Add a placeholder option
         const placeholderOption = document.createElement('option');
         placeholderOption.textContent = 'Select an AI';
@@ -192,7 +164,7 @@ export class PongRoom {
         placeholderOption.disabled = true;
         placeholderOption.selected = true;
         selectElement.appendChild(placeholderOption);
-        
+
         // Add options from the savedAI list
         this._savedAI.forEach((ai) => {
             const option = document.createElement('option');
@@ -201,6 +173,7 @@ export class PongRoom {
             selectElement.appendChild(option);
         });
     }
+
     //////////////////////////////////////////////////////////////
     // Getters
     //////////////////////////////////////////////////////////////
@@ -218,9 +191,43 @@ export class PongRoom {
     get state() { return this._state; }
     get currentUser() { return this._currentUser; }
     get useWebGL() { return this._useWebGL; }
-    get aiDifficulty() { return this._aiName; }
+    get aiDifficulty() { return this._aiDifficulty; }
     set aiDifficulty(value) {
-        this.updateAIDifficulty(value);
+        this._settingsManager.updateSettings({ aiDifficulty: value });
+    }
+
+    get ballSpeed() { return this._settings.ballSpeed; }
+    set ballSpeed(value) {
+        this._settings.ballSpeed = value;
+        if (this._pongGame) {
+            this._pongGame.updateSettings({ ballSpeed: value });
+        }
+    }
+
+    get paddleSize() { return this._settings.paddleSize; }
+    set paddleSize(value) {
+        this._settings.paddleSize = value;
+        if (this._pongGame) {
+            this._pongGame.updateSettings({ paddleSize: value });
+        }
+    }
+
+    get maxScore() { return this._settings.maxScore; }
+    set maxScore(value) {
+        this._settings.maxScore = value;
+        if (this._pongGame) {
+            this._pongGame.updateSettings({ maxScore: value });
+        }
+    }
+
+    get paddleSpeed() { return this._settings.paddleSpeed; }
+    set paddleSpeed(value) {
+        logger.debug('Setting paddle speed to:', value);
+        this._settings.paddleSpeed = Number(value);
+        if (this._pongGame) {
+            logger.debug('Updating game settings with new paddle speed');
+            this._pongGame.updateSettings({ paddleSpeed: Number(value) });
+        }
     }
 
     //////////////////////////////////////////////////////////////
@@ -282,16 +289,12 @@ export class PongRoom {
         }
     }
 
-    updateAIDifficulty(value) {
-        if (this._aiName !== value) {
-            logger.info(`Setting AI difficulty from ${this._aiName} to ${value}`);
-            this._aiName = value;
-            this.notifyUpdate("_aiName", value);
-            if (this._pongGame) {
-                this._pongGame.setAIMode(true, value);
-            }
-            dynamicRender.scheduleUpdate();
-        }
+    _handleAIDifficultyChange(difficulty) {
+        logger.info(`Setting AI difficulty to ${difficulty}`);
+        if (this._pongGame)
+            this._pongGame.setAIMode(true, difficulty);
+        this.notifyUpdate("ai_difficulty", difficulty);
+        dynamicRender.scheduleUpdate();
     }
 
     //////////////////////////////////////////////////////////////
@@ -313,7 +316,13 @@ export class PongRoom {
 
         // Create new game instance
         const isHost = this._currentUser.id === data.player1_id;
-        this._pongGame = new PongGameController(data.game_id, this._currentUser, isHost, this._useWebGL);
+        this._pongGame = new PongGameController(
+            data.game_id,
+            this._currentUser,
+            isHost,
+            this._useWebGL,
+            this._settings
+        );
 
         // Add delay and retry logic for initialization
         let retryCount = 0;
@@ -326,7 +335,7 @@ export class PongRoom {
                 const initialized = await this._pongGame.initialize();
                 if (!initialized)
                     throw new Error("Game initialization failed");
-                this._pongGame.setAIMode(true, this._aiName);
+                this._pongGame.setAIMode(true, this._aiDifficulty);
                 const started = await this._pongGame.start();
                 if (!started)
                     throw new Error("Game start failed");

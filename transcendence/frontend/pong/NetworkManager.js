@@ -19,6 +19,11 @@ export class NetworkManager {
 			iceCandidatePoolSize: 10,
 			iceTransportPolicy: 'all'
 		};
+
+		this._messageHandlers.set('settings_update', (message) => {
+			if (!this._isHost)  // Only guest should apply received settings
+				this._gameController.updateSettings(message.settings);
+		});
 	}
 
 	async connect() {
@@ -202,6 +207,15 @@ export class NetworkManager {
 
 	isConnected() {
 		return this._isConnected;
+	}
+
+	syncSettings(settings) {
+		if (this._isConnected) {
+			this.sendGameMessage({
+				type: 'settings_update',
+				settings: settings
+			});
+		}
 	}
 
 	destroy() {
