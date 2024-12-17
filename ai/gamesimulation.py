@@ -1,25 +1,6 @@
 import random, math, pygame, json
-from .gameconfig import get_game_config
+from . import gameconfig
 
-# Set up the game window
-WIDTH = 80 * 6
-HEIGHT = 24 * 10
-GRID = 5
-
-# Colors
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-RED = (255, 0, 0)
-
-# Paddle settings
-PADDLE_HEIGHT = 5 * 6
-PADDLE_WIDTH = 5
-PADDLE_SPEED = 2
-
-# Ball settings
-BALL_SPEED = 2
-BALL_SIZE = 5
-BALL_MIN_DY = 0.5
 ball : pygame.rect
 ball_dx : float
 ball_dy : float
@@ -151,13 +132,13 @@ class Frame:
         self.playerDecision = playerDecision
 
 def ai_bonus_score(ball_y, rightPaddle, Ai_selected):
-    dist = abs(ball_y - rightPaddle.top) / HEIGHT
+    dist = abs(ball_y - rightPaddle.top) / gameconfig.HEIGHT
 
     if dist < 0.05:
         Ai_selected.ai_score = (1 - dist) / 10 + Ai_selected.ai_score 
 
 def reset_ball(ball):
-    ball.center = (WIDTH//2, HEIGHT//2)
+    ball.center = (gameconfig.WIDTH//2, gameconfig.HEIGHT//2)
 
 def collides(ball, paddle):
     if ball.bottom > paddle.top and ball.top < paddle.bottom and ball.left < paddle.right and ball.right > paddle.left:
@@ -174,7 +155,7 @@ def updateBallAngle(ball, ball_dy, paddle):
     bounceAngle = normalizedRelativeIntersectionY * (5 * math.pi / 12)
 
     # Update the ball's vertical velocity
-    ball_dy = BALL_SPEED * -math.sin(bounceAngle)
+    ball_dy = gameconfig.BALL_SPEED * -math.sin(bounceAngle)
 
     return ball_dy
 
@@ -184,26 +165,26 @@ def generate_random_number(low, high):
 def train_predefined(Ai_selected, Ai_nb):
     # Initialize game objects
     rightPaddle = Paddle(
-        x = WIDTH - 50 - PADDLE_WIDTH,
-        y = HEIGHT//2 - PADDLE_HEIGHT//2,
-        width = PADDLE_WIDTH,
-        height = PADDLE_HEIGHT
+        x = gameconfig.WIDTH - 50 - gameconfig.PADDLE_WIDTH,
+        y = gameconfig.HEIGHT//2 - gameconfig.PADDLE_HEIGHT//2,
+        width = gameconfig.PADDLE_WIDTH,
+        height = gameconfig.PADDLE_HEIGHT
     )
 
     # Predifine game loop
     total_predefined = 0
-    for predefined_y in range(round(HEIGHT / 10), HEIGHT, round(HEIGHT / 10)):
+    for predefined_y in range(round(gameconfig.HEIGHT / 10), gameconfig.HEIGHT, round(gameconfig.HEIGHT / 10)):
         ball = Ball(
             x = 50,
             y = predefined_y,
-            size = BALL_SIZE
+            size = gameconfig.BALL_SIZE
         )
 
         for predefined_angle in range(-75, 76):
             total_predefined += 1
             # Ball movement
-            ball_dx = BALL_SPEED
-            ball_dy = BALL_SPEED * -math.sin(predefined_angle)
+            ball_dx = gameconfig.BALL_SPEED
+            ball_dy = gameconfig.BALL_SPEED * -math.sin(predefined_angle)
 
             # Update AI's target position
             ai_ball = AI_ball(ball, 0, 0, 0)
@@ -220,24 +201,24 @@ def train_predefined(Ai_selected, Ai_nb):
                     ai_ball.update(ball, ball_dx, ball_dy)
 
                 # Move the right paddle
-                match (Ai_selected.decision(rightPaddle.y, ai_ball, HEIGHT)):
+                match (Ai_selected.decision(rightPaddle.y, ai_ball, gameconfig.HEIGHT)):
                     case 0:
                         if rightPaddle.top > 0:
-                            rightPaddle.y -= PADDLE_SPEED
+                            rightPaddle.y -= gameconfig.PADDLE_SPEED
                     case 1:
                         pass
                     case 2:
-                        if rightPaddle.bottom < HEIGHT:
-                            rightPaddle.y += PADDLE_SPEED
+                        if rightPaddle.bottom < gameconfig.HEIGHT:
+                            rightPaddle.y += gameconfig.PADDLE_SPEED
 
                 # Ball collision with top and bottom
                 if ball.top <= 0:
-                    ball.top = GRID
+                    ball.top = gameconfig.GRID
                     ball_dy *= -1
                     if abs(ball_dy) < 1:
                         ball_dy = 1 if ball_dy > 0 else -1
-                elif ball.bottom >= HEIGHT:
-                    ball.bottom = HEIGHT - GRID
+                elif ball.bottom >= gameconfig.HEIGHT:
+                    ball.bottom = gameconfig.HEIGHT - gameconfig.GRID
                     ball_dy *= -1
                     if abs(ball_dy) < 1:
                         ball_dy = 1 if ball_dy > 0 else -1
@@ -249,7 +230,7 @@ def train_predefined(Ai_selected, Ai_nb):
                         break
 
                 # Ball out of bounds
-                if ball.right >= WIDTH:
+                if ball.right >= gameconfig.WIDTH:
                     ai_bonus_score(ball.y, rightPaddle, Ai_selected)
                     break
                 
@@ -260,19 +241,19 @@ def train_predefined(Ai_selected, Ai_nb):
 def train_normal(Ai_selected, Ai_nb):
     # Initialize game objects
     rightPaddle = Paddle(
-        x = WIDTH - 50 - PADDLE_WIDTH,
-        y = HEIGHT//2 - PADDLE_HEIGHT//2,
-        width = PADDLE_WIDTH,
-        height = PADDLE_HEIGHT
+        x = gameconfig.WIDTH - 50 - gameconfig.PADDLE_WIDTH,
+        y = gameconfig.HEIGHT//2 - gameconfig.PADDLE_HEIGHT//2,
+        width = gameconfig.PADDLE_WIDTH,
+        height = gameconfig.PADDLE_HEIGHT
     )
 
     # Normal game loop
     ball = Ball(
-        x = WIDTH / 2,
-        y = HEIGHT / 2,
-        size = BALL_SIZE
+        x = gameconfig.WIDTH / 2,
+        y = gameconfig.HEIGHT / 2,
+        size = gameconfig.BALL_SIZE
     )
-    ball_dx = BALL_SPEED
+    ball_dx = gameconfig.BALL_SPEED
     ball_dy = 0
 
     # Update AI's target position
@@ -285,8 +266,8 @@ def train_normal(Ai_selected, Ai_nb):
     j = 0
     while running:
         # Limit the game time to GAME_CONF['time_limit'] theoretical minutes
-        if get_game_config('time_limit')[0] != 0 \
-            and i > (get_game_config('time_limit')[0] * 60 * 60):
+        if gameconfig.get_game_config('time_limit')[0] != 0 \
+            and i > (gameconfig.get_game_config('time_limit')[0] * 60 * 60):
             break
         i += 1
 
@@ -299,27 +280,27 @@ def train_normal(Ai_selected, Ai_nb):
             ai_ball.update(ball, ball_dx, ball_dy)
 
         # Move the right paddle
-        match (Ai_selected.decision(rightPaddle.y, ai_ball, HEIGHT)):
+        match (Ai_selected.decision(rightPaddle.y, ai_ball, gameconfig.HEIGHT)):
             case 0:
                 # print("AI decision: 0")
                 if rightPaddle.top > 0:
-                    rightPaddle.y -= PADDLE_SPEED
+                    rightPaddle.y -= gameconfig.PADDLE_SPEED
             case 1:
                 # print("AI decision: 1")
                 pass
             case 2:
                 # print("AI decision: 2")
-                if rightPaddle.bottom < HEIGHT:
-                    rightPaddle.y += PADDLE_SPEED
+                if rightPaddle.bottom < gameconfig.HEIGHT:
+                    rightPaddle.y += gameconfig.PADDLE_SPEED
 
         # Ball collision with top and bottom
         if ball.top <= 0:
-            ball.top = GRID
+            ball.top = gameconfig.GRID
             ball_dy *= -1
             if abs(ball_dy) < 1:
                 ball_dy = 1 if ball_dy > 0 else -1
-        elif ball.bottom >= HEIGHT:
-            ball.bottom = HEIGHT - GRID
+        elif ball.bottom >= gameconfig.HEIGHT:
+            ball.bottom = gameconfig.HEIGHT - gameconfig.GRID
             ball_dy *= -1
             if abs(ball_dy) < 1:
                 ball_dy = 1 if ball_dy > 0 else -1
@@ -329,7 +310,7 @@ def train_normal(Ai_selected, Ai_nb):
             ball_dx *= -1
             ball.left = 50
             if j == 0:
-                ball_dy = BALL_SPEED * -math.sin(generate_random_number(-75, 75))
+                ball_dy = gameconfig.BALL_SPEED * -math.sin(generate_random_number(-75, 75))
                 j = 42
             else:
                 ball_dy = 0
@@ -343,13 +324,13 @@ def train_normal(Ai_selected, Ai_nb):
                 ball_dy = updateBallAngle(ball, ball_dy, rightPaddle)
 
         # Ball out of bounds
-        if ball.right >= WIDTH:
+        if ball.right >= gameconfig.WIDTH:
             left_score += 1
             # ai_bonus_score(ball.y, rightPaddle, Ai_selected)
             reset_ball(ball)
 
         # End the game
-        if left_score >= get_game_config('max_score')[0]:
+        if left_score >= gameconfig.get_game_config('max_score')[0]:
             running = False
     
     species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f}"
@@ -404,11 +385,11 @@ def train_human(Ai_selected, Ai_nb):
         # Update the ball's position every second
         if tick % 60 == 0:
             # Mirror ball position for the Ai right's position
-            frame.ball.x = WIDTH - frame.ball.x
+            frame.ball.x = gameconfig.WIDTH - frame.ball.x
             ai_ball.update(frame.ball, frame.ball.dx * -1, frame.ball.dy)
 
         # Compare the AI's decision with the player's decision
-        if (Ai_selected.decision(frame.leftPaddle_y, ai_ball, HEIGHT) == frame.playerDecision):
+        if (Ai_selected.decision(frame.leftPaddle_y, ai_ball, gameconfig.HEIGHT) == frame.playerDecision):
             Ai_selected.ai_score += 0.5
         
         tick += 1
