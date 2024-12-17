@@ -135,11 +135,9 @@ export class AIController {
                 logger.error(`Failed to fetch AI data: ${response.status}`);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
-
-            const aidata = await response.json();
-            logger.debug('Received AI data from server');
-
-            const setup = JSON.parse(aidata);
+            
+            const setup = await response.json();
+            logger.debug('Received AI data from server', setup);
             if (!setup || !setup.layer1 || !setup.layer1.weights
                 || !setup.layer2 || !setup.layer2.weights
                 || !setup.layer3 || !setup.layer3.weights) {
@@ -165,6 +163,7 @@ export class AIController {
     }
 
     decision(gameState) {
+        logger.debug('Making AI decision', { gameState });
         const currentTime = Date.now();
         const timeLastUpdate = currentTime - this.lastBallUpdate;
 
@@ -175,7 +174,6 @@ export class AIController {
         }
 
         try {
-            logger.debug('Making AI decision', { gameState });
             let X = [[this.aiBall.x / height,
                 this.aiBall.y / height,
                 this.aiBall.dx,

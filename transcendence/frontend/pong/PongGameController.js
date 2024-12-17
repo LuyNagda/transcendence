@@ -93,13 +93,13 @@ export class PongGameController {
 				if (!this._isAIMode || this._isHost) return;
 
 				const currentState = this._gameState.getState();
-				const aiDecision = this._aiController.makeDecision(currentState);
+				const aiDecision = this._aiController.decision(currentState);
 
 				// Handle AI decision like a player input
 				const paddle = this._isHost ? 'leftPaddle' : 'rightPaddle';
 
 				switch (aiDecision) {
-					case 1: // Move up
+					case 0: // Move up
 						this._gameState.updateState({
 							[paddle]: {
 								...currentState[paddle],

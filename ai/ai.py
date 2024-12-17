@@ -295,13 +295,13 @@ def train_ai(save_file):
 def load_Ai(save_file):
     with open(save_file, 'r') as imp:
         # Load first AI from JSON
-        Ai_dict = json.load(imp)
+        ai_dict = json.load(imp)
 
         # Create a new Neuron_Network instance
         network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
         
         # Load the network data from the saved Ai dictionary
-        network.load_from_dict(Ai_dict)
+        network.load_from_dict(ai_dict)
         return network
 
 def backup_file(filename, nb_generation):
