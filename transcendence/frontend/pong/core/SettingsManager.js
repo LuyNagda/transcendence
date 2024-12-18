@@ -28,7 +28,7 @@ export class SettingsManager {
 
 	// Calculate paddle height based on current settings
 	getPaddleHeight() {
-		return GameRules.BASE_PADDLE_HEIGHT * (this._settings.paddleSize / 5);
+		return 20 + (this._settings.paddleSize * 4);
 	}
 
 	// Calculate paddle speed based on current settings

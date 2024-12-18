@@ -6,6 +6,7 @@ export class GameEngine {
 		this._gameLoop = null;
 		this._components = new Map();
 		this._isRunning = false;
+		this._isDestroying = false;
 	}
 
 	registerComponent(name, component) {
@@ -69,11 +70,15 @@ export class GameEngine {
 
 	destroy() {
 		this.stop();
-		for (const component of this._components.values()) {
-			if (component.destroy) {
+		if (this._isDestroying) return;
+		this._isDestroying = true;
+
+		for (const [name, component] of this._components.entries()) {
+			if (component && component.destroy && name !== 'controller') {
 				component.destroy();
 			}
 		}
 		this._components.clear();
+		this._isDestroying = false;
 	}
 } 

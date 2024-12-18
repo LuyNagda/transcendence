@@ -135,6 +135,7 @@ class DynamicRender {
         this.bindFor();
         this.bindModel();
         this.bindOn();
+        this.bindStyle();
     }
 
     bindText() {
@@ -172,7 +173,7 @@ class DynamicRender {
             const [item, items] = forAttr.split(" in ").map((s) => s.trim());
             let itemsArray = this.getPropValue(items);
 
-            console.log(`Binding v-for for ${items}:`, itemsArray); // Log pour le débogage
+            logger.debug(`Binding v-for for ${items}:`, itemsArray); // Log pour le débogage
 
             // Vérifier si itemsArray est un Proxy et le dé-proxifier si nécessaire
             if (itemsArray && typeof itemsArray === 'object' && itemsArray.constructor.name === 'Proxy') {
@@ -180,7 +181,7 @@ class DynamicRender {
             }
 
             if (!Array.isArray(itemsArray)) {
-                console.warn(`v-for data is not an array: ${items}`);
+                logger.warn(`v-for data is not an array: ${items}`);
                 return;
             }
 
@@ -426,6 +427,24 @@ class DynamicRender {
         element.querySelectorAll("[v-text]").forEach((el) => {
             const prop = el.getAttribute("v-text");
             el.textContent = this.evaluateExpression(prop, localContext);
+        });
+    }
+
+    bindStyle() {
+        this.root.querySelectorAll("[v-bind\\:style]").forEach((el) => {
+            const styleExpr = el.getAttribute("v-bind:style");
+            try {
+                const styleObj = this.evaluateExpression(styleExpr);
+                if (styleObj && typeof styleObj === 'object') {
+                    Object.entries(styleObj).forEach(([prop, value]) => {
+                        // Convert camelCase to kebab-case
+                        const kebabProp = prop.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+                        el.style[kebabProp] = value;
+                    });
+                }
+            } catch (error) {
+                logger.error(`Error binding style ${styleExpr}:`, error);
+            }
         });
     }
 }

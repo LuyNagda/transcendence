@@ -290,58 +290,94 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 self.game.room.state = 'LOBBY'
                 self.game.room.save()
 
+    async def mode_change(self, event):
+        """
+        Handle mode change event and broadcast to room
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'mode_change',
+            'mode': event['mode'],
+            'settings': event.get('settings', {}),
+            'room_state': event.get('room_state', {}),
+            'trigger_components': ['game-settings', 'mode-selection']
+        }))
+
+    async def settings_change(self, event):
+        """
+        Handle settings change event
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'settings_change',
+            'settings': event['settings']
+        }))
+
 class PongRoomConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.user = self.scope.get("user")
-        self.room_id = self.scope['url_route']['kwargs']['room_id']
-        self.room_group_name = f'pong_room_{self.room_id}'
-
-        logger.info('WebSocket connection attempt', extra={
-            'user_id': getattr(self.user, 'id', None),
-            'room_id': self.room_id,
-            'authenticated': self.user.is_authenticated,
-            'scope_details': {
-                'type': self.scope.get('type'),
-                'path': self.scope.get('path'),
-                'raw_path': self.scope.get('raw_path'),
-                'headers': dict(self.scope.get('headers', [])),
-            }
-        })
-
-        if not self.user or self.user.is_anonymous:
-            logger.warning("Unauthorized connection attempt", extra={'room_id': self.room_id})
-            await self.close(code=4001)
-            return
-
         try:
+            self.user = self.scope.get("user")
+            self.room_id = self.scope['url_route']['kwargs']['room_id']
+            self.room_group_name = f'pong_room_{self.room_id}'
+
+            logger.info('WebSocket connection attempt', extra={
+                'user_id': getattr(self.user, 'id', None),
+                'room_id': self.room_id,
+                'authenticated': getattr(self.user, 'is_authenticated', False),
+                'scope_details': {
+                    'type': self.scope.get('type'),
+                    'path': self.scope.get('path'),
+                    'headers': dict(self.scope.get('headers', [])),
+                }
+            })
+
+            # Authentication check
+            if not self.user or not self.user.is_authenticated:
+                logger.warning("Unauthorized connection attempt", extra={
+                    'room_id': self.room_id,
+                    'user': str(self.user)
+                })
+                await self.close(code=4001)
+                return
+
+            # Get and validate room
             self.room = await self.get_room()
             if not self.room:
                 logger.error(f"Room not found: room_id={self.room_id}")
                 await self.close(code=4004)
                 return
 
-            # Add to group before accepting
-            await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-            await self.accept()
-            logger.info(f"WebSocket connection accepted for user {self.user} in room {self.room_id}")
-            
+            # Add user to room group
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
+
+            # Add user to room if not already present
             success, message = await self.add_user_to_room()
-            if success:
-                await self.update_room()
-                logger.info(f"Connection successful: user={self.user}, room_id={self.room_id}, message={message}")
-            else:
-                logger.error(f"Failed to add user to room: user={self.user}, room_id={self.room_id}, message={message}")
-                await self.close(code=4003)
-                
+            if not success:
+                logger.error(f"Failed to add user to room: {message}", extra={
+                    'user_id': self.user.id,
+                    'room_id': self.room_id,
+                    'message': message
+                })
+                await self.close(code=4002)
+                return
+
+            await self.accept()
+            logger.info(f"WebSocket connection accepted for user {self.user.username} in room {self.room_id}")
+
+            # Send initial room state
+            await self.update_room()
+
         except Exception as e:
-            logger.error(f"Error during connection", extra={
+            logger.error("Error during connection", extra={
                 'error_type': type(e).__name__,
                 'error_message': str(e),
                 'traceback': traceback.format_exc(),
                 'user_id': getattr(self.user, 'id', None),
-                'room_id': self.room_id
+                'room_id': getattr(self, 'room_id', None)
             })
             await self.close(code=4002)
+            return
 
     async def disconnect(self, close_code):
         logger.info(f"Disconnection", extra={
@@ -366,9 +402,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             })
 
     async def receive(self, text_data):
-        logger.debug(f"Receive method called with data: {text_data}")
         try:
-            logger.debug(f"Raw data received: {text_data}")
             data = json.loads(text_data)
             message_id = data.get('id')
             action = data.get('action')
@@ -377,13 +411,42 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             if action == 'update_property':
                 property = data.get('property')
                 value = data.get('value')
-                logger.info(f"Updating property: {property} with value: {value}")  # Ajout de ce log
-                success = await self.update_room_property(property, value)
-                if success:
-                    await self.update_room()
-                    response = {'id': message_id, 'status': 'success', 'message': f'Property {property} updated'}
+                logger.info(f"Updating property: {property} with value: {value}")
+                
+                # Handle all settings-related updates through the settings channel
+                if property == 'settings' or property in ['maxScore', 'ballSpeed', 'paddleSpeed', 'aiDifficulty', 'powerUps']:
+                    setting = data.get('setting') or property
+                    # Broadcast settings update to all room members
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'settings_update',
+                            'setting': setting,
+                            'value': value
+                        }
+                    )
+                    response = {'id': message_id, 'status': 'success', 'message': 'Settings updated'}
+                elif property == 'mode':
+                    # Only room owner can change mode
+                    if self.user != self.room.owner:
+                        response = {'id': message_id, 'status': 'error', 'message': 'Only room owner can change mode'}
+                    else:
+                        # Validate mode
+                        if value not in dict(PongRoom.Mode.choices):
+                            response = {'id': message_id, 'status': 'error', 'message': f'Invalid game mode: {value}'}
+                        else:
+                            success = await self.update_room_property('mode', value)
+                            if success:
+                                response = {'id': message_id, 'status': 'success', 'message': 'Mode updated'}
+                            else:
+                                response = {'id': message_id, 'status': 'error', 'message': 'Failed to update mode'}
                 else:
-                    response = {'id': message_id, 'status': 'error', 'message': f'Failed to update property {property}'}
+                    success = await self.update_room_property(property, value)
+                    if success:
+                        await self.update_room()
+                        response = {'id': message_id, 'status': 'success', 'message': f'Property {property} updated'}
+                    else:
+                        response = {'id': message_id, 'status': 'error', 'message': f'Failed to update property {property}'}
             elif action == 'invite_friend':
                 success = await self.invite_friend(data['friend_id'])
                 if success:
@@ -452,13 +515,76 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def add_user_to_room(self):
-        if self.room:
+        try:
+            if not self.room:
+                logger.error("Cannot add user to room: Room not found", extra={
+                    'user_id': self.user.id,
+                    'room_id': self.room_id
+                })
+                return False, "Room not found"
+
+            # If user is the owner, always allow them in
+            if self.user == self.room.owner:
+                if self.user not in self.room.players.all():
+                    self.room.players.add(self.user)
+                return True, "Owner added to room"
+
+            # For non-owners, check if they can join
             if self.user not in self.room.players.all():
+                current_players = self.room.players.count()
+                max_players = self.room.max_players
+
+                logger.info("Room join attempt", extra={
+                    'user_id': self.user.id,
+                    'room_id': self.room_id,
+                    'current_players': current_players,
+                    'max_players': max_players,
+                    'mode': self.room.mode,
+                    'is_owner': self.user == self.room.owner
+                })
+
+                # Check if room is full
+                if current_players >= max_players:
+                    logger.error("Cannot add user to room: Room is full", extra={
+                        'user_id': self.user.id,
+                        'room_id': self.room_id,
+                        'current_players': current_players,
+                        'max_players': max_players
+                    })
+                    return False, "Room is full"
+
+                # For AI mode, only allow the owner
+                if self.room.mode == 'AI' and self.user != self.room.owner:
+                    logger.error("Cannot add user to AI room: Not the owner", extra={
+                        'user_id': self.user.id,
+                        'room_id': self.room_id
+                    })
+                    return False, "Cannot join AI mode room"
+
                 self.room.players.add(self.user)
+                logger.info("User added to room", extra={
+                    'user_id': self.user.id,
+                    'room_id': self.room_id,
+                    'current_players': current_players + 1,
+                    'max_players': max_players
+                })
                 return True, "User added to room"
             else:
+                logger.info("User already in room", extra={
+                    'user_id': self.user.id,
+                    'room_id': self.room_id
+                })
                 return True, "User already in room"
-        return False, "Room not found"
+
+        except Exception as e:
+            logger.error("Error adding user to room", extra={
+                'error_type': type(e).__name__,
+                'error_message': str(e),
+                'traceback': traceback.format_exc(),
+                'user_id': self.user.id,
+                'room_id': self.room_id
+            })
+            return False, f"Error adding user to room: {str(e)}"
 
     @database_sync_to_async
     def remove_user_from_room(self):
@@ -495,7 +621,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         
-        logger.info(f"Room state update: room_id={self.room_id}")
+        logger.info(f"Room state update: room_id={self.room_id}, state={room_state}")
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -510,7 +636,8 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'room_update',
             'room_state': room_state,
-            'trigger_htmx': True
+            'trigger_htmx': True,
+            'trigger_components': ['game-settings']
         }))
 
     @database_sync_to_async
@@ -570,7 +697,10 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         if self.room:
             logger.info(f"Updating room property: {property} with value: {value}")
             try:
+                # Convert camelCase to snake_case for property names
+                property = ''.join(['_' + c.lower() if c.isupper() else c for c in property]).lstrip('_')
                 old_value = getattr(self.room, property, None)
+                
                 if property == 'owner':
                     user = User.objects.get(id=value['id'])
                     self.room.owner = user
@@ -581,14 +711,61 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     invitation_ids = [inv['id'] for inv in value]
                     self.room.pending_invitations.set(User.objects.filter(id__in=invitation_ids))
                 elif property == 'mode':
-                    logger.info(f"Changing mode from {self.room.mode} to {value}")  # Ajout de ce log
+                    logger.info(f"Changing mode from {self.room.mode} to {value}")
+                    old_mode = self.room.mode
                     self.room.mode = value
-                elif property == 'max_players':
-                    self.room.max_players = value
-                elif property == 'state':
-                    self.room.state = value
+                    self.room.save()  # Save immediately to update max_players
+                    
+                    # Get default settings for the new mode
+                    settings = {
+                        'ballSpeed': 4,
+                        'paddleSpeed': 4,
+                        'maxScore': 11,
+                        'powerUps': False,
+                        'aiDifficulty': 'medium'
+                    } if value == 'AI' else {
+                        'ballSpeed': 6,
+                        'paddleSpeed': 6,
+                        'maxScore': 11,
+                        'powerUps': False
+                    } if value == 'RANKED' else {
+                        'ballSpeed': 5,
+                        'paddleSpeed': 5,
+                        'maxScore': 11,
+                        'powerUps': False
+                    }
+                    
+                    # Get updated room state
+                    room_state = {
+                        'id': self.room.room_id,
+                        'mode': value,
+                        'maxPlayers': self.room.max_players,  # Include updated max_players
+                        'availableSlots': self.room.max_players - self.room.players.count()
+                    }
+                    
+                    # Broadcast mode change with settings and room state
+                    async_to_sync(self.channel_layer.group_send)(
+                        self.room_group_name,
+                        {
+                            'type': 'mode_change',
+                            'mode': value,
+                            'settings': settings,
+                            'room_state': room_state
+                        }
+                    )
+                    
+                    # Also trigger a full room update
+                    async_to_sync(self.channel_layer.group_send)(
+                        self.room_group_name,
+                        {
+                            'type': 'update_room',
+                        }
+                    )
+                    
+                    logger.info(f"Mode changed from {old_mode} to {value}, new max_players: {self.room.max_players}")
+                    return True
                 else:
-                    logger.warning(f"Tentative de mise à jour d'une propriété inconnue : {property}")
+                    logger.warning(f"Attempt to update unknown property: {property}")
                     return False
                 
                 self.room.save()
@@ -596,7 +773,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 new_value = getattr(self.room, property, None)
                 logger.info(f"Property '{property}' updated: {old_value} -> {new_value}")
                 
-                # Déclencher une mise à jour asynchrone de la room
+                # Trigger room update
                 async_to_sync(self.channel_layer.group_send)(
                     self.room_group_name,
                     {
@@ -606,9 +783,40 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 
                 return True
             except ObjectDoesNotExist:
-                logger.error(f"Objet non trouvé lors de la mise à jour de la propriété {property}")
+                logger.error(f"Object not found while updating property {property}")
                 return False
             except Exception as e:
-                logger.error(f"Erreur lors de la mise à jour de la propriété {property}: {str(e)}")
+                logger.error(f"Error updating property {property}: {str(e)}")
                 return False
         return False
+
+    async def settings_update(self, event):
+        """
+        Handle settings update event and broadcast to room
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'settings_update',
+            'setting': event['setting'],
+            'value': event['value']
+        }))
+
+    async def mode_change(self, event):
+        """
+        Handle mode change event and broadcast to room
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'mode_change',
+            'mode': event['mode'],
+            'settings': event.get('settings', {}),
+            'room_state': event.get('room_state', {}),
+            'trigger_components': ['game-settings', 'mode-selection']
+        }))
+
+    async def settings_change(self, event):
+        """
+        Handle settings update event
+        """
+        await self.send(text_data=json.dumps({
+            'type': 'settings_change',
+            'settings': event['settings']
+        }))

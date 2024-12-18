@@ -9,39 +9,45 @@
 
 <div id="pong-room" class="container x-auto my-4">
     <h1>Pong Game Room</h1>
-    <p>Current Mode: <span v-text="pongRoom.mode"></span></p>
-    <p>Room State: <span v-text="pongRoom.state"></span></p>
-    <div class="flex-grow-1 me-4" style="flex-basis: 300px;">
-        <div id="room-state" class="mb-4">
-            {% include "pong/components/room_state.html" %}
+    <p>Current Mode: <span v-text="room.mode"></span></p>
+    <p>Room State: <span v-text="room.state"></span></p>
+    <div class="row">
+        <div class="col-md-4">
+            <div id="room-state" class="mb-4">
+                {% include "pong/components/room_state.html" %}
+            </div>
+            {% include "pong/components/game_settings.html" %}
         </div>
-    </div>
-    <div class="flex-grow-1" style="flex-basis: 600px;">
-        <div id="dynamic-content">
-            <div v-if="pongRoom.state === 'LOBBY'">
-                <div id="mode-selection-container" class="mb-4">
-                    {% include "pong/components/mode_selection.html" %}
+        <div class="col-md-8">
+            <div id="dynamic-content">
+                <div v-if="pongRoom.state === 'LOBBY'">
+                    <div id="mode-selection-container" class="mb-4">
+                        {% include "pong/components/mode_selection.html" %}
+                    </div>
+                    <p>Waiting for the game to start...</p>
                 </div>
-                <p>Waiting for the game to start...</p>
+                <div v-if="pongRoom.state === 'PLAYING'">
+                    {% include "pong/components/game.html" %}
+                </div>
+                <br><br>
             </div>
-            <div v-if="pongRoom.state === 'PLAYING'">
-                {% include "pong/components/game.html" %}
-            </div>
-            <br><br>
         </div>
     </div>
 </div>
-
 
 <style>
     @media (max-width: 768px) {
         main {
             flex-direction: column;
         }
+
         main>div {
             margin-right: 0 !important;
             margin-bottom: 2rem;
         }
     }
 </style>
-{{ room_id|json_script:"room-id" }} {{ current_user|json_script:"current-user-data" }} {% endblock %}
+
+{{ room_id|json_script:"room-id" }}
+{{ current_user|json_script:"current-user-data" }}
+{% endblock %}
