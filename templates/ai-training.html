@@ -13,7 +13,7 @@
         <form id="training-options" class="mb-3">
             <div class="form-floating mb-2">
                 <input type="text" id="ai_name" name="ai_name" class="form-control" placeholder="AI Name" required>
-                <label for="ai_name">AI Name</label>
+                <label for="ai_name">AI's Name</label>
             </div>
             <div class="form-floating mb-2">
                 <input type="number" id="nb_generation" name="nb_generation" class="form-control" placeholder="Number of Generations" min="1" max="100">
@@ -44,7 +44,7 @@
     </div>
 </div>
 
-<script src="../transcendence/frontend/pong/AiTraining.js"></script>
+<script src="transcendence/frontend/pong/AiTraining.js" defer></script>
 
 {% block chat %}{% render_chat %}{% endblock %}
 
