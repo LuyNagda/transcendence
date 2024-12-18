@@ -21,8 +21,20 @@ export class NetworkManager {
 		};
 
 		this._messageHandlers.set('settings_update', (message) => {
-			if (!this._isHost)  // Only guest should apply received settings
-				this._gameController.updateSettings(message.settings);
+			if (!this._isHost) {
+				const gameSettings = dynamicRender.observedObjects.get('pongRoom')?.settings;
+				if (gameSettings) {
+					const setting = message.setting;
+					const value = message.value;
+					if (setting && value !== undefined) {
+						gameSettings[setting] = value;
+						dynamicRender.scheduleUpdate();
+					} else if (message.settings) {
+						Object.assign(gameSettings, message.settings);
+						dynamicRender.scheduleUpdate();
+					}
+				}
+			}
 		});
 	}
 
@@ -221,8 +233,12 @@ export class NetworkManager {
 	destroy() {
 		this._handleDisconnect();
 		if (this._wsService) {
+			this._wsService.onmessage = null;
+			this._wsService.onerror = null;
+			this._wsService.onclose = null;
 			this._wsService.close();
 			this._wsService = null;
 		}
+		this._messageHandlers.clear();
 	}
 } 

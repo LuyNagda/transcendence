@@ -81,8 +81,11 @@ export class Canvas2DRenderer extends RendererInterface {
 	}
 
 	destroy() {
-		// Clear the canvas on destroy
-		this._context.clearRect(0, 0, this._canvas.width, this._canvas.height);
-		this._context = null;
+		if (this._context) {
+			// Clear the canvas before destroying
+			this._context.clearRect(0, 0, this._canvas.width, this._canvas.height);
+			this._context = null;
+		}
+		this._canvas = null;
 	}
 }

@@ -15,6 +15,53 @@ User = get_user_model()
 # Configure the logger
 logger = logging.getLogger(__name__)
 
+DEFAULT_SETTINGS = {
+    'ballSpeed': 5,
+    'paddleSpeed': 5,
+    'maxScore': 11,
+    'powerUps': False
+}
+
+DEFAULT_AI_SETTINGS = {
+    'ballSpeed': 4,
+    'paddleSpeed': 4,
+    'maxScore': 11,
+    'powerUps': False,
+    'aiDifficulty': 'medium'
+}
+
+DEFAULT_RANKED_SETTINGS = {
+    'ballSpeed': 6,
+    'paddleSpeed': 6,
+    'maxScore': 11,
+    'powerUps': False
+}
+
+def validate_settings(settings):
+    """Validate game settings and return sanitized values"""
+    validated = {}
+    
+    # Ball speed (1-10)
+    validated['ballSpeed'] = max(1, min(10, int(settings.get('ballSpeed', 5))))
+    
+    # Paddle speed (1-10)
+    validated['paddleSpeed'] = max(1, min(10, int(settings.get('paddleSpeed', 5))))
+    
+    # Max score (1-21)
+    validated['maxScore'] = max(1, min(21, int(settings.get('maxScore', 11))))
+    
+    # Power ups (boolean)
+    validated['powerUps'] = bool(settings.get('powerUps', False))
+    
+    # AI difficulty (only for AI mode)
+    if 'aiDifficulty' in settings:
+        difficulties = ['easy', 'medium', 'hard']
+        validated['aiDifficulty'] = settings.get('aiDifficulty', 'medium')
+        if validated['aiDifficulty'] not in difficulties:
+            validated['aiDifficulty'] = 'medium'
+    
+    return validated
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def pong_view(request):
@@ -41,24 +88,63 @@ def game_history(request):
 @permission_classes([IsAuthenticatedWithCookie])
 def create_pong_room(request):
     try:
+        # Validate request data
+        if not request.user.is_authenticated:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Authentication required'
+            }, status=401)
+
+        # Generate room ID and get mode
         room_id = str(uuid.uuid4())[:8]
+        mode = request.data.get('mode', PongRoom.Mode.CLASSIC)
+
+        # Validate mode
+        if mode not in dict(PongRoom.Mode.choices):
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Invalid game mode: {mode}'
+            }, status=400)
+
+        # Create room
         room = PongRoom.objects.create(
             room_id=room_id,
             owner=request.user,
-            mode=PongRoom.Mode.AI
+            mode=mode
         )
         room.players.add(request.user)
+
+        # Log success
         logger.info(f"Room created with ID {room_id} by user {request.user.username}")
+
+        # Prepare response data
         room_data = room.serialize()
         room_data['currentUser'] = request.user.player_data
-        json_data = json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
-        return render(request, 'pong/pong_room_partial.html', {
+
+        return JsonResponse({
+            'status': 'success',
             'room_id': room_id,
-            'pongRoom': json_data
+            'room_data': room_data
         })
+
+    except PongRoom.DoesNotExist:
+        logger.error("Room creation failed: Room does not exist")
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Failed to create room'
+        }, status=404)
+    except ValueError as e:
+        logger.error(f"Room creation failed: Invalid value - {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=400)
     except Exception as e:
-        logger.error(f"Error creating room: {str(e)}")
-        return JsonResponse({'status': 'error'})
+        logger.error(f"Room creation failed: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'status': 'error',
+            'message': 'An unexpected error occurred'
+        }, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -157,3 +243,130 @@ def pong_room_state(request, room_id):
     except Exception as e:
         logger.error(f"Error getting room state: {str(e)}")
         return JsonResponse({'error': 'Failed to get room state'}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticatedWithCookie])
+def update_room_mode(request, room_id):
+    try:
+        room = get_object_or_404(PongRoom, room_id=room_id)
+        
+        # Only room owner can change mode
+        if request.user != room.owner:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Only room owner can change mode'
+            }, status=403)
+
+        # Get and validate new mode
+        new_mode = request.data.get('mode')
+        if not new_mode or new_mode not in dict(PongRoom.Mode.choices):
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Invalid game mode: {new_mode}'
+            }, status=400)
+
+        # Update room mode
+        room.mode = new_mode
+        room.save()
+
+        # Get default settings based on mode
+        settings = DEFAULT_AI_SETTINGS if new_mode == PongRoom.Mode.AI else \
+                  DEFAULT_RANKED_SETTINGS if new_mode == PongRoom.Mode.RANKED else \
+                  DEFAULT_SETTINGS
+
+        # Notify all room members about the mode change
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'pong_room_{room_id}',
+            {
+                'type': 'mode_change',
+                'mode': new_mode,
+                'settings': settings
+            }
+        )
+
+        return JsonResponse({
+            'status': 'success',
+            'mode': new_mode,
+            'settings': settings
+        })
+
+    except PongRoom.DoesNotExist:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Room not found'
+        }, status=404)
+    except Exception as e:
+        logger.error(f"Failed to update room mode: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Failed to update room mode'
+        }, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticatedWithCookie])
+def update_room_settings(request, room_id):
+    try:
+        room = get_object_or_404(PongRoom, room_id=room_id)
+        
+        # Only room owner can change settings
+        if request.user != room.owner:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Only room owner can change settings'
+            }, status=403)
+
+        # Get settings from request
+        try:
+            new_settings = json.loads(request.body) if isinstance(request.body, bytes) else request.data
+        except json.JSONDecodeError:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Invalid JSON format'
+            }, status=400)
+
+        if not isinstance(new_settings, dict):
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Settings must be a JSON object'
+            }, status=400)
+
+        # For ranked mode, always use default settings
+        if room.mode == PongRoom.Mode.RANKED:
+            validated_settings = DEFAULT_RANKED_SETTINGS
+        else:
+            try:
+                # Validate and sanitize settings
+                validated_settings = validate_settings(new_settings)
+            except (ValueError, TypeError) as e:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'Invalid settings values: {str(e)}'
+                }, status=400)
+
+        # Notify all room members about the settings change
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'pong_room_{room_id}',
+            {
+                'type': 'settings_change',
+                'settings': validated_settings
+            }
+        )
+
+        return JsonResponse({
+            'status': 'success',
+            'settings': validated_settings
+        })
+
+    except PongRoom.DoesNotExist:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Room not found'
+        }, status=404)
+    except Exception as e:
+        logger.error(f"Failed to update room settings: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Failed to update room settings'
+        }, status=500)

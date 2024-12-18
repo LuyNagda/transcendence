@@ -99,6 +99,8 @@ class Activation_SoftMax {
 
 export class AIController {
     static instance = null;
+    static initializing = false;
+    static initPromise = null;
 
     constructor() {
         logger.info('Initializing AIController');
@@ -112,19 +114,28 @@ export class AIController {
         this.lastBallUpdate = 0;
     }
 
-    static async init(ai_name) {
-        try {
-            if (this.instance) {
-                logger.info('Returning existing AIController instance');
+    static async init(difficulty) {
+        if (this.initializing) return this.initPromise;
+        if (this.instance) return this.instance;
+
+        this.initializing = true;
+        this.initPromise = (async () => {
+            try {
+                this.instance = new AIController();
+                await this.instance._initialize(difficulty);
                 return this.instance;
+            } finally {
+                this.initializing = false;
             }
+        })();
+        return this.initPromise;
+    }
 
-            logger.info('Creating new AIController instance');
-            this.instance = new AIController();
-
-            logger.info(`Initializing AI with difficulty: ${ai_name}`);
-            // Fetch AI data based on ai_name
-            const response = await fetch(`/ai/get-ai/${ai_name}`);
+    async _initialize(difficulty) {
+        try {
+            logger.info(`Initializing AI with difficulty: ${difficulty}`);
+            // Fetch AI data based on difficulty
+            const response = await fetch(`/ai/get-ai?difficulty=${difficulty}`);
             if (!response.ok)
                 throw new Error(`Failed to fetch AI data: ${response.status}`);
             const setup = await response.json();
@@ -152,15 +163,14 @@ export class AIController {
                 }
             });
 
-            this.instance.layer1 = new Layer_Dense(setup.layer1.weights, setup.layer1.biases);
-            this.instance.layer2 = new Layer_Dense(setup.layer2.weights, setup.layer2.biases);
-            this.instance.layer3 = new Layer_Dense(setup.layer3.weights, setup.layer3.biases);
-            this.instance.activation1 = new Activation_ReLU();
-            this.instance.activation2 = new Activation_ReLU();
-            this.instance.activation3 = new Activation_SoftMax();
+            this.layer1 = new Layer_Dense(setup.layer1.weights, setup.layer1.biases);
+            this.layer2 = new Layer_Dense(setup.layer2.weights, setup.layer2.biases);
+            this.layer3 = new Layer_Dense(setup.layer3.weights, setup.layer3.biases);
+            this.activation1 = new Activation_ReLU();
+            this.activation2 = new Activation_ReLU();
+            this.activation3 = new Activation_SoftMax();
 
             logger.info('AIController initialization completed successfully');
-            return this.instance;
         }
         catch (error) {
             logger.error('Error in AIController initialization:', error);
@@ -186,7 +196,7 @@ export class AIController {
         try {
             // Normalize inputs for the neural network
             let X = [[
-                this.aiBall.x / GameRules.CANVAS_HEIGHT,
+                this.aiBall.x / GameRules.CANVAS_WIDTH,
                 this.aiBall.y / GameRules.CANVAS_HEIGHT,
                 this.aiBall.dx,
                 this.aiBall.dy,

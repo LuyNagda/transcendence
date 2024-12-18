@@ -1,6 +1,6 @@
-import { GameRules } from './GameRules';
-import { SettingsManager } from './SettingsManager';
 import logger from '../../utils/logger.js';
+import { GameRules } from './GameRules.js';
+import { SettingsManager } from './SettingsManager.js';
 
 /**
  * @typedef {Object} GameSettings
@@ -24,30 +24,29 @@ export class GameState {
 	}
 
 	_getInitialState() {
-		const paddlePositions = this._settingsManager.getInitialPaddlePositions();
+		const canvas = document.getElementById('game');
 		const paddleHeight = this._settingsManager.getPaddleHeight();
-		const ballPosition = this._settingsManager.getInitialBallPosition();
 
 		return {
 			leftPaddle: {
-				x: paddlePositions.left.x,
-				y: paddlePositions.left.y,
-				width: 10,
+				x: 50,
+				y: canvas.height / 2 - (paddleHeight / 2),
+				width: GameRules.BASE_PADDLE_WIDTH,
 				height: paddleHeight,
 				dy: 0
 			},
 			rightPaddle: {
-				x: paddlePositions.right.x,
-				y: paddlePositions.right.y,
-				width: 10,
+				x: canvas.width - 60,
+				y: canvas.height / 2 - (paddleHeight / 2),
+				width: GameRules.BASE_PADDLE_WIDTH,
 				height: paddleHeight,
 				dy: 0
 			},
 			ball: {
-				x: ballPosition.x,
-				y: ballPosition.y,
-				width: 5,
-				height: 5,
+				x: canvas.width / 2,
+				y: canvas.height / 2,
+				width: GameRules.BALL_WIDTH,
+				height: GameRules.BALL_HEIGHT,
 				dx: 0,
 				dy: 0,
 				resetting: false
@@ -56,7 +55,7 @@ export class GameState {
 				left: 0,
 				right: 0
 			},
-			gameStatus: 'waiting', // waiting, playing, paused, finished
+			gameStatus: 'waiting',
 			lastUpdateTime: Date.now()
 		};
 	}
@@ -100,6 +99,10 @@ export class GameState {
 	}
 
 	updateState(partialState) {
+		if (!this._validateStateUpdate(partialState)) {
+			logger.error('Invalid state update rejected');
+			return;
+		}
 		const oldState = { ...this._state };
 		this._state = {
 			...this._state,
@@ -221,8 +224,8 @@ export class GameState {
 				ball: {
 					x: ballPosition.x,
 					y: ballPosition.y,
-					width: 5,
-					height: 5,
+					width: GameRules.BALL_WIDTH,
+					height: GameRules.BALL_HEIGHT,
 					dx: 0,
 					dy: 0,
 					resetting: true
@@ -282,5 +285,10 @@ export class GameState {
 		rightPaddle.y = Math.max(0, Math.min(canvasHeight - rightPaddle.height, rightPaddle.y));
 
 		return { leftPaddle, rightPaddle };
+	}
+
+	_validateStateUpdate(partialState) {
+		// Implement state validation logic here
+		return true;
 	}
 } 

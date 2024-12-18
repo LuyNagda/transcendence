@@ -7,22 +7,26 @@ import { InputHandler } from './InputHandler.js';
 import logger from '../utils/logger.js';
 import { AIController } from './AIController.js';
 import { SettingsManager } from './core/SettingsManager.js';
+import dynamicRender from '../utils/dynamic_render.js';
+import { GameRules } from './core/GameRules.js';
 
 export class PongGameController {
-	constructor(gameId, currentUser, isHost, useWebGL = true, settings = {}) {
+	constructor(gameId, currentUser, isHost, useWebGL = true, settings = {}, contextHandlers = {}) {
 		this._gameId = gameId;
 		this._currentUser = currentUser;
 		this._isHost = isHost;
 		this._useWebGL = useWebGL;
 		this._settings = settings;
+		this._contextHandlers = contextHandlers;
 		this._initialized = false;
 
-		// Initialize settings manager first
-		this._settingsManager = new SettingsManager(settings);
+		// Initialize settings manager first with validated settings
+		const validatedSettings = GameRules.validateSettings(settings);
+		this._settingsManager = new SettingsManager(validatedSettings);
 
 		// Initialize core components with settings from manager
 		this._gameEngine = new GameEngine();
-		this._gameState = new GameState(this._settingsManager.getSettings());
+		this._gameState = new GameState(validatedSettings);
 		this._inputHandler = new InputHandler(isHost);
 		this._networkManager = new NetworkManager(gameId, currentUser, isHost);
 
@@ -35,17 +39,76 @@ export class PongGameController {
 		// Initialize input handlers
 		this._setupInputHandlers();
 
+		// Register the default AI handler
+		this._registerAIHandler();
+
 		// Add settings change listener
 		this._settingsManager.addListener((newSettings, oldSettings) => {
 			// Update game state with new settings
 			this._gameState.updateSettings(newSettings);
 
-			// Send settings update to other player if in multiplayer
-			if (this._networkManager.isConnected()) {
-				this._networkManager.sendGameMessage({
-					type: 'settings_update',
-					settings: newSettings
-				});
+			// If we're the host, sync settings with other players
+			if (this._isHost && this._networkManager && this._networkManager.isConnected()) {
+				this._networkManager.syncSettings(newSettings);
+			}
+		});
+
+		// Initialize settings with DynamicRender
+		dynamicRender.addObservedObject('gameSettings', {
+			...validatedSettings,
+			handleSettingChange: (setting, value) => {
+				this.updateSettings({ [setting]: value });
+			}
+		});
+	}
+
+	_registerAIHandler() {
+		// Register a dummy aiHandler by default
+		this._gameEngine.registerComponent('aiHandler', {
+			initialize: async () => {
+				logger.warn("AI handler initialize");
+				return true;
+			},
+			update: () => {
+				if (!this._isAIMode || !this._aiController) return;
+
+				const currentState = this._gameState.getState();
+				const aiDecision = this._aiController.decision(currentState);
+				const paddleSpeed = this._gameState.getPaddleSpeed();
+
+				// Handle AI decision like a player input
+				const paddle = 'rightPaddle';
+
+				switch (aiDecision) {
+					case 0: // Move up
+						this._gameState.updateState({
+							[paddle]: {
+								...currentState[paddle],
+								dy: -1 * paddleSpeed
+							}
+						});
+						break;
+					case 2: // Move down
+						this._gameState.updateState({
+							[paddle]: {
+								...currentState[paddle],
+								dy: 1 * paddleSpeed
+							}
+						});
+						break;
+					default: // Stop
+						this._gameState.updateState({
+							[paddle]: {
+								...currentState[paddle],
+								dy: 0
+							}
+						});
+				}
+			},
+			destroy: () => {
+				if (this._aiController) {
+					this._aiController = null;
+				}
 			}
 		});
 	}
@@ -62,7 +125,11 @@ export class PongGameController {
 			canvas.width = GameRules.CANVAS_WIDTH;
 			canvas.height = GameRules.CANVAS_HEIGHT;
 
-			const renderer = this._useWebGL ? new WebGLRenderer(canvas) : new Canvas2DRenderer(canvas);
+			// Pass context handlers to the renderer
+			const renderer = this._useWebGL
+				? new WebGLRenderer(canvas, this._contextHandlers)
+				: new Canvas2DRenderer(canvas);
+
 			if (!renderer.initialize()) {
 				throw new Error('Failed to initialize renderer');
 			}
@@ -92,73 +159,33 @@ export class PongGameController {
 	}
 
 	updateSettings(settings) {
-		this._settingsManager.updateSettings(settings);
+		// Validate and update multiple settings at once
+		const validatedSettings = GameRules.validateSettings(settings);
+		this._settingsManager.updateSettings(validatedSettings);
+		this._gameState.updateSettings(validatedSettings);
+
+		// Sync with other player if we're the host
+		if (this._isHost && this._networkManager && this._networkManager.isConnected()) {
+			this._networkManager.syncSettings(validatedSettings);
+		}
 	}
 
-	async setAIMode(enabled, difficulty = 'medium') {
+	async setAIMode(enabled, difficulty = GameRules.DIFFICULTY_LEVELS.EASY) {
 		this._isAIMode = enabled;
 
 		if (enabled) {
 			try {
 				// Initialize AI controller properly with difficulty
 				this._aiController = await AIController.init(difficulty);
+				// Disable network features in AI mode
+				this._networkManager.destroy();
 			} catch (error) {
 				logger.error('Failed to initialize AI controller:', error);
 				this.destroy();
 				throw new Error('Failed to start AI game: Could not initialize AI controller');
 			}
-
-			// Re-register the AI handler component
-			this._gameEngine.registerComponent('aiHandler', {
-				initialize: async () => {
-					logger.warn("AI handler initialize");
-				},
-				update: () => {
-					if (!this._aiController) return;
-
-					const currentState = this._gameState.getState();
-					const aiDecision = this._aiController.decision(currentState);
-					const paddleSpeed = this._gameState.getPaddleSpeed();
-
-					// Handle AI decision like a player input
-					const paddle = 'rightPaddle';
-
-					switch (aiDecision) {
-						case 0: // Move up
-							this._gameState.updateState({
-								[paddle]: {
-									...currentState[paddle],
-									dy: -1 * paddleSpeed
-								}
-							});
-							break;
-						case 2: // Move down
-							this._gameState.updateState({
-								[paddle]: {
-									...currentState[paddle],
-									dy: 1 * paddleSpeed
-								}
-							});
-							break;
-						default: // Stop
-							this._gameState.updateState({
-								[paddle]: {
-									...currentState[paddle],
-									dy: 0
-								}
-							});
-					}
-				}
-			});
-
-			// Disable network features in AI mode
-			this._networkManager.destroy();
 		} else {
-			// Register a dummy aiHandler when AI mode is disabled
-			this._gameEngine.registerComponent('aiHandler', {
-				initialize: () => { },
-				update: () => { }
-			});
+			this._aiController = null;
 		}
 
 		// Disable input for AI-controlled paddle
@@ -174,16 +201,20 @@ export class PongGameController {
 
 		try {
 			logger.debug('Starting game engine...');
-			this._gameEngine.start();
 
-			this._inputHandler.enable();
-			logger.debug('Input handler enabled');
-
+			// Set game status to playing
 			this._gameState.updateState({ gameStatus: 'playing' });
-			logger.debug('Game state updated to playing');
 
-			// Launch the ball when the game starts
-			this.launchBall();
+			// Start the game engine and enable input
+			this._gameEngine.start();
+			this._inputHandler.enable();
+
+			// Launch the ball after a short delay
+			setTimeout(() => {
+				if (this._isHost) {
+					this.launchBall();
+				}
+			}, 1000);
 
 			logger.info('Game started successfully');
 			return true;
@@ -293,15 +324,27 @@ export class PongGameController {
 	}
 
 	destroy() {
-		if (this._gameEngine)
+		// Add a guard to prevent recursive destruction
+		if (this._isDestroying) return;
+		this._isDestroying = true;
+
+		if (this._gameEngine) {
 			this._gameEngine.destroy();
-		if (this._inputHandler)
+			this._gameEngine = null;
+		}
+		if (this._inputHandler) {
 			this._inputHandler.destroy();
-		if (this._networkManager)
+			this._inputHandler = null;
+		}
+		if (this._networkManager) {
 			this._networkManager.destroy();
-		if (this._settingsManager)
+			this._networkManager = null;
+		}
+		if (this._settingsManager) {
 			this._settingsManager = null;
+		}
 		this._initialized = false;
+		this._isDestroying = false;
 		logger.info('Game controller destroyed');
 	}
 
@@ -353,56 +396,23 @@ export class PongGameController {
 				});
 			}
 		});
+	}
 
-		// Add AI input handling
-		if (this._isAIMode && this._isHost) {
-			this._gameEngine.registerComponent('aiHandler', {
-				initialize: async () => {
-					logger.warn("AI handler initialize");
-				},
-				update: () => {
-					if (!this._aiController) return;
+	_setupSettingsListeners() {
+		const form = document.getElementById('settings-form');
+		if (!form) return;
 
-					const currentState = this._gameState.getState();
-					const aiDecision = this._aiController.decision(currentState);
-					const paddleSpeed = this._gameState.getPaddleSpeed();
+		form.querySelectorAll('input[type="range"], select').forEach(input => {
+			input.addEventListener('change', (e) => {
+				const setting = e.target.id;
+				const value = e.target.type === 'range' ? parseInt(e.target.value) : e.target.value;
 
-					// Handle AI decision like a player input
-					const paddle = 'rightPaddle';
-
-					switch (aiDecision) {
-						case 0: // Move up
-							this._gameState.updateState({
-								[paddle]: {
-									...currentState[paddle],
-									dy: -1 * paddleSpeed
-								}
-							});
-							break;
-						case 2: // Move down
-							this._gameState.updateState({
-								[paddle]: {
-									...currentState[paddle],
-									dy: 1 * paddleSpeed
-								}
-							});
-							break;
-						default: // Stop
-							this._gameState.updateState({
-								[paddle]: {
-									...currentState[paddle],
-									dy: 0
-								}
-							});
-					}
+				// Update the DynamicRender object
+				const gameSettings = dynamicRender.observedObjects.get('gameSettings');
+				if (gameSettings) {
+					gameSettings[setting] = value;
 				}
 			});
-		} else {
-			// Register a dummy aiHandler to avoid errors in GameEngine
-			this._gameEngine.registerComponent('aiHandler', {
-				initialize: () => { },
-				update: () => { }
-			});
-		}
+		});
 	}
 } 

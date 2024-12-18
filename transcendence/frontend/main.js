@@ -2,11 +2,11 @@ import logger from './utils/logger.js';
 import { initializeErrorHandling, initializeHtmxLogging } from './utils/htmx-debug.js';
 import { initializeThemeAndFontSize, applyTheme, applyFontSize } from './utils/theme.js';
 import UserService from './UserService.js';
-import RoomService from './RoomService.js';
 import ChatApp from './chat/ChatApp.js';
 import dynamicRender from './utils/dynamic_render.js';
-import { PongRoom } from './pong/pong_room.js';
-import { initializeAiManager } from './pong/AiManager.js';
+import { RoomManager } from './room/RoomManager.js';
+import { RoomController } from './room/RoomController.js';
+import { Room } from './room/Room.js';
 
 function initializeChatApp() {
 	try {
@@ -17,15 +17,23 @@ function initializeChatApp() {
 	}
 }
 
-function initializePongRoom() {
-	const pongRoomElement = document.getElementById('pong-room');
-	if (pongRoomElement) {
-		const roomId = JSON.parse(document.getElementById("room-id").textContent);
-		logger.info('main.js initializePongRoom Room ID:', roomId);
-		const currentUser = JSON.parse(document.getElementById("current-user-data").textContent);
-		const pongRoom = new PongRoom(roomId, currentUser);
-		dynamicRender.addObservedObject('pongRoom', pongRoom);
-		logger.info('PongRoom initialized successfully');
+function initializeRoom() {
+	try {
+		// Initialize room creation functionality
+		const createRoomBtn = document.getElementById("create-room-btn");
+		if (createRoomBtn) {
+			new RoomController();
+			logger.info('Room creation initialized');
+		}
+
+		// Initialize room if present
+		const room = Room.initializeFromDOM();
+		if (room) {
+			RoomManager.getInstance().initialize(room);
+			logger.info('Room initialized successfully', { roomId: room.roomId });
+		}
+	} catch (error) {
+		logger.error('Failed to initialize room:', error);
 	}
 }
 
@@ -38,26 +46,45 @@ function initializeThemeButtons() {
 	});
 }
 
+// HTMX room state update handler
+function handleRoomStateUpdate(event) {
+	try {
+		const roomState = Room.handleHtmxStateUpdate(event.detail.serverResponse);
+		if (roomState) {
+			RoomManager.getInstance().initialize(roomState);
+		}
+	} catch (error) {
+		logger.error("Error processing room state update:", error);
+	}
+}
+
+// Global room initialization function (for external use)
+window.initializeRoomData = function (roomState) {
+	logger.info("initializeRoomData called");
+	if (!roomState || !roomState.roomId) {
+		logger.error("Invalid room state:", roomState);
+		return;
+	}
+	RoomManager.getInstance().initialize(roomState);
+};
+
 document.addEventListener('DOMContentLoaded', () => {
 	logger.initialize();
 	initializeErrorHandling();
 	initializeHtmxLogging();
 	initializeThemeAndFontSize();
 	UserService.getInstance();
-	RoomService.getInstance();
+	RoomManager.getInstance();
 	dynamicRender.initialize();
 	initializeChatApp();
-	initializePongRoom();
+	initializeRoom();
 	initializeThemeButtons();
-	initializeAiManager();
 	logger.info('Frontend app initialized');
 });
 
-// Écouteur pour les événements HTMX
-document.body.addEventListener('htmx:afterSwap', (event) => {
-	initializeThemeButtons();
-	if (event.detail.elt.id === 'pong-room') {
-		initializePongRoom();
-	}
+// HTMX event listeners
+document.body.addEventListener('htmx:beforeSwap', handleRoomStateUpdate);
+document.body.addEventListener('htmx:afterSwap', () => {
+	// initializeRoom();
 	dynamicRender.update();
 });
