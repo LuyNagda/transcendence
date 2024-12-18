@@ -6,6 +6,8 @@ export class InputHandler {
 		this._keyStates = new Map();
 		this._handlers = new Map();
 		this._enabled = true;
+		this._lastInputTime = 0;
+		this._inputThrottleMs = 16; // ~60fps
 
 		// Define control schemes
 		this._controls = {
@@ -73,6 +75,10 @@ export class InputHandler {
 	}
 
 	_handleKeyDown(event) {
+		const now = Date.now();
+		if (now - this._lastInputTime < this._inputThrottleMs) return;
+		this._lastInputTime = now;
+
 		if (!this._enabled) {
 			logger.debug('Key down event ignored - InputHandler disabled');
 			return;

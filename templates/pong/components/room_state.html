@@ -1,9 +1,6 @@
-<div id="room-state" class="card" 
-     hx-get="{% url 'pong_room_state' room_id=room_id %}"
-     hx-trigger="roomStateUpdate from:body" 
-     hx-swap="outerHTML" 
-     aria-labelledby="room-state-heading" 
-     aria-describedby="room-state-description">
+<div id="room-state" class="card" hx-get="{% url 'pong_room_state' room_id=room_id %}"
+    hx-trigger="roomStateUpdate from:body" hx-swap="outerHTML" aria-labelledby="room-state-heading"
+    aria-describedby="room-state-description">
 
     <script id="room-state-data" type="application/json">{{ pongRoom|safe }}</script>
 
@@ -15,20 +12,22 @@
         <h5 class="card-subtitle mb-2">Mode: <span v-text="pongRoom.mode" aria-live="polite"></span></h5>
         <p class="card-text">Owner: <span v-text="pongRoom.owner.username" aria-live="polite"></span></p>
 
-        <h6 class="mt-4">Players (<span v-text="pongRoom.players.length" aria-live="polite"></span> / 
-            <span v-text="pongRoom.maxPlayers" aria-live="polite"></span>)</h6>
+        <h6 class="mt-4">Players (<span v-text="pongRoom.players.length" aria-live="polite"></span> /
+            <span v-text="pongRoom.maxPlayers" aria-live="polite"></span>)
+        </h6>
 
         <ul class="list-group mb-3" role="list" aria-labelledby="players-list-heading">
             <li v-for="player in pongRoom.players"
-                class="list-group-item d-flex justify-content-between align-items-center"
-                role="listitem">
+                class="list-group-item d-flex justify-content-between align-items-center" role="listitem">
                 <span v-text="player.username"></span>
                 <div>
-                    <span v-if="player.id === pongRoom.owner.id" class="badge bg-info rounded-pill me-2" aria-label="Owner">Owner</span>
-                    <span v-if="player.id === pongRoom.currentUser.id" class="badge bg-primary rounded-pill me-2" aria-label="You">You</span>
-                    <button v-if="pongRoom.owner.id === pongRoom.currentUser.id && player.id !== pongRoom.currentUser.id"
-                        class="btn btn-danger btn-sm" 
-                        v-on:click="pongRoom.kickPlayer(player.id)" 
+                    <span v-if="player && player.id === pongRoom.owner.id" class="badge bg-info rounded-pill me-2"
+                        aria-label="Owner">Owner</span>
+                    <span v-if="player && player.id === pongRoom.currentUser.id"
+                        class="badge bg-primary rounded-pill me-2" aria-label="You">You</span>
+                    <button
+                        v-if="pongRoom.owner.id === pongRoom.currentUser.id && player.id !== pongRoom.currentUser.id"
+                        class="btn btn-danger btn-sm" v-on:click="pongRoom.kickPlayer(player.id)"
                         aria-label="Kick player">
                         Kick
                     </button>
@@ -43,14 +42,12 @@
             <h6>Pending Invitations</h6>
             <ul class="list-group mb-3">
                 <li v-for="invitation in pongRoom.pendingInvitations"
-                    class="list-group-item d-flex justify-content-between align-items-center"
-                    role="listitem">
+                    class="list-group-item d-flex justify-content-between align-items-center" role="listitem">
                     <span v-text="invitation.username"></span>
                     <div>
                         <span class="badge bg-warning rounded-pill me-2" aria-label="Pending">Pending</span>
                         <button v-if="pongRoom.owner.username === pongRoom.currentUser.username"
-                            class="btn btn-danger btn-sm" 
-                            v-on:click="pongRoom.cancelInvitation(invitation.id)" 
+                            class="btn btn-danger btn-sm" v-on:click="pongRoom.cancelInvitation(invitation.id)"
                             aria-label="Cancel invitation">
                             Cancel
                         </button>
@@ -60,17 +57,24 @@
         </div>
 
         <p v-if="pongRoom.availableSlots > 0" class="card-text" aria-live="polite">
-            Available slots: <span v-text="pongRoom.availableSlots" aria-live="polite"></span> / 
-            <span v-text="pongRoom.maxPlayers" aria-live="polite"></span>
+            Available slots: <span v-text="pongRoom.availableSlots"></span>
         </p>
 
-        <p v-else class="card-text" aria-live="polite">
-            Room is full (<span v-text="pongRoom.players.length" aria-live="polite"></span> / 
-            <span v-text="pongRoom.maxPlayers" aria-live="polite"></span>)
+        <p v-if="pongRoom.players.length === pongRoom.maxPlayers && pongRoom.availableSlots <= 0"
+            class="card-text text-warning" aria-live="polite">
+            <i class="fas fa-circle-exclamation me-2"></i>
+            Room is full
+        </p>
+
+        <p v-if="pongRoom.players.length > pongRoom.maxPlayers" class="card-text text-danger" aria-live="polite">
+            <i class="fas fa-triangle-exclamation me-2"></i>
+            Room is overfull - some players must leave
         </p>
     </div>
 
-    <div class="card-footer" v-if="pongRoom.owner.username === pongRoom.currentUser.username">
-        <button id="startGameBtn" class="btn btn-primary" aria-label="Start the game">Start Game</button>
+    <div class="card-footer" v-if="pongRoom.owner.username === pongRoom.currentUser.username && pongRoom.canStartGame">
+        <button id="startGameBtn" class="btn btn-primary" aria-label="Start the game">
+            Start Game
+        </button>
     </div>
 </div>

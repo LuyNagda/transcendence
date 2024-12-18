@@ -2,13 +2,14 @@ import { RendererInterface } from './RendererInterface';
 import { vec3 } from 'gl-matrix';
 
 export class WebGLRenderer extends RendererInterface {
-	constructor(canvas) {
+	constructor(canvas, contextHandlers = {}) {
 		super(canvas);
 		this._regl = null;
 		this._quadCommand = null;
 		this._spriteTexture = null;
 		this._bufferCanvas = null;
 		this._bufferContext = null;
+		this._contextHandlers = contextHandlers;
 
 		// Constants for WebGL rendering
 		this._charW = 6;
@@ -25,6 +26,23 @@ export class WebGLRenderer extends RendererInterface {
 	}
 
 	initialize() {
+		// Bind context handlers with proper fallbacks
+		const handleContextLost = (event) => {
+			event.preventDefault();
+			if (this._contextHandlers.onContextLost) {
+				this._contextHandlers.onContextLost(event);
+			}
+		};
+
+		const handleContextRestored = (event) => {
+			if (this._contextHandlers.onContextRestored) {
+				this._contextHandlers.onContextRestored(event);
+			}
+		};
+
+		this._canvas.addEventListener('webglcontextlost', handleContextLost);
+		this._canvas.addEventListener('webglcontextrestored', handleContextRestored);
+
 		try {
 			this._setupBufferCanvas();
 			this._setupREGL();
