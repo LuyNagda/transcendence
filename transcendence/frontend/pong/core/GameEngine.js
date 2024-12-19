@@ -20,7 +20,10 @@ export class GameEngine {
 	start() {
 		if (this._isRunning) return;
 		this._isRunning = true;
-		this._components.get('aiHandler').initialize();
+		const aiHandler = this._components.get('aiHandler');
+		if (aiHandler) {
+			aiHandler.initialize();
+		}
 		this._gameLoop = requestAnimationFrame(this._update.bind(this));
 	}
 
@@ -58,10 +61,12 @@ export class GameEngine {
 		if (this._components.get('aiHandler'))
 			this._components.get('aiHandler').update();
 
-		// Update renderer
+		// Update renderer with transformed state for guest player
 		const renderer = this._components.get('renderer');
-		if (renderer) {
-			renderer.render(gameState.getState());
+		const controller = this._components.get('controller');
+		if (renderer && controller) {
+			const state = controller._isHost ? gameState.getState() : gameState.getTransformedState();
+			renderer.render(state);
 		}
 
 		// Schedule next frame
