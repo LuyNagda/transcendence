@@ -1,8 +1,12 @@
 from django.http import JsonResponse
 from . import ai
-from .gameconfig import get_game_config, set_game_config, reset_game_config
 import json, os
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from rest_framework.decorators import api_view, permission_classes
+from authentication.decorators import IsAuthenticatedWithCookie
+from django.views.decorators.csrf import csrf_exempt
 
 def send_ai_to_front(request, ai_name="best_ai"):
     # Use Path or os.path to create a proper file path
@@ -25,23 +29,65 @@ def send_ai_to_front(request, ai_name="best_ai"):
     except json.JSONDecodeError:
         return JsonResponse({"error": "Failed to decode AI data"}, status=500)
 
-def training(request, ai_name="default"):
-    # Create the full path
-    save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticatedWithCookie])
+def ai_training(request):
+    access_token = request.COOKIES.get('access_token')
+    refresh_token = request.COOKIES.get('refresh_token')
+    user = request.user
 
-    config_copy = get_game_config()
+    context = {'user': user, 'access_token': access_token, 'refresh_token': refresh_token}
+    return render(request, 'ai-training.html', context)
 
-    for param, (default, converter) in config_copy.items():
-        try:
-            value = request.GET.get(param)  # Fetch the query parameter value
-            set_game_config(**{param: converter(value) if value is not None else default})
-        except ValueError:
-            set_game_config(**{param: default})  # Use default on conversion error
+@api_view(['POST'])
+@permission_classes([IsAuthenticatedWithCookie])
+def training(request):
+    if request.method != 'POST':
+        return JsonResponse({"error": "Only POST method is allowed"}, status=405)
 
-    log = ai.train_ai(save_file)
+    try:
+        # Parse JSON body
+        data = json.loads(request.body)
+        ai_name = data.get('ai_name', 'default')
+        nb_generation = int(data.get('nb_generation', 10))
+        nb_species = int(data.get('nb_species', 50))
+        time_limit = int(data.get('time_limit', 60))
+        max_score = int(data.get('max_score', 100))
 
-    reset_game_config()
-    return JsonResponse({"log": log}, safe=False)
+        # Prepare the parameters as an object (dictionary)
+        training_params = {
+            'ai_name': ai_name,
+            'nb_generation': nb_generation,
+            'nb_species': nb_species,
+            'time_limit': time_limit,
+            'max_score': max_score
+        }
+
+        # Validate parameters
+        if not (1 <= nb_generation <= 100):
+            return JsonResponse({"error": "Number of generations must be between 1 and 100"}, status=400)
+        if not (50 <= nb_species <= 100):
+            return JsonResponse({"error": "Number of species must be between 50 and 100"}, status=400)
+        if not (10 <= time_limit <= 120):
+            return JsonResponse({"error": "Time limit must be between 10 and 120 minutes"}, status=400)
+        if not (100 <= max_score <= 1000):
+            return JsonResponse({"error": "Max score must be between 100 and 1000"}, status=400)
+
+        # Create the full path
+        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
+        log = ai.train_ai(save_file, training_params)
+
+        return JsonResponse({
+            "status": "success",
+            "log": log,
+        })
+
+    except ValueError as e:
+        return JsonResponse({"error": "Invalid parameter values"}, status=400)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"error": str(e)}, status=500)
 
 def list_saved_ai(request):
     """

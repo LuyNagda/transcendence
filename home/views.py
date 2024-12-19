@@ -51,13 +51,3 @@ def change_password(request):
         form = MyPasswordChangeForm(user=request.user)
     context = {'user': user, 'form': form, 'access_token': access_token, 'refresh_token': refresh_token}
     return render(request, 'change-password.html', context)
-
-@api_view(['GET', 'POST'])
-@permission_classes([IsAuthenticatedWithCookie])
-def ai_training(request):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
-    user = request.user
-
-    context = {'user': user, 'access_token': access_token, 'refresh_token': refresh_token}
-    return render(request, 'ai-training.html', context)

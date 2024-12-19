@@ -146,7 +146,7 @@ def updateBallAngle(ball, ball_dy, paddle):
 def generate_random_number(low, high):
     return random.randint(low, high)
 
-def train_normal(Ai_selected, Ai_nb):
+def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     # Initialize game objects
     rightPaddle = Paddle(
         x = gameconfig.WIDTH - 50 - gameconfig.PADDLE_WIDTH,
@@ -173,9 +173,8 @@ def train_normal(Ai_selected, Ai_nb):
     i = 0
     j = 0
     while running:
-        # Limit the game time to GAME_CONF['time_limit'] theoretical minutes
-        if gameconfig.get_game_config('time_limit')[0] != 0 \
-            and i > (gameconfig.get_game_config('time_limit')[0] * 60 * 60):
+        # Limit the game time to 'time_limit' theoretical minutes
+        if time_limit != 0 and i > (time_limit * 60 * 60):
             break
         i += 1
 
@@ -237,7 +236,7 @@ def train_normal(Ai_selected, Ai_nb):
             reset_ball(ball)
 
         # End the game
-        if left_score >= gameconfig.get_game_config('max_score')[0]:
+        if left_score >= max_score:
             running = False
     
     species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f}"

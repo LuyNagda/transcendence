@@ -10,6 +10,7 @@
 <div class="container x-auto my-4" id="training-form">
     <h1 id="training-heading">Train AI for Pong</h1>
     <div class="d-flex flex-column align-items-center">
+        {% csrf_token %}
         <form id="training-options" class="mb-3">
             <div class="form-floating mb-2">
                 <input type="text" id="ai_name" name="ai_name" class="form-control" placeholder="AI Name" required>
@@ -43,8 +44,6 @@
         </div>
     </div>
 </div>
-
-<script src="transcendence/frontend/pong/AiTraining.js" defer></script>
 
 {% block chat %}{% render_chat %}{% endblock %}
 

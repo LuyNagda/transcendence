@@ -2,7 +2,6 @@ import os, json, multiprocessing, re
 import numpy as np
 from django.core.files.storage import default_storage
 from ai.gamesimulation import train_normal
-from ai.gameconfig import get_game_config
 
 NB_INPUTS = 5
 NB_NEURONS_LAYER1 = 6
@@ -111,7 +110,7 @@ class Neuron_Network:
         self.layer3.weights = np.array(data["layer3"]["weights"])
         self.layer3.biases = np.array(data["layer3"]["biases"])
 
-def Init_Ai(save_file):
+def Init_Ai(save_file, nb_species):
     Ai_Sample = []
     Ai_Sample.clear()
 
@@ -119,17 +118,17 @@ def Init_Ai(save_file):
         with open(save_file, 'r') as imp:
             ai_data_list = json.load(imp)
             
-            while len(Ai_Sample) < get_game_config('nb_species')[0] and ai_data_list:
+            while len(Ai_Sample) < nb_species and ai_data_list:
                 Saved_Ai_dict = ai_data_list.pop(0)
                 network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
                 network.load_from_dict(Saved_Ai_dict)
                 Ai_Sample.append(network)
 
         # Mix weights of the 5 best performing AIs
-        Crossover_mutation(Ai_Sample)
+        Crossover_mutation(Ai_Sample, nb_species)
         
-        # Add random AIs to reach get_game_config('nb_species')
-        remaining = get_game_config('nb_species')[0] - len(Ai_Sample)
+        # Add random AIs to reach 'nb_species'
+        remaining = nb_species - len(Ai_Sample)
         for i in range(remaining):
             random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
             Ai_Sample.append(random_ai)
@@ -137,22 +136,22 @@ def Init_Ai(save_file):
         print(f"AIs from {save_file} successfully loaded")
 
     else:
-        # Create get_game_config('nb_species') random AIs
-        for i in range(get_game_config('nb_species')[0]):
+        # Create 'nb_species' random AIs
+        for i in range(nb_species):
             random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
             Ai_Sample.append(random_ai)
         
         print(f"Random AIs successfully loaded")
     
     # Reset scores
-    for i in range(get_game_config('nb_species')[0]):
+    for i in range(nb_species):
         Ai_Sample[i].ai_score = 0
 
     return Ai_Sample
     
-def Crossover_mutation(Ai_Sample):
+def Crossover_mutation(Ai_Sample, nb_species):
     # Crossover and then mutation
-    while (len(Ai_Sample) < get_game_config('nb_species')[0] - 5):
+    while (len(Ai_Sample) < nb_species - 5):
         # Choose 2 parent randomly from the 5 best performing AI and instance a child
         parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
         child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
@@ -242,6 +241,7 @@ def Save_Best_Ai(Ai_Sample, save_file):
     # Save entire list as JSON
     with open(save_file, 'w') as save:
         json.dump(ai_data_list, save)
+        print("Save complete: ", save_file)
 
     # Clean the list
     Ai_Sample.clear()
@@ -253,41 +253,51 @@ def train_species_wrapper(args):
     :param args: Tuple (Ai_selected, Ai_nb)
     :return: Training result or log
     """
-    Ai_selected, Ai_nb = args
-    training_log = train_normal(Ai_selected, Ai_nb)
+    Ai_selected, Ai_nb, time_limit, max_score = args
+    training_log = train_normal(Ai_selected, Ai_nb, time_limit, max_score)
     print(training_log)
     point = Ai_selected.ai_score
     return training_log, point, Ai_nb
 
-def train_ai(save_file):
+def train_ai(save_file, training_params):
     Ai_Sample = []
     log = ""
 
-    nb_generation = get_game_config('nb_generation')[0]
+    nb_generation = training_params.get('nb_generation')
+    nb_species = training_params.get('nb_species')
+    time_limit = training_params.get('time_limit')
+    max_score = training_params.get('max_score')
+
     for j in range(nb_generation):
-        log_gen = (
+        log_header = ""
+        log_header += (
             f"\n        ========== Generation #{j} ===========\n"
-            f"Max score = {get_game_config('max_score')[0]}\n\n"
+            f"Max score = {max_score}\n\n"
         )
         
-        print(log_gen)
+        print(log_header)
+        log += log_header
 
-        Ai_Sample = Init_Ai(save_file)
+        Ai_Sample = Init_Ai(save_file, nb_species)
 
         # Prepare arguments for parallel processing
-        training_args = [(Ai_Sample[i], i) for i in range(get_game_config('nb_species')[0])]
+        training_args = [(Ai_Sample[i], i, time_limit, max_score) for i in range(nb_species)]
 
         # Use all available CPU cores except one
         with multiprocessing.Pool(processes=(multiprocessing.cpu_count() - 1)) as pool:
             training_results = pool.map(train_species_wrapper, training_args)
 
+        log_score = ""
+
         for training_log, point, Ai_nb in training_results:
-            log_gen += training_log + "\n"
+            log_score += training_log + "\n"
             Ai_Sample[Ai_nb].ai_score = point
+
+        print(log_score)
 
         Save_Best_Ai(Ai_Sample, save_file)
         backup_file(save_file, j + 1)
-        log += log_gen
+        log += log_score
     
     return log
 
@@ -304,7 +314,7 @@ def load_Ai(save_file):
         return network
 
 def backup_file(filename, nb_generation):
-    if(nb_generation % 10 != 0):
+    if(nb_generation % 100 != 0):
         return
 
     new_filename = generate_unique_filename(filename, nb_generation)
@@ -321,6 +331,7 @@ def backup_file(filename, nb_generation):
                         break
                     # Save the file with the new name
                     dest_file.write(chunk)
+                    print("Back-up complete: ", new_filename)
 
     except Exception as e:
         print(f"Save copy error: {e}")
