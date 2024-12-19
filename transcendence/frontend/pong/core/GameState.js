@@ -98,12 +98,49 @@ export class GameState {
 		return { ...this._state };
 	}
 
+	getTransformedState() {
+		const state = this.getState();
+		const canvas = document.getElementById('game');
+
+		// Transform paddle positions
+		const leftPaddle = { ...state.rightPaddle };
+		const rightPaddle = { ...state.leftPaddle };
+		leftPaddle.x = canvas.width - leftPaddle.x - leftPaddle.width;
+		rightPaddle.x = canvas.width - rightPaddle.x - rightPaddle.width;
+
+		// Transform ball position
+		const ball = { ...state.ball };
+		ball.x = canvas.width - ball.x - ball.width;
+		ball.dx = -ball.dx;
+
+		return {
+			...state,
+			leftPaddle,
+			rightPaddle,
+			ball,
+			scores: {
+				left: state.scores.right,
+				right: state.scores.left
+			}
+		};
+	}
+
 	updateState(partialState) {
 		if (!this._validateStateUpdate(partialState)) {
 			logger.error('Invalid state update rejected');
 			return;
 		}
-		const oldState = { ...this._state };
+
+		// Debug state BEFORE update
+		logger.debug('State update:', {
+			currentState: {
+				ball: { ...this._state.ball },
+				leftPaddle: { ...this._state.leftPaddle },
+				rightPaddle: { ...this._state.rightPaddle }
+			},
+			incomingChanges: partialState
+		});
+
 		this._state = {
 			...this._state,
 			...partialState,
@@ -111,12 +148,16 @@ export class GameState {
 		};
 
 		// Notify observers of state change
-		this._notifyObservers(oldState);
+		this._notifyObservers(this._state);
 	}
 
 	_notifyObservers(oldState) {
 		for (const observer of this._observers) {
-			observer.onStateChange(this._state, oldState);
+			if (observer.onStateChange) {
+				observer.onStateChange(this._state, oldState);
+			} else {
+				logger.warn('Observer missing onStateChange method:', observer);
+			}
 		}
 	}
 
