@@ -1,9 +1,9 @@
 import logger from '../utils/logger.js';
 import { RoomWebSocket } from './RoomWebSocket.js';
-import { PongGameController } from '../pong/PongGameController.js';
 import { GameRules } from '../pong/core/GameRules.js';
 import { SettingsManager } from '../pong/core/SettingsManager.js';
 import dynamicRender from '../utils/dynamic_render.js';
+import { createPongGameController } from '../pong/PongGameController.js';
 
 export class Room {
 	static States = {
@@ -398,8 +398,8 @@ export class Room {
 				this._pongGame.destroy();
 			}
 
-			// Create new game instance
-			this._pongGame = new PongGameController(
+			// Create new game instance using factory function
+			this._pongGame = createPongGameController(
 				gameId,
 				this._currentUser,
 				isHost,

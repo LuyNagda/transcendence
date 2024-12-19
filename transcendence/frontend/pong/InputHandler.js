@@ -12,12 +12,12 @@ export class InputHandler {
 		// Define control schemes
 		this._controls = {
 			host: {
-				up: 'w',
-				down: 's'
+				up: ['w', 'W'],
+				down: ['s', 'S']
 			},
 			guest: {
-				up: 'ArrowUp',
-				down: 'ArrowDown'
+				up: ['ArrowUp'],
+				down: ['ArrowDown']
 			}
 		};
 
@@ -84,11 +84,15 @@ export class InputHandler {
 			return;
 		}
 
-		const key = event.key.toLowerCase();
+		const key = event.key;
 		const controls = this._isHost ? this._controls.host : this._controls.guest;
 
+		// Check if the key is a valid control
+		const isUpKey = controls.up.includes(key);
+		const isDownKey = controls.down.includes(key);
+
 		// Prevent default behavior for game controls
-		if (Object.values(controls).includes(key)) {
+		if (isUpKey || isDownKey) {
 			event.preventDefault();
 		}
 
@@ -100,8 +104,8 @@ export class InputHandler {
 		}
 
 		// Handle paddle movement
-		if (key === controls.up || key === controls.down) {
-			const direction = key === controls.up ? 'up' : 'down';
+		if (isUpKey || isDownKey) {
+			const direction = isUpKey ? 'up' : 'down';
 			this._notifyHandlers('paddleMove', { direction, isHost: this._isHost });
 			logger.debug('Paddle move event triggered:', direction);
 		}
@@ -113,11 +117,15 @@ export class InputHandler {
 			return;
 		}
 
-		const key = event.key.toLowerCase();
+		const key = event.key;
 		const controls = this._isHost ? this._controls.host : this._controls.guest;
 
+		// Check if the key is a valid control
+		const isUpKey = controls.up.includes(key);
+		const isDownKey = controls.down.includes(key);
+
 		// Prevent default behavior for game controls
-		if (Object.values(controls).includes(key)) {
+		if (isUpKey || isDownKey) {
 			event.preventDefault();
 		}
 
@@ -127,7 +135,7 @@ export class InputHandler {
 		logger.debug('Key up event processed:', key);
 
 		// Handle paddle stop
-		if (key === controls.up || key === controls.down) {
+		if (isUpKey || isDownKey) {
 			this._notifyHandlers('paddleStop', { isHost: this._isHost });
 			logger.debug('Paddle stop event triggered');
 		}
