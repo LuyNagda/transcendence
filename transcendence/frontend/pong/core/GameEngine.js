@@ -13,6 +13,14 @@ export class GameEngine {
 		this._components.set(name, component);
 	}
 
+	unregisterComponent(name) {
+		if (this._components.has(name)) {
+			this._components.delete(name);
+			return true;
+		}
+		return false;
+	}
+
 	getComponent(name) {
 		return this._components.get(name);
 	}
@@ -28,12 +36,11 @@ export class GameEngine {
 	}
 
 	stop() {
-		if (!this._isRunning) return;
-		this._isRunning = false;
-		if (this._gameLoop) {
-			cancelAnimationFrame(this._gameLoop);
-			this._gameLoop = null;
+		if (this._animationFrameId) {
+			cancelAnimationFrame(this._animationFrameId);
+			this._animationFrameId = null;
 		}
+		this._isRunning = false;
 	}
 
 	_update() {
@@ -52,9 +59,10 @@ export class GameEngine {
 			}
 		}
 
-		// Launch ball if needed
-		if (this._components.get('controller')) {
-			this._components.get('controller').launchBall();
+		// Launch ball if needed and if we have a controller
+		const controller = this._components.get('controller');
+		if (controller && controller.launchBall && typeof controller.launchBall === 'function') {
+			controller.launchBall();
 		}
 
 		// Update AI
@@ -63,7 +71,6 @@ export class GameEngine {
 
 		// Update renderer with transformed state for guest player
 		const renderer = this._components.get('renderer');
-		const controller = this._components.get('controller');
 		if (renderer && controller) {
 			const state = controller._isHost ? gameState.getState() : gameState.getTransformedState();
 			renderer.render(state);
@@ -85,5 +92,23 @@ export class GameEngine {
 		}
 		this._components.clear();
 		this._isDestroying = false;
+	}
+
+	update() {
+		const state = this._components.get('state');
+		if (!state) return;
+
+		const currentState = state.getState();
+		if (currentState.gameStatus === 'finished') {
+			this.stop();
+			return;
+		}
+
+		// Update all components
+		for (const [name, component] of this._components.entries()) {
+			if (component && component.update && name !== 'controller') {
+				component.update();
+			}
+		}
 	}
 } 

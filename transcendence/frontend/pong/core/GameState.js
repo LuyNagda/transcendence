@@ -79,7 +79,13 @@ export class GameState {
 	}
 
 	getInitialBallVelocity() {
-		return this._settingsManager.getInitialBallVelocity();
+		const ballSpeed = this._settingsManager.getBallSpeed();
+		// Start with a slight upward or downward angle
+		const randomAngle = (Math.random() * Math.PI / 4) - (Math.PI / 8); // Random angle between -22.5 and 22.5 degrees
+		return {
+			dx: ballSpeed * Math.cos(randomAngle),
+			dy: ballSpeed * Math.sin(randomAngle)
+		};
 	}
 
 	getPaddleSpeed() {
@@ -183,7 +189,18 @@ export class GameState {
 
 		// Check for game end using GameRules winningScore
 		if (scores[side] >= this._settingsManager.getSettings().maxScore) {
+			logger.info('Game finished - Final scores:', scores);
 			this.updateState({ gameStatus: 'finished' });
+
+			// Notify observers about game completion
+			for (const observer of this._observers) {
+				if (observer.onStateChange) {
+					observer.onStateChange(this._state, { ...this._state, gameStatus: 'playing' });
+				}
+				if (observer.onGameComplete) {
+					observer.onGameComplete(scores);
+				}
+			}
 		}
 	}
 
@@ -199,13 +216,17 @@ export class GameState {
 		const now = Date.now();
 		const deltaTime = (now - this._state.lastUpdateTime) / 1000;
 
-		if (this._state.gameStatus !== 'playing') return;
+		// Don't update if game is not in playing state
+		if (this._state.gameStatus !== 'playing') {
+			return;
+		}
 
 		// Handle ball movement and collisions
 		const ballUpdate = this._handleBallCollisions(deltaTime);
 		if (ballUpdate) {
 			if (ballUpdate.type === 'goal') {
 				this.updateScore(ballUpdate.scoringSide);
+				// Only continue with ball updates if game is still playing
 				if (this._state.gameStatus === 'playing') {
 					this.updateState({ ball: ballUpdate.ball });
 					// Schedule ball relaunch
@@ -223,23 +244,26 @@ export class GameState {
 			}
 		}
 
-		// Update paddles
-		const paddleUpdates = this._updatePaddles(deltaTime);
+		// Only update paddles if game is still playing
+		if (this._state.gameStatus === 'playing') {
+			// Update paddles
+			const paddleUpdates = this._updatePaddles(deltaTime);
 
-		// Check paddle collisions
-		if (!this._state.ball.resetting) {
-			const ball = { ...this._state.ball };
-			if (this._handlePaddleCollisions(ball, paddleUpdates.leftPaddle, true) ||
-				this._handlePaddleCollisions(ball, paddleUpdates.rightPaddle, false)) {
-				this.updateState({ ball });
+			// Check paddle collisions
+			if (!this._state.ball.resetting) {
+				const ball = { ...this._state.ball };
+				if (this._handlePaddleCollisions(ball, paddleUpdates.leftPaddle, true) ||
+					this._handlePaddleCollisions(ball, paddleUpdates.rightPaddle, false)) {
+					this.updateState({ ball });
+				}
 			}
-		}
 
-		// Update state
-		this.updateState({
-			...paddleUpdates,
-			lastUpdateTime: now
-		});
+			// Update state
+			this.updateState({
+				...paddleUpdates,
+				lastUpdateTime: now
+			});
+		}
 	}
 
 	_handleBallCollisions(deltaTime) {
@@ -329,7 +353,34 @@ export class GameState {
 	}
 
 	_validateStateUpdate(partialState) {
-		// Implement state validation logic here
+		if (!partialState) return false;
+
+		// Validate paddle positions
+		if (partialState.leftPaddle) {
+			const canvas = document.getElementById('game');
+			if (partialState.leftPaddle.y < 0) partialState.leftPaddle.y = 0;
+			if (partialState.leftPaddle.y > canvas.height - partialState.leftPaddle.height) {
+				partialState.leftPaddle.y = canvas.height - partialState.leftPaddle.height;
+			}
+		}
+
+		if (partialState.rightPaddle) {
+			const canvas = document.getElementById('game');
+			if (partialState.rightPaddle.y < 0) partialState.rightPaddle.y = 0;
+			if (partialState.rightPaddle.y > canvas.height - partialState.rightPaddle.height) {
+				partialState.rightPaddle.y = canvas.height - partialState.rightPaddle.height;
+			}
+		}
+
+		// Validate ball position
+		if (partialState.ball) {
+			const canvas = document.getElementById('game');
+			if (partialState.ball.y < 0) partialState.ball.y = 0;
+			if (partialState.ball.y > canvas.height - partialState.ball.height) {
+				partialState.ball.y = canvas.height - partialState.ball.height;
+			}
+		}
+
 		return true;
 	}
 } 
