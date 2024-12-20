@@ -129,7 +129,19 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             data = json.loads(text_data)
             message_type = data.get('type')
             
-            if message_type == 'webrtc_signal':
+            if message_type == 'player_ready':
+                # Broadcast player ready to all players
+                await self.channel_layer.group_send(
+                    self.game_group_name,
+                    {
+                        'type': 'player_ready',
+                        'user_id': data.get('user_id'),
+                        'is_host': self.is_host
+                    }
+                )
+                return
+            
+            elif message_type == 'webrtc_signal':
                 signal_type = data.get('signal', {}).get('type')
                 
                 # Allow ICE candidates from both host and guest
@@ -207,6 +219,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
         # Don't send signal back to sender
         if sender_id != self.user.id:
+            logger.debug(f"Relaying WebRTC signal of type {event['signal']['type']} from user {sender_id}")
             await self.send(text_data=json.dumps({
                 'type': 'webrtc_signal',
                 'signal': event['signal'],

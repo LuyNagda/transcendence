@@ -330,6 +330,9 @@ class BasePongGameController {
 	async _handleGameComplete(scores) {
 		logger.info('Game completed with scores:', scores);
 
+		// Set game finished flag first to prevent reconnection attempts
+		this._gameFinished = true;
+
 		// Stop game engine and disable input
 		this._gameEngine.stop();
 		this._inputHandler.disable();
@@ -337,16 +340,31 @@ class BasePongGameController {
 		// Update game state to finished
 		this._gameState.updateState({ gameStatus: 'finished' });
 
-		// Send final scores
+		// Send final scores and wait a moment for it to be delivered
 		if (this._networkManager && this._networkManager.isConnected()) {
 			try {
 				this._networkManager.sendGameMessage({
 					type: 'game_complete',
 					scores: scores
 				});
+
+				// Give time for the final message to be sent
+				await new Promise(resolve => setTimeout(resolve, 500));
 			} catch (error) {
 				logger.error('Error sending game completion messages:', error);
 			}
+		}
+
+		// Clean up network manager first
+		if (this._networkManager) {
+			this._networkManager.destroy();
+			this._networkManager = null;
+		}
+
+		// Clear sync interval if it exists
+		if (this._syncInterval) {
+			clearInterval(this._syncInterval);
+			this._syncInterval = null;
 		}
 
 		// Notify context handlers
@@ -366,7 +384,11 @@ class BasePongGameController {
 
 		try {
 			// Wait for guest connection using the new method name
-			await this._networkManager.waitForGuestConnection();
+			const connected = await this._networkManager.waitForGuestConnection();
+
+			if (!connected) {
+				throw new Error('Failed to establish connection with guest');
+			}
 
 			// Start the game engine and enable input
 			this._gameEngine.start();
@@ -379,7 +401,12 @@ class BasePongGameController {
 			// Launch the ball after a short delay
 			logger.info('Host will launch ball in 1 second');
 			setTimeout(() => {
-				this.launchBall();
+				if (this._networkManager.isConnected()) {
+					this.launchBall();
+				} else {
+					logger.error('Cannot launch ball - connection lost');
+					this.destroy();
+				}
 			}, 1000);
 
 			return true;
@@ -418,7 +445,11 @@ class HostPongGameController extends BasePongGameController {
 
 		try {
 			// Wait for guest connection using the new method name
-			await this._networkManager.waitForGuestConnection();
+			const connected = await this._networkManager.waitForGuestConnection();
+
+			if (!connected) {
+				throw new Error('Failed to establish connection with guest');
+			}
 
 			// Start the game engine and enable input
 			this._gameEngine.start();
@@ -431,7 +462,12 @@ class HostPongGameController extends BasePongGameController {
 			// Launch the ball after a short delay
 			logger.info('Host will launch ball in 1 second');
 			setTimeout(() => {
-				this.launchBall();
+				if (this._networkManager.isConnected()) {
+					this.launchBall();
+				} else {
+					logger.error('Cannot launch ball - connection lost');
+					this.destroy();
+				}
 			}, 1000);
 
 			return true;
@@ -472,7 +508,9 @@ class GuestPongGameController extends BasePongGameController {
 
 		try {
 			// Wait for host connection using the new method name
-			await this._networkManager.waitForHostConnection();
+			if (!this._gameFinished) {
+				await this._networkManager.waitForHostConnection();
+			}
 
 			// Start the game engine and enable input for paddle only
 			this._gameEngine.start();
@@ -492,7 +530,7 @@ class GuestPongGameController extends BasePongGameController {
 
 	_setupStateSync() {
 		this._networkManager.onGameMessage('gameState', (message) => {
-			if (this._gameState.getState().gameStatus === 'finished') return;
+			if (this._gameState.getState().gameStatus === 'finished' || this._gameFinished) return;
 
 			const canvas = this._gameEngine.getComponent('renderer').getCanvas();
 			// Transform the received state for guest view
@@ -509,6 +547,23 @@ class GuestPongGameController extends BasePongGameController {
 
 			this._gameState.updateState(newState);
 		});
+
+		// Add handler for game_complete message
+		this._networkManager.onGameMessage('game_complete', async (message) => {
+			if (!this._gameFinished) {
+				logger.info('Received game completion from host');
+				await this._handleGameComplete(message.scores);
+			}
+		});
+	}
+
+	destroy() {
+		this._gameFinished = true;
+		if (this._networkManager) {
+			this._networkManager.destroy();
+			this._networkManager = null;
+		}
+		super.destroy();
 	}
 }
 

@@ -370,6 +370,9 @@ export class Room {
 		gameContainer.appendChild(arcadeCabinet);
 
 		try {
+			// Expose the WebSocket service globally for the game
+			window.roomWsService = this.wsHandler.wsService;
+
 			// Create game controller with initial settings
 			const initialSettings = {
 				ballSpeed: this._settings.ballSpeed ?? GameRules.DEFAULT_SETTINGS.ballSpeed,

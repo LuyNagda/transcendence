@@ -142,7 +142,7 @@ class DynamicRender {
         this.root.querySelectorAll("[v-text]").forEach((el) => {
             const prop = el.getAttribute("v-text");
             el.textContent = this.getPropValue(prop);
-            logger.debug(`Binding v-text for ${prop}:`, el.textContent); // Log pour le débogage
+            // logger.debug(`Binding v-text for ${prop}:`, el.textContent); // Log pour le débogage
         });
     }
 
@@ -173,7 +173,7 @@ class DynamicRender {
             const [item, items] = forAttr.split(" in ").map((s) => s.trim());
             let itemsArray = this.getPropValue(items);
 
-            logger.debug(`Binding v-for for ${items}:`, itemsArray); // Log pour le débogage
+            // logger.debug(`Binding v-for for ${items}:`, itemsArray); // Log pour le débogage
 
             // Vérifier si itemsArray est un Proxy et le dé-proxifier si nécessaire
             if (itemsArray && typeof itemsArray === 'object' && itemsArray.constructor.name === 'Proxy') {
@@ -229,20 +229,20 @@ class DynamicRender {
     }
 
     bindIfForElement(element, localContext) {
-        logger.debug('Binding if for element with context:', {
-            element: element.outerHTML,
-            localContext: Object.keys(localContext)
-        });
+        // logger.debug('Binding if for element with context:', {
+        //     element: element.outerHTML,
+        //     localContext: Object.keys(localContext)
+        // });
 
         element.querySelectorAll("[v-if]").forEach((el) => {
             const condition = el.getAttribute("v-if");
             const isVisible = this.evaluateExpression(condition, localContext);
 
-            logger.debug('v-if evaluation:', {
-                condition,
-                isVisible,
-                context: Object.keys(localContext)
-            });
+            // logger.debug('v-if evaluation:', {
+            //     condition,
+            //     isVisible,
+            //     context: Object.keys(localContext)
+            // });
 
             el.style.setProperty('display', isVisible ? '' : 'none', 'important');
 
@@ -257,7 +257,7 @@ class DynamicRender {
         // Bind sur l'élément lui-même
         if (element.hasAttribute("v-on:click")) {
             const method = element.getAttribute("v-on:click");
-            logger.debug(`Binding click event with method: ${method}`);
+            // logger.debug(`Binding click event with method: ${method}`);
             element.onclick = (event) => {
                 logger.debug(`Click event triggered for method: ${method}`);
                 this.callMethod(method, event);
@@ -272,7 +272,7 @@ class DynamicRender {
         element.querySelectorAll("[v-on\\:click], [v-on\\:change]").forEach((el) => {
             if (el.hasAttribute("v-on:click")) {
                 const method = el.getAttribute("v-on:click");
-                logger.debug(`Binding click event on child with method: ${method}`);
+                // logger.debug(`Binding click event on child with method: ${method}`);
                 el.onclick = (event) => {
                     logger.debug(`Click event triggered on child for method: ${method}`);
                     this.callMethod(method, event);
@@ -352,14 +352,14 @@ class DynamicRender {
         const [objKey, methodName] = method.split(".");
         const obj = this.observedObjects.get(objKey);
 
-        logger.debug("Attempting to call method", {
-            method,
-            objKey,
-            methodName,
-            objectKeys: obj ? Object.keys(obj) : null,
-            objectType: obj ? typeof obj : null,
-            methodType: obj ? typeof obj[methodName] : null
-        });
+        // logger.debug("Attempting to call method", {
+        //     method,
+        //     objKey,
+        //     methodName,
+        //     objectKeys: obj ? Object.keys(obj) : null,
+        //     objectType: obj ? typeof obj : null,
+        //     methodType: obj ? typeof obj[methodName] : null
+        // });
 
         if (obj && typeof obj[methodName] === "function") {
             try {
@@ -398,11 +398,11 @@ class DynamicRender {
             `)(...Object.values(data));
 
             if (result !== false) {
-                logger.debug('Expression result:', {
-                    expression,
-                    result,
-                    context: Object.keys(data)
-                });
+                // logger.debug('Expression result:', {
+                //     expression,
+                //     result,
+                //     context: Object.keys(data)
+                // });
             }
             return result;
         } catch (error) {

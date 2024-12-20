@@ -7,7 +7,6 @@ export default class WSService {
 		this.callbacks = {};
 		this.reconnectAttempts = {};
 		this.maxReconnectAttempts = 5;
-		this.send = this.send.bind(this);
 		this.connectionUrls = {};
 	}
 
@@ -29,15 +28,15 @@ export default class WSService {
 		this.connectionUrls[name] = endpoint;
 
 		const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-		const token = this.getAuthToken();
-		const url = `${protocol}${window.location.host}${endpoint}${token ? `?token=${token}` : ''}`;
+		const url = `${protocol}${window.location.host}${endpoint}`;
 
+		logger.debug(`Initializing WebSocket connection to ${url}`);
 		this.connect(name, url);
 	}
 
 	connect(name, url) {
-		if (!this.callbacks[name]) {
-			logger.error(`Callbacks not initialized for connection '${name}'`);
+		if (!this.callbacks[name] || !this.connectionUrls[name]) {
+			logger.debug(`Skipping connection for '${name}' - connection was destroyed`);
 			return;
 		}
 
@@ -50,24 +49,37 @@ export default class WSService {
 				// Clean up the old connection
 				this.connections[name].onclose = null;
 				this.connections[name].onerror = null;
+				this.connections[name].onmessage = null;
+				this.connections[name].onopen = null;
 			}
 
+			logger.debug(`Creating new WebSocket connection for '${name}'`);
 			this.connections[name] = new WebSocket(url);
 
 			this.connections[name].onopen = () => {
 				logger.info(`WebSocket '${name}' connected`);
+				this.reconnectAttempts[name] = 0;
 				this.processQueue(name);
 				this.callbacks[name].onOpen.forEach(callback => callback());
 			};
 
 			this.connections[name].onmessage = (e) => {
-				const data = JSON.parse(e.data);
-				this.callbacks[name].onMessage.forEach(callback => callback(data));
+				try {
+					const data = JSON.parse(e.data);
+					this.callbacks[name].onMessage.forEach(callback => callback(data));
+				} catch (error) {
+					logger.error(`Error parsing WebSocket message for '${name}':`, error);
+				}
 			};
 
 			this.connections[name].onclose = (e) => {
-				logger.warn(`WebSocket '${name}' closed: ${e.code}`);
-				this.callbacks[name].onClose.forEach(callback => callback(e));
+				if (this.connections[name] && this.connectionUrls[name]) {
+					logger.warn(`WebSocket '${name}' closed: ${e.code}`);
+					this.callbacks[name]?.onClose.forEach(callback => callback(e));
+					if (e.code === 1006 || e.code === 1001) {
+						this.handleReconnection(name, url);
+					}
+				}
 			};
 
 			this.connections[name].onerror = (err) => {
@@ -76,13 +88,21 @@ export default class WSService {
 			};
 		} catch (error) {
 			logger.error(`Error creating WebSocket '${name}':`, error);
-			this.handleReconnection(name, url);
+			if (this.connections[name] && this.connectionUrls[name]) {
+				this.handleReconnection(name, url);
+			}
 		}
 	}
 
 	handleReconnection(name, url) {
+		if (!this.connections[name] || !this.connectionUrls[name]) {
+			logger.debug(`Skipping reconnection for '${name}' - connection was destroyed`);
+			return;
+		}
+
 		if (this.reconnectAttempts[name] >= this.maxReconnectAttempts) {
 			logger.error(`Max reconnect attempts (${this.maxReconnectAttempts}) reached for '${name}'`);
+			this.destroy(name);
 			return;
 		}
 
@@ -91,24 +111,82 @@ export default class WSService {
 		logger.info(`Scheduling reconnection for '${name}' in ${delay}ms (attempt ${this.reconnectAttempts[name]}/${this.maxReconnectAttempts})`);
 
 		setTimeout(() => {
-			if (this.connections[name]?.readyState === WebSocket.CLOSED) {
+			if (this.connections[name] && this.connectionUrls[name] &&
+				this.connections[name].readyState === WebSocket.CLOSED) {
 				logger.info(`Attempting to reconnect '${name}' (attempt ${this.reconnectAttempts[name]}/${this.maxReconnectAttempts})`);
 				this.connect(name, url);
 			}
 		}, delay);
 	}
 
-	send(name, message) {
-		const messageWithToken = {
-			...message,
-			csrfToken: this.getCSRFToken(),
-		};
+	on(name, event, callback) {
+		if (!this.callbacks[name]) {
+			this.callbacks[name] = {
+				onMessage: [],
+				onOpen: [],
+				onClose: [],
+				onError: []
+			};
+		}
 
-		if (this.connections[name]?.readyState === WebSocket.OPEN) {
-			this.connections[name].send(JSON.stringify(messageWithToken));
-		} else {
-			logger.debug(`Connection '${name}' not ready, queueing message:`, messageWithToken);
-			this.messageQueues[name].push(messageWithToken);
+		switch (event) {
+			case 'onMessage':
+				this.callbacks[name].onMessage.push(callback);
+				break;
+			case 'onOpen':
+				this.callbacks[name].onOpen.push(callback);
+				break;
+			case 'onClose':
+				this.callbacks[name].onClose.push(callback);
+				break;
+			case 'onError':
+				this.callbacks[name].onError.push(callback);
+				break;
+			default:
+				logger.warn(`Unknown WebSocket event: ${event}`);
+		}
+	}
+
+	off(name, event) {
+		if (!this.callbacks[name]) {
+			return;
+		}
+
+		switch (event) {
+			case 'onMessage':
+				this.callbacks[name].onMessage = [];
+				break;
+			case 'onOpen':
+				this.callbacks[name].onOpen = [];
+				break;
+			case 'onClose':
+				this.callbacks[name].onClose = [];
+				break;
+			case 'onError':
+				this.callbacks[name].onError = [];
+				break;
+			default:
+				logger.warn(`Unknown WebSocket event: ${event}`);
+		}
+	}
+
+	send(name, data) {
+		if (!this.connections[name]) {
+			logger.error(`WebSocket connection '${name}' not found`);
+			return;
+		}
+
+		if (this.connections[name].readyState !== WebSocket.OPEN) {
+			logger.debug(`Connection '${name}' not ready, queueing message:`, data);
+			this.messageQueues[name].push(data);
+			return;
+		}
+
+		try {
+			this.connections[name].send(JSON.stringify(data));
+		} catch (error) {
+			logger.error('Error sending WebSocket message:', error);
+			this.messageQueues[name].push(data);
 		}
 	}
 
@@ -120,66 +198,56 @@ export default class WSService {
 		}
 	}
 
-	on(name, event, callback) {
-		if (this.callbacks[name] && this.callbacks[name][event]) {
-			this.callbacks[name][event].push(callback);
-		} else {
-			logger.error(`Invalid event type or connection name: ${event}, ${name}`);
-		}
-	}
-
-	once(name, event, callback) {
-		if (!this.callbacks[name] || !this.callbacks[name][event]) {
-			logger.error(`Invalid event type or connection name: ${event}, ${name}`);
-			return;
-		}
-
-		const wrappedCallback = (...args) => {
-			this.off(name, event, wrappedCallback);
-			callback(...args);
-		};
-
-		this.callbacks[name][event].push(wrappedCallback);
-	}
-
-	off(name, event, callback) {
-		if (!this.callbacks[name] || !this.callbacks[name][event]) {
-			logger.error(`Invalid event type or connection name: ${event}, ${name}`);
-			return;
-		}
-
-		const index = this.callbacks[name][event].indexOf(callback);
-		if (index !== -1) {
-			this.callbacks[name][event].splice(index, 1);
-		}
-	}
-
-	getCSRFToken() {
-		const cookieValue = document.cookie
-			.split('; ')
-			.find(row => row.startsWith('csrftoken='));
-		return cookieValue ? cookieValue.split('=')[1] : null;
-	}
-
-	getAuthToken() {
-		const cookieValue = document.cookie
-			.split('; ')
-			.find(row => row.startsWith('access_token='));
-		return cookieValue ? cookieValue.split('=')[1] : null;
-	}
-
 	destroy(name) {
-		if (this.connections[name]) {
-			this.connections[name].close(1000, 'Normal closure');
-			delete this.connections[name];
-			delete this.messageQueues[name];
-			delete this.callbacks[name];
-			delete this.reconnectAttempts[name];
-			delete this.connectionUrls[name];
+		if (!this.connections[name]) {
+			return;
 		}
-	}
 
-	destroyAll() {
-		Object.keys(this.connections).forEach(name => this.destroy(name));
+		logger.debug(`Destroying WebSocket connection '${name}'`);
+
+		// Reset reconnect attempts to prevent further reconnection attempts
+		this.reconnectAttempts[name] = this.maxReconnectAttempts;
+
+		// Clean up callbacks first
+		if (this.callbacks[name]) {
+			this.callbacks[name] = {
+				onMessage: [],
+				onOpen: [],
+				onClose: [],
+				onError: []
+			};
+		}
+
+		// Then close the connection
+		if (this.connections[name]) {
+			// Remove event handlers before closing to prevent any last-minute events
+			this.connections[name].onclose = null;
+			this.connections[name].onerror = null;
+			this.connections[name].onmessage = null;
+			this.connections[name].onopen = null;
+
+			if (this.connections[name].readyState === WebSocket.OPEN ||
+				this.connections[name].readyState === WebSocket.CONNECTING) {
+				try {
+					this.connections[name].close(1000, 'Normal closure');
+				} catch (error) {
+					logger.warn(`Error closing WebSocket connection '${name}':`, error);
+				}
+			}
+		}
+
+		// Clear message queue
+		if (this.messageQueues[name]) {
+			this.messageQueues[name] = [];
+		}
+
+		// Clean up all references
+		delete this.connections[name];
+		delete this.messageQueues[name];
+		delete this.callbacks[name];
+		delete this.reconnectAttempts[name];
+		delete this.connectionUrls[name];
+
+		logger.debug(`WebSocket connection '${name}' destroyed`);
 	}
 }
