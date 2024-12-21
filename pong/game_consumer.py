@@ -147,7 +147,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
         Message types:
         - player_ready: Player connection notification
         - webrtc_signal: WebRTC signaling (offer/answer/candidate)
-        - game_finished: Game completion (host only)
+        - game_complete: Game completion (host only)
         """
         try:
             data = json.loads(text_data)
@@ -200,19 +200,24 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         'from_user': self.user.id
                     }
                 )
-            elif message_type == 'game_finished':
+            elif message_type == 'game_complete':
                 if not self.is_host:
-                    logger.warning(f"Non-host player tried to finish game", extra={
+                    logger.warning(f"Non-host player tried to complete game", extra={
                         'user_id': self.user.id
                     })
                     return
 
-                logger.info(f"Game finished - game_id: {self.game_id}, scores: {data.get('player1_score')}-{data.get('player2_score')}", extra={
+                scores = data.get('scores', {})
+                player1_score = scores.get('player1', 0)
+                player2_score = scores.get('player2', 0)
+
+                logger.info(f"Game finished - game_id: {self.game_id}, scores: {player1_score}-{player2_score}", extra={
                     'user_id': self.user.id
                 })
+                
                 await self.update_game_state(
-                    data.get('player1_score'),
-                    data.get('player2_score'),
+                    player1_score,
+                    player2_score,
                     'finished'
                 )
 
@@ -337,7 +342,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
         """Handles game state updates on player disconnection"""
         if self.game.status == 'ongoing':
             self.game.status = 'finished'
-            max_score = getattr(self.game.settings, 'maxScore', 11)
+            max_score = 11  # Default max score for games
             if self.is_host:
                 self.game.player2_score = max_score
             else:
