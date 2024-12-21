@@ -1,6 +1,5 @@
 import { GameEngine } from './core/GameEngine';
 import { GameState } from './core/GameState';
-import { createNetworkManager } from './NetworkManager.js';
 import { InputHandler } from './InputHandler.js';
 import { WebGLRenderer } from './renderers/WebGLRenderer.js';
 import { Canvas2DRenderer } from './renderers/CanvasRenderer.js';
@@ -9,6 +8,7 @@ import logger from '../utils/logger.js';
 import { SettingsManager } from './core/SettingsManager.js';
 import { GameRules } from './core/GameRules.js';
 import dynamicRender from '../utils/dynamic_render.js';
+import { PongNetworkManager } from './PongNetworkManager.js';
 
 // Base game controller with common functionality
 class BasePongGameController {
@@ -34,7 +34,7 @@ class BasePongGameController {
 
 		// Initialize network manager with error handling
 		try {
-			this._networkManager = createNetworkManager(gameId, currentUser, isHost);
+			this._networkManager = new PongNetworkManager(gameId, currentUser, isHost);
 			if (!this._networkManager) {
 				throw new Error('Failed to create network manager');
 			}
@@ -151,17 +151,17 @@ class BasePongGameController {
 				// Initialize AI controller
 				this._aiController = await AIController.init(difficulty);
 
-				// Switch to local network manager for AI mode
-				const localNetworkManager = createNetworkManager(this._gameId, this._currentUser, this._isHost, 'local');
-				localNetworkManager.setAIMode(true);
+				// Create new network manager for AI mode
+				const aiNetworkManager = new PongNetworkManager(this._gameId, this._currentUser, this._isHost);
+				aiNetworkManager.setAIMode(true);
 
-				// Clean up existing network manager and switch to local
+				// Clean up existing network manager and switch to AI mode
 				if (this._networkManager) {
 					this._networkManager.destroy();
 					this._gameEngine.unregisterComponent('network');
 				}
 
-				this._networkManager = localNetworkManager;
+				this._networkManager = aiNetworkManager;
 				this._gameEngine.registerComponent('network', this._networkManager);
 
 				// Register AI handler component
@@ -194,16 +194,16 @@ class BasePongGameController {
 				// Update game state for AI mode
 				this._gameState.updateState({ gameStatus: 'ready', isAIMode: true });
 			} else {
-				// Clean up AI first
+				// Clean up AI components
 				if (this._aiController) {
 					this._gameEngine.unregisterComponent('aiHandler');
 					this._aiController = null;
 				}
 
-				// Switch back to network mode
-				const networkManager = createNetworkManager(this._gameId, this._currentUser, this._isHost, 'network');
+				// Create new network manager for multiplayer mode
+				const networkManager = new PongNetworkManager(this._gameId, this._currentUser, this._isHost);
 
-				// Clean up local network manager and switch to network
+				// Clean up existing network manager and switch to multiplayer
 				if (this._networkManager) {
 					this._networkManager.destroy();
 					this._gameEngine.unregisterComponent('network');
@@ -225,7 +225,6 @@ class BasePongGameController {
 			return true;
 		} catch (error) {
 			logger.error('Failed to switch game mode:', error);
-			// Restore previous state on failure
 			this._isAIMode = !enabled;
 			throw error;
 		}

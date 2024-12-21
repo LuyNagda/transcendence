@@ -1,63 +1,47 @@
 import logger from '../utils/logger.js';
-import WSService from '../utils/WSService.js';
 import UserService from './UserService.js';
 import MessageService from './MessageService.js';
 import UIHandler from './UIHandler.js';
+import { ChatNetworkManager } from './ChatNetworkManager.js';
 
 export default class ChatApp {
 	constructor() {
-		this.WSService = null;
+		this.networkManager = new ChatNetworkManager();
 		this.userService = new UserService(this);
 		this.uiHandler = new UIHandler(this);
 		this.messageService = new MessageService(this.uiHandler, this.userService);
 		this.messageCountByUser = {};
-		this.initializeWebSocket();
+		this.initializeNetwork();
 	}
 
-	initializeWebSocket() {
-		this.wsService = new WSService();
-		this.wsService.initializeConnection('chat', '/ws/chat/');
+	async initializeNetwork() {
+		this.networkManager.on('chat_message', data => {
+			this.messageService.addMessage(data.message, data.sender_id, data.timestamp, false);
+			if (!this.chatModalOpen) this.incrementUnreadMessageCount();
+		});
 
-		this.wsService.on('chat', 'onMessage', this.handleMessage.bind(this));
-		this.wsService.on('chat', 'onClose', this.handleClose.bind(this));
-		this.wsService.on('chat', 'onOpen', this.handleOpen.bind(this));
-	}
+		this.networkManager.on('game_invitation', data => {
+			this.handleGameInvitation(data.game_id, data.sender_id);
+		});
 
-	handleMessage(data) {
-		logger.debug("Received data:", data);
-		switch (data.type) {
-			case 'chat_message':
-				this.messageService.addMessage(data.message, data.sender_id, data.timestamp, false);
-				if (!this.chatModalOpen) this.incrementUnreadMessageCount();
-				break;
-			case 'game_invitation':
-				this.handleGameInvitation(data.game_id, data.sender_id);
-				break;
-			case 'tournament_warning':
-				this.handleTournamentWarning(data.tournament_id, data.match_time);
-				break;
-			case 'user_profile':
-				this.uiHandler.displayProfileModal(data.profile);
-				break;
-			case 'user_status_change':
-				this.userService.updateUserStatus(data.user_id, data.status);
-				this.userService.refreshUserList();
-				break;
-			case 'error':
-				alert("Error: " + data.error);
-				break;
-			default:
-				logger.warn('Unknown message type:', data.type);
-		}
-	}
+		this.networkManager.on('tournament_warning', data => {
+			this.handleTournamentWarning(data.tournament_id, data.match_time);
+		});
 
-	handleClose() {
-		logger.warn('WebSocket closed.');
-	}
+		this.networkManager.on('user_profile', data => {
+			this.uiHandler.displayProfileModal(data.profile);
+		});
 
-	handleOpen() {
-		logger.debug('WebSocket connection established');
-		this.wsService.processQueue('chat');
+		this.networkManager.on('user_status_change', data => {
+			this.userService.updateUserStatus(data.user_id, data.status);
+			this.userService.refreshUserList();
+		});
+
+		this.networkManager.on('error', data => {
+			alert("Error: " + data.error);
+		});
+
+		await this.networkManager.connect();
 	}
 
 	handleFormSubmit(e) {
@@ -79,7 +63,7 @@ export default class ChatApp {
 		}
 
 		logger.info(`Sending message to user ${recipientId}: ${message}`);
-		this.wsService.send('chat', {
+		this.networkManager.sendMessage({
 			type: 'chat_message',
 			message: message,
 			recipient_id: recipientId
@@ -109,7 +93,7 @@ export default class ChatApp {
 		fetch(`/chat/history/${userId}/`, {
 			method: 'GET',
 			headers: {
-				'X-CSRFToken': this.wsService.getCSRFToken(),
+				'X-CSRFToken': this.networkManager.getCSRFToken(),
 				'Content-Type': 'application/json'
 			}
 		})
@@ -150,7 +134,7 @@ export default class ChatApp {
 		fetch(`/chat/${action}/${userId}/`, {
 			method: method,
 			headers: {
-				'X-CSRFToken': this.wsService.getCSRFToken(),
+				'X-CSRFToken': this.networkManager.getCSRFToken(),
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({})
@@ -188,7 +172,7 @@ export default class ChatApp {
 			? { type: 'game_invitation', recipient_id: userId, game_id: 'pong' }
 			: { type: 'user_profile', user_id: userId };
 
-		this.wsService.send('chat', payload);
+		this.networkManager.sendMessage(payload);
 	}
 
 	handleGameInvitation(gameId, senderId) {
@@ -219,6 +203,6 @@ export default class ChatApp {
 	}
 
 	destroy() {
-		this.wsService.destroy('chat');
+		this.networkManager.destroy();
 	}
 }

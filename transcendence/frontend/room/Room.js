@@ -1,5 +1,5 @@
 import logger from '../utils/logger.js';
-import { RoomWebSocket } from './RoomWebSocket.js';
+import { RoomNetworkManager } from './RoomNetworkManager.js';
 import { GameRules } from '../pong/core/GameRules.js';
 import { SettingsManager } from '../pong/core/SettingsManager.js';
 import dynamicRender from '../utils/dynamic_render.js';
@@ -87,7 +87,8 @@ export class Room {
 		this._initializeSettingsManager();
 
 		// Initialize connections and listeners
-		this._initializeWebSocket();
+		this._networkManager = new RoomNetworkManager(roomId);
+		this._initializeNetworkManager();
 		this._initializeEventListeners();
 
 		// Initialize dynamic render for this room
@@ -151,14 +152,47 @@ export class Room {
 		}
 	}
 
-	_initializeWebSocket() {
-		this.wsHandler = new RoomWebSocket(
-			this._roomId,
-			this._handleWebSocketMessage.bind(this),
-			this._handleWebSocketClose.bind(this),
-			this._handleWebSocketOpen.bind(this),
-			this._handleWebSocketError.bind(this)
-		);
+	async _initializeNetworkManager() {
+		try {
+			await this._networkManager.connect();
+
+			// Set up message handlers
+			this._networkManager.on('room_update', (data) => {
+				if (!this._modeUpdateInProgress) {
+					if (data.room_state.settings) {
+						logger.debug("Received settings in room update:", data.room_state.settings);
+					}
+					this.updateFromState(data.room_state);
+				}
+			});
+
+			this._networkManager.on('game_started', (data) => {
+				this._handleGameStarted(data);
+			});
+
+			this._networkManager.on('settings_update', (data) => {
+				logger.debug("Received settings update:", data);
+				this._handleSettingsUpdate(data);
+			});
+
+			this._networkManager.on('mode_change', (data) => {
+				if (!this._modeUpdateInProgress) {
+					this._mode = data.mode;
+					this._maxPlayers = Room.getMaxPlayersForMode(data.mode);
+					this._settings = data.settings || this._getDefaultSettings();
+
+					dynamicRender.addObservedObject('pongRoom', {
+						...this._getPublicState()
+					});
+					dynamicRender.scheduleUpdate();
+
+					logger.info(`Mode changed to: ${data.mode}`);
+				}
+			});
+
+		} catch (error) {
+			logger.error('Failed to initialize network manager:', error);
+		}
 	}
 
 	_initializeEventListeners() {
@@ -370,8 +404,8 @@ export class Room {
 		gameContainer.appendChild(arcadeCabinet);
 
 		try {
-			// Expose the WebSocket service globally for the game
-			window.roomWsService = this.wsHandler.wsService;
+			// Get the connection from the network manager
+			const connection = this._networkManager._connectionManager.getConnection('room');
 
 			// Create game controller with initial settings
 			const initialSettings = {
@@ -408,7 +442,8 @@ export class Room {
 				isHost,
 				this._useWebGL,
 				initialSettings,
-				contextHandlers
+				contextHandlers,
+				connection
 			);
 
 			const initialized = await this._pongGame.initialize();
@@ -493,7 +528,7 @@ export class Room {
 
 		try {
 			this._useWebGL = document.getElementById('webgl-toggle')?.checked || false;
-			this.wsHandler.sendMessage('start_game', { id: Date.now() });
+			this._networkManager.sendMessage('start_game', { id: Date.now() });
 			this._setLoading(true);
 		} catch (error) {
 			logger.error('Error sending start game request:', error);
@@ -536,22 +571,22 @@ export class Room {
 
 	async updateMode(mode) {
 		logger.info(`Updating mode to: ${mode}`);
-		this.wsHandler.sendMessage('update_property', {
+		this._networkManager.sendMessage('update_property', {
 			property: 'mode',
 			value: mode
 		});
 	}
 
 	inviteFriend(friendId) {
-		this.wsHandler.sendMessage("invite_friend", { friend_id: friendId });
+		this._networkManager.sendMessage("invite_friend", { friend_id: friendId });
 	}
 
 	cancelInvitation(invitationId) {
-		this.wsHandler.sendMessage("cancel_invitation", { invitation_id: invitationId });
+		this._networkManager.sendMessage("cancel_invitation", { invitation_id: invitationId });
 	}
 
 	kickPlayer(playerId) {
-		this.wsHandler.sendMessage("kick_player", { player_id: playerId });
+		this._networkManager.sendMessage("kick_player", { player_id: playerId });
 	}
 
 	// UI updates
@@ -598,7 +633,7 @@ export class Room {
 		}
 
 		this._updateTimeout = setTimeout(() => {
-			this.wsHandler.sendMessage("update_property", { property, value });
+			this._networkManager.sendMessage("update_property", { property, value });
 			this._updateTimeout = null;
 		}, 100);
 	}
@@ -674,9 +709,9 @@ export class Room {
 			this._pongGame.destroy();
 			this._pongGame = null;
 		}
-		if (this.wsHandler) {
-			this.wsHandler.destroy();
-			this.wsHandler = null;
+		if (this._networkManager) {
+			this._networkManager.destroy();
+			this._networkManager = null;
 		}
 
 		// Clean up global handler
@@ -716,7 +751,7 @@ export class Room {
 		}
 
 		// Notify other players through WebSocket
-		this.wsHandler.sendMessage('update_property', {
+		this._networkManager.sendMessage('update_property', {
 			property: 'settings',
 			setting: setting,
 			value: validatedSettings[setting]

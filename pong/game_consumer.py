@@ -13,9 +13,7 @@ User = get_user_model()
 
 @asynccontextmanager
 async def channel_layer_lock(channel_layer, lock_name, timeout=10):
-    """
-    Async context manager for distributed locking using channel layer.
-    """
+    """Provides distributed locking using Django Channels layer"""
     lock_group = f"lock_{lock_name}"
     try:
         await channel_layer.group_add(lock_group, "lock_holder")
@@ -24,7 +22,28 @@ async def channel_layer_lock(channel_layer, lock_name, timeout=10):
         await channel_layer.group_discard(lock_group, "lock_holder")
 
 class PongGameConsumer(AsyncWebsocketConsumer):
+    """
+    WebSocket consumer for Pong game sessions.
+    
+    Handles:
+    - Connection setup and validation
+    - WebRTC signaling between players
+    - Game state updates and notifications
+    - Player disconnection cleanup
+    """
+
     async def connect(self):
+        """
+        Establishes WebSocket connection for a game session.
+        
+        Flow:
+        1. Authenticate user
+        2. Validate game exists and is active
+        3. Verify user is a valid player
+        4. Join game channel group
+        5. Send initial state
+        6. Notify other players
+        """
         try:
             self.connection_state = 'initializing'
             self.user = self.scope.get("user")
@@ -43,7 +62,6 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 await self.close(code=4001)
                 return
 
-            # Update state to validating
             self.connection_state = 'validating'
 
             try:
@@ -75,7 +93,6 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                     await self.close(code=4005)
                     return
 
-                # Update state to validated
                 self.connection_state = 'validated'
 
                 # 5. Add to game group and accept connection using a lock
@@ -83,7 +100,6 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                     await self.channel_layer.group_add(self.game_group_name, self.channel_name)
                     await self.accept()
                     
-                    # Update state to connected
                     self.connection_state = 'connected'
                     
                     # 6. Send initial game state
@@ -125,12 +141,19 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             await self.close(code=4002)
 
     async def receive(self, text_data):
+        """
+        Handles incoming WebSocket messages.
+        
+        Message types:
+        - player_ready: Player connection notification
+        - webrtc_signal: WebRTC signaling (offer/answer/candidate)
+        - game_finished: Game completion (host only)
+        """
         try:
             data = json.loads(text_data)
             message_type = data.get('type')
             
             if message_type == 'player_ready':
-                # Broadcast player ready to all players
                 await self.channel_layer.group_send(
                     self.game_group_name,
                     {
@@ -144,7 +167,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             elif message_type == 'webrtc_signal':
                 signal_type = data.get('signal', {}).get('type')
                 
-                # Allow ICE candidates from both host and guest
+                # Handle ICE candidates
                 if signal_type == 'candidate':
                     await self.channel_layer.group_send(
                         self.game_group_name,
@@ -156,7 +179,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                     )
                     return
                 
-                # Validate offer/answer based on role
+                # Validate signal types by role
                 if self.is_host and signal_type != 'offer':
                     logger.warning(f"Host sent invalid signal type - expected 'offer'", extra={
                         'user_id': self.user.id
@@ -168,7 +191,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                     })
                     return
 
-                # Transmit WebRTC signal to other player
+                # Relay signal
                 await self.channel_layer.group_send(
                     self.game_group_name,
                     {
@@ -178,7 +201,6 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                     }
                 )
             elif message_type == 'game_finished':
-                # Only host can declare game finished
                 if not self.is_host:
                     logger.warning(f"Non-host player tried to finish game", extra={
                         'user_id': self.user.id
@@ -188,7 +210,6 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 logger.info(f"Game finished - game_id: {self.game_id}, scores: {data.get('player1_score')}-{data.get('player2_score')}", extra={
                     'user_id': self.user.id
                 })
-                # Update game score and state
                 await self.update_game_state(
                     data.get('player1_score'),
                     data.get('player2_score'),
@@ -205,7 +226,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             })
 
     async def relay_webrtc_signal(self, event):
-        # Verify signal is from a valid player
+        """Relays WebRTC signals between valid players"""
         sender_id = event['from_user']
         valid_player_ids = [self.game.player1.id]
         if self.game.player2:  # Add player2's ID only if they exist (not AI)
@@ -227,20 +248,19 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             }))
 
     async def disconnect(self, close_code):
+        """Handles cleanup on connection close"""
         logger.info(f"Game disconnection - game_id: {getattr(self, 'game_id', None)}, close_code: {close_code}", extra={
             'user_id': getattr(self.user, 'id', None)
         })
         
         if hasattr(self, 'game_group_name'):
             try:
-                # Remove from game group
                 await self.channel_layer.group_discard(
                     self.game_group_name,
                     self.channel_name
                 )
                 
                 if hasattr(self, 'game') and hasattr(self, 'user') and not self.user.is_anonymous:
-                    # Notify other players about disconnection
                     await self.channel_layer.group_send(
                         self.game_group_name,
                         {
@@ -250,7 +270,6 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         }
                     )
                     
-                    # Update game status if needed
                     await self.update_game_on_disconnect()
 
             except Exception as e:
@@ -260,6 +279,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_game(self):
+        """Retrieves game instance with related players"""
         try:
             return PongGame.objects.select_related('player1', 'player2').get(id=self.game_id)
         except PongGame.DoesNotExist:
@@ -267,7 +287,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def get_game_state(self):
-        """Get current game state with AI player handling"""
+        """Returns current game state including AI player handling"""
         return {
             'player1': {
                 'id': self.game.player1.id,
@@ -292,6 +312,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
     
     @database_sync_to_async
     def update_game_state(self, player1_score, player2_score, status):
+        """Updates game scores and status"""
         if self.game:
             self.game.player1_score = player1_score
             self.game.player2_score = player2_score
@@ -301,6 +322,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             self.game.save()
 
     async def notify_player_ready(self, event):
+        """Notifies clients about player connection status"""
         await self.send(text_data=json.dumps({
             'type': 'player_ready',
             'user_id': event['user_id'],
@@ -312,26 +334,25 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def update_game_on_disconnect(self):
-        """Update game status when a player disconnects"""
+        """Handles game state updates on player disconnection"""
         if self.game.status == 'ongoing':
             self.game.status = 'finished'
-            # Set winner as the other player
+            max_score = getattr(self.game.settings, 'maxScore', 11)
             if self.is_host:
-                self.game.player2_score = 11  # Win score
+                self.game.player2_score = max_score
             else:
-                self.game.player1_score = 11
+                self.game.player1_score = max_score
             self.game.finished_at = timezone.now()
             self.game.save()
 
-            # Reset room state to LOBBY
             if self.game.room:
                 self.game.room.state = 'LOBBY'
                 self.game.room.save()
 
     async def player_disconnected(self, event):
-        """Handle player disconnection event"""
+        """Broadcasts player disconnection to remaining clients"""
         await self.send(text_data=json.dumps({
             'type': 'player_disconnected',
             'user_id': event['user_id'],
             'is_host': event.get('is_host', False)
-        })) 
+        }))
