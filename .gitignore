@@ -5,8 +5,7 @@
 .vscode/launch.json
 static/
 !transcendence/static/
-!transcendence/static/js/
-transcendence/static/js/main.js
-transcendence/static/js/main.js.map
+transcendence/static/js/
+transcendence/static/css/
 node_modules
 ai/myenv/

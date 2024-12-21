@@ -411,6 +411,11 @@ export class WebRTCConnection extends BaseConnection {
 		}
 
 		try {
+			if (this._peer.signalingState === 'stable') {
+				logger.debug('Host: Ignoring answer - connection already stable');
+				return;
+			}
+
 			logger.debug('Host: Setting remote description from answer');
 			await this._peer.setRemoteDescription(new RTCSessionDescription(answer));
 			this._hasReceivedAnswer = true;

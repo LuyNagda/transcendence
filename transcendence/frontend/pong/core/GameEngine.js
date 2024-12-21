@@ -69,11 +69,10 @@ export class GameEngine {
 		if (this._components.get('aiHandler'))
 			this._components.get('aiHandler').update();
 
-		// Update renderer with transformed state for guest player
+		// Update renderer with current state
 		const renderer = this._components.get('renderer');
-		if (renderer && controller) {
-			const state = controller._isHost ? gameState.getState() : gameState.getTransformedState();
-			renderer.render(state);
+		if (renderer) {
+			renderer.render(gameState.getState());
 		}
 
 		// Schedule next frame

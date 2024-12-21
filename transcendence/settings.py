@@ -195,6 +195,11 @@ STATICFILES_DIRS = [
     BASE_DIR / 'transcendence' / 'static',
 ]
 
+MIME_TYPES = {
+    'css': 'text/css',
+    'js': 'application/javascript',
+}
+
 # esbuild configuration
 ESBUILD_BIN_PATH = os.path.join(BASE_DIR, 'node_modules', '.bin', 'esbuild')
 ESBUILD_CONFIG_PATH = os.path.join(BASE_DIR, 'esbuild.config.js')
@@ -247,3 +252,9 @@ CORS_ALLOW_CREDENTIALS = True
 FT_CLIENT_ID = env('FT_CLIENT_ID')
 FT_CLIENT_SECRET = env('FT_CLIENT_SECRET')
 FT_REDIRECT_URI = env('FT_REDIRECT_URI')
+
+RTC_STUN_URL = env('RTC_STUN_URL')
+RTC_TURN_URL_1 = env('RTC_TURN_URL_1')
+RTC_TURN_URL_2 = env('RTC_TURN_URL_2')
+RTC_TURN_USERNAME = env('RTC_TURN_USERNAME')
+RTC_TURN_CREDENTIAL = env('RTC_TURN_CREDENTIAL')

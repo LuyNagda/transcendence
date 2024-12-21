@@ -420,6 +420,7 @@ class BasePongGameController {
 		this._syncInterval = setInterval(() => {
 			if (this._gameState.getState().gameStatus === 'playing') {
 				const currentState = this._gameState.getState();
+				logger.debug('Host sending state:', currentState);
 				this._networkManager.sendGameState(currentState);
 			}
 		}, 100); // Sync every 100ms
@@ -481,6 +482,7 @@ class HostPongGameController extends BasePongGameController {
 		this._syncInterval = setInterval(() => {
 			if (this._gameState.getState().gameStatus === 'playing') {
 				const currentState = this._gameState.getState();
+				logger.debug('Host sending state:', currentState);
 				this._networkManager.sendGameState(currentState);
 			}
 		}, 100); // Sync every 100ms
@@ -532,7 +534,9 @@ class GuestPongGameController extends BasePongGameController {
 			if (this._gameState.getState().gameStatus === 'finished' || this._gameFinished) return;
 
 			const canvas = this._gameEngine.getComponent('renderer').getCanvas();
-			// Transform the received state for guest view
+			logger.debug('Guest received state:', message.state);
+
+			// Transformation to invert the game view for guest
 			const newState = {
 				...message.state,
 				leftPaddle: message.state.rightPaddle,
@@ -544,6 +548,7 @@ class GuestPongGameController extends BasePongGameController {
 				}
 			};
 
+			logger.debug('Guest transformed state:', newState);
 			this._gameState.updateState(newState);
 		});
 

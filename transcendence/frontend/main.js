@@ -1,4 +1,6 @@
+import { htmx } from './vendor.js';
 import logger from './utils/logger.js';
+import { initializeConfig } from './config/ConfigStore.js';
 import { initializeErrorHandling, initializeHtmxLogging } from './utils/htmx-debug.js';
 import { initializeThemeAndFontSize, applyTheme, applyFontSize } from './utils/theme.js';
 import UserService from './UserService.js';
@@ -7,6 +9,7 @@ import dynamicRender from './utils/dynamic_render.js';
 import { RoomManager } from './room/RoomManager.js';
 import { RoomController } from './room/RoomController.js';
 import { Room } from './room/Room.js';
+import { initializeBootstrap, createModal } from './utils/bootstrap-init.js';
 
 function initializeChatApp() {
 	try {
@@ -68,23 +71,31 @@ window.initializeRoomData = function (roomState) {
 	RoomManager.getInstance().initialize(roomState);
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-	logger.initialize();
-	initializeErrorHandling();
-	initializeHtmxLogging();
-	initializeThemeAndFontSize();
-	UserService.getInstance();
-	RoomManager.getInstance();
-	dynamicRender.initialize();
-	initializeChatApp();
-	initializeRoom();
-	initializeThemeButtons();
-	logger.info('Frontend app initialized');
-});
+function initializeApp() {
+	try {
+		const config = initializeConfig();
+		logger.initialize(config.logLevel);
+		initializeErrorHandling();
 
-// HTMX event listeners
-document.body.addEventListener('htmx:beforeSwap', handleRoomStateUpdate);
-document.body.addEventListener('htmx:afterSwap', () => {
-	// initializeRoom();
-	dynamicRender.update();
-});
+		// Initialize htmx directly
+		htmx.on('htmx:beforeSwap', handleRoomStateUpdate);
+		htmx.on('htmx:afterSwap', () => {
+			dynamicRender.update();
+		});
+
+		initializeHtmxLogging();
+		initializeThemeAndFontSize();
+		initializeBootstrap(); // Initialize all Bootstrap components
+		UserService.getInstance();
+		RoomManager.getInstance();
+		dynamicRender.initialize();
+		initializeChatApp();
+		initializeRoom();
+		initializeThemeButtons();
+		logger.info('Frontend app initialized');
+	} catch (error) {
+		console.error('Failed to initialize application:', error);
+	}
+}
+
+document.addEventListener('DOMContentLoaded', initializeApp);
