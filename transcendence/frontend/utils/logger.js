@@ -36,6 +36,19 @@ class Logger {
 		}
 		if (this.debugSettings && this.levels[level.toUpperCase()] >= this.currentLevel) {
 			console[level.toLowerCase()](...messages);
+
+			// Show stack trace for WARN levels - missing in console
+			if (level === 'WARN') {
+				const stack = new Error().stack
+					.split('\n')
+					.slice(2) // Skip "Error" and current "log" function
+					.map(line => line.trim())
+					.join('\n');
+
+				console.groupCollapsed('Stack trace');
+				console.log(stack);
+				console.groupEnd();
+			}
 		}
 	}
 
