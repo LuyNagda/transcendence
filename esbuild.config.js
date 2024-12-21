@@ -4,15 +4,24 @@ const path = require('path');
 const isProd = process.env.NODE_ENV === 'production';
 
 const buildOptions = {
-	entryPoints: ['transcendence/frontend/main.js'],
+	entryPoints: {
+		'main': 'transcendence/frontend/main.js',
+		'vendor': 'transcendence/frontend/vendor.js'
+	},
 	bundle: true,
-	outdir: 'transcendence/static/js',
+	outdir: 'transcendence/static',
 	format: 'esm',
 	minify: isProd,
 	sourcemap: !isProd,
 	resolveExtensions: ['.js'],
 	absWorkingDir: path.resolve(__dirname),
 	platform: 'browser',
+	splitting: true,
+	chunkNames: 'js/chunks/[name]-[hash]',
+	loader: {
+		'.css': 'css'
+	},
+	assetNames: 'css/[name]-[hash]'
 };
 
 if (isProd) {

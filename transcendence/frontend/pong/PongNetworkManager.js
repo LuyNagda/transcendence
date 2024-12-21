@@ -3,20 +3,20 @@ import { ConnectionManager } from '../networking/ConnectionManager.js';
 
 /**
  * Default WebRTC configuration for peer connections
- * Uses Google's public STUN server and a TURN server for NAT traversal
+ * Configuration is injected during build time
  */
 const RTC_CONFIG = {
 	iceServers: [
 		{
-			urls: 'stun:stun.l.google.com:19302'
+			urls: window.RTC_CONFIG?.STUN_URL || 'stun:127.0.0.1:3478'
 		},
 		{
 			urls: [
-				'turn:global.relay.metered.ca:80',
-				'turn:global.relay.metered.ca:443'
+				window.RTC_CONFIG?.TURN_URL_1 || 'turn:127.0.0.1:3478',
+				window.RTC_CONFIG?.TURN_URL_2 || 'turn:127.0.0.1:5349'
 			],
-			username: 'f948504c4c25ad6a49a104c3',
-			credential: 'ACHpbN3JhGSSvUAz'
+			username: window.RTC_CONFIG?.TURN_USERNAME || 'transcendence',
+			credential: window.RTC_CONFIG?.TURN_CREDENTIAL || 'transcendence123'
 		}
 	],
 	iceTransportPolicy: 'all',

@@ -147,9 +147,23 @@ export class GameState {
 			incomingChanges: partialState
 		});
 
-		this._state = {
+		// Ensure ball state is properly merged
+		const newState = {
 			...this._state,
-			...partialState,
+			...partialState
+		};
+
+		// If there's a ball update, ensure all properties are merged
+		if (partialState.ball) {
+			newState.ball = {
+				...this._state.ball,
+				...partialState.ball
+			};
+			logger.debug('Ball state updated:', newState.ball);
+		}
+
+		this._state = {
+			...newState,
 			lastUpdateTime: Date.now()
 		};
 

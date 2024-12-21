@@ -374,7 +374,12 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 property = ''.join(['_' + c.lower() if c.isupper() else c for c in property]).lstrip('_')
                 old_value = getattr(self.room, property, None)
                 
-                if property == 'owner':
+                if property == 'state':
+                    if value not in dict(PongRoom.State.choices):
+                        logger.error(f"Invalid state value: {value}")
+                        return False
+                    self.room.state = value
+                elif property == 'owner':
                     user = User.objects.get(id=value['id'])
                     self.room.owner = user
                 elif property == 'players':

@@ -215,11 +215,33 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                     'user_id': self.user.id
                 })
                 
+                # Update game state
                 await self.update_game_state(
                     player1_score,
                     player2_score,
                     'finished'
                 )
+
+                # Notify room about game completion and trigger room state update
+                if self.game.room:
+                    room_group_name = f'pong_room_{self.game.room.room_id}'
+                    await self.channel_layer.group_send(
+                        room_group_name,
+                        {
+                            'type': 'update_property',
+                            'property': 'state',
+                            'value': 'LOBBY'
+                        }
+                    )
+                    # Also send game finished notification
+                    await self.channel_layer.group_send(
+                        room_group_name,
+                        {
+                            'type': 'game_finished',
+                            'winner_id': self.game.player1.id if player1_score > player2_score else self.game.player2.id if self.game.player2 else None,
+                            'final_score': f"{player1_score}-{player2_score}"
+                        }
+                    )
 
         except json.JSONDecodeError:
             logger.error(f'Invalid game JSON data: {text_data}', extra={
@@ -324,6 +346,10 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             self.game.status = status
             if status == 'finished':
                 self.game.finished_at = timezone.now()
+                # Update room state to LOBBY when game finishes
+                if self.game.room:
+                    self.game.room.state = 'LOBBY'
+                    self.game.room.save()
             self.game.save()
 
     async def notify_player_ready(self, event):
