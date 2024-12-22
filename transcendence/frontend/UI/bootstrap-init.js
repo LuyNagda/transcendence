@@ -4,7 +4,7 @@ import {
 	Toast
 } from '../vendor.js';
 
-import logger from './logger.js';
+import logger from '../logger.js';
 
 // Initialize all toasts
 function initToasts() {

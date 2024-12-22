@@ -1,16 +1,16 @@
-import logger from '../utils/logger.js';
-import { ConnectionManager } from '../networking/ConnectionManager.js';
+import logger from '../logger.js';
+import { BaseNetworkManager } from '../networking/NetworkingCore.js';
 
-export class ChatNetworkManager {
+export class ChatNetworkManager extends BaseNetworkManager {
 	constructor() {
-		this._connectionManager = new ConnectionManager();
-		this._messageHandlers = new Map();
+		super();
+		this._connectionManager = super._connectionManager;
+		this._messageHandlers = super._messageHandlers;
 		this._isConnected = false;
 	}
 
 	async connect() {
 		try {
-			// Create connection for chat
 			const connection = this._connectionManager.createConnection(
 				'websocket',
 				'chat',
@@ -22,12 +22,10 @@ export class ChatNetworkManager {
 				}
 			);
 
-			// Set up handlers
 			connection.on('message', (data) => this._handleMessage(data));
 			connection.on('close', () => this._handleClose());
 			connection.on('error', (error) => this._handleError(error));
 
-			// Connect
 			await connection.connect();
 			this._isConnected = true;
 			return true;
@@ -38,52 +36,13 @@ export class ChatNetworkManager {
 	}
 
 	sendMessage(message) {
-		const connection = this._connectionManager.getConnection('chat');
+		const connection = this._getMainConnection();
 		if (connection && connection.state.canSend) {
 			connection.send(message);
 		}
 	}
 
-	on(type, handler) {
-		this._messageHandlers.set(type, handler);
-	}
-
-	off(type) {
-		this._messageHandlers.delete(type);
-	}
-
-	isConnected() {
-		const connection = this._connectionManager.getConnection('chat');
-		return connection && connection.state.name === 'connected';
-	}
-
-	destroy() {
-		this._isConnected = false;
-		this._messageHandlers.clear();
-		this._connectionManager.disconnectAll();
-	}
-
-	_handleMessage(data) {
-		try {
-			logger.debug("Received chat data:", data);
-			const handler = this._messageHandlers.get(data.type);
-			if (handler) {
-				handler(data);
-			} else {
-				logger.warn('No handler found for message type:', data.type);
-			}
-		} catch (error) {
-			logger.error('Error handling chat message:', error);
-		}
-	}
-
-	_handleClose() {
-		logger.warn('Chat WebSocket closed');
-		this._isConnected = false;
-	}
-
-	_handleError(error) {
-		logger.error('Chat WebSocket error:', error);
-		this._handleClose();
+	_getMainConnection() {
+		return this._connectionManager.getConnection('chat');
 	}
 } 

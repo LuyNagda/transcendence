@@ -1,11 +1,13 @@
 import { RoomAPI } from './RoomAPI.js';
-import { UIService } from '../utils/UIService.js';
+import { UIService } from '../UI/UIService.js';
 import { RoomManager } from './RoomManager.js';
-import logger from '../utils/logger.js';
+import logger from '../logger.js';
+import Store from '../state/store.js';
 
 export class RoomController {
 	constructor() {
 		this.createRoomBtn = document.getElementById("create-room-btn");
+		this._store = Store.getInstance();
 		this.bindEvents();
 	}
 
@@ -28,14 +30,30 @@ export class RoomController {
 			const roomHtml = await RoomAPI.fetchRoomHtml(data.room_id);
 			document.body.innerHTML = roomHtml;
 
-			// Initialize room manager with default game settings
+			// Get current user from store
+			const userState = this._store.getState('user');
+
+			// Initialize room in store
+			this._store.dispatch({
+				domain: 'room',
+				type: 'CREATE_ROOM',
+				payload: {
+					id: data.room_id,
+					name: data.room_data?.name || `Room ${data.room_id}`,
+					type: data.room_data?.type || 'public',
+					createdBy: userState.id,
+					settings: {
+						...data.room_data?.settings,
+						paddleSpeed: 5 // Default paddle speed
+					}
+				}
+			});
+
+			// Initialize room manager
 			const roomManager = RoomManager.getInstance();
 			roomManager.initialize({
 				id: data.room_id,
-				...data.room_data,
-				gameSettings: { // Frontend-only game settings
-					paddleSpeed: 5, // Default paddle speed
-				}
+				...data.room_data
 			});
 
 			// Update URL
@@ -62,9 +80,7 @@ export class RoomController {
 	setLoading(isLoading) {
 		if (this.createRoomBtn) {
 			this.createRoomBtn.disabled = isLoading;
-			this.createRoomBtn.innerHTML = isLoading ?
-				'<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Creating...' :
-				'Start a Game';
+			this.createRoomBtn.textContent = isLoading ? "Creating..." : "Create Room";
 		}
 	}
 } 

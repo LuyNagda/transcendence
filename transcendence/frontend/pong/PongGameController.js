@@ -1,14 +1,15 @@
 import { GameEngine } from './core/GameEngine';
-import { GameState } from './core/GameState';
+import { PongPhysics } from './core/PongPhysics';
 import { InputHandler } from './InputHandler.js';
 import { WebGLRenderer } from './renderers/WebGLRenderer.js';
 import { Canvas2DRenderer } from './renderers/CanvasRenderer.js';
 import { AIController } from './AIController.js';
-import logger from '../utils/logger.js';
+import logger from '../logger.js';
 import { SettingsManager } from './core/SettingsManager.js';
 import { GameRules } from './core/GameRules.js';
-import dynamicRender from '../utils/dynamic_render.js';
+import dynamicRender from '../UI/dynamic_render.js';
 import { PongNetworkManager } from './PongNetworkManager.js';
+import Store from '../state/store.js';
 
 // Base game controller with common functionality
 class BasePongGameController {
@@ -22,15 +23,40 @@ class BasePongGameController {
 		this._initialized = false;
 		this._isAIMode = false;
 		this._aiController = null;
+		this._store = Store.getInstance();
 
 		// Initialize settings manager first with validated settings
 		const validatedSettings = GameRules.validateSettings(settings);
 		this._settingsManager = new SettingsManager(validatedSettings);
 
 		// Initialize core components
-		this._gameState = new GameState(validatedSettings);
+		this._physics = new PongPhysics(validatedSettings);
 		this._gameEngine = new GameEngine();
 		this._inputHandler = new InputHandler(isHost);
+
+		// Subscribe to physics state changes
+		this._physics.subscribe({
+			onStateChange: (newState) => {
+				// Update global store with game state
+				this._store.dispatch({
+					domain: 'game',
+					type: 'UPDATE_STATUS',
+					payload: newState.gameStatus
+				});
+
+				// Update scores in store
+				if (newState.scores) {
+					this._store.dispatch({
+						domain: 'game',
+						type: 'UPDATE_SCORE',
+						payload: {
+							player1: newState.scores.left,
+							player2: newState.scores.right
+						}
+					});
+				}
+			}
+		});
 
 		// Initialize network manager with error handling
 		try {
@@ -48,7 +74,7 @@ class BasePongGameController {
 
 		// Add settings change listener
 		this._settingsManager.addListener((newSettings, oldSettings) => {
-			this._gameState.updateSettings(newSettings);
+			this._physics.updateSettings(newSettings);
 			if (this._isHost && this._networkManager) {
 				this._networkManager.syncSettings(newSettings);
 			}
@@ -92,7 +118,7 @@ class BasePongGameController {
 			}
 
 			// Register components with game engine
-			this._gameEngine.registerComponent('state', this._gameState);
+			this._gameEngine.registerComponent('state', this._physics);
 			this._gameEngine.registerComponent('renderer', renderer);
 			this._gameEngine.registerComponent('network', this._networkManager);
 			this._gameEngine.registerComponent('input', this._inputHandler);
@@ -105,10 +131,10 @@ class BasePongGameController {
 			this._setupInputHandlers();
 
 			// Subscribe renderer to state changes
-			this._gameState.subscribe(renderer);
+			this._physics.subscribe(renderer);
 
 			// Subscribe self to state changes for game completion
-			this._gameState.subscribe({
+			this._physics.subscribe({
 				onStateChange: (newState, oldState) => {
 					if (newState.gameStatus === 'finished' && oldState.gameStatus !== 'finished') {
 						this._handleGameComplete(newState.scores);
@@ -140,7 +166,7 @@ class BasePongGameController {
 	updateSettings(settings) {
 		const validatedSettings = GameRules.validateSettings(settings);
 		this._settingsManager.updateSettings(validatedSettings);
-		this._gameState.updateSettings(validatedSettings);
+		this._physics.updateSettings(validatedSettings);
 	}
 
 	async setAIMode(enabled, difficulty = GameRules.DIFFICULTY_LEVELS.EASY) {
@@ -171,11 +197,11 @@ class BasePongGameController {
 						return true;
 					},
 					update: () => {
-						if (this._gameState.getState().gameStatus === 'playing') {
-							const gameState = this._gameState.getState();
+						if (this._physics.getState().gameStatus === 'playing') {
+							const gameState = this._physics.getState();
 							const aiDecision = this._aiController.decision(gameState);
 
-							const paddleSpeed = this._gameState.getPaddleSpeed();
+							const paddleSpeed = this._physics.getPaddleSpeed();
 							let dy = 0;
 							if (aiDecision === 0) dy = -paddleSpeed;
 							else if (aiDecision === 2) dy = paddleSpeed;
@@ -192,7 +218,7 @@ class BasePongGameController {
 				});
 
 				// Update game state for AI mode
-				this._gameState.updateState({ gameStatus: 'ready', isAIMode: true });
+				this._physics.updateState({ gameStatus: 'ready', isAIMode: true });
 			} else {
 				// Clean up AI components
 				if (this._aiController) {
@@ -219,7 +245,7 @@ class BasePongGameController {
 				await this._setupNetworkHandlers();
 
 				// Update game state for network mode
-				this._gameState.updateState({ gameStatus: 'ready', isAIMode: false });
+				this._physics.updateState({ gameStatus: 'ready', isAIMode: false });
 			}
 
 			return true;
@@ -231,12 +257,12 @@ class BasePongGameController {
 	}
 
 	pause() {
-		this._gameState.updateState({ gameStatus: 'paused' });
+		this._physics.updateState({ gameStatus: 'paused' });
 		this._inputHandler.disable();
 	}
 
 	resume() {
-		this._gameState.updateState({ gameStatus: 'playing' });
+		this._physics.updateState({ gameStatus: 'playing' });
 		this._inputHandler.enable();
 	}
 
@@ -246,11 +272,11 @@ class BasePongGameController {
 			if (data.isHost !== this._isHost) {
 				const paddle = data.isHost ? 'leftPaddle' : 'rightPaddle';
 				const direction = data.direction === 'up' ? -1 : 1;
-				const paddleSpeed = this._gameState.getPaddleSpeed();
+				const paddleSpeed = this._physics.getPaddleSpeed();
 
-				this._gameState.updateState({
+				this._physics.updateState({
 					[paddle]: {
-						...this._gameState.getState()[paddle],
+						...this._physics.getState()[paddle],
 						dy: direction * paddleSpeed
 					}
 				});
@@ -260,9 +286,9 @@ class BasePongGameController {
 		this._networkManager.onGameMessage('paddleStop', (data) => {
 			if (data.isHost !== this._isHost) {
 				const paddle = data.isHost ? 'leftPaddle' : 'rightPaddle';
-				this._gameState.updateState({
+				this._physics.updateState({
 					[paddle]: {
-						...this._gameState.getState()[paddle],
+						...this._physics.getState()[paddle],
 						dy: 0
 					}
 				});
@@ -274,13 +300,13 @@ class BasePongGameController {
 		// Only host should launch the ball
 		if (!this._isHost) return;
 
-		const currentState = this._gameState.getState();
+		const currentState = this._physics.getState();
 		const ball = currentState.ball;
 
 		// Only launch if ball is stationary and not resetting
 		if (ball.dx === 0 && ball.dy === 0 && !ball.resetting) {
-			const initialVelocity = this._gameState.getInitialBallVelocity();
-			this._gameState.updateState({
+			const initialVelocity = this._physics.getInitialBallVelocity();
+			this._physics.updateState({
 				ball: {
 					...ball,
 					dx: initialVelocity.dx,
@@ -292,12 +318,12 @@ class BasePongGameController {
 
 	_setupInputHandlers() {
 		this._inputHandler.onInput('paddleMove', ({ direction }) => {
-			const currentState = this._gameState.getState();
+			const currentState = this._physics.getState();
 			const baseDirection = direction === 'up' ? -1 : 1;
-			const paddleSpeed = this._gameState.getPaddleSpeed();
+			const paddleSpeed = this._physics.getPaddleSpeed();
 			const paddle = this._isHost ? 'leftPaddle' : 'rightPaddle';
 
-			this._gameState.updateState({
+			this._physics.updateState({
 				[paddle]: {
 					...currentState[paddle],
 					dy: baseDirection * paddleSpeed
@@ -313,9 +339,9 @@ class BasePongGameController {
 
 		this._inputHandler.onInput('paddleStop', () => {
 			const paddle = this._isHost ? 'leftPaddle' : 'rightPaddle';
-			this._gameState.updateState({
+			this._physics.updateState({
 				[paddle]: {
-					...this._gameState.getState()[paddle],
+					...this._physics.getState()[paddle],
 					dy: 0
 				}
 			});
@@ -337,7 +363,23 @@ class BasePongGameController {
 		this._inputHandler.disable();
 
 		// Update game state to finished
-		this._gameState.updateState({ gameStatus: 'finished' });
+		this._physics.updateState({ gameStatus: 'finished' });
+
+		// Update store with final game state
+		this._store.dispatch({
+			domain: 'game',
+			type: 'UPDATE_STATUS',
+			payload: 'finished'
+		});
+
+		this._store.dispatch({
+			domain: 'game',
+			type: 'UPDATE_SCORE',
+			payload: {
+				player1: scores.left,
+				player2: scores.right
+			}
+		});
 
 		// Send final scores and wait a moment for it to be delivered
 		if (this._networkManager && this._networkManager.isConnected()) {
@@ -395,7 +437,7 @@ class BasePongGameController {
 			this._startStateSync();
 
 			// Set game state to playing
-			this._gameState.updateState({ gameStatus: 'playing' });
+			this._physics.updateState({ gameStatus: 'playing' });
 
 			// Launch the ball after a short delay
 			logger.info('Host will launch ball in 1 second');
@@ -418,8 +460,8 @@ class BasePongGameController {
 
 	_startStateSync() {
 		this._syncInterval = setInterval(() => {
-			if (this._gameState.getState().gameStatus === 'playing') {
-				const currentState = this._gameState.getState();
+			if (this._physics.getState().gameStatus === 'playing') {
+				const currentState = this._physics.getState();
 				logger.debug('Host sending state:', currentState);
 				this._networkManager.sendGameState(currentState);
 			}
@@ -457,7 +499,7 @@ class HostPongGameController extends BasePongGameController {
 			this._startStateSync();
 
 			// Set game state to playing
-			this._gameState.updateState({ gameStatus: 'playing' });
+			this._physics.updateState({ gameStatus: 'playing' });
 
 			// Launch the ball after a short delay
 			logger.info('Host will launch ball in 1 second');
@@ -480,8 +522,8 @@ class HostPongGameController extends BasePongGameController {
 
 	_startStateSync() {
 		this._syncInterval = setInterval(() => {
-			if (this._gameState.getState().gameStatus === 'playing') {
-				const currentState = this._gameState.getState();
+			if (this._physics.getState().gameStatus === 'playing') {
+				const currentState = this._physics.getState();
 				logger.debug('Host sending state:', currentState);
 				this._networkManager.sendGameState(currentState);
 			}
@@ -519,7 +561,7 @@ class GuestPongGameController extends BasePongGameController {
 			this._setupStateSync();
 
 			// Set game state to playing
-			this._gameState.updateState({ gameStatus: 'playing' });
+			this._physics.updateState({ gameStatus: 'playing' });
 
 			return true;
 		} catch (error) {
@@ -531,7 +573,7 @@ class GuestPongGameController extends BasePongGameController {
 
 	_setupStateSync() {
 		this._networkManager.onGameMessage('gameState', (message) => {
-			if (this._gameState.getState().gameStatus === 'finished' || this._gameFinished) return;
+			if (this._physics.getState().gameStatus === 'finished' || this._gameFinished) return;
 
 			const canvas = this._gameEngine.getComponent('renderer').getCanvas();
 			logger.debug('Guest received state:', message.state);
@@ -549,7 +591,7 @@ class GuestPongGameController extends BasePongGameController {
 			};
 
 			logger.debug('Guest transformed state:', newState);
-			this._gameState.updateState(newState);
+			this._physics.updateState(newState);
 		});
 
 		// Add handler for game_complete message

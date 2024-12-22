@@ -1,5 +1,6 @@
 import { Room } from './Room.js';
-import logger from '../utils/logger.js';
+import logger from '../logger.js';
+import Store from '../state/store.js';
 
 export class RoomManager {
 	static #instance = null;
@@ -9,6 +10,7 @@ export class RoomManager {
 			return RoomManager.#instance;
 		}
 		this._currentRoom = null;
+		this._store = Store.getInstance();
 		this.#initializeRoomListener();
 		RoomManager.#instance = this;
 	}
@@ -35,17 +37,36 @@ export class RoomManager {
 		}
 
 		const roomId = roomState.id || roomState.roomId;
-		const currentUser = roomState.currentUser || this.getCurrentUserFromDOM();
 
 		try {
 			if (this._currentRoom?.roomId === roomId) {
-				// Update existing room
-				this._currentRoom.updateFromState(roomState);
+				// Update existing room through store
+				this._store.dispatch({
+					domain: 'room',
+					type: 'UPDATE_ROOM_SETTINGS',
+					payload: {
+						roomId,
+						settings: roomState.settings || {}
+					}
+				});
 			} else {
 				// Create new room
 				this.destroyCurrentRoom();
-				this._currentRoom = new Room(roomId, currentUser);
-				this._currentRoom.updateFromState(roomState);
+				this._currentRoom = new Room(roomId);
+
+				// Initialize room in store
+				const userState = this._store.getState('user');
+				this._store.dispatch({
+					domain: 'room',
+					type: 'CREATE_ROOM',
+					payload: {
+						id: roomId,
+						name: roomState.name || `Room ${roomId}`,
+						type: roomState.type || 'public',
+						createdBy: userState.id,
+						settings: roomState.settings || {}
+					}
+				});
 			}
 			this.#updateDOMAttribute(JSON.stringify(roomState));
 			logger.info("Room initialized successfully");
@@ -84,24 +105,22 @@ export class RoomManager {
 	 */
 	destroyCurrentRoom() {
 		if (this._currentRoom) {
+			const roomId = this._currentRoom.roomId;
 			this._currentRoom.destroy();
 			this._currentRoom = null;
-			logger.info("Current room destroyed");
-		}
-	}
 
-	/**
-	 * Get current user data from DOM
-	 * @private
-	 * @returns {Object|null} The current user data
-	 */
-	getCurrentUserFromDOM() {
-		try {
-			const userDataElement = document.getElementById("current-user-data");
-			return userDataElement ? JSON.parse(userDataElement.textContent) : null;
-		} catch (error) {
-			logger.error("Failed to get current user from DOM:", error);
-			return null;
+			// Clear room from store
+			const userState = this._store.getState('user');
+			this._store.dispatch({
+				domain: 'room',
+				type: 'LEAVE_ROOM',
+				payload: {
+					roomId,
+					userId: userState.id
+				}
+			});
+
+			logger.info("Current room destroyed");
 		}
 	}
 

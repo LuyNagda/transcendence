@@ -1,4 +1,5 @@
-import logger from '../utils/logger.js';
+import logger from '../logger.js';
+import CookieService from './CookieService.js';
 
 /**
  * Connection states using a state pattern.
@@ -515,5 +516,105 @@ export class WebRTCConnection extends BaseConnection {
 		logger.error(`WebRTC error for ${this._name}:`, error);
 		this.state = ConnectionState.ERROR;
 		this.emit('error', error);
+	}
+}
+
+/**
+ * Base network manager class providing common functionality for network managers.
+ * Implements connection management, message handling, and state tracking.
+ */
+export class BaseNetworkManager {
+	constructor() {
+		this._connectionManager = new ConnectionManager();
+		this._messageHandlers = new Map();
+		this._isConnected = false;
+	}
+
+	/**
+	 * Gets CSRF token from cookies
+	 * @returns {string|null} CSRF token if found, null otherwise
+	 */
+	getCSRFToken() {
+		return CookieService.getCookie('csrftoken');
+	}
+
+	/**
+	 * Registers a message handler
+	 * @param {string} type - Message type to handle
+	 * @param {Function} handler - Handler callback
+	 */
+	on(type, handler) {
+		this._messageHandlers.set(type, handler);
+	}
+
+	/**
+	 * Removes a message handler
+	 * @param {string} type - Message type to remove handler for
+	 */
+	off(type) {
+		this._messageHandlers.delete(type);
+	}
+
+	/**
+	 * Checks if connected
+	 * @returns {boolean} Connection status
+	 */
+	isConnected() {
+		const connection = this._getMainConnection();
+		return connection && connection.state.name === 'connected';
+	}
+
+	/**
+	 * Cleans up connections and handlers
+	 */
+	destroy() {
+		this._isConnected = false;
+		this._messageHandlers.clear();
+		this._connectionManager.disconnectAll();
+	}
+
+	/**
+	 * Handles incoming messages and routes to registered handlers
+	 * @protected
+	 */
+	_handleMessage(data) {
+		try {
+			logger.debug("Received data:", data);
+			const handler = this._messageHandlers.get(data.type);
+			if (handler) {
+				handler(data);
+			} else {
+				logger.warn('No handler found for message type:', data.type);
+			}
+		} catch (error) {
+			logger.error('Error handling message:', error);
+		}
+	}
+
+	/**
+	 * Handles connection closure
+	 * @protected
+	 */
+	_handleClose() {
+		logger.warn('Connection closed');
+		this._isConnected = false;
+	}
+
+	/**
+	 * Handles connection errors
+	 * @protected
+	 */
+	_handleError(error) {
+		logger.error('Connection error:', error);
+		this._handleClose();
+	}
+
+	/**
+	 * Gets the main connection for this manager
+	 * @protected
+	 * @abstract
+	 */
+	_getMainConnection() {
+		throw new Error('Must implement _getMainConnection()');
 	}
 }

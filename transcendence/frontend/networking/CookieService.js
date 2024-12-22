@@ -1,4 +1,4 @@
-export class CookieService {
+export default class CookieService {
 	static getCookie(name) {
 		if (!document.cookie || document.cookie === "") {
 			return null;

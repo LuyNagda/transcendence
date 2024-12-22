@@ -1,4 +1,4 @@
-import logger from '../utils/logger.js';
+import logger from '../logger.js';
 
 export class InputHandler {
 	constructor(isHost) {
