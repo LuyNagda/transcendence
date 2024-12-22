@@ -1,15 +1,14 @@
 import { htmx } from './vendor.js';
-import logger from './utils/logger.js';
-import { initializeConfig } from './config/ConfigStore.js';
-import { initializeErrorHandling, initializeHtmxLogging } from './utils/htmx-debug.js';
-import { initializeThemeAndFontSize, applyTheme, applyFontSize } from './utils/theme.js';
-import UserService from './UserService.js';
+import logger from './logger.js';
+import { initializeErrorHandling, initializeHtmxLogging } from './htmx-debug.js';
+import { initializeThemeAndFontSize, applyTheme, applyFontSize } from './UI/theme.js';
 import ChatApp from './chat/ChatApp.js';
-import dynamicRender from './utils/dynamic_render.js';
+import dynamicRender from './UI/dynamic_render.js';
 import { RoomManager } from './room/RoomManager.js';
 import { RoomController } from './room/RoomController.js';
 import { Room } from './room/Room.js';
-import { initializeBootstrap, createModal } from './utils/bootstrap-init.js';
+import { initializeBootstrap } from './UI/bootstrap-init.js';
+import Store, { actions } from './state/store.js';
 
 function initializeChatApp() {
 	try {
@@ -73,8 +72,23 @@ window.initializeRoomData = function (roomState) {
 
 function initializeApp() {
 	try {
-		const config = initializeConfig();
-		logger.initialize(config.logLevel);
+		// Initialize store first
+		const store = Store.getInstance();
+
+		// Initialize config
+		const configElement = document.getElementById('app-config');
+		if (!configElement) {
+			throw new Error('Configuration element not found');
+		}
+		const config = JSON.parse(configElement.textContent);
+		store.dispatch({
+			domain: 'config',
+			type: actions.config.INITIALIZE,
+			payload: config
+		});
+
+		// Use config from store
+		logger.initialize(store.getState('config').logLevel);
 		initializeErrorHandling();
 
 		// Initialize htmx directly
@@ -86,7 +100,6 @@ function initializeApp() {
 		initializeHtmxLogging();
 		initializeThemeAndFontSize();
 		initializeBootstrap(); // Initialize all Bootstrap components
-		UserService.getInstance();
 		RoomManager.getInstance();
 		dynamicRender.initialize();
 		initializeChatApp();

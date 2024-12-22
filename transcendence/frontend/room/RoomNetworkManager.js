@@ -1,25 +1,23 @@
-import logger from '../utils/logger.js';
-import { ConnectionManager } from '../networking/ConnectionManager.js';
+import logger from '../logger.js';
+import { BaseNetworkManager } from '../networking/NetworkingCore.js';
 
 /**
  * Manages WebSocket networking for a game room, handling connection lifecycle,
  * message passing, and room state updates.
  */
-export class RoomNetworkManager {
+export class RoomNetworkManager extends BaseNetworkManager {
 	/**
 	 * @param {string} roomId - Unique identifier for the room
 	 * @throws {Error} If roomId is not provided
 	 */
 	constructor(roomId) {
+		super();
 		if (!roomId) {
 			logger.error('Room ID is required');
 			throw new Error('Room ID is required');
 		}
 
 		this._roomId = roomId;
-		this._connectionManager = new ConnectionManager();
-		this._messageHandlers = new Map();
-		this._isConnected = false;
 		this._pendingModeChange = null;
 	}
 
@@ -70,45 +68,14 @@ export class RoomNetworkManager {
 		}
 
 		const message = { action, ...data };
-		const connection = this._connectionManager.getConnection('room');
+		const connection = this._getMainConnection();
 		if (connection && connection.state.canSend) {
 			connection.send(message);
 		}
 	}
 
-	/**
-	 * Registers a message handler
-	 * @param {string} type - Message type to handle
-	 * @param {Function} handler - Handler callback
-	 */
-	on(type, handler) {
-		this._messageHandlers.set(type, handler);
-	}
-
-	/**
-	 * Removes a message handler
-	 * @param {string} type - Message type to remove handler for
-	 */
-	off(type) {
-		this._messageHandlers.delete(type);
-	}
-
-	/**
-	 * Checks if connected to room
-	 * @returns {boolean} Connection status
-	 */
-	isConnected() {
-		const connection = this._connectionManager.getConnection('room');
-		return connection && connection.state.name === 'connected';
-	}
-
-	/**
-	 * Cleans up connections and handlers
-	 */
-	destroy() {
-		this._isConnected = false;
-		this._messageHandlers.clear();
-		this._connectionManager.disconnectAll();
+	_getMainConnection() {
+		return this._connectionManager.getConnection('room');
 	}
 
 	/**
@@ -146,15 +113,6 @@ export class RoomNetworkManager {
 			logger.warn('Room WebSocket closed');
 			this._isConnected = false;
 		}
-	}
-
-	/**
-	 * Handles WebSocket errors
-	 * @private
-	 */
-	_handleError(error) {
-		logger.error('Room WebSocket error:', error);
-		this._handleClose({ code: 1006 });
 	}
 
 	/**

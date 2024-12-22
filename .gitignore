@@ -5,7 +5,9 @@
 .vscode/launch.json
 static/
 !transcendence/static/
-transcendence/static/js/
-transcendence/static/css/
+transcendence/static/*
+!transcendence/static/fonts/
+!transcendence/static/saved_ai/
+!transcendence/static/favicon.ico
 node_modules
 ai/myenv/

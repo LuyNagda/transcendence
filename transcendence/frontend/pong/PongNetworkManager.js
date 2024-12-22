@@ -1,49 +1,46 @@
-import logger from '../utils/logger.js';
-import { ConnectionManager } from '../networking/ConnectionManager.js';
-
-/**
- * Default WebRTC configuration for peer connections
- * Configuration is injected during build time
- */
-const RTC_CONFIG = {
-	iceServers: [
-		{
-			urls: window.RTC_CONFIG?.STUN_URL || 'stun:127.0.0.1:3478'
-		},
-		{
-			urls: [
-				window.RTC_CONFIG?.TURN_URL_1 || 'turn:127.0.0.1:3478',
-				window.RTC_CONFIG?.TURN_URL_2 || 'turn:127.0.0.1:5349'
-			],
-			username: window.RTC_CONFIG?.TURN_USERNAME || 'transcendence',
-			credential: window.RTC_CONFIG?.TURN_CREDENTIAL || 'transcendence123'
-		}
-	],
-	iceTransportPolicy: 'all',
-	iceCandidatePoolSize: 0,
-	bundlePolicy: 'balanced',
-	rtcpMuxPolicy: 'require',
-	iceServersPolicy: 'all'
-};
+import logger from '../logger.js';
+import Store from '../state/store.js';
+import { BaseNetworkManager } from '../networking/NetworkingCore.js';
 
 /**
  * Manages networking for a Pong game session using WebRTC for game state
  * and WebSocket for signaling. Handles connection establishment, message passing,
  * and cleanup between host and guest players.
  */
-export class PongNetworkManager {
+export class PongNetworkManager extends BaseNetworkManager {
 	/**
-	 * @param {string} gameId - Unique identifier for the game session
-	 * @param {Object} currentUser - Currently logged in user
-	 * @param {boolean} isHost - Whether this instance is the host
+	 * @param {Object} options - Configuration options for the PongNetworkManager
 	 */
-	constructor(gameId, currentUser, isHost) {
-		this._gameId = gameId;
-		this._currentUser = currentUser;
-		this._isHost = isHost;
-		this._connectionManager = new ConnectionManager();
-		this._messageHandlers = new Map();
-		this._isConnected = false;
+	constructor(options = {}) {
+		super();
+		this.options = options;
+		this.networkingCore = null;
+		this.isHost = false;
+		this.isConnected = false;
+		this.isDataChannelOpen = false;
+		this.isSubscriptionEnabled = false;
+
+		const config = Store.getInstance().getState('config');
+		this.rtcConfig = {
+			iceServers: [
+				{
+					urls: config.rtc?.stunUrl || 'stun:127.0.0.1:3478'
+				},
+				{
+					urls: [
+						config.rtc?.turnUrl || 'turn:127.0.0.1:3478'
+					],
+					username: config.rtc?.turnUsername || 'username',
+					credential: config.rtc?.turnPassword || 'password'
+				}
+			],
+			iceTransportPolicy: 'all',
+			iceCandidatePoolSize: 0,
+			bundlePolicy: 'balanced',
+			rtcpMuxPolicy: 'require',
+			iceServersPolicy: 'all'
+		};
+
 		this._gameFinished = false;
 		this._pendingCandidates = [];
 		this._hasRemoteDescription = false;
@@ -70,7 +67,7 @@ export class PongNetworkManager {
 					type: 'webrtc',
 					config: {
 						rtcConfig: {
-							...RTC_CONFIG,
+							...this.rtcConfig,
 							isHost: this._isHost
 						}
 					}
@@ -274,6 +271,11 @@ export class PongNetworkManager {
 		this._connectionManager.disconnectAll();
 	}
 
+	_getMainConnection() {
+		const group = this._connectionManager.getConnectionGroup('pong');
+		return group ? group.get('game') : null;
+	}
+
 	/**
 	 * Handles incoming WebSocket messages
 	 * @private
@@ -387,15 +389,6 @@ export class PongNetworkManager {
 		logger.warn('Connection lost, cleaning up');
 		this._isConnected = false;
 		this.destroy();
-	}
-
-	/**
-	 * Handles network errors
-	 * @private
-	 */
-	_handleError(error) {
-		logger.error('Network error:', error);
-		this._handleDisconnect();
 	}
 
 	/**

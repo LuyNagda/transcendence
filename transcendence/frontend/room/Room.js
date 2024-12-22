@@ -1,9 +1,10 @@
-import logger from '../utils/logger.js';
+import logger from '../logger.js';
 import { RoomNetworkManager } from './RoomNetworkManager.js';
 import { GameRules } from '../pong/core/GameRules.js';
 import { SettingsManager } from '../pong/core/SettingsManager.js';
-import dynamicRender from '../utils/dynamic_render.js';
+import dynamicRender from '../UI/dynamic_render.js';
 import { createPongGameController } from '../pong/PongGameController.js';
+import Store from '../state/store.js';
 
 export class Room {
 	static States = {
@@ -65,9 +66,18 @@ export class Room {
 	constructor(roomId, currentUser) {
 		this._validateConstructorParams(roomId);
 
+		// Initialize store
+		this._store = Store.getInstance();
+
+		// Get current user from store
+		const userState = this._store.getState('user');
+		this._currentUser = {
+			id: userState.id,
+			username: userState.username
+		};
+
 		// Core properties
 		this._roomId = roomId;
-		this._currentUser = currentUser;
 		this._state = Room.States.LOBBY;
 
 		// Room configuration
@@ -90,6 +100,7 @@ export class Room {
 		this._networkManager = new RoomNetworkManager(roomId);
 		this._initializeNetworkManager();
 		this._initializeEventListeners();
+		this._initializeStoreSubscription();
 
 		// Initialize dynamic render for this room
 		dynamicRender.addObservedObject('pongRoom', {
@@ -112,6 +123,64 @@ export class Room {
 			this.updateSetting(setting, value);
 			dynamicRender.scheduleUpdate();
 		};
+	}
+
+	_initializeStoreSubscription() {
+		// Subscribe to room state changes
+		this._unsubscribeRoom = this._store.subscribe('room', (roomState) => {
+			const activeRoomId = roomState.activeRoom;
+			const activeRoom = roomState.rooms[activeRoomId];
+
+			if (activeRoomId === this._roomId && activeRoom) {
+				this._handleStoreUpdate(activeRoom);
+			}
+		});
+
+		// Subscribe to user state changes
+		this._unsubscribeUser = this._store.subscribe('user', (userState) => {
+			this._currentUser = {
+				id: userState.id,
+				username: userState.username
+			};
+			// Update UI if needed
+			dynamicRender.addObservedObject('pongRoom', {
+				...this._getPublicState()
+			});
+			dynamicRender.scheduleUpdate();
+		});
+	}
+
+	_handleStoreUpdate(roomData) {
+		// Only update if the data has actually changed
+		if (this._lastUpdateHash === JSON.stringify(roomData)) {
+			return;
+		}
+		this._lastUpdateHash = JSON.stringify(roomData);
+
+		// Update local state from store
+		const updates = {
+			_mode: roomData.type,
+			_state: roomData.status === 'game_in_progress' ? Room.States.PLAYING : Room.States.LOBBY,
+			_owner: roomData.createdBy ? { id: roomData.createdBy, username: roomData.createdBy } : this._owner,
+			_players: roomData.members || [],
+			_settings: { ...this._settings, ...roomData.settings },
+			_maxPlayers: roomData.settings?.maxMembers || Room.getMaxPlayersForMode(roomData.type)
+		};
+
+		let hasChanged = false;
+		Object.entries(updates).forEach(([key, value]) => {
+			if (JSON.stringify(this[key]) !== JSON.stringify(value)) {
+				this[key] = value;
+				hasChanged = true;
+			}
+		});
+
+		if (hasChanged) {
+			dynamicRender.addObservedObject('pongRoom', {
+				...this._getPublicState()
+			});
+			dynamicRender.scheduleUpdate();
+		}
 	}
 
 	_getDefaultSettings() {
@@ -166,8 +235,13 @@ export class Room {
 				}
 			});
 
-			this._networkManager.on('game_started', (data) => {
-				this._handleGameStarted(data);
+			this._networkManager.on('game_started', async (data) => {
+				try {
+					await this._handleGameStarted(data);
+				} catch (error) {
+					logger.error("Error handling game start:", error);
+					this._handleGameStartFailure();
+				}
 			});
 
 			this._networkManager.on('settings_update', (data) => {
@@ -344,7 +418,10 @@ export class Room {
 				this.updateFromState(data.room_state);
 			}
 		} else if (data.type === 'game_started') {
-			this._handleGameStarted(data);
+			this._handleGameStarted(data).catch(error => {
+				logger.error("Error handling game start:", error);
+				this._handleGameStartFailure();
+			});
 		} else if (data.type === 'settings_update') {
 			logger.debug("Received settings update:", data);
 			this._handleSettingsUpdate(data);
@@ -371,9 +448,20 @@ export class Room {
 
 		try {
 			await this._initializeAndStartGame(data.game_id, isHost);
+
+			// Update store with game started status
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM_STATUS',
+				payload: {
+					roomId: this._roomId,
+					status: 'game_in_progress'
+				}
+			});
 		} catch (error) {
 			logger.error("Failed to start game:", error);
 			this._handleGameStartFailure();
+			throw error; // Re-throw to be caught by the caller
 		}
 	}
 
@@ -481,6 +569,16 @@ export class Room {
 			this._pongGame = null;
 		}
 		this.updateState(Room.States.LOBBY);
+
+		// Update store with game failure status
+		this._store.dispatch({
+			domain: 'room',
+			type: 'UPDATE_ROOM_STATUS',
+			payload: {
+				roomId: this._roomId,
+				status: 'active'
+			}
+		});
 	}
 
 	_handleWebSocketClose(event) {
@@ -530,6 +628,16 @@ export class Room {
 			this._useWebGL = document.getElementById('webgl-toggle')?.checked || false;
 			this._networkManager.sendMessage('start_game', { id: Date.now() });
 			this._setLoading(true);
+
+			// Dispatch game start status to store
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM_STATUS',
+				payload: {
+					roomId: this._roomId,
+					status: 'game_in_progress'
+				}
+			});
 		} catch (error) {
 			logger.error('Error sending start game request:', error);
 			this._setLoading(false);
@@ -556,6 +664,19 @@ export class Room {
 
 				// Send update to server
 				await this.updateMode(newMode);
+
+				// Update store
+				this._store.dispatch({
+					domain: 'room',
+					type: 'UPDATE_ROOM_SETTINGS',
+					payload: {
+						roomId: this._roomId,
+						settings: {
+							...this._settings,
+							maxMembers: this._maxPlayers
+						}
+					}
+				});
 
 				// Clear flag after a short delay to ensure server response is processed
 				setTimeout(() => {
@@ -713,6 +834,12 @@ export class Room {
 			this._networkManager.destroy();
 			this._networkManager = null;
 		}
+		if (this._unsubscribeRoom) {
+			this._unsubscribeRoom();
+		}
+		if (this._unsubscribeUser) {
+			this._unsubscribeUser();
+		}
 
 		// Clean up global handler
 		window.handleSettingChange = undefined;
@@ -755,6 +882,18 @@ export class Room {
 			property: 'settings',
 			setting: setting,
 			value: validatedSettings[setting]
+		});
+
+		// Update store
+		this._store.dispatch({
+			domain: 'room',
+			type: 'UPDATE_ROOM_SETTINGS',
+			payload: {
+				roomId: this._roomId,
+				settings: {
+					...this._settings
+				}
+			}
 		});
 	}
 

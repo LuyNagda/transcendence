@@ -1,4 +1,4 @@
-import { CookieService } from '../utils/CookieService.js';
+import CookieService from '../networking/CookieService.js';
 
 export class RoomAPI {
 	static async createRoom() {
