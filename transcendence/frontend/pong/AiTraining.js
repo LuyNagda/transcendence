@@ -1,5 +1,3 @@
-import logger from "../utils/logger.js";
-
 export async function startTraining() {
     // Get and validate AI name
     const aiName = document.getElementById('ai_name').value.trim();
