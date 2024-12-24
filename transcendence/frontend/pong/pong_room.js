@@ -100,10 +100,12 @@ export class PongRoom {
         this._state = "LOBBY";
         this._pongGame = null;
         this._useWebGL = false;
+        this._savedAi = [];
         this._aiDifficulty = 'medium';
 
         this.initializeWebSocket();
         this.initializeEventListeners();
+        this.fetchSavedAI();
         logger.info(`PongRoom instance created for room ${roomId}`);
         this.logCurrentState();
     }
@@ -126,6 +128,50 @@ export class PongRoom {
         });
     }
 
+    // Fetch AI list from the backend
+    async fetchSavedAI() {
+        const apiUrl = '/ai/list-saved-ai'; // Adjust the endpoint if necessary
+        try {
+            const response = await fetch(apiUrl);
+        if (!response.ok) {
+            throw new Error('Network response was not ok ' + response.statusText);
+        }
+
+        const data = await response.json();
+        this.savedAI = data.saved_ai;
+        this.populateDropdown(); // Populate the dropdown once data is fetched
+        } catch (error) {
+            console.error('Error fetching saved AI:', error);
+        }
+    }
+    
+    // Populate the dropdown dynamically
+    populateDropdown() {
+        const selectElement = document.getElementById('ai-difficulty');
+        if (!selectElement) {
+            console.error('Dropdown element not found');
+            return;
+        }
+        
+        // Clear existing options
+        selectElement.innerHTML = '';
+        
+        // Add a placeholder option
+        const placeholderOption = document.createElement('option');
+        placeholderOption.textContent = 'Select an AI';
+        placeholderOption.value = '';
+        placeholderOption.disabled = true;
+        placeholderOption.selected = true;
+        selectElement.appendChild(placeholderOption);
+        
+        // Add options from the savedAI list
+        this.savedAI.forEach((ai) => {
+            const option = document.createElement('option');
+            option.value = ai;
+            option.textContent = ai;
+            selectElement.appendChild(option);
+        });
+    }
     //////////////////////////////////////////////////////////////
     // Getters
     //////////////////////////////////////////////////////////////
