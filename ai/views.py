@@ -6,9 +6,7 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticatedWithCookie])
-def send_ai_to_front(request, ai_name="best_ai"):
+def send_ai_to_front(request, ai_name):
     # Use Path or os.path to create a proper file path
     save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
     
