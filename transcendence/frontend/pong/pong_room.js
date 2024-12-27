@@ -101,7 +101,7 @@ export class PongRoom {
         this._pongGame = null;
         this._useWebGL = false;
         this._savedAi = [];
-        this._aiDifficulty = 'medium';
+        this._aiName = 'medium';
 
         this.initializeWebSocket();
         this.initializeEventListeners();
@@ -189,7 +189,7 @@ export class PongRoom {
     get state() { return this._state; }
     get currentUser() { return this._currentUser; }
     get useWebGL() { return this._useWebGL; }
-    get aiDifficulty() { return this._aiDifficulty; }
+    get aiDifficulty() { return this._aiName; }
     set aiDifficulty(value) {
         this.updateAIDifficulty(value);
     }
@@ -254,10 +254,10 @@ export class PongRoom {
     }
 
     updateAIDifficulty(value) {
-        if (this._aiDifficulty !== value) {
-            logger.info(`Setting AI difficulty from ${this._aiDifficulty} to ${value}`);
-            this._aiDifficulty = value;
-            this.notifyUpdate("ai_difficulty", value);
+        if (this._aiName !== value) {
+            logger.info(`Setting AI difficulty from ${this._aiName} to ${value}`);
+            this._aiName = value;
+            this.notifyUpdate("_aiName", value);
             if (this._pongGame) {
                 this._pongGame.setAIMode(true, value);
             }
@@ -297,7 +297,7 @@ export class PongRoom {
                 const initialized = await this._pongGame.initialize();
                 if (!initialized)
                     throw new Error("Game initialization failed");
-                this._pongGame.setAIMode(true, this._aiDifficulty);
+                this._pongGame.setAIMode(true, this._aiName);
                 const started = await this._pongGame.start();
                 if (!started)
                     throw new Error("Game start failed");
