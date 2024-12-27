@@ -6,7 +6,7 @@ import RoomService from './RoomService.js';
 import ChatApp from './chat/ChatApp.js';
 import dynamicRender from './utils/dynamic_render.js';
 import { PongRoom } from './pong/pong_room.js';
-import { startTraining } from './pong/AiTraining.js';
+import { startTraining, deleteAi } from './pong/AiTraining.js';
 
 function initializeChatApp() {
 	try {
@@ -62,3 +62,4 @@ document.body.addEventListener('htmx:afterSwap', (event) => {
 });
 
 window.startTraining = startTraining;
+window.deleteAi = deleteAi;

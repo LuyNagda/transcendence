@@ -65,3 +65,54 @@ export async function startTraining() {
         trainingLog.innerText = `Error: ${error.message}`;
     }
 }
+
+export async function deleteAi() {
+    const aiName = document.getElementById('ai_name').value.trim();
+    if (!aiName) {
+        alert('AI Name is required.');
+        return;
+    }
+
+    // Get CSRF (Cross-site request forgery) token
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    if (!csrfToken) {
+        throw new Error('CSRF token not found. Make sure {% csrf_token %} is included in your template.');
+    }
+
+    // Build URL
+    const params = {
+        ai_name: aiName
+    };
+
+    // Show loading state
+    const trainingLog = document.getElementById('training-log');
+    trainingLog.className = 'alert alert-info';
+    trainingLog.style.display = 'block';
+    trainingLog.innerText = `Request for deleting AI '${aiName}'...`;
+    
+    // Make the request
+    try {
+        const response = await fetch(`/ai/delete-saved-ai/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(params),
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Deleting ai failed');
+        }
+
+        const data = await response.json();
+        trainingLog.className = 'alert alert-success';
+        trainingLog.innerText = data.log || 'Ai successfully deleted.';
+    } catch (error) {
+        const trainingLog = document.getElementById('training-log');
+        trainingLog.className = 'alert alert-danger';
+        trainingLog.innerText = `Error: ${error.message}`;
+    }
+}

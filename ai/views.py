@@ -2,12 +2,12 @@ from django.http import JsonResponse
 from . import ai
 import json, os
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
-from django.views.decorators.csrf import csrf_exempt
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedWithCookie])
 def send_ai_to_front(request, ai_name="best_ai"):
     # Use Path or os.path to create a proper file path
     save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
@@ -107,15 +107,31 @@ def list_saved_ai(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticatedWithCookie])
+def delete_saved_ai(request):
+    if request.method != 'POST':
+        return JsonResponse({"error": "Only POST method is allowed"}, status=405)
+
+    try:
+        # Parse JSON body
+        data = json.loads(request.body)
+        ai_name = data.get('ai_name', 'default')
+
+        invalid_ai = ["best_ai", "Hard", "Medium", "Easy"]
+        if ai_name in invalid_ai:
+            return JsonResponse(f"The file '{ai_name}' cannot be removed", safe=False, status=403)        
+
+        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
+
+        if os.path.exists(save_file):
+            os.remove(save_file)
+            return JsonResponse(f"The file '{ai_name}' as been removed", safe=False)
+        else:
+            return JsonResponse(f"The file '{ai_name}' does not exist", safe=False, status=404)
     
-def delete_saved_ai(request, ai_name):
-    if ai_name == "best_ai":
-        return JsonResponse(f"The file '{ai_name}' cannot be removed", safe=False, status=403)        
-
-    save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
-
-    if os.path.exists(save_file):
-        os.remove(save_file)
-        return JsonResponse(f"The file '{ai_name}' as been removed", safe=False)
-    else:
-        return JsonResponse(f"The file '{ai_name}' does not exist", safe=False, status=404)
+    except ValueError as e:
+        return JsonResponse({"error": "Invalid parameter values"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
