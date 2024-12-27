@@ -18,7 +18,6 @@ export async function startTraining() {
     const timeLimit = document.getElementById('time_limit').value;
     const maxScore = document.getElementById('max_score').value;
     
-    // Build URL
     const params = {
         ai_name: aiName,
         nb_generation: nbGeneration,
