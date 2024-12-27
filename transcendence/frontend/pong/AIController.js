@@ -112,7 +112,7 @@ export class AIController {
         this.lastBallUpdate = 0;
     }
 
-    static async init(difficulty) {
+    static async init(ai_name) {
         try {
             if (this.instance) {
                 logger.info('Returning existing AIController instance');
@@ -122,9 +122,9 @@ export class AIController {
             logger.info('Creating new AIController instance');
             this.instance = new AIController();
 
-            logger.info(`Initializing AI with difficulty: ${difficulty}`);
-            // Fetch AI data based on difficulty
-            const response = await fetch(`/ai/get-ai?difficulty=${difficulty}`);
+            logger.info(`Initializing AI with difficulty: ${ai_name}`);
+            // Fetch AI data based on ai_name
+            const response = await fetch(`/ai/get-ai?ai_name=${ai_name}`);
             if (!response.ok)
                 throw new Error(`Failed to fetch AI data: ${response.status}`);
             const setup = await response.json();

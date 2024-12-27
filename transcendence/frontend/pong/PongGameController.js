@@ -311,13 +311,13 @@ export class PongGameController {
 		logger.info('Game controller destroyed');
 	}
 
-	async setAIMode(enabled, difficulty = 'medium') {
+	async setAIMode(enabled, ai_name = 'Medium') {
 		this._isAIMode = enabled;
 
 		if (enabled) {
 			try {
-				// Initialize AI controller properly with difficulty
-				this._aiController = await AIController.init(difficulty);
+				// Initialize AI controller properly with ai_name
+				this._aiController = await AIController.init(ai_name);
 			} catch (error) {
 				logger.error('Failed to initialize AI controller:', error);
 				this.destroy();
