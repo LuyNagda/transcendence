@@ -38,9 +38,14 @@
                 onclick="startTraining()">
             Start Training
         </button>
-
-        <button class="btn btn-danger mb-3" 
-            onclick="deleteAi()">
+        
+        <div class="form-floating mb-2">
+            <select id="saved-ai-dropdown" class="form-select">
+                <option value="" disabled selected>Select AI to delete</option>
+            </select>
+            <label for="saved-ai-dropdown">Select Saved AI</label>
+        </div>
+        <button class="btn btn-danger mb-3" id="delete-ai-btn">
             Delete AI
         </button>
 
