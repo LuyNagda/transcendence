@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% load chat_tags %}
+
+{% block title %}AI Training{% endblock %}
+
+{% block content %}
+
+{% block navbar %}{% include "navbar.html" %}{% endblock %}
+
+<div class="container my-4" id="training-form">
+    <h1 id="training-heading" class="text-center mb-4">Manage the AI for Pong</h1>
+
+    <!-- Grid Layout -->
+    <div class="row">
+        <!-- Left Column: Form and Options -->
+        <div class="col-md-4">
+            <form id="training-options" class="mb-3">
+                {% csrf_token %}
+                <div class="mb-2">
+                    <label for="ai_name">AI's Name</label>
+                    <input type="text" id="ai_name" name="ai_name" class="form-control" placeholder="AI Name" required>
+                </div>
+                <div class="mb-2">
+                    <label for="nb_generation">Number of Generations (1-100)</label>
+                    <input type="number" id="nb_generation" name="nb_generation" class="form-control" min="1" max="100" value="1">
+                </div>
+                <div class="mb-2">
+                    <label for="nb_species">Number of Species (50-100)</label>
+                    <input type="number" id="nb_species" name="nb_species" class="form-control" min="50" max="100" value="50">
+                </div>
+                <div class="mb-2">
+                    <label for="time_limit">Time Limit (10-120 minutes)</label>
+                    <input type="number" id="time_limit" name="time_limit" class="form-control" min="10" max="120" value="10">
+                </div>
+                <div class="mb-2">
+                    <label for="max_score">Max Score (100-1000)</label>
+                    <input type="number" id="max_score" name="max_score" class="form-control" min="100" max="1000" value="100">
+                </div>
+                <button type="button" class="btn btn-primary w-100 mb-3" onclick="startTraining()">Start Training</button>
+                <div class="form-floating mb-2">
+                    <select id="saved-ai-dropdown" class="form-select">
+                        <option value="" disabled selected>Select AI to Delete</option>
+                    </select>
+                    <label for="saved-ai-dropdown">Select Saved AI</label>
+                </div>
+                <button type="button" class="btn btn-danger w-100" id="delete-ai-btn">Delete AI</button>
+            </form>
+        </div>
+
+        <!-- Right Column: Training Log -->
+        <div class="col-md-8">
+            <div id="training-log" class="alert alert-info" role="status" aria-live="polite">
+                Press the button to start training the AI or delete a saved AI.
+                Logs will appear here.
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block chat %}{% render_chat %}{% endblock %}
+
+{% endblock %}
