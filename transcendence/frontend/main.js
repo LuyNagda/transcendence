@@ -6,7 +6,7 @@ import RoomService from './RoomService.js';
 import ChatApp from './chat/ChatApp.js';
 import dynamicRender from './utils/dynamic_render.js';
 import { PongRoom } from './pong/pong_room.js';
-import { startTraining } from './pong/AiTraining.js';
+import { initializeAiManager } from './pong/AiManager.js';
 
 function initializeChatApp() {
 	try {
@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	initializeChatApp();
 	initializePongRoom();
 	initializeThemeButtons();
+	initializeAiManager();
 	logger.info('Frontend app initialized');
 });
 
@@ -60,5 +61,3 @@ document.body.addEventListener('htmx:afterSwap', (event) => {
 	}
 	dynamicRender.update();
 });
-
-window.startTraining = startTraining;
