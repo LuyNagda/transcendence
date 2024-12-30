@@ -101,7 +101,7 @@ def list_saved_ai(request):
         # List all files in the folder
         ai_files = [f for f in os.listdir(folder_path) if os.path.isfile(os.path.join(folder_path, f))]
         
-        return JsonResponse({"saved_ai": ai_files})
+        return JsonResponse({"saved_ai": ai_files}, status=200)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
@@ -119,15 +119,15 @@ def delete_saved_ai(request):
 
         invalid_ai = ["best_ai", "Hard", "Medium", "Easy"]
         if ai_name in invalid_ai:
-            return JsonResponse(f"The file '{ai_name}' cannot be removed", safe=False, status=403)        
+            return JsonResponse({"error": f"The file '{ai_name}' cannot be removed"}, safe=False, status=403)        
 
         save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
 
         if os.path.exists(save_file):
             os.remove(save_file)
-            return JsonResponse(f"The file '{ai_name}' as been removed", safe=False)
+            return JsonResponse({"message": f"The file '{ai_name}' has been removed"}, status=200)
         else:
-            return JsonResponse(f"The file '{ai_name}' does not exist", safe=False, status=404)
+            return JsonResponse({"error": f"The file '{ai_name}' does not exist"}, status=404)
     
     except ValueError as e:
         return JsonResponse({"error": "Invalid parameter values"}, status=400)

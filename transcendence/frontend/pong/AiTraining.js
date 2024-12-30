@@ -101,40 +101,44 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     // Handle Delete AI button click
-    deleteButton.addEventListener("click", () => {
+    deleteButton.addEventListener("click", async () => {
         const selectedAI = dropdown.value;
         if (!selectedAI) {
             alert("Please select an AI to delete!");
             return;
         }
         managingLog.innerText = `Request for deleting AI '${selectedAI}'...`;
-
+    
         try {
-            const response = fetch('/ai/delete-saved-ai/', {
+            // Await the fetch response
+            const response = await fetch('/ai/delete-saved-ai/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ ai_name: selectedAI }),
-            })
-
+            });
+    
+            // Parse the response JSON
+            const data = await response.json();
+    
             if (!response.ok) {
-                const data = response.json();
                 throw new Error(data.error || 'Deleting saved AIs failed');
             }
-
+    
+            // Update the log on success
             managingLog.className = 'alert alert-success';
-            managingLog.innerText = 'Ai successfully deleted.';
-
-            fetchSavedAIs(); // Refresh the dropdown
-        }
-
-        catch (error) {
+            managingLog.innerText = `AI successfully deleted: ${data.message}`;
+    
+            // Refresh the dropdown
+            fetchSavedAIs();
+        } catch (error) {
+            // Update the log on error
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error deleting AI: ${error.message}`;
         }
     });
-
+    
     // Initial fetch of saved AIs
     fetchSavedAIs();
 });
