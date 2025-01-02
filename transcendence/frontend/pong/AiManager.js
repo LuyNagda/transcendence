@@ -4,16 +4,21 @@ export async function initializeAiManager() {
     managingLog.style.display = 'block';
 
     trainButton.addEventListener("click", async () => {
+        // Disable all the page's buttons
+        disabled_buttons();
+
         // Get and validate AI name
         const aiName = document.getElementById('ai_name').value.trim();
         if (!aiName) {
             alert('AI Name is required.');
+            enabled_buttons();
             return;
         }
 
         // Validate AI name format
         if (!/^[a-zA-Z0-9_-]+$/.test(aiName)) {
             alert('AI Name can only contain letters, numbers, underscores, and hyphens.');
+            enabled_buttons();
             return;
         }
 
@@ -36,6 +41,7 @@ export async function initializeAiManager() {
         if (!csrfToken) {
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = 'CSRF token not found. Make sure {% csrf_token %} is included in your template.';
+            enabled_buttons();
             return;
         }
 
@@ -60,6 +66,7 @@ export async function initializeAiManager() {
             const data = await response.json();
 
             if (!response.ok) {
+                enabled_buttons();
                 throw new Error(data.error || 'Training failed');
             }
 
@@ -75,6 +82,7 @@ export async function initializeAiManager() {
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error: ${error.message}`;
         }
+        enabled_buttons();
     });
 
     const dropdown = document.getElementById("saved-ai-dropdown");
@@ -108,12 +116,26 @@ export async function initializeAiManager() {
             managingLog.innerText = `Error: ${error.message}`;
         }
     }
+
+    function disabled_buttons() {
+        document.getElementById("delete-ai-btn").disabled = true;
+        document.getElementById("train-ai-btn").disabled = true;
+    }
+    
+    function enabled_buttons() {
+        document.getElementById("delete-ai-btn").disabled = false;
+        document.getElementById("train-ai-btn").disabled = false;
+    }
     
     // Handle Delete AI button click
     deleteButton.addEventListener("click", async () => {
+        // Disable all the page's buttons
+        disabled_buttons();
+
         const selectedAI = dropdown.value;
         if (!selectedAI) {
             alert("Please select an AI to delete!");
+            enabled_buttons();
             return;
         }
         managingLog.innerText = `Request for deleting AI '${selectedAI}'...`;
@@ -132,6 +154,7 @@ export async function initializeAiManager() {
             const data = await response.json();
     
             if (!response.ok) {
+                enabled_buttons();
                 throw new Error(data.error || 'Deleting saved AIs failed');
             }
     
@@ -146,6 +169,8 @@ export async function initializeAiManager() {
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error deleting AI: ${error.message}`;
         }
+
+        enabled_buttons()
     });
     
     // Initial fetch of saved AIs
