@@ -94,15 +94,16 @@ export async function initializeAiManager() {
 
             const data = await response.json();
             dropdown.innerHTML = '<option value="" disabled selected>Select AI to delete</option>';
+            const disabled_ai = ["Hard", "Medium", "Easy"];
             data.saved_ai.forEach(ai => {
                 const option = document.createElement("option");
                 option.value = ai;
                 option.textContent = ai;
+                if (disabled_ai.includes(ai))
+                    option.disabled = true;
                 dropdown.appendChild(option);
             });
-        }
-        
-        catch(error) {
+        } catch(error) {
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error: ${error.message}`;
         }
