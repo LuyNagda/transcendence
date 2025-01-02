@@ -128,6 +128,35 @@ export class PongRoom {
         });
     }
 
+    // // // TODO: New fetch to implement
+    // // Fetch saved AIs and populate the dropdown
+    // async function fetchSavedAIs() {
+    //     const dropdown = document.getElementById('ai-difficulty');
+
+    //     try {
+    //         const response = await fetch('/ai/list-saved-ai', {
+    //             method: 'GET'
+    //         });
+
+    //         if (!response.ok) {
+    //             const data = await response.json();
+    //             throw new Error(data.error || 'Fetching saved AIs failed');
+    //         }
+
+    //         const data = await response.json();
+    //         dropdown.innerHTML = '<option value="" disabled selected>Select AI</option>';
+    //         data.saved_ai.forEach(ai => {
+    //             const option = document.createElement("option");
+    //             option.value = ai;
+    //             option.textContent = ai;
+    //             dropdown.appendChild(option);
+    //         });
+    //     } catch(error) {
+    //         managingLog.className = 'alert alert-danger';
+    //         managingLog.innerText = `Error: ${error.message}`;
+    //     }
+    // }
+
     // Fetch AI list from the backend
     async fetchSavedAI() {
         const apiUrl = '/ai/list-saved-ai'; // Adjust the endpoint if necessary
