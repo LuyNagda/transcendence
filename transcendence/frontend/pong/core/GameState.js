@@ -4,22 +4,22 @@ export class GameState {
 	constructor() {
 		this._state = {
 			leftPaddle: {
-				x: 15,
+				x: GameRules.LEFT_PADDLE_X,
 				y: GameRules.CANVAS_HEIGHT / 2,
-				width: 5,
+				width: GameRules.PADDLE_WIDTH,
 				height: GameRules.PADDLE_HEIGHT,
 				dy: 0
 			},
 			rightPaddle: {
-				x: GameRules.CANVAS_WIDTH - 15,
+				x: GameRules.CANVAS_WIDTH - GameRules.LEFT_PADDLE_X - GameRules.PADDLE_WIDTH,
 				y: GameRules.CANVAS_HEIGHT / 2,
-				width: 5,
+				width: GameRules.PADDLE_WIDTH,
 				height: GameRules.PADDLE_HEIGHT,
 				dy: 0
 			},
 			ball: {
-				x: 429,
-				y: 262,
+				x: GameRules.CANVAS_WIDTH / 2,
+				y: GameRules.CANVAS_HEIGHT / 2,
 				width: 5,
 				height: 5,
 				dx: 0,
