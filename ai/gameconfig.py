@@ -9,9 +9,9 @@ BLACK = (0, 0, 0)
 RED = (255, 0, 0)
 
 # Paddle settings
-PADDLE_HEIGHT = 30
+PADDLE_HEIGHT = 50
 PADDLE_WIDTH = 5
-PADDLE_SPEED = 12
+PADDLE_SPEED = 15
 
 # Ball settings
 BALL_SPEED = 2
