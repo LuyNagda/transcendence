@@ -149,7 +149,7 @@ def generate_random_number(low, high):
 def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     # Initialize game objects
     rightPaddle = Paddle(
-        x = gameconfig.WIDTH - 50 - gameconfig.PADDLE_WIDTH,
+        x = gameconfig.WIDTH - 15 - gameconfig.PADDLE_WIDTH,
         y = gameconfig.HEIGHT//2 - gameconfig.PADDLE_HEIGHT//2,
         width = gameconfig.PADDLE_WIDTH,
         height = gameconfig.PADDLE_HEIGHT
