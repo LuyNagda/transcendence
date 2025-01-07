@@ -1,7 +1,8 @@
 export class GameRules {
 	static WINNING_SCORE = 11;
 	static BALL_SPEED = 107;
-	static PADDLE_SPEED = 12;
+	static PADDLE_SPEED = 15;
+	static PADDLE_HEIGHT = 15;
 	static INITIAL_BALL_SPEED = 2;
 	static CANVAS_WIDTH = 858;
 	static CANVAS_HEIGHT = 525;
