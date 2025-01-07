@@ -100,7 +100,6 @@ export class PongRoom {
         this._state = "LOBBY";
         this._pongGame = null;
         this._useWebGL = false;
-        this._savedAi = [];
         this._aiName = 'medium';
 
         this.initializeWebSocket();
