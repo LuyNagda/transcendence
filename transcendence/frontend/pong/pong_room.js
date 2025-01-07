@@ -101,6 +101,7 @@ export class PongRoom {
         this._pongGame = null;
         this._useWebGL = false;
         this._aiName = 'medium';
+        this._savedAi = [];
 
         this.initializeWebSocket();
         this.initializeEventListeners();
@@ -166,7 +167,7 @@ export class PongRoom {
         }
 
         const data = await response.json();
-        this.savedAI = data.saved_ai;
+        this._savedAi = data.saved_ai;
         this.populateDropdown(); // Populate the dropdown once data is fetched
         } catch (error) {
             console.error('Error fetching saved AI:', error);
@@ -193,7 +194,7 @@ export class PongRoom {
         selectElement.appendChild(placeholderOption);
         
         // Add options from the savedAI list
-        this.savedAI.forEach((ai) => {
+        this._savedAi.forEach((ai) => {
             const option = document.createElement('option');
             option.value = ai;
             option.textContent = ai;
