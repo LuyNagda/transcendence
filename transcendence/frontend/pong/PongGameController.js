@@ -139,8 +139,8 @@ export class PongGameController {
 			}
 
 			// Set canvas size
-			canvas.width = 858;
-			canvas.height = 525;
+			canvas.width = GameRules.CANVAS_WIDTH;
+			canvas.height = GameRules.CANVAS_HEIGHT;
 
 			const renderer = this._useWebGL ? new WebGLRenderer(canvas) : new Canvas2DRenderer(canvas);
 			if (!renderer.initialize()) {
