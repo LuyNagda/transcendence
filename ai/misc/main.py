@@ -12,7 +12,15 @@ def main():
         return print("Please provide a saved AI!")
     
     save_file = sys.argv[1]
-    train_ai(save_file)
+
+    training_params = {
+        'nb_generation': 10000000000,
+        'nb_species': 50,
+        'time_limit': 0,
+        'max_score': 500
+    }
+
+    train_ai(save_file, training_params)
 
 if __name__ == "__main__":
     main()
