@@ -4,18 +4,21 @@
     aria-labelledby="chatCanvasLabel">
     <div class="offcanvas-header">
         <h4 id="chatCanvasLabel" class="offcanvas-title">Chat</h4>
+		<span id="unreadBadge" class="mb-2 ms-2 p-1 badge rounded-pill bg-danger" aria-live="polite">
+			0
+			<span class="visually-hidden">Unread messages</span>
+		</span>
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
     </div>
     <div class="offcanvas-body">
         <div class="row">
             <div class="col-4 user-list" role="navigation" aria-labelledby="userListHeading">
-                <h5 id="userListHeading">Users</h5>
                 <ul class="rounded bg-dark-subtle m-0 p-3" style="list-style-type: none;">
                     {% for user in users %}
                     <li>
                         <button href="#" class="btn btn-transparent btn-sm me-1 user-chat" data-user-id="{{ user.id }}"
                             aria-label="Chat with {{ user.name|default:user.username }}">
-                            <img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 20px;"
+                            <img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 25px;"
                                 alt="{{ user.name|default:user.username }}'s profile picture">
                             <span class="user-name" aria-live="polite">{{ user.name|default:user.username }}</span>
                             <span class="status-icon" aria-live="polite">
@@ -35,23 +38,19 @@
                 </ul>
             </div>
             <div class="col-8 chat-messages" role="region" aria-labelledby="chatHeading">
-                <div class="d-flex align-items-start">
-                    <h5 id="chatHeading">Select a user to start chatting</h5>
-                    <span id="unreadBadge" class="mb-2 ms-2 p-1 badge rounded-pill bg-danger" aria-live="polite">
-                        0
-                        <span class="visually-hidden">Unread messages</span>
-                    </span>
-                </div>
-                <div class="rounded m-0 p-3" style="background-color: var(--bs-dark-bg-subtle);">
-                    <div class="rounded p-3 chat-bubble-container" style="background-color: var(--bs-light-bg-subtle);"
+                <div class="rounded p-3 chat-bubble-container" style="background-color: var(--bs-dark-bg-subtle);"
                         id="message-history" aria-live="polite"></div>
                     <div id="chat-form-div" style="display: none;">
                         <form id="chat-form" class="d-flex mt-2" aria-labelledby="chatFormHeading">
                             <h4 id="chatFormHeading" class="visually-hidden">Chat Form</h4>
                             <input type="text" class="form-control me-1" placeholder="Type your message..."
                                 id="chat-message" aria-label="Message input">
-                            <button class="btn btn-primary" type="submit" id="button-addon2"
-                                aria-label="Send message">Send</button>
+								<button class="btn btn-primary d-flex justify-content-center align-items-center" type="submit" id="button-addon2"
+								aria-label="Send message">
+								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-send" viewBox="0 0 16 16">
+									<path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z"/>
+								</svg>
+						</button>
                         </form>
                         <div class="mt-2">
                             {% if blocked_users is not None %} 
@@ -63,10 +62,10 @@
                                     aria-label="Unblock {{ user.name|default:user.username }}">Unblock</button> 
                                 {% endif %}
                             {% endif %}
-                            <button class="btn btn-success invite-user" data-user-id="{{ user.id }}"
+                            <!-- <button class="btn btn-success invite-user" data-user-id="{{ user.id }}"
                                 aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite to Pong</button>
                             <button class="btn btn-primary view-profile" data-user-id="{{ user.id }}"
-                                aria-label="View profile of {{ user.name|default:user.username }}">View Profile</button>
+                                aria-label="View profile of {{ user.name|default:user.username }}">View Profile</button> -->
                         </div>
                     </div>
                 </div>
@@ -153,12 +152,12 @@
     }
 
     .user-chat.selected {
-        background-color: #e9ecef;
+        background-color: var(--bs-light-bg-subtle);
         font-weight: bold;
     }
 
     .user-chat.active {
-        background-color: #e9ecef;
+        background-color: var(--bs-light-bg-subtle);
     }
 </style>
 {% endblock content %}
