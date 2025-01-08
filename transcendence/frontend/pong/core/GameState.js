@@ -132,97 +132,68 @@ export class PongPhysics {
 	}
 
 	updateState(partialState) {
-		if (!this._validateStateUpdate(partialState)) {
-			logger.error('Invalid state update rejected');
-			return;
-		}
+		if (!partialState) return;
 
-		// Debug state BEFORE update
-		logger.debug('State update:', {
-			currentState: {
-				ball: { ...this._state.ball },
-				leftPaddle: { ...this._state.leftPaddle },
-				rightPaddle: { ...this._state.rightPaddle }
-			},
-			incomingChanges: partialState
-		});
+		// Direct assignment for better performance
+		Object.assign(this._state, partialState);
 
-		// Ensure ball state is properly merged
-		const newState = {
-			...this._state,
-			...partialState
-		};
-
-		// If there's a ball update, ensure all properties are merged
+		// Special handling for nested objects
 		if (partialState.ball) {
-			newState.ball = {
-				...this._state.ball,
-				...partialState.ball
-			};
-			logger.debug('Ball state updated:', newState.ball);
+			Object.assign(this._state.ball, partialState.ball);
+		}
+		if (partialState.scores) {
+			Object.assign(this._state.scores, partialState.scores);
 		}
 
-		this._state = {
-			...newState,
-			lastUpdateTime: Date.now()
-		};
-
-		// Notify observers of state change
+		this._state.lastUpdateTime = Date.now();
 		this._notifyObservers(this._state);
 	}
 
-	_notifyObservers(oldState) {
+	_notifyObservers(state) {
 		for (const observer of this._observers) {
 			if (observer.onStateChange) {
-				observer.onStateChange(this._state, oldState);
-			} else {
-				logger.warn('Observer missing onStateChange method:', observer);
+				observer.onStateChange(state, state);
 			}
 		}
 	}
 
 	resetBall() {
 		const ballPosition = this._settingsManager.getInitialBallPosition();
-		const ballState = {
-			ball: {
-				...this._state.ball,
-				x: ballPosition.x,
-				y: ballPosition.y,
-				dx: 0,
-				dy: 0,
-				resetting: false
-			}
-		};
-		this.updateState(ballState);
+		this._state.ball.x = ballPosition.x;
+		this._state.ball.y = ballPosition.y;
+		this._state.ball.dx = 0;
+		this._state.ball.dy = 0;
+		this._state.ball.resetting = false;
+		this._notifyObservers(this._state);
 	}
 
 	updateScore(side) {
-		const scores = { ...this._state.scores };
-		scores[side] += 1;
-		this.updateState({ scores });
+		this._state.scores[side] += 1;
 
 		// Check for game end using GameRules winningScore
-		if (scores[side] >= this._settingsManager.getSettings().maxScore) {
-			logger.info('Game finished - Final scores:', scores);
-			this.updateState({ gameStatus: 'finished' });
+		if (this._state.scores[side] >= this._settingsManager.getSettings().maxScore) {
+			logger.info('Game finished - Final scores:', this._state.scores);
+			this._state.gameStatus = 'finished';
 
 			// Notify observers about game completion
 			for (const observer of this._observers) {
 				if (observer.onStateChange) {
-					observer.onStateChange(this._state, { ...this._state, gameStatus: 'playing' });
+					observer.onStateChange(this._state, this._state);
 				}
 				if (observer.onGameComplete) {
-					observer.onGameComplete(scores);
+					observer.onGameComplete(this._state.scores);
 				}
 			}
+		} else {
+			this._notifyObservers(this._state);
 		}
 	}
 
 	resetGame() {
-		this.updateState({
-			scores: { left: 0, right: 0 },
-			gameStatus: 'waiting'
-		});
+		this._state.scores.left = 0;
+		this._state.scores.right = 0;
+		this._state.gameStatus = 'waiting';
+		this._notifyObservers(this._state);
 		this.resetBall();
 	}
 
@@ -350,12 +321,12 @@ export class PongPhysics {
 	}
 
 	_updatePaddles(deltaTime) {
-		const leftPaddle = { ...this._state.leftPaddle };
-		const rightPaddle = { ...this._state.rightPaddle };
+		const leftPaddle = this._state.leftPaddle;
+		const rightPaddle = this._state.rightPaddle;
 		const canvasHeight = this._settingsManager.getCanvasHeight();
-
-		// Apply paddle speed from settings
 		const paddleSpeed = this.getPaddleSpeed();
+
+		// Update positions
 		leftPaddle.y += leftPaddle.dy * paddleSpeed * deltaTime;
 		rightPaddle.y += rightPaddle.dy * paddleSpeed * deltaTime;
 
@@ -367,34 +338,11 @@ export class PongPhysics {
 	}
 
 	_validateStateUpdate(partialState) {
-		if (!partialState) return false;
-
-		// Validate paddle positions
-		if (partialState.leftPaddle) {
-			const canvas = document.getElementById('game');
-			if (partialState.leftPaddle.y < 0) partialState.leftPaddle.y = 0;
-			if (partialState.leftPaddle.y > canvas.height - partialState.leftPaddle.height) {
-				partialState.leftPaddle.y = canvas.height - partialState.leftPaddle.height;
-			}
+		// Only validate critical game state transitions
+		if (partialState.gameStatus &&
+			!['waiting', 'playing', 'finished', 'paused'].includes(partialState.gameStatus)) {
+			return false;
 		}
-
-		if (partialState.rightPaddle) {
-			const canvas = document.getElementById('game');
-			if (partialState.rightPaddle.y < 0) partialState.rightPaddle.y = 0;
-			if (partialState.rightPaddle.y > canvas.height - partialState.rightPaddle.height) {
-				partialState.rightPaddle.y = canvas.height - partialState.rightPaddle.height;
-			}
-		}
-
-		// Validate ball position
-		if (partialState.ball) {
-			const canvas = document.getElementById('game');
-			if (partialState.ball.y < 0) partialState.ball.y = 0;
-			if (partialState.ball.y > canvas.height - partialState.ball.height) {
-				partialState.ball.y = canvas.height - partialState.ball.height;
-			}
-		}
-
 		return true;
 	}
 } 

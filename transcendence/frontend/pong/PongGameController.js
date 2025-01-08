@@ -10,6 +10,7 @@ import { GameRules } from './core/GameRules.js';
 import dynamicRender from '../UI/dynamic_render.js';
 import { PongNetworkManager } from './PongNetworkManager.js';
 import Store from '../state/store.js';
+import { LocalNetworkManager } from './LocalNetworkManager.js';
 
 // Base game controller with common functionality
 class BasePongGameController {
@@ -18,21 +19,35 @@ class BasePongGameController {
 		this._currentUser = currentUser;
 		this._isHost = isHost;
 		this._useWebGL = useWebGL;
-		this._settings = settings;
+		this._settings = {
+			...settings,
+			isAIMode: settings.aiDifficulty ? true : settings.isAIMode || false
+		};
 		this._contextHandlers = contextHandlers;
 		this._initialized = false;
-		this._isAIMode = false;
+		this._isAIMode = this._settings.isAIMode;
 		this._aiController = null;
 		this._store = Store.getInstance();
 
+		logger.info('Initializing game controller with settings:', this._settings);
+
 		// Initialize settings manager first with validated settings
-		const validatedSettings = GameRules.validateSettings(settings);
+		const validatedSettings = GameRules.validateSettings(this._settings);
 		this._settingsManager = new SettingsManager(validatedSettings);
 
 		// Initialize core components
 		this._physics = new PongPhysics(validatedSettings);
 		this._gameEngine = new GameEngine();
 		this._inputHandler = new InputHandler(isHost);
+
+		// Initialize AI controller if in AI mode
+		if (this._isAIMode) {
+			logger.info('AI mode enabled, initializing AI controller...');
+			this._initializeAI(this._settings.aiDifficulty || GameRules.DIFFICULTY_LEVELS.EASY)
+				.catch(error => {
+					logger.error('Failed to initialize AI:', error);
+				});
+		}
 
 		// Subscribe to physics state changes
 		this._physics.subscribe({
@@ -60,7 +75,11 @@ class BasePongGameController {
 
 		// Initialize network manager with error handling
 		try {
-			this._networkManager = new PongNetworkManager(gameId, currentUser, isHost);
+			// Create appropriate network manager based on mode
+			this._networkManager = this._isAIMode ?
+				new LocalNetworkManager(gameId, currentUser, isHost) :
+				new PongNetworkManager(gameId, currentUser, isHost);
+
 			if (!this._networkManager) {
 				throw new Error('Failed to create network manager');
 			}
@@ -89,6 +108,107 @@ class BasePongGameController {
 		});
 	}
 
+	async _initializeAI(difficulty) {
+		try {
+			logger.info('Starting AI initialization with difficulty:', difficulty);
+
+			// If AI is already initialized, return
+			if (this._aiController) {
+				logger.info('AI controller already initialized');
+				return;
+			}
+
+			// Initialize AI controller
+			this._aiController = await AIController.init(difficulty);
+			logger.info('AI controller instance created');
+
+			// Register AI handler component
+			logger.info('Registering AI handler component');
+			const aiHandler = {
+				initialize: () => {
+					logger.info('AI handler initialized');
+					return true;
+				},
+				update: () => {
+					if (!this._aiController) {
+						logger.error('AI controller not available during update');
+						return;
+					}
+
+					if (this._physics.getState().gameStatus === 'playing') {
+						const gameState = this._physics.getState();
+						logger.debug('AI update - Current game state:', {
+							ball: {
+								x: gameState.ball.x,
+								y: gameState.ball.y,
+								dx: gameState.ball.dx,
+								dy: gameState.ball.dy
+							},
+							rightPaddle: {
+								y: gameState.rightPaddle.y,
+								height: gameState.rightPaddle.height
+							}
+						});
+
+						const aiDecision = this._aiController.decision(gameState);
+						logger.debug('AI decision:', aiDecision);
+
+						const paddleSpeed = this._physics.getPaddleSpeed();
+						logger.debug('Paddle speed:', paddleSpeed);
+
+						// In AI mode, AI always controls the right paddle
+						let dy = 0;
+						if (aiDecision === 0) dy = -paddleSpeed;
+						else if (aiDecision === 2) dy = paddleSpeed;
+						logger.debug('Calculated dy:', dy);
+
+						// Update paddle position directly
+						const currentPaddle = gameState.rightPaddle;
+						const canvas = document.getElementById('game');
+
+						// Get deltaTime for consistent movement speed
+						const now = Date.now();
+						const deltaTime = (now - gameState.lastUpdateTime) / 1000;
+
+						// Calculate new position using deltaTime
+						const movement = dy * deltaTime;
+						const newY = Math.max(0, Math.min(
+							canvas.height - currentPaddle.height,
+							currentPaddle.y + movement
+						));
+						logger.debug('New paddle Y position:', newY, 'deltaTime:', deltaTime, 'movement:', movement);
+
+						this._physics.updateState({
+							rightPaddle: {
+								...currentPaddle,
+								dy: dy,
+								y: newY
+							}
+						});
+					} else {
+						logger.debug('AI update skipped - game status:', this._physics.getState().gameStatus);
+					}
+				},
+				destroy: () => {
+					logger.info('AI handler destroyed');
+					this._aiController = null;
+				}
+			};
+
+			// Unregister existing AI handler if it exists
+			this._gameEngine.unregisterComponent('aiHandler');
+
+			// Register new AI handler
+			this._gameEngine.registerComponent('aiHandler', aiHandler);
+
+			logger.info('AI controller initialized successfully');
+		} catch (error) {
+			logger.error('Failed to initialize AI controller:', error);
+			this._aiController = null;
+			throw error;
+		}
+	}
+
 	async initialize() {
 		try {
 			// Initialize renderer
@@ -115,6 +235,11 @@ class BasePongGameController {
 			const networkConnected = await this._networkManager.connect();
 			if (!networkConnected) {
 				throw new Error('Failed to initialize network connection');
+			}
+
+			// Wait for AI initialization if in AI mode
+			if (this._isAIMode && !this._aiController) {
+				await this._initializeAI(this._settings.aiDifficulty || GameRules.DIFFICULTY_LEVELS.EASY);
 			}
 
 			// Register components with game engine
@@ -170,90 +295,8 @@ class BasePongGameController {
 	}
 
 	async setAIMode(enabled, difficulty = GameRules.DIFFICULTY_LEVELS.EASY) {
-		this._isAIMode = enabled;
-
-		try {
-			if (enabled) {
-				// Initialize AI controller
-				this._aiController = await AIController.init(difficulty);
-
-				// Create new network manager for AI mode
-				const aiNetworkManager = new PongNetworkManager(this._gameId, this._currentUser, this._isHost);
-				aiNetworkManager.setAIMode(true);
-
-				// Clean up existing network manager and switch to AI mode
-				if (this._networkManager) {
-					this._networkManager.destroy();
-					this._gameEngine.unregisterComponent('network');
-				}
-
-				this._networkManager = aiNetworkManager;
-				this._gameEngine.registerComponent('network', this._networkManager);
-
-				// Register AI handler component
-				this._gameEngine.registerComponent('aiHandler', {
-					initialize: () => {
-						logger.info('AI handler initialized');
-						return true;
-					},
-					update: () => {
-						if (this._physics.getState().gameStatus === 'playing') {
-							const gameState = this._physics.getState();
-							const aiDecision = this._aiController.decision(gameState);
-
-							const paddleSpeed = this._physics.getPaddleSpeed();
-							let dy = 0;
-							if (aiDecision === 0) dy = -paddleSpeed;
-							else if (aiDecision === 2) dy = paddleSpeed;
-
-							this._handleAIPaddleMove({
-								dy: dy,
-								y: gameState.rightPaddle.y + dy
-							});
-						}
-					},
-					destroy: () => {
-						logger.info('AI handler destroyed');
-					}
-				});
-
-				// Update game state for AI mode
-				this._physics.updateState({ gameStatus: 'ready', isAIMode: true });
-			} else {
-				// Clean up AI components
-				if (this._aiController) {
-					this._gameEngine.unregisterComponent('aiHandler');
-					this._aiController = null;
-				}
-
-				// Create new network manager for multiplayer mode
-				const networkManager = new PongNetworkManager(this._gameId, this._currentUser, this._isHost);
-
-				// Clean up existing network manager and switch to multiplayer
-				if (this._networkManager) {
-					this._networkManager.destroy();
-					this._gameEngine.unregisterComponent('network');
-				}
-
-				this._networkManager = networkManager;
-				const networkConnected = await this._networkManager.connect();
-				if (!networkConnected) {
-					throw new Error('Failed to initialize network connection');
-				}
-
-				this._gameEngine.registerComponent('network', this._networkManager);
-				await this._setupNetworkHandlers();
-
-				// Update game state for network mode
-				this._physics.updateState({ gameStatus: 'ready', isAIMode: false });
-			}
-
-			return true;
-		} catch (error) {
-			logger.error('Failed to switch game mode:', error);
-			this._isAIMode = !enabled;
-			throw error;
-		}
+		logger.warn('setAIMode is deprecated. AI mode should be set through settings during initialization.');
+		return true;
 	}
 
 	pause() {
@@ -414,58 +457,45 @@ class BasePongGameController {
 		}
 	}
 
-	async start() {
-		if (!this._initialized) {
-			throw new Error('Game controller not initialized');
-		}
-
-		if (!this._networkManager) {
-			throw new Error('Network manager not initialized');
-		}
-
-		try {
-			// Wait for guest connection using the new method name
-			const connected = await this._networkManager.waitForGuestConnection();
-
-			if (!connected) {
-				throw new Error('Failed to establish connection with guest');
-			}
-
-			// Start the game engine and enable input
-			this._gameEngine.start();
-			this._inputHandler.enable();
-			this._startStateSync();
-
-			// Set game state to playing
-			this._physics.updateState({ gameStatus: 'playing' });
-
-			// Launch the ball after a short delay
-			logger.info('Host will launch ball in 1 second');
-			setTimeout(() => {
-				if (this._networkManager.isConnected()) {
-					this.launchBall();
-				} else {
-					logger.error('Cannot launch ball - connection lost');
-					this.destroy();
-				}
-			}, 1000);
-
-			return true;
-		} catch (error) {
-			logger.error('Failed to start game:', error);
-			this.destroy();
-			return false;
-		}
-	}
-
 	_startStateSync() {
+		// Don't start sync in AI mode
+		if (this._isAIMode) {
+			return;
+		}
+
+		let lastLogTime = 0;
+		const LOG_INTERVAL = 5000; // Log every 5 seconds instead of every sync
+
 		this._syncInterval = setInterval(() => {
 			if (this._physics.getState().gameStatus === 'playing') {
 				const currentState = this._physics.getState();
-				logger.debug('Host sending state:', currentState);
+
+				// Only log state periodically
+				const now = Date.now();
+				if (now - lastLogTime >= LOG_INTERVAL) {
+					logger.debug('Game state sync - scores:', {
+						left: currentState.scores.left,
+						right: currentState.scores.right
+					});
+					lastLogTime = now;
+				}
+
 				this._networkManager.sendGameState(currentState);
 			}
 		}, 100); // Sync every 100ms
+	}
+
+	_handleAIPaddleMove(data) {
+		if (this._isAIMode) {
+			const paddle = this._isHost ? 'leftPaddle' : 'rightPaddle';
+			this._physics.updateState({
+				[paddle]: {
+					...this._physics.getState()[paddle],
+					dy: data.dy,
+					y: data.y
+				}
+			});
+		}
 	}
 }
 
@@ -474,48 +504,54 @@ class HostPongGameController extends BasePongGameController {
 	constructor(gameId, currentUser, useWebGL = true, settings = {}, contextHandlers = {}) {
 		super(gameId, currentUser, true, useWebGL, settings, contextHandlers);
 		this._syncInterval = null;
+		logger.info('Host controller initialized with settings:', this._settings);
 	}
 
 	async start() {
-		if (!this._initialized) {
-			throw new Error('Game controller not initialized');
-		}
-
-		if (!this._networkManager) {
-			throw new Error('Network manager not initialized');
-		}
-
 		try {
-			// Wait for guest connection using the new method name
-			const connected = await this._networkManager.waitForGuestConnection();
-
-			if (!connected) {
-				throw new Error('Failed to establish connection with guest');
+			logger.info('Starting host game...');
+			if (!this._initialized) {
+				logger.error('Game not initialized before start');
+				return false;
 			}
 
-			// Start the game engine and enable input
-			this._gameEngine.start();
-			this._inputHandler.enable();
-			this._startStateSync();
+			// Ensure AI is initialized in AI mode
+			if (this._isAIMode) {
+				logger.info('Game is in AI mode');
+				if (!this._aiController) {
+					logger.info('Initializing AI controller...');
+					await this._initializeAI(this._settings.aiDifficulty || GameRules.DIFFICULTY_LEVELS.EASY);
+				}
+				if (!this._aiController) {
+					logger.error('AI controller not initialized in AI mode');
+					return false;
+				}
+				logger.info('AI controller ready');
+			}
 
-			// Set game state to playing
+			logger.info('Starting game engine');
+			this._gameEngine.start();
+
+			logger.info('Setting game status to playing');
 			this._physics.updateState({ gameStatus: 'playing' });
 
-			// Launch the ball after a short delay
-			logger.info('Host will launch ball in 1 second');
+			if (!this._isAIMode) {
+				logger.info('Starting state sync');
+				this._startStateSync();
+			} else {
+				logger.info('Skipping state sync in AI mode');
+			}
+
+			// Launch ball after a short delay
 			setTimeout(() => {
-				if (this._networkManager.isConnected()) {
+				if (this._physics.getState().gameStatus === 'playing') {
 					this.launchBall();
-				} else {
-					logger.error('Cannot launch ball - connection lost');
-					this.destroy();
 				}
 			}, 1000);
 
 			return true;
 		} catch (error) {
-			logger.error('Failed to start game:', error);
-			this.destroy();
+			logger.error('Failed to start host game:', error);
 			return false;
 		}
 	}
@@ -576,9 +612,8 @@ class GuestPongGameController extends BasePongGameController {
 			if (this._physics.getState().gameStatus === 'finished' || this._gameFinished) return;
 
 			const canvas = this._gameEngine.getComponent('renderer').getCanvas();
-			logger.debug('Guest received state:', message.state);
 
-			// Transformation to invert the game view for guest
+			// Transform game state for guest view
 			const newState = {
 				...message.state,
 				leftPaddle: message.state.rightPaddle,
@@ -590,7 +625,6 @@ class GuestPongGameController extends BasePongGameController {
 				}
 			};
 
-			logger.debug('Guest transformed state:', newState);
 			this._physics.updateState(newState);
 		});
 

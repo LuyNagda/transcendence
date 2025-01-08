@@ -23,14 +23,16 @@ export default class UserService {
 
 			const users = await response.json();
 
-			// Update user statuses in store
+			// Update user statuses in store with complete user data
 			users.forEach(user => {
 				this._store.dispatch({
 					domain: 'user',
-					type: 'UPDATE_STATUS',
+					type: 'UPDATE_USER',
 					payload: {
-						userId: user.id,
-						status: user.online ? 'online' : 'offline'
+						id: user.id,
+						status: user.online ? 'online' : 'offline',
+						username: user.username,
+						blocked: user.blocked
 					}
 				});
 			});

@@ -1,5 +1,5 @@
 import logger from '../logger.js';
-import { gameActions, gameReducers, gameValidators, initialGameState } from './gameState.js';
+import { gameActions, gameReducers, initialGameState } from './gameState.js';
 import { userActions, userReducers, userValidators, initialUserState } from './userState.js';
 import { chatActions, chatReducers, chatValidators, initialChatState } from './chatState.js';
 import { roomActions, roomReducers, roomValidators, initialRoomState } from './roomState.js';
@@ -56,8 +56,16 @@ class Store {
 
 	// Validate state changes
 	validateStateChange(domain, newState) {
+		if (domain === 'game') return true;  // No validation for game state
+
+		logger.debug('Starting state validation:', {
+			domain,
+			currentState: this.state[domain],
+			newState,
+			DEBUG: this.DEBUG
+		});
+
 		const validators = {
-			game: gameValidators,
 			user: userValidators,
 			chat: chatValidators,
 			room: roomValidators,
@@ -69,22 +77,59 @@ class Store {
 			return false;
 		}
 
-		return Object.entries(newState).every(([key, value]) => {
+		// For partial state updates, merge with existing state before validation
+		const fullState = {
+			...this.state[domain],
+			...newState
+		};
+
+		logger.debug('Full state to validate:', {
+			domain,
+			fullState,
+			validators: Object.keys(validators)
+		});
+
+		const validationResults = Object.entries(fullState).map(([key, value]) => {
 			const validator = validators[key];
-			if (!validator) return true;
+			if (!validator) {
+				logger.debug(`No validator for ${domain}.${key}, skipping`);
+				return true;
+			}
+
 			const isValid = validator(value);
-			if (!isValid && this.DEBUG) {
-				logger.error(`Validation failed for ${domain}.${key}:`, value);
+			logger.debug(`Validation result for ${domain}.${key}:`, {
+				value,
+				valueType: typeof value,
+				validator: validator.toString(),
+				isValid
+			});
+
+			if (!isValid) {
+				logger.error(`Validation failed for ${domain}.${key}:`, {
+					value,
+					valueType: typeof value,
+					validator: validator.toString()
+				});
 			}
 			return isValid;
 		});
+
+		const allValid = validationResults.every(result => result);
+		logger.debug('Validation complete:', {
+			domain,
+			allValid,
+			results: validationResults
+		});
+
+		return allValid;
 	}
 
 	// Dispatch action
 	dispatch(action) {
 		const { domain, type, payload } = action;
 
-		if (this.DEBUG) {
+		// Skip debug logging for game actions
+		if (domain !== 'game' && this.DEBUG) {
 			logger.info('Action dispatched:', { domain, type, payload });
 		}
 
@@ -112,8 +157,10 @@ class Store {
 				throw new Error(`Invalid state transition for ${domain}`);
 			}
 
-			// Save to history for undo/redo
-			this.saveToHistory();
+			// Save to history for undo/redo only for non-game actions
+			if (domain !== 'game') {
+				this.saveToHistory();
+			}
 
 			// Update state
 			this.state = {
@@ -124,8 +171,10 @@ class Store {
 			// Notify subscribers
 			this.notifySubscribers(domain);
 
-			// Persist state
-			this.persistState();
+			// Persist state only for non-game actions
+			if (domain !== 'game') {
+				this.persistState();
+			}
 
 		} catch (error) {
 			logger.error('State update failed:', error);
@@ -200,7 +249,23 @@ class Store {
 	// Persist state to localStorage
 	persistState() {
 		try {
-			localStorage.setItem('app_state', JSON.stringify(this.state));
+			// Convert Sets to arrays before stringifying and exclude game state
+			const stateToStore = Object.entries(this.state).reduce((acc, [domain, state]) => {
+				if (domain === 'game') return acc;  // Skip game state persistence
+
+				if (domain === 'user' && state.blockedUsers instanceof Set) {
+					return {
+						...acc,
+						[domain]: {
+							...state,
+							blockedUsers: Array.from(state.blockedUsers)
+						}
+					};
+				}
+				return { ...acc, [domain]: state };
+			}, {});
+
+			localStorage.setItem('app_state', JSON.stringify(stateToStore));
 			if (this.DEBUG) {
 				logger.info('State persisted to localStorage');
 			}
@@ -215,14 +280,21 @@ class Store {
 			const persistedState = localStorage.getItem('app_state');
 			if (persistedState) {
 				const parsedState = JSON.parse(persistedState);
-				// Validate each domain's state before loading
-				if (Object.entries(parsedState).every(([domain, state]) =>
-					this.validateStateChange(domain, state)
-				)) {
-					this.state = parsedState;
-					if (this.DEBUG) {
-						logger.info('State loaded from localStorage');
-					}
+
+				// Convert arrays back to Sets where needed
+				if (parsedState.user && parsedState.user.blockedUsers) {
+					parsedState.user.blockedUsers = new Set(parsedState.user.blockedUsers);
+				}
+
+				// Merge with initial state, keeping game state fresh
+				this.state = {
+					...this.state,
+					...parsedState,
+					game: initialGameState  // Always use fresh game state
+				};
+
+				if (this.DEBUG) {
+					logger.info('State loaded from localStorage');
 				}
 			}
 		} catch (error) {

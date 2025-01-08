@@ -5,6 +5,7 @@ import { SettingsManager } from '../pong/core/SettingsManager.js';
 import dynamicRender from '../UI/dynamic_render.js';
 import { createPongGameController } from '../pong/PongGameController.js';
 import Store from '../state/store.js';
+import { RoomModes, getMaxPlayersForMode, getDefaultSettingsForMode } from '../state/roomState.js';
 
 export class Room {
 	static States = {
@@ -12,26 +13,9 @@ export class Room {
 		PLAYING: 'PLAYING'
 	};
 
-	static Modes = {
-		AI: 'AI',
-		CLASSIC: 'CLASSIC',
-		RANKED: 'RANKED',
-		TOURNAMENT: 'TOURNAMENT'
-	};
+	static Modes = RoomModes;
 
-	static getMaxPlayersForMode(mode) {
-		switch (mode) {
-			case Room.Modes.AI:
-				return 1;
-			case Room.Modes.CLASSIC:
-			case Room.Modes.RANKED:
-				return 2;
-			case Room.Modes.TOURNAMENT:
-				return 8;
-			default:
-				return 2;
-		}
-	}
+	static getMaxPlayersForMode = getMaxPlayersForMode;
 
 	static initializeFromDOM() {
 		const roomElement = document.getElementById('pong-room');
@@ -80,18 +64,30 @@ export class Room {
 		this._roomId = roomId;
 		this._state = Room.States.LOBBY;
 
+		// Get room state from store
+		const roomState = this._store.getState('room');
+		const room = roomState.rooms[roomId];
+
+		// Initialize mode first
+		this._mode = room?.mode || room?.settings?.mode || RoomModes.AI;
+
+		// Initialize settings with the correct mode
+		this._settings = {
+			...getDefaultSettingsForMode(this._mode),
+			...(room?.settings || {}),
+			mode: this._mode  // Always ensure mode is set correctly
+		};
+		this._maxPlayers = Room.getMaxPlayersForMode(this._mode);
+
 		// Room configuration
-		this._mode = Room.Modes.CLASSIC;
 		this._owner = { id: null, username: null };
 		this._players = [];
 		this._pendingInvitations = [];
-		this._maxPlayers = Room.getMaxPlayersForMode(this._mode);
 
 		// Game-related properties
 		this._pongGame = null;
 		this._useWebGL = false;
-		this._settings = this._getDefaultSettings();
-		this._aiDifficulty = this._settings.aiDifficulty;
+		this._aiDifficulty = this._settings.aiDifficulty || 'MEDIUM';
 
 		// Initialize settings manager
 		this._initializeSettingsManager();
@@ -109,7 +105,9 @@ export class Room {
 
 		logger.info(`Room instance created for room ${roomId}`, {
 			currentUser: this._currentUser,
-			owner: this._owner
+			owner: this._owner,
+			mode: this._mode,
+			settings: this._settings
 		});
 		this._logCurrentState();
 
@@ -157,18 +155,30 @@ export class Room {
 		}
 		this._lastUpdateHash = JSON.stringify(roomData);
 
+		// Don't override mode if we're in the middle of a mode change
+		const mode = this._modeUpdateInProgress ? this._mode : (roomData.mode || this._mode || RoomModes.AI);
+
 		// Update local state from store
 		const updates = {
-			_mode: roomData.type,
+			_mode: mode,
 			_state: roomData.status === 'game_in_progress' ? Room.States.PLAYING : Room.States.LOBBY,
 			_owner: roomData.createdBy ? { id: roomData.createdBy, username: roomData.createdBy } : this._owner,
 			_players: roomData.members || [],
-			_settings: { ...this._settings, ...roomData.settings },
-			_maxPlayers: roomData.settings?.maxMembers || Room.getMaxPlayersForMode(roomData.type)
+			_settings: {
+				...getDefaultSettingsForMode(mode),
+				...this._settings,
+				...(roomData.settings || {}),
+				mode: mode  // Ensure mode is set in settings
+			},
+			_maxPlayers: Room.getMaxPlayersForMode(mode)
 		};
 
 		let hasChanged = false;
 		Object.entries(updates).forEach(([key, value]) => {
+			// Skip mode update if we're in the middle of a mode change
+			if (this._modeUpdateInProgress && key === '_mode') {
+				return;
+			}
 			if (JSON.stringify(this[key]) !== JSON.stringify(value)) {
 				this[key] = value;
 				hasChanged = true;
@@ -176,6 +186,14 @@ export class Room {
 		});
 
 		if (hasChanged) {
+			logger.debug("Room state updated:", {
+				owner: this._owner,
+				currentUser: this._currentUser,
+				isOwner: this._owner.id === this._currentUser.id,
+				mode: this._mode,
+				settings: this._settings
+			});
+			this._logCurrentState();
 			dynamicRender.addObservedObject('pongRoom', {
 				...this._getPublicState()
 			});
@@ -279,7 +297,7 @@ export class Room {
 
 	// Getters
 	get roomId() { return this._roomId; }
-	get mode() { return this._mode; }
+	get mode() { return this._settings.mode; }
 	get owner() { return this._owner; }
 	get players() { return Array.isArray(this._players) ? this._players : []; }
 	get pendingInvitations() { return Array.isArray(this._pendingInvitations) ? this._pendingInvitations : []; }
@@ -320,10 +338,20 @@ export class Room {
 		this._lastUpdateHash = JSON.stringify(roomState);
 
 		const safeState = this._getSafeState(roomState);
+
+		// Always update mode first to ensure settings are correct
+		if (!this._modeUpdateInProgress && safeState.mode !== this._mode) {
+			this._mode = safeState.mode;
+			this._settings = {
+				...getDefaultSettingsForMode(safeState.mode),
+				...safeState.settings,
+				mode: safeState.mode  // Ensure mode is set correctly
+			};
+			this._maxPlayers = Room.getMaxPlayersForMode(safeState.mode);
+		}
+
 		let updates = this._getStateUpdates(safeState);
 		let hasChanged = false;
-
-		updates = updates.filter(update => update.prop !== '_mode');
 
 		updates.forEach(({ prop, value, compare }) => {
 			if (this._shouldUpdateProperty(prop, value, compare)) {
@@ -336,7 +364,9 @@ export class Room {
 			logger.debug("Room state updated:", {
 				owner: this._owner,
 				currentUser: this._currentUser,
-				isOwner: this._owner.id === this._currentUser.id
+				isOwner: this._owner.id === this._currentUser.id,
+				mode: this._mode,
+				settings: this._settings
 			});
 			this._logCurrentState();
 			dynamicRender.addObservedObject('pongRoom', {
@@ -347,14 +377,19 @@ export class Room {
 	}
 
 	_getSafeState(roomState) {
+		const mode = roomState.mode || (roomState.settings?.mode) || RoomModes.AI;
 		return {
-			mode: roomState.mode || 'CLASSIC',
+			mode: mode,
 			owner: roomState.owner || { id: null, username: null },
 			players: Array.isArray(roomState.players) ? roomState.players : [],
 			pendingInvitations: Array.isArray(roomState.pendingInvitations) ? roomState.pendingInvitations : [],
-			maxPlayers: roomState.maxPlayers || 1,
+			maxPlayers: roomState.maxPlayers || Room.getMaxPlayersForMode(mode),
 			state: roomState.state || Room.States.LOBBY,
-			settings: roomState.settings || this._getDefaultSettings()
+			settings: {
+				...getDefaultSettingsForMode(mode),
+				...(roomState.settings || {}),
+				mode: mode  // Ensure mode is set in settings
+			}
 		};
 	}
 
@@ -363,7 +398,7 @@ export class Room {
 			{
 				prop: '_mode',
 				value: safeState.mode,
-				compare: () => this._modeUpdateInProgress
+				compare: () => false  // Always check mode updates
 			},
 			{ prop: '_owner', value: safeState.owner, compare: (a, b) => a && b && a.id === b.id },
 			{
@@ -382,7 +417,10 @@ export class Room {
 			{ prop: '_state', value: safeState.state },
 			{
 				prop: '_settings',
-				value: safeState.settings,
+				value: {
+					...safeState.settings,
+					mode: safeState.mode  // Ensure settings.mode matches the room mode
+				},
 				compare: (a, b) => JSON.stringify(a) === JSON.stringify(b)
 			}
 		];
@@ -428,9 +466,14 @@ export class Room {
 		} else if (data.type === 'mode_change') {
 			// Only process mode change if it's not initiated by us
 			if (!this._modeUpdateInProgress) {
+				const newSettings = {
+					...this._settings,
+					mode: data.mode,
+					...data.settings
+				};
 				this._mode = data.mode;
 				this._maxPlayers = Room.getMaxPlayersForMode(data.mode);
-				this._settings = data.settings || this._getDefaultSettings();
+				this._settings = newSettings;
 
 				dynamicRender.addObservedObject('pongRoom', {
 					...this._getPublicState()
@@ -497,12 +540,8 @@ export class Room {
 
 			// Create game controller with initial settings
 			const initialSettings = {
-				ballSpeed: this._settings.ballSpeed ?? GameRules.DEFAULT_SETTINGS.ballSpeed,
-				paddleSize: this._settings.paddleSize ?? GameRules.DEFAULT_SETTINGS.paddleSize,
-				paddleSpeed: this._settings.paddleSpeed ?? GameRules.DEFAULT_SETTINGS.paddleSpeed,
-				maxScore: this._settings.maxScore ?? GameRules.DEFAULT_SETTINGS.maxScore,
-				aiDifficulty: this._settings.aiDifficulty ?? GameRules.DEFAULT_SETTINGS.aiDifficulty,
-				relaunchTime: 1000
+				...this._settings,
+				isAIMode: this._settings.mode === Room.Modes.AI
 			};
 
 			// Create context handlers
@@ -539,11 +578,7 @@ export class Room {
 				throw new Error("Game initialization failed");
 			}
 
-			// Enable AI mode if needed
-			if (this._mode === Room.Modes.AI) {
-				await this._pongGame.setAIMode(true, this._settings.aiDifficulty);
-			}
-
+			// Start the game immediately (no need to set AI mode since it's already set)
 			const started = await this._pongGame.start();
 			if (!started) {
 				throw new Error("Game start failed");
@@ -611,20 +646,32 @@ export class Room {
 
 	// User actions
 	async startGame() {
+		// Prevent multiple start game requests
+		if (this._startGameInProgress) {
+			logger.warn("Game start already in progress");
+			return;
+		}
+
 		const playerCount = this._players.length;
 		const isTournament = this._mode === Room.Modes.TOURNAMENT;
+		const isAIMode = this._mode === Room.Modes.AI;
 
+		// Special handling for different modes
 		if (isTournament) {
 			if (playerCount < 3 || playerCount > this._maxPlayers) {
 				logger.error("Cannot start tournament: needs between 3 and 8 players");
 				return;
 			}
-		} else if (playerCount !== this._maxPlayers) {
+		} else if (!isAIMode && playerCount !== this._maxPlayers) {
 			logger.error(`Cannot start game: needs exactly ${this._maxPlayers} players`);
+			return;
+		} else if (isAIMode && playerCount !== 1) {
+			logger.error("Cannot start AI game: needs exactly 1 player");
 			return;
 		}
 
 		try {
+			this._startGameInProgress = true;
 			this._useWebGL = document.getElementById('webgl-toggle')?.checked || false;
 			this._networkManager.sendMessage('start_game', { id: Date.now() });
 			this._setLoading(true);
@@ -641,61 +688,72 @@ export class Room {
 		} catch (error) {
 			logger.error('Error sending start game request:', error);
 			this._setLoading(false);
+		} finally {
+			// Clear the flag after a delay to prevent rapid re-clicks
+			setTimeout(() => {
+				this._startGameInProgress = false;
+			}, 2000);
 		}
 	}
 
 	async changeMode(event) {
 		const newMode = event.target.value;
-		if (newMode && Object.values(Room.Modes).includes(newMode)) {
-			try {
-				// Set flag to prevent feedback loop
-				this._modeUpdateInProgress = true;
-
-				// Update local state
-				this._mode = newMode;
-				this._maxPlayers = Room.getMaxPlayersForMode(newMode);
-				this._settings = this._getDefaultSettings();
-
-				// Update UI
-				dynamicRender.addObservedObject('pongRoom', {
-					...this._getPublicState()
-				});
-				dynamicRender.scheduleUpdate();
-
-				// Send update to server
-				await this.updateMode(newMode);
-
-				// Update store
-				this._store.dispatch({
-					domain: 'room',
-					type: 'UPDATE_ROOM_SETTINGS',
-					payload: {
-						roomId: this._roomId,
-						settings: {
-							...this._settings,
-							maxMembers: this._maxPlayers
-						}
-					}
-				});
-
-				// Clear flag after a short delay to ensure server response is processed
-				setTimeout(() => {
-					this._modeUpdateInProgress = false;
-				}, 500);
-
-			} catch (error) {
-				logger.error('Failed to change mode:', error);
-				this._modeUpdateInProgress = false;
-			}
+		if (!newMode || !Object.values(RoomModes).includes(newMode)) {
+			return;
 		}
-	}
 
-	async updateMode(mode) {
-		logger.info(`Updating mode to: ${mode}`);
-		this._networkManager.sendMessage('update_property', {
-			property: 'mode',
-			value: mode
-		});
+		try {
+			// Set flag to prevent concurrent mode changes
+			this._modeUpdateInProgress = true;
+
+			// Get new settings for mode
+			const newSettings = {
+				...getDefaultSettingsForMode(newMode),
+				mode: newMode
+			};
+
+			logger.debug('Changing mode:', {
+				newMode,
+				newSettings
+			});
+
+			// Send update to server first
+			this._networkManager.sendMessage('update_property', {
+				property: 'mode',
+				value: newMode,
+				settings: newSettings
+			});
+
+			// Update store
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM_MODE',
+				payload: {
+					roomId: this._roomId,
+					mode: newMode,
+					settings: newSettings
+				}
+			});
+
+			// Update local state
+			this._mode = newMode;
+			this._maxPlayers = Room.getMaxPlayersForMode(newMode);
+			this._settings = newSettings;
+
+			// Update UI
+			dynamicRender.addObservedObject('pongRoom', {
+				...this._getPublicState()
+			});
+			dynamicRender.scheduleUpdate();
+
+		} catch (error) {
+			logger.error('Failed to change mode:', error);
+		} finally {
+			// Clear mode update flag after a short delay to allow for server response
+			setTimeout(() => {
+				this._modeUpdateInProgress = false;
+			}, 500);
+		}
 	}
 
 	inviteFriend(friendId) {
@@ -774,8 +832,11 @@ export class Room {
 	}
 
 	_getPublicState() {
+		const canStartGame = this._canStartGame();
+		const isOwner = this._owner.id === this._currentUser.id;
+
 		return {
-			mode: this._mode,
+			mode: this._mode,  // Use _mode directly instead of settings.mode
 			state: this._state,
 			owner: this._owner,
 			players: this._players,
@@ -783,18 +844,22 @@ export class Room {
 			maxPlayers: this._maxPlayers,
 			currentUser: this._currentUser,
 			availableSlots: this.availableSlots,
-			canStartGame: this._canStartGame(),
-			settings: this._settings,
+			canStartGame: canStartGame,
+			isOwner: isOwner,
+			settings: {
+				...this._settings,
+				mode: this._mode  // Ensure settings.mode matches the room mode
+			},
 			gameStarted: this._state === Room.States.PLAYING,
-			handleSettingChange: (setting, value) => {
+			handleSettingChange: (setting, value, parseAsInt) => {
 				if (this._state !== Room.States.PLAYING) {
-					this._settings[setting] = value;
-					this.updateSetting(setting, value);
+					const parsedValue = parseAsInt ? parseInt(value) : value;
+					this._settings[setting] = parsedValue;
+					this.updateSetting(setting, parsedValue);
 				}
 			},
 			kickPlayer: (playerId) => this.kickPlayer(playerId),
 			cancelInvitation: (invitationId) => this.cancelInvitation(invitationId),
-
 			changeMode: (event) => this.changeMode(event),
 			getProgressBarStyle: (value) => {
 				const numericValue = parseInt(value) || 1;
@@ -819,8 +884,10 @@ export class Room {
 
 	_canStartGame() {
 		const playerCount = this._players.length;
-		if (this._mode === Room.Modes.TOURNAMENT) {
+		if (this._mode === Room.Modes.TOURNAMENT) {  // Use this._mode directly
 			return playerCount >= 3 && playerCount <= this._maxPlayers;
+		} else if (this._mode === Room.Modes.AI) {  // Use this._mode directly
+			return playerCount === 1;
 		}
 		return playerCount === this._maxPlayers;
 	}
@@ -895,41 +962,65 @@ export class Room {
 				}
 			}
 		});
+
+		// Update UI
+		dynamicRender.addObservedObject('pongRoom', {
+			...this._getPublicState()
+		});
+		dynamicRender.scheduleUpdate();
 	}
 
 	_handleSettingsUpdate(data) {
 		logger.debug('Handling settings update:', data);
 		if (typeof data === 'object' && data !== null) {
+			let hasChanges = false;
+
 			// Handle single setting update
 			if (data.setting && data.value !== undefined) {
 				const { setting, value } = data;
-				if (setting in this._settings) {
-					// Ensure numeric values for numeric settings
+				if (setting in this._settings && !this._modeUpdateInProgress) {
 					this._settings[setting] = ['paddleSpeed', 'ballSpeed', 'paddleSize', 'maxScore'].includes(setting)
 						? parseInt(value)
 						: value;
 					if (this._pongGame) {
 						this._pongGame.updateSettings({ [setting]: this._settings[setting] });
 					}
-					dynamicRender.addObservedObject('pongRoom', {
-						...this._getPublicState()
-					});
-					dynamicRender.scheduleUpdate();
+					hasChanges = true;
 				}
 			}
 			// Handle full settings object update
-			else if (data.settings) {
-				Object.entries(data.settings).forEach(([setting, value]) => {
-					if (setting in this._settings) {
-						// Ensure numeric values for numeric settings
-						this._settings[setting] = ['paddleSpeed', 'ballSpeed', 'paddleSize', 'maxScore'].includes(setting)
-							? parseInt(value)
-							: value;
+			else if (data.settings || data.value?.settings) {
+				const newSettings = data.settings || data.value.settings;
+				if (!this._modeUpdateInProgress) {
+					Object.entries(newSettings).forEach(([setting, value]) => {
+						if (setting in this._settings) {
+							this._settings[setting] = ['paddleSpeed', 'ballSpeed', 'paddleSize', 'maxScore'].includes(setting)
+								? parseInt(value)
+								: value;
+						}
+					});
+					if (this._pongGame) {
+						this._pongGame.updateSettings(this._settings);
+					}
+					hasChanges = true;
+				}
+			}
+
+			// Update room state if provided
+			if (data.room_state && !this._modeUpdateInProgress) {
+				this.updateFromState(data.room_state);
+			} else if (hasChanges) {
+				// Force a UI update with current state
+				this._store.dispatch({
+					domain: 'room',
+					type: 'UPDATE_ROOM_SETTINGS',
+					payload: {
+						roomId: this._roomId,
+						settings: this._settings
 					}
 				});
-				if (this._pongGame) {
-					this._pongGame.updateSettings(this._settings);
-				}
+
+				// Update UI
 				dynamicRender.addObservedObject('pongRoom', {
 					...this._getPublicState()
 				});

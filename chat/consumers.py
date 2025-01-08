@@ -63,7 +63,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except KeyError as e:
             log.error('Missing key in received data', extra={
                 'user_id': self.user.id,
-                'missing_key': e.args[0]  # Message (f**k)
+                'missing_key': e.args[0]
             })
             await self.send(text_data=json.dumps({'error': e.args[0]}))
         except ValueError as e:
@@ -126,7 +126,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'game_invitation',
             'game_id': event['game_id'],
-            'sender_id': event['sender_id']
+            'sender_id': event['sender_id'],
+            'room_id': event['room_id']
+        }))
+
+    async def redirect(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'redirect',
+            'url': event['url']
         }))
 
     @database_sync_to_async

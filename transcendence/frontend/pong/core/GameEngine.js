@@ -11,6 +11,7 @@ export class GameEngine {
 
 	registerComponent(name, component) {
 		this._components.set(name, component);
+		logger.debug(`Component registered: ${name}`);
 	}
 
 	unregisterComponent(name) {
@@ -28,10 +29,17 @@ export class GameEngine {
 	start() {
 		if (this._isRunning) return;
 		this._isRunning = true;
-		const aiHandler = this._components.get('aiHandler');
-		if (aiHandler) {
-			aiHandler.initialize();
+
+		// Initialize all components
+		logger.info('Initializing game engine components...');
+		for (const [name, component] of this._components.entries()) {
+			if (component && component.initialize) {
+				logger.debug(`Initializing component: ${name}`);
+				component.initialize();
+			}
 		}
+
+		logger.info('Starting game loop');
 		this._gameLoop = requestAnimationFrame(this._update.bind(this));
 	}
 
@@ -44,7 +52,10 @@ export class GameEngine {
 	}
 
 	_update() {
-		if (!this._isRunning) return;
+		if (!this._isRunning) {
+			logger.debug('Game engine not running, skipping update');
+			return;
+		}
 
 		// Get game state component
 		const gameState = this._components.get('state');
@@ -52,9 +63,19 @@ export class GameEngine {
 			gameState.update();
 		}
 
-		// Update all other components
-		for (const component of this._components.values()) {
-			if (component !== gameState && component.update) {
+		// Update AI first if it exists
+		const aiHandler = this._components.get('aiHandler');
+		if (aiHandler && aiHandler.update) {
+			logger.debug('Updating AI handler');
+			aiHandler.update();
+		} else if (this._components.has('aiHandler')) {
+			logger.warn('AI handler exists but has no update method');
+		}
+
+		// Update all other components except AI and state
+		for (const [name, component] of this._components.entries()) {
+			if (component !== gameState && component !== aiHandler && component.update) {
+				logger.debug(`Updating component: ${name}`);
 				component.update();
 			}
 		}
@@ -65,10 +86,6 @@ export class GameEngine {
 			controller.launchBall();
 		}
 
-		// Update AI
-		if (this._components.get('aiHandler'))
-			this._components.get('aiHandler').update();
-
 		// Update renderer with current state
 		const renderer = this._components.get('renderer');
 		if (renderer) {
@@ -76,7 +93,7 @@ export class GameEngine {
 		}
 
 		// Schedule next frame
-		this._gameLoop = requestAnimationFrame(this._update.bind(this));
+		this._animationFrameId = requestAnimationFrame(this._update.bind(this));
 	}
 
 	destroy() {

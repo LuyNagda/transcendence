@@ -16,12 +16,7 @@ const buildOptions = {
 	resolveExtensions: ['.js'],
 	absWorkingDir: path.resolve(__dirname),
 	platform: 'browser',
-	splitting: true,
-	chunkNames: 'js/chunks/[name]-[hash]',
-	loader: {
-		'.css': 'css'
-	},
-	assetNames: 'css/[name]-[hash]'
+	splitting: true
 };
 
 if (isProd) {

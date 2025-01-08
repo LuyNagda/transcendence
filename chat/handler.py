@@ -4,7 +4,9 @@ from django.db import models
 from channels.db import database_sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
-from .models import ChatMessage, BlockedUser, GameInvitation
+from .models import ChatMessage, BlockedUser
+from pong.models import PongRoom
+import uuid
 
 User = get_user_model()
 
@@ -20,6 +22,7 @@ class ChatHandler:
             'user_status_change': self.handle_user_status_change,
             'get_profile': self.handle_get_profile,
             'game_invitation': self.handle_game_invitation,
+            'accept_game_invitation': self.handle_accept_game_invitation,
             'tournament_warning': self.handle_tournament_warning
         }
         handler = actions.get(message_type)
@@ -118,8 +121,28 @@ class ChatHandler:
             return
 
         try:
-            await self.delete_existing_invitation(recipient_id, game_id)
-            await self.save_game_invitation(game_id, recipient_id)
+            # Create a new room for the invitation
+            room_response = await self.create_pong_room()
+            if not room_response.get('status') == 'success':
+                raise Exception('Failed to create pong room')
+            
+            room_id = room_response.get('room_id')
+            
+            # Add recipient to pending invitations
+            success = await self.add_to_pending_invitations(room_id, recipient_id)
+            if not success:
+                raise Exception('Failed to add recipient to pending invitations')
+
+            # Send invitation to recipient
+            await self.consumer.channel_layer.group_send(
+                f"chat_{recipient_id}",
+                {
+                    'type': 'game_invitation',
+                    'game_id': game_id,
+                    'sender_id': self.consumer.user.id,
+                    'room_id': room_id
+                }
+            )
         except ObjectDoesNotExist:
             await self.consumer.send(text_data=json.dumps({
                 'error': 'Recipient not found'
@@ -127,15 +150,105 @@ class ChatHandler:
             return
         except Exception as e:
             raise e
-        
-        await self.consumer.channel_layer.group_send(
-            f"chat_{recipient_id}",
-            {
-                'type': 'game_invitation',
-                'game_id': game_id,
-                'sender_id': self.consumer.user.id
+
+    @database_sync_to_async
+    def create_pong_room(self):
+        try:
+            room_id = str(uuid.uuid4())[:8]
+            room = PongRoom.objects.create(
+                room_id=room_id,
+                owner=self.consumer.user,
+                mode='CLASSIC'
+            )
+            room.players.add(self.consumer.user)
+            return {
+                'status': 'success',
+                'room_id': room_id,
+                'room_data': room.serialize()
             }
-        )
+        except Exception as e:
+            log.error(f"Error creating pong room: {str(e)}")
+            return {
+                'status': 'error',
+                'message': 'Failed to create room'
+            }
+
+    @database_sync_to_async
+    def add_to_pending_invitations(self, room_id, recipient_id):
+        try:
+            room = PongRoom.objects.get(room_id=room_id)
+            recipient = User.objects.get(id=recipient_id)
+            room.pending_invitations.add(recipient)
+            return True
+        except (PongRoom.DoesNotExist, User.DoesNotExist) as e:
+            log.error(f"Error adding to pending invitations: {str(e)}")
+            return False
+
+    async def handle_accept_game_invitation(self, data):
+        if 'sender_id' not in data or 'game_id' not in data:
+            raise KeyError('Missing required keys: sender_id or game_id')
+        
+        sender_id = data['sender_id']
+        game_id = data['game_id']
+
+        try:
+            # Find room with pending invitation
+            room = await self.get_room_with_pending_invitation(sender_id)
+            if not room:
+                await self.consumer.send(text_data=json.dumps({
+                    'error': 'No pending invitation found'
+                }))
+                return
+
+            # Remove from pending invitations
+            await self.remove_from_pending_invitations(room['room_id'])
+
+            # Notify the sender
+            await self.consumer.channel_layer.group_send(
+                f"chat_{sender_id}",
+                {
+                    'type': 'redirect',
+                    'url': f'/pong/room/{room["room_id"]}/'
+                }
+            )
+
+            # Redirect the recipient
+            await self.consumer.send(text_data=json.dumps({
+                'type': 'redirect',
+                'url': f'/pong/room/{room["room_id"]}/'
+            }))
+
+        except Exception as e:
+            log.error(f"Error handling game invitation acceptance: {str(e)}", extra={
+                'user_id': self.consumer.user.id
+            })
+            raise e
+
+    @database_sync_to_async
+    def get_room_with_pending_invitation(self, owner_id):
+        try:
+            room = PongRoom.objects.filter(
+                owner_id=owner_id,
+                pending_invitations__id=self.consumer.user.id
+            ).first()
+            if room:
+                return {
+                    'room_id': room.room_id,
+                    'owner_id': room.owner_id
+                }
+            return None
+        except Exception as e:
+            log.error(f"Error getting room with pending invitation: {str(e)}")
+            return None
+
+    @database_sync_to_async
+    def remove_from_pending_invitations(self, room_id):
+        try:
+            room = PongRoom.objects.get(room_id=room_id)
+            room.pending_invitations.remove(self.consumer.user)
+            return True
+        except PongRoom.DoesNotExist:
+            return False
 
     async def handle_get_profile(self, data):
         if 'user_id' not in data:
@@ -193,27 +306,3 @@ class ChatHandler:
                 'user_id': self.consumer.user.id
             })
             raise e
-        
-    @database_sync_to_async
-    def save_game_invitation(self, game_id, recipient_id):
-        try:
-            recipient = User.objects.get(id=recipient_id)
-            return GameInvitation.objects.create(
-                sender=self.consumer.user,
-                recipient=recipient,
-                game_id=game_id
-            )
-        except ObjectDoesNotExist:
-            log.error(f"Recipient with id {recipient_id} not found", extra={
-                'user_id': self.consumer.user.id
-            })
-            raise ObjectDoesNotExist("Recipient not found")
-        except Exception as e:
-            log.error(f"Error saving game invitation: {str(e)}", extra={
-                'user_id': self.consumer.user.id
-            })
-            raise e
-
-    @database_sync_to_async
-    def delete_existing_invitation(self, recipient_id, game_id):
-        return GameInvitation.objects.filter(recipient_id=recipient_id, game_id=game_id).delete()

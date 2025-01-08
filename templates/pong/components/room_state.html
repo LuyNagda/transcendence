@@ -46,9 +46,8 @@
                     <span v-text="invitation.username"></span>
                     <div>
                         <span class="badge bg-warning rounded-pill me-2" aria-label="Pending">Pending</span>
-                        <button v-if="pongRoom.owner.username === pongRoom.currentUser.username"
-                            class="btn btn-danger btn-sm" v-on:click="pongRoom.cancelInvitation(invitation.id)"
-                            aria-label="Cancel invitation">
+                        <button v-if="pongRoom.isOwner" class="btn btn-danger btn-sm"
+                            v-on:click="pongRoom.cancelInvitation(invitation.id)" aria-label="Cancel invitation">
                             Cancel
                         </button>
                     </div>
@@ -72,7 +71,7 @@
         </p>
     </div>
 
-    <div class="card-footer" v-if="pongRoom.owner.username === pongRoom.currentUser.username && pongRoom.canStartGame">
+    <div class="card-footer" v-if="pongRoom.isOwner && pongRoom.canStartGame">
         <button id="startGameBtn" class="btn btn-primary" aria-label="Start the game">
             Start Game
         </button>

@@ -133,7 +133,7 @@ export class PongPhysics {
 
 	updateState(partialState) {
 		if (!this._validateStateUpdate(partialState)) {
-			logger.error('Invalid state update rejected');
+			logger.error('Invalid state update rejected:', partialState);
 			return;
 		}
 
@@ -160,6 +160,14 @@ export class PongPhysics {
 				...partialState.ball
 			};
 			logger.debug('Ball state updated:', newState.ball);
+		}
+
+		// If there's a paddle update, log the changes
+		if (partialState.leftPaddle || partialState.rightPaddle) {
+			logger.debug('Paddle state update:', {
+				leftPaddle: partialState.leftPaddle,
+				rightPaddle: partialState.rightPaddle
+			});
 		}
 
 		this._state = {
@@ -358,6 +366,20 @@ export class PongPhysics {
 		const paddleSpeed = this.getPaddleSpeed();
 		leftPaddle.y += leftPaddle.dy * paddleSpeed * deltaTime;
 		rightPaddle.y += rightPaddle.dy * paddleSpeed * deltaTime;
+
+		logger.debug('Paddle positions updated:', {
+			leftPaddle: {
+				y: leftPaddle.y,
+				dy: leftPaddle.dy,
+				speed: paddleSpeed
+			},
+			rightPaddle: {
+				y: rightPaddle.y,
+				dy: rightPaddle.dy,
+				speed: paddleSpeed
+			},
+			deltaTime
+		});
 
 		// Clamp paddles to screen bounds
 		leftPaddle.y = Math.max(0, Math.min(canvasHeight - leftPaddle.height, leftPaddle.y));

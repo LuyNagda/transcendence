@@ -108,7 +108,8 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         'type': 'game_state',
                         'state': game_state,
                         'is_host': self.is_host,
-                        'connection_state': self.connection_state
+                        'connection_state': self.connection_state,
+                        'is_ai_game': self.game.player2_is_ai
                     }))
                     
                     # 7. Notify other players about connection
@@ -159,12 +160,13 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                     {
                         'type': 'player_ready',
                         'user_id': data.get('user_id'),
-                        'is_host': self.is_host
+                        'is_host': self.is_host,
+                        'is_ai_opponent': getattr(self.game, 'player2_is_ai', False)
                     }
                 )
                 return
             
-            elif message_type == 'webrtc_signal':
+            elif message_type == 'webrtc_signal' and not self.game.player2_is_ai:
                 signal_type = data.get('signal', {}).get('type')
                 
                 # Handle ICE candidates

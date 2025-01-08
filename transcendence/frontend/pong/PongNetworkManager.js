@@ -9,13 +9,15 @@ import { BaseNetworkManager } from '../networking/NetworkingCore.js';
  */
 export class PongNetworkManager extends BaseNetworkManager {
 	/**
-	 * @param {Object} options - Configuration options for the PongNetworkManager
+	 * @param {string} gameId - The game ID
+	 * @param {Object} currentUser - The current user object
+	 * @param {boolean} isHost - Whether this instance is the host
 	 */
-	constructor(options = {}) {
+	constructor(gameId, currentUser, isHost) {
 		super();
-		this.options = options;
-		this.networkingCore = null;
-		this.isHost = false;
+		this._gameId = gameId;
+		this._currentUser = currentUser;
+		this._isHost = isHost;
 		this.isConnected = false;
 		this.isDataChannelOpen = false;
 		this.isSubscriptionEnabled = false;
@@ -83,15 +85,15 @@ export class PongNetworkManager extends BaseNetworkManager {
 			wsConnection.on('close', () => this._handleDisconnect());
 			wsConnection.on('error', (error) => this._handleError(error));
 
+			// Connect to WebSocket first
+			await wsConnection.connect();
+
 			// Set up WebRTC handlers
 			const rtcConnection = group.get('game');
 			rtcConnection.on('message', (data) => this._handleGameMessage(data));
 			rtcConnection.on('iceCandidate', (candidate) => this._handleIceCandidate(candidate));
 			rtcConnection.on('close', () => this._handleDisconnect());
 			rtcConnection.on('error', (error) => this._handleError(error));
-
-			// Connect to WebSocket first
-			await wsConnection.connect();
 
 			// Initialize WebRTC connection
 			await rtcConnection.connect();
@@ -205,6 +207,10 @@ export class PongNetworkManager extends BaseNetworkManager {
 	 * @returns {boolean} Send success
 	 */
 	sendGameMessage(message) {
+		if (!this._isConnected) {
+			return false;
+		}
+
 		const group = this._connectionManager.getConnectionGroup('pong');
 		if (!group) return false;
 
@@ -227,7 +233,7 @@ export class PongNetworkManager extends BaseNetworkManager {
 	 * @returns {boolean} Send success
 	 */
 	sendGameState(state) {
-		if (!this.isConnected()) {
+		if (!this.checkConnection()) {
 			logger.warn('Attempted to send game state while disconnected');
 			return false;
 		}
@@ -251,12 +257,8 @@ export class PongNetworkManager extends BaseNetworkManager {
 	 * Checks if WebRTC connection is established
 	 * @returns {boolean} Connection status
 	 */
-	isConnected() {
-		const group = this._connectionManager.getConnectionGroup('pong');
-		if (!group) return false;
-
-		const rtcConnection = group.get('game');
-		return rtcConnection && rtcConnection.state.name === 'connected';
+	checkConnection() {
+		return this._isConnected;
 	}
 
 	/**

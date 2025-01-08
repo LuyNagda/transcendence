@@ -242,6 +242,17 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     })
                     return False, "Cannot join AI mode room"
 
+                # Check if user has a pending invitation
+                if self.user in self.room.pending_invitations.all():
+                    # Remove from pending invitations
+                    self.room.pending_invitations.remove(self.user)
+                    # Add to players
+                    self.room.players.add(self.user)
+                    logger.info(f"Invited user added to room - room_id: {self.room_id}", extra={
+                        'user_id': self.user.id
+                    })
+                    return True, "Invited user added to room"
+
                 self.room.players.add(self.user)
                 logger.info(f"User added to room - room_id: {self.room_id}, current_players: {current_players + 1}, max_players: {max_players}", extra={
                     'user_id': self.user.id
@@ -472,10 +483,14 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         """
         Handle settings update event and broadcast to room
         """
+        # Get current room state
+        room_state = await self.get_room_state()
+        
         await self.send(text_data=json.dumps({
             'type': 'settings_update',
             'setting': event['setting'],
-            'value': event['value']
+            'value': event['value'],
+            'room_state': room_state
         }))
 
     async def mode_change(self, event):

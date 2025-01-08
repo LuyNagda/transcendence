@@ -30,10 +30,11 @@ def message_history(request, recipient_id):
 
     message_list = []
     for message in messages:
-        message_dict = model_to_dict(message, fields=['content', 'timestamp'])
-        message_dict['sender_id'] = message.sender.id
-        message_dict['recipient_id'] = message.recipient.id
-        message_dict['timestamp'] = message.timestamp.isoformat()
+        message_dict = model_to_dict(message, fields=['id', 'content', 'timestamp'])
+        message_dict['sender_id'] = str(message.sender.id)
+        message_dict['recipient_id'] = str(message.recipient.id)
+        message_dict['timestamp'] = int(message.timestamp.timestamp() * 1000)
+        message_dict['type'] = 'text'
         message_list.append(message_dict)
 
     return JsonResponse(message_list, safe=False, encoder=DjangoJSONEncoder)
@@ -62,6 +63,7 @@ def get_user_status(request, user_id):
 @permission_classes([IsAuthenticatedWithCookie])
 def get_users(request):
     users = User.objects.exclude(id=request.user.id)
+    blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user_id', flat=True)
     user_list = []
     for user in users:
         user_list.append({
@@ -69,6 +71,7 @@ def get_users(request):
             'username': user.username,
             'name': getattr(user, 'name', ''),
             'profile_picture': user.profile_picture.url if hasattr(user, 'profile_picture') and user.profile_picture else '',
-            'online': user.online
+            'online': user.online,
+            'blocked': user.id in blocked_users
         })
     return JsonResponse(user_list, safe=False)

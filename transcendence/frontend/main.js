@@ -72,7 +72,10 @@ window.initializeRoomData = function (roomState) {
 
 function initializeApp() {
 	try {
-		// Initialize store first
+		// Initialize logger with default settings first
+		logger.initialize(true, 'DEBUG');  // Set temporary debug mode to see initialization issues
+
+		// Initialize store
 		const store = Store.getInstance();
 
 		// Initialize config
@@ -87,8 +90,21 @@ function initializeApp() {
 			payload: config
 		});
 
-		// Use config from store
-		logger.initialize(store.getState('config').logLevel);
+		// Set the user ID in the user state
+		if (config.userId) {
+			store.dispatch({
+				domain: 'user',
+				type: 'SET_USER',
+				payload: {
+					id: config.userId
+				}
+			});
+		}
+
+		// Re-initialize logger with config settings
+		const configStore = store.getState('config');
+		logger.initialize(configStore.debug, configStore.logLevel);
+		logger.info('Config loaded:', configStore);
 		initializeErrorHandling();
 
 		// Initialize htmx directly

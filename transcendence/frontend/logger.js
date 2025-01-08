@@ -13,12 +13,16 @@ class Logger {
 		this.initialized = false;
 	}
 
-	initialize() {
-		const bodyElement = document.body;
-		this.debugSettings = bodyElement.dataset.debug === 'True';
-		this.logLevel = bodyElement.dataset.logLevel || 'ERROR';
-		this.currentLevel = this.levels[this.logLevel.toUpperCase()] || this.levels['ERROR'];
+	initialize(debug = false, logLevel = 'ERROR') {
+		this.debugSettings = debug;
+		this.logLevel = logLevel.toUpperCase();
+		this.currentLevel = this.levels[this.logLevel] || this.levels['ERROR'];
 		this.initialized = true;
+		console.log('Logger initialized with:', {
+			debug: this.debugSettings,
+			logLevel: this.logLevel,
+			currentLevel: this.currentLevel
+		});
 		this.processQueue();
 	}
 
@@ -34,20 +38,26 @@ class Logger {
 			this.queue.push({ level, messages });
 			return;
 		}
-		if (this.debugSettings && this.levels[level.toUpperCase()] >= this.currentLevel) {
-			console[level.toLowerCase()](...messages);
 
-			// Show stack trace for WARN levels - missing in console
-			if (level === 'WARN') {
-				const stack = new Error().stack
-					.split('\n')
-					.slice(2) // Skip "Error" and current "log" function
-					.map(line => line.trim())
-					.join('\n');
+		const messageLevel = this.levels[level.toUpperCase()];
 
-				console.groupCollapsed('Stack trace');
-				console.log(stack);
-				console.groupEnd();
+		// Simplified condition for better debugging
+		if (messageLevel >= this.currentLevel) {
+			if (this.debugSettings || messageLevel >= this.levels['ERROR']) {
+				console[level.toLowerCase()](`[${level}]`, ...messages);
+
+				// Show stack trace for WARN levels
+				if (level === 'WARN') {
+					const stack = new Error().stack
+						.split('\n')
+						.slice(2) // Skip "Error" and current "log" function
+						.map(line => line.trim())
+						.join('\n');
+
+					console.groupCollapsed('Stack trace');
+					console.log(stack);
+					console.groupEnd();
+				}
 			}
 		}
 	}

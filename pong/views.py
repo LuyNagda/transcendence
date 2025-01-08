@@ -97,7 +97,7 @@ def create_pong_room(request):
 
         # Generate room ID and get mode
         room_id = str(uuid.uuid4())[:8]
-        mode = request.data.get('mode', PongRoom.Mode.CLASSIC)
+        mode = request.data.get('mode', PongRoom.Mode.AI)
 
         # Validate mode
         if mode not in dict(PongRoom.Mode.choices):

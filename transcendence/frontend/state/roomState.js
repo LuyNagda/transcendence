@@ -1,3 +1,5 @@
+import { GameRules } from '../pong/core/GameRules.js';
+
 // Room State Actions
 export const roomActions = {
 	CREATE_ROOM: 'CREATE_ROOM',
@@ -5,7 +7,8 @@ export const roomActions = {
 	LEAVE_ROOM: 'LEAVE_ROOM',
 	UPDATE_ROOM_SETTINGS: 'UPDATE_ROOM_SETTINGS',
 	UPDATE_MEMBERS: 'UPDATE_MEMBERS',
-	UPDATE_ROOM_STATUS: 'UPDATE_ROOM_STATUS'
+	UPDATE_ROOM_STATUS: 'UPDATE_ROOM_STATUS',
+	UPDATE_ROOM_MODE: 'UPDATE_ROOM_MODE'
 };
 
 // Initial room state
@@ -16,18 +19,66 @@ export const initialRoomState = {
 	lastUpdate: null
 };
 
-// Room structure
-const roomStructure = {
-	id: '',
-	name: '',
-	type: 'public',  // 'public' | 'private' | 'game'
-	status: 'active',  // 'active' | 'closed' | 'game_in_progress'
-	members: [],
-	settings: {
-		maxMembers: 10,
+// Define room modes as constants
+export const RoomModes = {
+	AI: 'AI',
+	CLASSIC: 'CLASSIC',
+	RANKED: 'RANKED',
+	TOURNAMENT: 'TOURNAMENT'
+};
+
+// Helper function to get max players for a mode
+export const getMaxPlayersForMode = (mode) => {
+	switch (mode) {
+		case RoomModes.AI:
+			return 1;
+		case RoomModes.CLASSIC:
+		case RoomModes.RANKED:
+			return 2;
+		case RoomModes.TOURNAMENT:
+			return 8;
+		default:
+			return 2;
+	}
+};
+
+// Define room statuses
+export const RoomStatus = {
+	ACTIVE: 'active',
+	CLOSED: 'closed',
+	GAME_IN_PROGRESS: 'game_in_progress'
+};
+
+// Default settings based on mode
+export const getDefaultSettingsForMode = (mode) => {
+	const baseSettings = {
+		mode: mode,
+		maxMembers: getMaxPlayersForMode(mode),
+		ballSpeed: GameRules.DEFAULT_SETTINGS.ballSpeed,
+		paddleSpeed: GameRules.DEFAULT_SETTINGS.paddleSpeed,
+		paddleSize: GameRules.DEFAULT_SETTINGS.paddleSize,
+		maxScore: GameRules.DEFAULT_SETTINGS.maxScore,
 		allowSpectators: true,
 		isPrivate: false
-	},
+	};
+
+	// Add mode-specific settings
+	if (mode === RoomModes.AI) {
+		baseSettings.aiDifficulty = GameRules.DEFAULT_SETTINGS.aiDifficulty;
+	}
+
+	return baseSettings;
+};
+
+// Room structure with mode included
+export const roomStructure = {
+	id: '',
+	name: '',
+	mode: RoomModes.CLASSIC,  // Add mode as a core property
+	type: 'game',
+	status: RoomStatus.ACTIVE,
+	members: [],
+	settings: getDefaultSettingsForMode(RoomModes.CLASSIC),
 	createdAt: null,
 	createdBy: null
 };
@@ -75,7 +126,7 @@ export const roomReducers = {
 			members: [createdBy],
 			settings: { ...roomStructure.settings, ...settings },
 			createdAt: Date.now(),
-			createdBy
+			createdBy: String(createdBy)
 		};
 
 		return {
@@ -197,6 +248,30 @@ export const roomReducers = {
 				[roomId]: {
 					...room,
 					status
+				}
+			},
+			lastUpdate: Date.now()
+		};
+	},
+
+	[roomActions.UPDATE_ROOM_MODE]: (state, payload) => {
+		const { roomId, mode, settings } = payload;
+		const room = state.rooms[roomId];
+
+		if (!room) return state;
+
+		return {
+			...state,
+			rooms: {
+				...state.rooms,
+				[roomId]: {
+					...room,
+					mode,
+					settings: {
+						...room.settings,
+						...settings,
+						mode  // Ensure mode is set in settings
+					}
 				}
 			},
 			lastUpdate: Date.now()

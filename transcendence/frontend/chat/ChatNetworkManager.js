@@ -4,8 +4,6 @@ import { BaseNetworkManager } from '../networking/NetworkingCore.js';
 export class ChatNetworkManager extends BaseNetworkManager {
 	constructor() {
 		super();
-		this._connectionManager = super._connectionManager;
-		this._messageHandlers = super._messageHandlers;
 		this._isConnected = false;
 	}
 

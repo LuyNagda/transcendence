@@ -1,5 +1,6 @@
 import logger from '../logger.js';
 import CookieService from './CookieService.js';
+import { ConnectionManager } from './ConnectionManager.js';
 
 /**
  * Connection states using a state pattern.
