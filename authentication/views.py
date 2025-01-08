@@ -42,9 +42,6 @@ def register(request):
     else:
         form = CustomUserCreationForm()
     response = render(request, 'register.html', {'form': form})
-    if 'access_token' in request.COOKIES:
-        response.delete_cookie('access_token')
-        response.delete_cookie('refresh_token')
     return response
 
 @api_view(['GET', 'POST'])
