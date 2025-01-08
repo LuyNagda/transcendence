@@ -134,8 +134,8 @@ export class AIController {
     async _initialize(difficulty) {
         try {
             logger.info(`Initializing AI with difficulty: ${difficulty}`);
-            // Fetch AI data based on difficulty
-            const response = await fetch(`/ai/get-ai?difficulty=${difficulty}`);
+            // Update the URL format to match the backend endpoint
+            const response = await fetch(`/ai/get-ai/${difficulty}`);
             if (!response.ok)
                 throw new Error(`Failed to fetch AI data: ${response.status}`);
             const setup = await response.json();

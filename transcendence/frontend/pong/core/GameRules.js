@@ -12,9 +12,9 @@ export class GameRules {
 	static BASE_BALL_SPEED = 25;
 
 	static DIFFICULTY_LEVELS = {
-		EASY: 'EASY',
-		MEDIUM: 'MEDIUM',
-		HARD: 'HARD'
+		EASY: 'Easy',
+		MEDIUM: 'Medium',
+		HARD: 'Hard'
 	};
 
 	static DEFAULT_SETTINGS = {
@@ -22,13 +22,13 @@ export class GameRules {
 		paddleSpeed: 5,
 		paddleSize: 5,
 		maxScore: 5,
-		aiDifficulty: 'EASY',
+		aiDifficulty: 'Easy',
 		relaunchTime: 2000
 	};
 
 	static DEFAULT_AI_SETTINGS = {
 		...GameRules.DEFAULT_SETTINGS,
-		aiDifficulty: 'EASY',
+		aiDifficulty: 'Easy',
 		ballSpeed: 4,
 		paddleSpeed: 6
 	};
@@ -42,9 +42,9 @@ export class GameRules {
 	};
 
 	static AI_SPEED_MULTIPLIERS = {
-		EASY: 0.7,
-		MEDIUM: 1.0,
-		HARD: 1.3
+		Easy: 0.7,
+		Medium: 1.0,
+		Hard: 1.3
 	};
 
 	static validateSettings(settings) {

@@ -225,6 +225,11 @@ export class Room {
 				this._settings[setting] = GameRules.DEFAULT_SETTINGS[setting];
 			}
 		});
+
+		this._settingsManager = new SettingsManager({
+			...GameRules.DEFAULT_SETTINGS,
+			aiDifficulty: 'Medium'
+		});
 	}
 
 	_validateConstructorParams(roomId) {
