@@ -91,6 +91,7 @@ docker-stop:
 
 docker-clean:
 	docker compose down --rmi local --remove-orphans
+	docker rm -f $$(docker ps -a -q --filter "name=aa-transcendence") 2>/dev/null || true
 
 docker-fclean:
 	docker system prune -af
