@@ -1,12 +1,6 @@
-<div id="room-state" class="card" hx-get="{% url 'pong_room_state' room_id=room_id %}"
-    hx-trigger="roomStateUpdate from:body" hx-swap="outerHTML" aria-labelledby="room-state-heading"
-    aria-describedby="room-state-description">
+<div id="room-state" class="card">
 
     <script id="room-state-data" type="application/json">{{ pongRoom|safe }}</script>
-
-    <div class="card-header">
-        <h3 id="room-state-heading" class="card-title">Room Information</h3>
-    </div>
 
     <div class="card-body" id="room-state-description">
         <h5 class="card-subtitle mb-2">Mode: <span v-text="pongRoom.mode" aria-live="polite"></span></h5>
@@ -71,8 +65,9 @@
         </p>
     </div>
 
-    <div class="card-footer" v-if="pongRoom.isOwner && pongRoom.canStartGame">
-        <button id="startGameBtn" class="btn btn-primary" aria-label="Start the game">
+    <div class="card-footer" v-if="pongRoom.isOwner && (pongRoom.isLobbyState || pongRoom.isFinishedState)">
+        <button id="startGameBtn" type="button" class="btn btn-primary" aria-label="Start the game"
+            v-bind:disabled="pongRoom.startGameInProgress" v-text="pongRoom.buttonText">
             Start Game
         </button>
     </div>

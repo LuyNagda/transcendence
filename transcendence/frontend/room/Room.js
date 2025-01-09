@@ -1,16 +1,18 @@
 import logger from '../logger.js';
-import { RoomNetworkManager } from './RoomNetworkManager.js';
+import { RoomNetworkManager, RoomErrorCodes } from './RoomNetworkManager.js';
 import { GameRules } from '../pong/core/GameRules.js';
 import { SettingsManager } from '../pong/core/SettingsManager.js';
 import dynamicRender from '../UI/dynamic_render.js';
 import { createPongGameController } from '../pong/PongGameController.js';
 import Store from '../state/store.js';
 import { RoomModes, getMaxPlayersForMode, getDefaultSettingsForMode } from '../state/roomState.js';
+import { UIService } from '../UI/UIService.js';
 
 export class Room {
 	static States = {
 		LOBBY: 'LOBBY',
-		PLAYING: 'PLAYING'
+		PLAYING: 'PLAYING',
+		FINISHED: 'FINISHED'
 	};
 
 	static Modes = RoomModes;
@@ -75,7 +77,11 @@ export class Room {
 		this._settings = {
 			...getDefaultSettingsForMode(this._mode),
 			...(room?.settings || {}),
-			mode: this._mode  // Always ensure mode is set correctly
+			mode: this._mode,  // Always ensure mode is set correctly
+			paddleSpeed: parseInt(room?.settings?.paddleSpeed) || 5,
+			ballSpeed: parseInt(room?.settings?.ballSpeed) || 5,
+			paddleSize: parseInt(room?.settings?.paddleSize) || 5,
+			maxScore: parseInt(room?.settings?.maxScore) || 11
 		};
 		this._maxPlayers = Room.getMaxPlayersForMode(this._mode);
 
@@ -88,6 +94,7 @@ export class Room {
 		this._pongGame = null;
 		this._useWebGL = false;
 		this._aiDifficulty = this._settings.aiDifficulty || 'MEDIUM';
+		this._startGameInProgress = false;
 
 		// Initialize settings manager
 		this._initializeSettingsManager();
@@ -98,10 +105,10 @@ export class Room {
 		this._initializeEventListeners();
 		this._initializeStoreSubscription();
 
-		// Initialize dynamic render for this room
-		dynamicRender.addObservedObject('pongRoom', {
-			...this._getPublicState()
-		});
+		this._loadAvailableAIModels();
+
+		// Initialize dynamic render for this room - only need to do this once
+		dynamicRender.addObservedObject('pongRoom', this._getPublicState());
 
 		logger.info(`Room instance created for room ${roomId}`, {
 			currentUser: this._currentUser,
@@ -119,7 +126,6 @@ export class Room {
 			const value = parseAsInt ? parseInt(element.value) : element.value;
 			this._settings[setting] = value;
 			this.updateSetting(setting, value);
-			dynamicRender.scheduleUpdate();
 		};
 	}
 
@@ -136,11 +142,13 @@ export class Room {
 
 		// Subscribe to user state changes
 		this._unsubscribeUser = this._store.subscribe('user', (userState) => {
+			// Update current user
 			this._currentUser = {
 				id: userState.id,
 				username: userState.username
 			};
-			// Update UI if needed
+
+			// Update UI with new user data
 			dynamicRender.addObservedObject('pongRoom', {
 				...this._getPublicState()
 			});
@@ -148,34 +156,141 @@ export class Room {
 		});
 	}
 
+	_getUserFromStore(userId) {
+		const userState = this._store.getState('user');
+		return userState.users[userId];
+	}
+
+	_processUserData(userId, fallbackUsername = null) {
+		if (!userId) return null;
+
+		// Get user from store
+		const storeUser = this._getUserFromStore(userId);
+
+		if (storeUser?.username) {
+			return {
+				id: userId,
+				username: storeUser.username
+			};
+		}
+
+		// If we have a fallback username, use it
+		if (fallbackUsername) {
+			return {
+				id: userId,
+				username: fallbackUsername
+			};
+		}
+
+		// If it's the current user, use that data
+		if (this._currentUser && this._currentUser.id === userId) {
+			return {
+				id: userId,
+				username: this._currentUser.username
+			};
+		}
+
+		return {
+			id: userId,
+			username: `User ${userId}`
+		};
+	}
+
+	async _refreshUserData(userId) {
+		try {
+			const response = await fetch(`/chat/users/${userId}/`, {
+				method: 'GET',
+				headers: {
+					'Content-Type': 'application/json',
+				}
+			});
+
+			if (!response.ok) {
+				throw new Error('Failed to fetch user data');
+			}
+
+			const userData = await response.json();
+
+			// Update store with fetched data
+			this._store.dispatch({
+				domain: 'user',
+				type: 'UPDATE_USER',
+				payload: {
+					id: userData.id,
+					username: userData.username,
+					status: userData.online ? 'online' : 'offline',
+					blocked: userData.blocked || false
+				}
+			});
+		} catch (error) {
+			logger.error('Error fetching user data:', error);
+		}
+	}
+
+	_processRoomState(roomState) {
+		if (!roomState) return null;
+
+		// Process mode and settings first
+		const mode = roomState.mode || this._mode || RoomModes.AI;
+		const settings = {
+			...getDefaultSettingsForMode(mode),
+			...(roomState.settings || {}),
+			mode  // Ensure mode is set in settings
+		};
+
+		// Process owner - preserve server data
+		const owner = roomState.owner ? {
+			id: roomState.owner.id,
+			username: roomState.owner.username
+		} : this._owner;
+
+		// Process players - preserve server data
+		const players = Array.isArray(roomState.players) ?
+			roomState.players.map(player => {
+				if (player && typeof player === 'object') {
+					return {
+						id: player.id,
+						username: player.username
+					};
+				}
+				return this._processUserData(player);
+			}) : [];
+
+		return {
+			...roomState,
+			mode,
+			owner,
+			players,
+			members: players,  // Keep members in sync with players
+			settings,
+			maxPlayers: roomState.maxPlayers || Room.getMaxPlayersForMode(mode)
+		};
+	}
+
 	_handleStoreUpdate(roomData) {
 		// Only update if the data has actually changed
-		if (this._lastUpdateHash === JSON.stringify(roomData)) {
+		if (this._lastUpdateHash === JSON.stringify(roomData))
 			return;
-		}
 		this._lastUpdateHash = JSON.stringify(roomData);
 
-		// Don't override mode if we're in the middle of a mode change
-		const mode = this._modeUpdateInProgress ? this._mode : (roomData.mode || this._mode || RoomModes.AI);
+		// For store updates, preserve existing server data where possible
+		const processedState = this._processRoomState({
+			...this._getPublicState(), // Keep existing state
+			mode: this._modeUpdateInProgress ? this._mode : (roomData.mode || this._mode || RoomModes.AI),
+			settings: roomData.settings,
+			status: roomData.status
+		});
 
-		// Update local state from store
+		// Update local state
 		const updates = {
-			_mode: mode,
-			_state: roomData.status === 'game_in_progress' ? Room.States.PLAYING : Room.States.LOBBY,
-			_owner: roomData.createdBy ? { id: roomData.createdBy, username: roomData.createdBy } : this._owner,
-			_players: roomData.members || [],
-			_settings: {
-				...getDefaultSettingsForMode(mode),
-				...this._settings,
-				...(roomData.settings || {}),
-				mode: mode  // Ensure mode is set in settings
-			},
-			_maxPlayers: Room.getMaxPlayersForMode(mode)
+			_mode: processedState.mode,
+			_state: processedState.status === 'game_in_progress' ? Room.States.PLAYING : Room.States.LOBBY,
+			_settings: processedState.settings,
+			_maxPlayers: processedState.maxPlayers
 		};
 
 		let hasChanged = false;
 		Object.entries(updates).forEach(([key, value]) => {
-			// Skip mode update if we're in the middle of a mode change
 			if (this._modeUpdateInProgress && key === '_mode') {
 				return;
 			}
@@ -451,51 +566,74 @@ export class Room {
 
 	// WebSocket event handlers
 	_handleWebSocketMessage(data) {
-		logger.debug("WebSocket message received:", data);
-		if (data.type === "room_update") {
-			// Skip state update if we're in the middle of a mode change
-			if (!this._modeUpdateInProgress) {
-				if (data.room_state.settings) {
-					logger.debug("Received settings in room update:", data.room_state.settings);
-				}
-				this.updateFromState(data.room_state);
+		logger.info(`[Room ${this._roomId}] WebSocket message received:`, {
+			message: data,
+			currentRoomState: {
+				mode: this._mode,
+				players: this._players,
+				maxPlayers: this._maxPlayers,
+				state: this._state
 			}
-		} else if (data.type === 'game_started') {
+		});
+
+		if (data.type === "room_update" && !this._modeUpdateInProgress && data.room_state) {
+			const processedState = this._processRoomState(data.room_state);
+			logger.debug("Processing room state update:", processedState);
+			this.updateFromState(processedState);
+		}
+		else if (data.type === 'game_started') {
 			this._handleGameStarted(data).catch(error => {
 				logger.error("Error handling game start:", error);
 				this._handleGameStartFailure();
 			});
-		} else if (data.type === 'settings_update') {
+		}
+		else if (data.type === 'settings_update') {
 			logger.debug("Received settings update:", data);
 			this._handleSettingsUpdate(data);
-		} else if (data.type === 'mode_change') {
-			// Only process mode change if it's not initiated by us
-			if (!this._modeUpdateInProgress) {
-				const newSettings = {
-					...this._settings,
-					mode: data.mode,
-					...data.settings
-				};
-				this._mode = data.mode;
-				this._maxPlayers = Room.getMaxPlayersForMode(data.mode);
-				this._settings = newSettings;
-
-				dynamicRender.addObservedObject('pongRoom', {
-					...this._getPublicState()
-				});
-				dynamicRender.scheduleUpdate();
-
-				logger.info(`Mode changed to: ${data.mode}`);
-			}
 		}
+		else if (data.type === 'mode_change' && !this._modeUpdateInProgress) {
+			const processedState = this._processRoomState({
+				...this._getPublicState(),
+				mode: data.mode,
+				settings: {
+					...this._settings,
+					...data.settings,
+					mode: data.mode
+				}
+			});
+
+			this._mode = processedState.mode;
+			this._maxPlayers = processedState.maxPlayers;
+			this._settings = processedState.settings;
+
+			dynamicRender.addObservedObject('pongRoom', {
+				...this._getPublicState()
+			});
+			dynamicRender.scheduleUpdate();
+
+			logger.info(`Mode changed to: ${data.mode}`);
+		}
+
+		logger.info(`[Room ${this._roomId}] Room state after WS message:`, {
+			mode: this._mode,
+			players: this._players,
+			maxPlayers: this._maxPlayers,
+			state: this._state
+		});
 	}
 
-	async _handleGameStarted(data) {
-		logger.info("Game started event received", data);
+	_handleGameStarted(data) {
+		logger.info(`[Room ${this._roomId}] Game started event:`, {
+			data,
+			currentMode: this._mode,
+			currentSettings: this._settings,
+			players: this._players,
+			maxPlayers: this._maxPlayers
+		});
 		const isHost = this._currentUser.id === data.player1_id;
 
 		try {
-			await this._initializeAndStartGame(data.game_id, isHost);
+			this._initializeAndStartGame(data.game_id, isHost);
 
 			// Update store with game started status
 			this._store.dispatch({
@@ -506,6 +644,11 @@ export class Room {
 					status: 'game_in_progress'
 				}
 			});
+
+			// Update state to PLAYING and loading state
+			this._state = Room.States.PLAYING;
+			this._startGameInProgress = false;
+
 		} catch (error) {
 			logger.error("Failed to start game:", error);
 			this._handleGameStartFailure();
@@ -513,40 +656,90 @@ export class Room {
 		}
 	}
 
+	_handleGameComplete(scores) {
+		// Update state to FINISHED
+		this._state = Room.States.FINISHED;
+		this._startGameInProgress = false;
+
+		// Clean up game instance
+		if (this._pongGame) {
+			// The game instance will clean up its own WebSocket connection
+			this._pongGame.destroy();
+			this._pongGame = null;
+		}
+
+		// Update store with room finished status
+		this._store.dispatch({
+			domain: 'room',
+			type: 'UPDATE_ROOM_STATUS',
+			payload: {
+				roomId: this._roomId,
+				status: 'finished'
+			}
+		});
+
+		// Clear game container to prepare for new game
+		const gameContainer = document.querySelector('#game-container');
+		if (gameContainer) {
+			gameContainer.innerHTML = '<div class="text-center p-4"><h4>Game Finished!</h4><p>Start another game when ready.</p></div>';
+		}
+	}
+
 	async _initializeAndStartGame(gameId, isHost) {
 		// Attach game to container first
 		const gameContainer = document.querySelector('#game-container');
 		if (!gameContainer) {
+			UIService.showAlert('error', 'Game container not found');
 			throw new Error("Game container not found");
 		}
 
-		// Clear any existing content
-		gameContainer.innerHTML = '';
-
-		// Create and append the canvas with the correct structure
-		const arcadeCabinet = document.createElement('div');
-		arcadeCabinet.className = 'arcade-cabinet';
-
-		const screen = document.createElement('div');
-		screen.className = 'screen';
-
-		const canvas = document.createElement('canvas');
-		canvas.id = 'game';
-		canvas.width = 858;
-		canvas.height = 525;
-
-		screen.appendChild(canvas);
-		arcadeCabinet.appendChild(screen);
-		gameContainer.appendChild(arcadeCabinet);
-
 		try {
+			// Clear any existing content
+			gameContainer.innerHTML = '';
+
+			// Create and append the canvas with the correct structure
+			const arcadeCabinet = document.createElement('div');
+			arcadeCabinet.className = 'arcade-cabinet';
+
+			const screen = document.createElement('div');
+			screen.className = 'screen';
+
+			const canvas = document.createElement('canvas');
+			canvas.id = 'game';
+			canvas.width = 858;
+			canvas.height = 525;
+
+			screen.appendChild(canvas);
+			arcadeCabinet.appendChild(screen);
+			gameContainer.appendChild(arcadeCabinet);
+
 			// Get the connection from the network manager
 			const connection = this._networkManager._connectionManager.getConnection('room');
+			if (!connection) {
+				throw new Error("Network connection not available");
+			}
 
-			// Create game controller with initial settings
-			const initialSettings = {
+			// Log current settings before validation
+			logger.debug('Current settings before validation:', this._settings);
+
+			// Create game controller with validated settings
+			const validatedSettings = GameRules.validateSettings({
 				...this._settings,
-				isAIMode: this._settings.mode === Room.Modes.AI
+				isAIMode: this._settings.mode === Room.Modes.AI,
+				paddleSpeed: parseInt(this._settings.paddleSpeed) || 5,
+				ballSpeed: parseInt(this._settings.ballSpeed) || 5,
+				paddleSize: parseInt(this._settings.paddleSize) || 5,
+				maxScore: parseInt(this._settings.maxScore) || 11,
+				mode: this._settings.mode
+			});
+
+			// Log validated settings
+			logger.debug('Validated settings:', validatedSettings);
+
+			// Update local settings with validated values
+			this._settings = {
+				...this._settings,
+				...validatedSettings
 			};
 
 			// Create context handlers
@@ -554,18 +747,18 @@ export class Room {
 				onContextLost: (event) => {
 					event.preventDefault();
 					logger.warn('WebGL context lost');
+					UIService.showAlert('error', 'Game graphics context lost. Attempting to restore...');
 					setTimeout(() => this._pongGame?.restoreContext(), 1000);
 				},
 				onContextRestored: () => {
 					logger.info('WebGL context restored');
+					UIService.showAlert('success', 'Game graphics restored successfully');
 					this._pongGame?.reinitialize();
+				},
+				onGameComplete: (scores) => {
+					this._handleGameComplete(scores);
 				}
 			};
-
-			// Destroy existing game instance if it exists
-			if (this._pongGame) {
-				this._pongGame.destroy();
-			}
 
 			// Create new game instance using factory function
 			this._pongGame = createPongGameController(
@@ -573,32 +766,27 @@ export class Room {
 				this._currentUser,
 				isHost,
 				this._useWebGL,
-				initialSettings,
+				validatedSettings,
 				contextHandlers,
 				connection
 			);
 
 			const initialized = await this._pongGame.initialize();
 			if (!initialized) {
+				UIService.showAlert('error', 'Failed to initialize game');
 				throw new Error("Game initialization failed");
 			}
 
-			// Start the game immediately (no need to set AI mode since it's already set)
+			// Start the game immediately
 			const started = await this._pongGame.start();
 			if (!started) {
+				UIService.showAlert('error', 'Failed to start game');
 				throw new Error("Game start failed");
 			}
 
-			// Update state before scheduling render
-			this._state = Room.States.PLAYING;
-
-			// Force immediate render update
-			dynamicRender.addObservedObject('pongRoom', {
-				...this._getPublicState()
-			});
-			dynamicRender.scheduleUpdate();
 		} catch (error) {
 			logger.error("Failed to initialize game:", error);
+			UIService.showAlert('error', `Failed to start game: ${error.message}`);
 			throw error;
 		}
 	}
@@ -609,6 +797,8 @@ export class Room {
 			this._pongGame = null;
 		}
 		this.updateState(Room.States.LOBBY);
+		this._startGameInProgress = false;
+		UIService.showAlert('error', 'Game failed to start. Returning to lobby...');
 
 		// Update store with game failure status
 		this._store.dispatch({
@@ -616,7 +806,7 @@ export class Room {
 			type: 'UPDATE_ROOM_STATUS',
 			payload: {
 				roomId: this._roomId,
-				status: 'active'
+				status: 'finished'
 			}
 		});
 	}
@@ -651,9 +841,68 @@ export class Room {
 
 	// User actions
 	async startGame() {
-		// Prevent multiple start game requests
 		if (this._startGameInProgress) {
-			logger.warn("Game start already in progress");
+			logger.warn('Game start already in progress');
+			return;
+		}
+
+		// Check if game is already in progress
+		if (this._state === Room.States.PLAYING) {
+			logger.warn('Game is already in progress');
+			return;
+		}
+
+		// If we're starting from FINISHED state, we need to clean up first
+		if (this._state === Room.States.FINISHED) {
+			// Clean up any existing game instance
+			if (this._pongGame) {
+				this._pongGame.destroy();
+				this._pongGame = null;
+			}
+
+			try {
+				// Reset room state to LOBBY through network manager
+				await this._networkManager.resetRoomState();
+
+				// Update local state only after confirmed backend update
+				this._state = Room.States.LOBBY;
+				this._store.dispatch({
+					domain: 'room',
+					type: 'UPDATE_ROOM',
+					payload: {
+						id: this._roomId,
+						name: `Room ${this._roomId}`,
+						type: 'game',
+						status: 'active',
+						members: this._players,
+						settings: {
+							...this._settings,
+							maxMembers: this._maxPlayers,
+							allowSpectators: true,
+							isPrivate: false
+						},
+						createdAt: Date.now(),
+						createdBy: this._owner.id.toString()
+					}
+				});
+			} catch (error) {
+				logger.error('Failed to reset room state:', error);
+				if (error.code === RoomErrorCodes.INVALID_STATE) {
+					UIService.showAlert('error', 'Room is not in the correct state. Please try again.');
+				} else if (error.code === RoomErrorCodes.TIMEOUT) {
+					UIService.showAlert('error', 'Operation timed out. Please check your connection and try again.');
+				} else {
+					UIService.showAlert('error', 'Failed to reset room state. Please try again.');
+				}
+				this._startGameInProgress = false;
+				return;
+			}
+		}
+
+		// Ensure we're in LOBBY state before proceeding
+		if (this._state !== Room.States.LOBBY) {
+			logger.error('Cannot start game: Room not in LOBBY state');
+			UIService.showAlert('error', 'Cannot start game: Room not in correct state');
 			return;
 		}
 
@@ -661,43 +910,77 @@ export class Room {
 		const isTournament = this._mode === Room.Modes.TOURNAMENT;
 		const isAIMode = this._mode === Room.Modes.AI;
 
-		// Special handling for different modes
-		if (isTournament) {
-			if (playerCount < 3 || playerCount > this._maxPlayers) {
-				logger.error("Cannot start tournament: needs between 3 and 8 players");
-				return;
-			}
+		// Validate player counts for different modes
+		if (isTournament && (playerCount < 3 || playerCount > this._maxPlayers)) {
+			UIService.showAlert('error', "Tournament mode needs between 3 and 8 players");
+			return;
 		} else if (!isAIMode && playerCount !== this._maxPlayers) {
-			logger.error(`Cannot start game: needs exactly ${this._maxPlayers} players`);
+			UIService.showAlert('error', `Game needs exactly ${this._maxPlayers} players`);
 			return;
 		} else if (isAIMode && playerCount !== 1) {
-			logger.error("Cannot start AI game: needs exactly 1 player");
+			UIService.showAlert('error', "AI game needs exactly 1 player");
 			return;
 		}
 
 		try {
 			this._startGameInProgress = true;
 			this._useWebGL = document.getElementById('webgl-toggle')?.checked || false;
-			this._networkManager.sendMessage('start_game', { id: Date.now() });
-			this._setLoading(true);
 
-			// Dispatch game start status to store
+			// Start game through network manager
+			await this._networkManager.startGame();
+
+			// Update store with game_in_progress status
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM',
+				payload: {
+					id: this._roomId,
+					name: `Room ${this._roomId}`,
+					type: 'game',
+					status: 'game_in_progress',
+					members: this._players,
+					settings: {
+						...this._settings,
+						maxMembers: this._maxPlayers,
+						allowSpectators: true,
+						isPrivate: false
+					},
+					createdAt: Date.now(),
+					createdBy: this._owner.id.toString()
+				}
+			});
+		} catch (error) {
+			logger.error('Error starting game:', error);
+			this._startGameInProgress = false;
+
+			// Handle specific error types
+			switch (error.code) {
+				case RoomErrorCodes.INVALID_STATE:
+					UIService.showAlert('error', 'Room is not in the correct state to start the game.');
+					break;
+				case RoomErrorCodes.TIMEOUT:
+					UIService.showAlert('error', 'Operation timed out. Please check your connection and try again.');
+					break;
+				case RoomErrorCodes.GAME_CREATE_ERROR:
+					UIService.showAlert('error', 'Failed to create game. Please try again.');
+					break;
+				case RoomErrorCodes.CONNECTION_ERROR:
+					UIService.showAlert('error', 'Connection error. Please check your network and try again.');
+					break;
+				default:
+					UIService.showAlert('error', 'Failed to start game: ' + error.message);
+			}
+
+			// Ensure store is back in active state on error
 			this._store.dispatch({
 				domain: 'room',
 				type: 'UPDATE_ROOM_STATUS',
 				payload: {
-					roomId: this._roomId,
-					status: 'game_in_progress'
+					id: this._roomId,
+					status: 'active',
+					members: this._players
 				}
 			});
-		} catch (error) {
-			logger.error('Error sending start game request:', error);
-			this._setLoading(false);
-		} finally {
-			// Clear the flag after a delay to prevent rapid re-clicks
-			setTimeout(() => {
-				this._startGameInProgress = false;
-			}, 2000);
 		}
 	}
 
@@ -775,19 +1058,11 @@ export class Room {
 
 	// UI updates
 	_setLoading(isLoading) {
-		const startButton = document.querySelector('#startGameBtn');
-		if (startButton) {
-			startButton.disabled = isLoading;
-			startButton.textContent = isLoading ? 'Starting...' : 'Start Game';
-		}
+		this._startGameInProgress = isLoading;
 	}
 
 	_setStarted(isStarted) {
-		const startButton = document.querySelector('#startGameBtn');
-		if (startButton) {
-			startButton.disabled = isStarted;
-			startButton.textContent = isStarted ? 'Started' : 'Start Game';
-		}
+		this._startGameInProgress = !isStarted;
 	}
 
 	// Utility methods
@@ -840,8 +1115,8 @@ export class Room {
 		const canStartGame = this._canStartGame();
 		const isOwner = this._owner.id === this._currentUser.id;
 
-		return {
-			mode: this._mode,  // Use _mode directly instead of settings.mode
+		const state = {
+			mode: this._mode,
 			state: this._state,
 			owner: this._owner,
 			players: this._players,
@@ -853,9 +1128,16 @@ export class Room {
 			isOwner: isOwner,
 			settings: {
 				...this._settings,
-				mode: this._mode  // Ensure settings.mode matches the room mode
+				mode: this._mode,
+				maxScore: parseInt(this._settings.maxScore) || 11
 			},
 			gameStarted: this._state === Room.States.PLAYING,
+			startGameInProgress: this._startGameInProgress,
+			// Add computed values for conditions
+			isLobbyState: this._state === Room.States.LOBBY,
+			isFinishedState: this._state === Room.States.FINISHED,
+			buttonText: this._startGameInProgress ? 'Starting...' :
+				(this._state === Room.States.FINISHED ? 'Start a new game' : 'Start Game'),
 			handleSettingChange: (setting, value, parseAsInt) => {
 				if (this._state !== Room.States.PLAYING) {
 					const parsedValue = parseAsInt ? parseInt(value) : value;
@@ -870,9 +1152,9 @@ export class Room {
 				const numericValue = parseInt(value) || 1;
 				let percentage;
 
-				// Special handling for paddleSize which has a range of 1-100
-				if (this._settings && Object.keys(this._settings).includes('paddleSize') && value === this._settings.paddleSize) {
-					percentage = numericValue;  // paddleSize is already in percentage (1-100)
+				// Special handling for paddleSize which has a range of 1-10
+				if (value === this._settings.paddleSize) {
+					percentage = numericValue * 10;  // Convert 1-10 to 10-100%
 				} else {
 					// Other settings use 1-10 range
 					const clampedValue = Math.max(1, Math.min(10, numericValue));
@@ -885,6 +1167,9 @@ export class Room {
 				};
 			}
 		};
+
+		logger.info(`[Room ${this._roomId}] Public state update:`, state);
+		return state;
 	}
 
 	_canStartGame() {
@@ -935,104 +1220,147 @@ export class Room {
 
 		if (!this._settings.hasOwnProperty(setting)) return;
 
-		// Validate the setting value
-		const validatedSettings = GameRules.validateSettings({
-			...this._settings,
-			[setting]: value
-		});
+		try {
+			// Validate the setting value
+			const validatedSettings = GameRules.validateSettings({
+				...this._settings,
+				[setting]: value
+			});
 
-		// Update local settings
-		this._settings[setting] = validatedSettings[setting];
+			// Update local settings
+			this._settings[setting] = validatedSettings[setting];
 
-		// Update game if it exists
-		if (this._pongGame) {
-			this._pongGame.updateSettings({ [setting]: validatedSettings[setting] });
-		}
+			// Log the settings update
+			logger.debug(`Setting ${setting} updated to:`, validatedSettings[setting]);
 
-		// Notify other players through WebSocket
-		this._networkManager.sendMessage('update_property', {
-			property: 'settings',
-			setting: setting,
-			value: validatedSettings[setting]
-		});
-
-		// Update store
-		this._store.dispatch({
-			domain: 'room',
-			type: 'UPDATE_ROOM_SETTINGS',
-			payload: {
-				roomId: this._roomId,
-				settings: {
-					...this._settings
-				}
+			// Update game if it exists
+			if (this._pongGame) {
+				this._pongGame.updateSettings({ [setting]: validatedSettings[setting] });
 			}
-		});
 
-		// Update UI
-		dynamicRender.addObservedObject('pongRoom', {
-			...this._getPublicState()
-		});
-		dynamicRender.scheduleUpdate();
+			// Notify other players through WebSocket
+			this._networkManager.sendMessage('update_property', {
+				property: 'settings',
+				setting: setting,
+				value: validatedSettings[setting]
+			});
+
+			// Update store
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM_SETTINGS',
+				payload: {
+					roomId: this._roomId,
+					settings: {
+						...this._settings
+					}
+				}
+			});
+
+			// Update UI
+			dynamicRender.addObservedObject('pongRoom', {
+				...this._getPublicState()
+			});
+			dynamicRender.scheduleUpdate();
+
+		} catch (error) {
+			logger.error(`Failed to update setting ${setting}:`, error);
+			UIService.showAlert('error', `Failed to update ${setting}: ${error.message}`);
+		}
 	}
 
 	_handleSettingsUpdate(data) {
 		logger.debug('Handling settings update:', data);
-		if (typeof data === 'object' && data !== null) {
-			let hasChanges = false;
+		try {
+			if (typeof data === 'object' && data !== null) {
+				let hasChanges = false;
 
-			// Handle single setting update
-			if (data.setting && data.value !== undefined) {
-				const { setting, value } = data;
-				if (setting in this._settings && !this._modeUpdateInProgress) {
-					this._settings[setting] = ['paddleSpeed', 'ballSpeed', 'paddleSize', 'maxScore'].includes(setting)
-						? parseInt(value)
-						: value;
-					if (this._pongGame) {
-						this._pongGame.updateSettings({ [setting]: this._settings[setting] });
+				// Handle single setting update
+				if (data.setting && data.value !== undefined) {
+					const { setting, value } = data;
+					if (setting in this._settings && !this._modeUpdateInProgress) {
+						this._settings[setting] = ['paddleSpeed', 'ballSpeed', 'paddleSize', 'maxScore'].includes(setting)
+							? parseInt(value)
+							: value;
+						if (this._pongGame) {
+							this._pongGame.updateSettings({ [setting]: this._settings[setting] });
+						}
+						hasChanges = true;
+						logger.debug(`Setting ${setting} updated to:`, this._settings[setting]);
 					}
-					hasChanges = true;
 				}
-			}
-			// Handle full settings object update
-			else if (data.settings || data.value?.settings) {
-				const newSettings = data.settings || data.value.settings;
-				if (!this._modeUpdateInProgress) {
-					Object.entries(newSettings).forEach(([setting, value]) => {
-						if (setting in this._settings) {
-							this._settings[setting] = ['paddleSpeed', 'ballSpeed', 'paddleSize', 'maxScore'].includes(setting)
-								? parseInt(value)
-								: value;
+				// Handle full settings object update
+				else if (data.settings || data.value?.settings) {
+					const newSettings = data.settings || data.value.settings;
+					if (!this._modeUpdateInProgress) {
+						Object.entries(newSettings).forEach(([setting, value]) => {
+							if (setting in this._settings) {
+								this._settings[setting] = ['paddleSpeed', 'ballSpeed', 'paddleSize', 'maxScore'].includes(setting)
+									? parseInt(value)
+									: value;
+							}
+						});
+						if (this._pongGame) {
+							this._pongGame.updateSettings(this._settings);
+						}
+						hasChanges = true;
+					}
+				}
+
+				// Update room state if provided
+				if (data.room_state && !this._modeUpdateInProgress) {
+					this.updateFromState(data.room_state);
+				} else if (hasChanges) {
+					// Force a UI update with current state
+					this._store.dispatch({
+						domain: 'room',
+						type: 'UPDATE_ROOM_SETTINGS',
+						payload: {
+							roomId: this._roomId,
+							settings: this._settings
 						}
 					});
-					if (this._pongGame) {
-						this._pongGame.updateSettings(this._settings);
-					}
-					hasChanges = true;
+
+					// Update UI
+					dynamicRender.addObservedObject('pongRoom', {
+						...this._getPublicState()
+					});
+					dynamicRender.scheduleUpdate();
 				}
 			}
-
-			// Update room state if provided
-			if (data.room_state && !this._modeUpdateInProgress) {
-				this.updateFromState(data.room_state);
-			} else if (hasChanges) {
-				// Force a UI update with current state
-				this._store.dispatch({
-					domain: 'room',
-					type: 'UPDATE_ROOM_SETTINGS',
-					payload: {
-						roomId: this._roomId,
-						settings: this._settings
-					}
-				});
-
-				// Update UI
-				dynamicRender.addObservedObject('pongRoom', {
-					...this._getPublicState()
-				});
-				dynamicRender.scheduleUpdate();
-			}
+		} catch (error) {
+			logger.error('Error handling settings update:', error);
+			UIService.showAlert('error', 'Failed to update game settings');
 		}
 	}
 
 	get settings() { return this._settings; }
+
+	async _loadAvailableAIModels() {
+		try {
+			const response = await fetch('/ai/list-saved-ai');
+			if (!response.ok) {
+				throw new Error('Failed to fetch AI models');
+			}
+			const data = await response.json();
+
+			// Update the select element
+			const select = document.getElementById('aiDifficulty');
+			if (select) {
+				select.innerHTML = data.saved_ai
+					.map(model => `<option value="${model}" ${model === this._settings.aiDifficulty ? 'selected' : ''}>${model}</option>`)
+					.join('');
+			}
+		} catch (error) {
+			logger.error('Error loading AI models:', error);
+			// Fallback to default models if fetch fails
+			const defaultModels = ['Easy', 'Medium', 'Hard'];
+			const select = document.getElementById('aiDifficulty');
+			if (select) {
+				select.innerHTML = defaultModels
+					.map(model => `<option value="${model}" ${model === this._settings.aiDifficulty ? 'selected' : ''}>${model}</option>`)
+					.join('');
+			}
+		}
+	}
 } 

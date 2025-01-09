@@ -46,7 +46,8 @@ export const getMaxPlayersForMode = (mode) => {
 export const RoomStatus = {
 	ACTIVE: 'active',
 	CLOSED: 'closed',
-	GAME_IN_PROGRESS: 'game_in_progress'
+	GAME_IN_PROGRESS: 'game_in_progress',
+	FINISHED: 'finished'
 };
 
 // Default settings based on mode
@@ -74,11 +75,11 @@ export const getDefaultSettingsForMode = (mode) => {
 export const roomStructure = {
 	id: '',
 	name: '',
-	mode: RoomModes.CLASSIC,  // Add mode as a core property
+	mode: RoomModes.AI,
 	type: 'game',
 	status: RoomStatus.ACTIVE,
 	members: [],
-	settings: getDefaultSettingsForMode(RoomModes.CLASSIC),
+	settings: getDefaultSettingsForMode(RoomModes.AI),
 	createdAt: null,
 	createdBy: null
 };
@@ -92,7 +93,7 @@ export const roomValidators = {
 					typeof room.id === 'string' &&
 					typeof room.name === 'string' &&
 					['public', 'private', 'game'].includes(room.type) &&
-					['active', 'closed', 'game_in_progress'].includes(room.status) &&
+					['active', 'closed', 'game_in_progress', 'finished'].includes(room.status) &&
 					Array.isArray(room.members) &&
 					typeof room.settings === 'object' &&
 					typeof room.settings.maxMembers === 'number' &&
@@ -117,14 +118,21 @@ export const roomValidators = {
 // Room state reducers
 export const roomReducers = {
 	[roomActions.CREATE_ROOM]: (state, payload) => {
-		const { id, name, type, createdBy, settings } = payload;
+		const { id, name, type, createdBy, settings = {} } = payload;
+		const mode = settings.mode || RoomModes.AI;
+
 		const newRoom = {
 			...roomStructure,
 			id,
 			name,
 			type,
+			mode,  // Set mode from payload or default
 			members: [createdBy],
-			settings: { ...roomStructure.settings, ...settings },
+			settings: {
+				...getDefaultSettingsForMode(mode),
+				...settings,  // Override with any custom settings
+				mode  // Ensure mode is set in settings
+			},
 			createdAt: Date.now(),
 			createdBy: String(createdBy)
 		};

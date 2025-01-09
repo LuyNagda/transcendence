@@ -145,8 +145,34 @@ export class WebSocketConnection extends BaseConnection {
 		try {
 			this._ws = new WebSocket(url);
 			this._setupHandlers();
+
+			// Return a promise that resolves when the connection is established
+			return new Promise((resolve, reject) => {
+				const connectionTimeout = setTimeout(() => {
+					if (this._ws && this._ws.readyState !== WebSocket.OPEN) {
+						this._ws.close();
+						reject(new Error('WebSocket connection timeout'));
+					}
+				}, 10000); // 10 second connection timeout
+
+				this._ws.onopen = () => {
+					clearTimeout(connectionTimeout);
+					this.state = ConnectionState.CONNECTED;
+					this._reconnectAttempts = 0;
+					this.processQueue();
+					this.emit('open');
+					resolve();
+				};
+
+				this._ws.onerror = (error) => {
+					clearTimeout(connectionTimeout);
+					this._handleError(error);
+					reject(error);
+				};
+			});
 		} catch (error) {
 			this._handleError(error);
+			return Promise.reject(error);
 		}
 	}
 
@@ -155,12 +181,7 @@ export class WebSocketConnection extends BaseConnection {
 	 * @private
 	 */
 	_setupHandlers() {
-		this._ws.onopen = () => {
-			this.state = ConnectionState.CONNECTED;
-			this._reconnectAttempts = 0;
-			this.processQueue();
-			this.emit('open');
-		};
+		// onopen is handled in connect() method
 
 		this._ws.onmessage = (event) => {
 			try {
@@ -192,9 +213,17 @@ export class WebSocketConnection extends BaseConnection {
 			return;
 		}
 
+		// Check WebSocket readiness
+		if (!this._ws || this._ws.readyState !== WebSocket.OPEN) {
+			logger.warn('WebSocket not ready, queueing message');
+			this.queueMessage(data);
+			return;
+		}
+
 		try {
 			this._ws.send(JSON.stringify(data));
 		} catch (error) {
+			logger.error('Error sending WebSocket message:', error);
 			this.queueMessage(data);
 			this._handleError(error);
 		}
@@ -221,7 +250,10 @@ export class WebSocketConnection extends BaseConnection {
 		if (event.code === 1006 && this._reconnectAttempts < this._maxReconnectAttempts) {
 			this._reconnectAttempts++;
 			const delay = Math.min(1000 * Math.pow(2, this._reconnectAttempts - 1), 30000);
+			logger.info(`WebSocket closed abnormally, attempting reconnect in ${delay}ms`);
 			setTimeout(() => this.connect(), delay);
+		} else {
+			logger.warn(`WebSocket closed with code ${event.code}`);
 		}
 	}
 
@@ -528,6 +560,8 @@ export class BaseNetworkManager {
 	constructor() {
 		this._connectionManager = new ConnectionManager();
 		this._messageHandlers = new Map();
+		this._pendingRequests = new Map();
+		this._messageIdCounter = 0;
 		this._isConnected = false;
 	}
 
@@ -566,30 +600,142 @@ export class BaseNetworkManager {
 	}
 
 	/**
-	 * Cleans up connections and handlers
-	 */
-	destroy() {
-		this._isConnected = false;
-		this._messageHandlers.clear();
-		this._connectionManager.disconnectAll();
-	}
-
-	/**
 	 * Handles incoming messages and routes to registered handlers
 	 * @protected
 	 */
 	_handleMessage(data) {
 		try {
 			logger.debug("Received data:", data);
-			const handler = this._messageHandlers.get(data.type);
-			if (handler) {
-				handler(data);
-			} else {
-				logger.warn('No handler found for message type:', data.type);
+
+			const messageType = data.type || data.action;
+			const messageId = data.message_id || data.id;
+
+			// Handle responses to pending requests
+			if (messageId && this._pendingRequests.has(messageId)) {
+				const { resolve, reject, timeout } = this._pendingRequests.get(messageId);
+				clearTimeout(timeout);
+				this._pendingRequests.delete(messageId);
+
+				if (data.status === 'error') {
+					reject(new Error(data.message || 'Request failed'));
+					return;
+				}
+				resolve(data);
+				return; // Don't process as an event if it's a response
+			}
+
+			// Handle regular message handlers
+			if (messageType) {
+				const handler = this._messageHandlers.get(messageType);
+				if (handler) {
+					handler(data);
+				} else {
+					logger.debug(`No handler found for message type: ${messageType}`);
+				}
 			}
 		} catch (error) {
 			logger.error('Error handling message:', error);
 		}
+	}
+
+	/**
+	 * Sends a message and waits for response
+	 * @param {string} type - Message type
+	 * @param {Object} data - Message payload
+	 * @param {Object} options - Additional options (timeout, etc)
+	 * @returns {Promise} Promise that resolves with the response
+	 */
+	async sendRequest(type, data = {}, options = {}) {
+		const messageId = this._generateMessageId();
+		const timeout = options.timeout || (
+			type === 'start_game' || type === 'update_property' ? 15000 : 10000
+		);
+
+		return new Promise((resolve, reject) => {
+			const timeoutHandler = setTimeout(() => {
+				if (this._pendingRequests.has(messageId)) {
+					this._pendingRequests.delete(messageId);
+					reject(new Error(`Request timeout after ${timeout}ms`));
+				}
+			}, timeout);
+
+			// Store the promise handlers
+			this._pendingRequests.set(messageId, {
+				resolve,
+				reject,
+				timeout: timeoutHandler,
+				timestamp: Date.now()
+			});
+
+			const message = {
+				action: type,
+				message_id: messageId,
+				...data
+			};
+
+			const connection = this._getMainConnection();
+			if (!connection?.state.canSend) {
+				clearTimeout(timeoutHandler);
+				this._pendingRequests.delete(messageId);
+				reject(new Error('Connection not available'));
+				return;
+			}
+
+			try {
+				connection.send(message);
+			} catch (error) {
+				clearTimeout(timeoutHandler);
+				this._pendingRequests.delete(messageId);
+				reject(error);
+			}
+		});
+	}
+
+	/**
+	 * Waits for a specific event to occur
+	 * @param {string} eventType - Event type to wait for
+	 * @param {Function} predicate - Optional function to validate the event data
+	 * @param {number} timeout - Timeout in milliseconds
+	 * @returns {Promise} Promise that resolves with the event data
+	 */
+	waitForEvent(eventType, predicate = null, timeout = 5000) {
+		return new Promise((resolve, reject) => {
+			const timeoutId = setTimeout(() => {
+				this.off(eventType, eventHandler);
+				reject(new Error(`Event ${eventType} timeout after ${timeout}ms`));
+			}, timeout);
+
+			const eventHandler = (data) => {
+				if (!predicate || predicate(data)) {
+					clearTimeout(timeoutId);
+					this.off(eventType, eventHandler);
+					resolve(data);
+				}
+			};
+
+			this.on(eventType, eventHandler);
+		});
+	}
+
+	_generateMessageId() {
+		return `${Date.now()}-${this._messageIdCounter++}`;
+	}
+
+	destroy() {
+		// Clear all pending requests
+		this._pendingRequests.forEach(({ timeout }) => clearTimeout(timeout));
+		this._pendingRequests.clear();
+
+		// Clear message handlers
+		this._messageHandlers.clear();
+
+		// Destroy connection manager
+		if (this._connectionManager) {
+			this._connectionManager.destroy();
+			this._connectionManager = null;
+		}
+
+		this._isConnected = false;
 	}
 
 	/**

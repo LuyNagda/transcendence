@@ -49,6 +49,17 @@ export class LocalNetworkManager extends BaseNetworkManager {
 	 */
 	sendGameMessage(message) {
 		try {
+			// If this is a request (has message_id), immediately send back a success response
+			if (message.message_id) {
+				this._handleMessage({
+					type: message.action + '_response',
+					message_id: message.message_id,
+					status: 'success',
+					data: message
+				});
+				return true;
+			}
+
 			const handler = this._messageHandlers.get(message.type);
 			if (handler) {
 				// Process message locally
@@ -83,6 +94,18 @@ export class LocalNetworkManager extends BaseNetworkManager {
 	 */
 	isConnected() {
 		return this._isConnected;
+	}
+
+	/**
+	 * Gets the main connection for this manager
+	 * @protected
+	 */
+	_getMainConnection() {
+		// For local games, we act as our own connection
+		return {
+			state: { name: 'connected', canSend: true },
+			send: (data) => this.sendGameMessage(data)
+		};
 	}
 
 	/**

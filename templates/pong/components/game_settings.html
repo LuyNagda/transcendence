@@ -1,9 +1,6 @@
 {% load static %}
 
 <div id="game-settings" class="card mb-4">
-    <div class="card-header">
-        <h5 class="mb-0">Game Settings</h5>
-    </div>
     <div class="card-body">
         <!-- Settings form for room owner -->
         <form id="settings-form"
@@ -57,23 +54,16 @@
 
             <!-- AI Difficulty (only shown in AI mode) -->
             <div class="mb-3" v-if="pongRoom.mode === 'AI'">
-                <label for="aiDifficulty" class="form-label">AI Difficulty</label>
+                <label for="aiDifficulty" class="form-label">AI Model</label>
                 <select class="form-select" id="aiDifficulty" v-model="pongRoom.settings.aiDifficulty"
                     v-on:input="pongRoom.handleSettingChange('aiDifficulty', $event.target.value, false)">
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
+                    <option value="" disabled selected>Loading models...</option>
                 </select>
             </div>
         </form>
 
         <!-- Read-only settings display -->
         <div v-if="pongRoom.settings && pongRoom.gameStarted">
-            <div class="mb-3">
-                <label class="form-label">Game Mode</label>
-                <p class="mb-0" v-text="pongRoom.mode"></p>
-            </div>
-
             <div class="mb-3">
                 <label class="form-label">Paddle Speed</label>
                 <div class="progress">
@@ -101,14 +91,18 @@
                 </div>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label">Points to Win</label>
-                <p class="mb-0" v-text="pongRoom.settings.maxScore + ' Points'"></p>
-            </div>
+            <div class="d-flex justify-content-between mb-3">
+                <div>
+                    <label class="form-label">Points to Win</label>
+                    <p class="mb-0 fs-5">
+                        <span v-text="pongRoom.settings.maxScore"></span> Points
+                    </p>
+                </div>
 
-            <div class="mb-3" v-if="pongRoom.mode === 'AI'">
-                <label class="form-label">AI Difficulty</label>
-                <p class="mb-0" v-text="pongRoom.settings.aiDifficulty"></p>
+                <div v-if="pongRoom.mode === 'AI'">
+                    <label class="form-label">AI Model</label>
+                    <p class="mb-0 fs-5" v-text="pongRoom.settings.aiDifficulty"></p>
+                </div>
             </div>
         </div>
 

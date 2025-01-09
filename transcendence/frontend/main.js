@@ -12,6 +12,14 @@ import Store, { actions } from './state/store.js';
 
 function initializeChatApp() {
 	try {
+		// Only initialize chat if user is authenticated
+		const store = Store.getInstance();
+		const config = store.getState('config');
+		if (!config.userId) {
+			logger.debug('Skipping ChatApp initialization - user not authenticated');
+			return;
+		}
+
 		new ChatApp();
 		logger.info('ChatApp initialized successfully');
 	} catch (error) {
@@ -70,10 +78,38 @@ window.initializeRoomData = function (roomState) {
 	RoomManager.getInstance().initialize(roomState);
 };
 
+// Add this function to handle authentication state changes
+function handleAuthenticationStateChange(isAuthenticated) {
+	logger.info('Authentication state changed:', { isAuthenticated });
+	if (isAuthenticated) {
+		// Initialize managers and UI
+		dynamicRender.initialize();
+		RoomManager.getInstance();
+
+		// Initialize chat last (after Bootstrap)
+		initializeChatApp();
+		initializeRoom();
+
+		// Set up HTMX event handlers
+		document.addEventListener('htmx:beforeSwap', handleRoomStateUpdate);
+		document.addEventListener('htmx:afterSwap', () => {
+			logger.debug('HTMX afterSwap triggered');
+			dynamicRender.update();
+			initializeBootstrap(); // Reinitialize Bootstrap components
+		});
+
+		// Set up offcanvas specific handler
+		document.addEventListener('show.bs.offcanvas', () => {
+			logger.debug('Offcanvas show event triggered');
+		});
+	}
+}
+
 function initializeApp() {
 	try {
 		// Initialize logger with default settings first
 		logger.initialize(true, 'DEBUG');  // Set temporary debug mode to see initialization issues
+		logger.info('Starting application initialization');
 
 		// Initialize store
 		const store = Store.getInstance();
@@ -81,8 +117,10 @@ function initializeApp() {
 		// Initialize config
 		const configElement = document.getElementById('app-config');
 		if (!configElement) {
-			throw new Error('Configuration element not found');
+			logger.warn('Configuration element not found, waiting for authentication...');
+			return;
 		}
+
 		const config = JSON.parse(configElement.textContent);
 		store.dispatch({
 			domain: 'config',
@@ -90,8 +128,9 @@ function initializeApp() {
 			payload: config
 		});
 
-		// Set the user ID in the user state
-		if (config.userId) {
+		// Set the user ID in the user state if authenticated
+		const isAuthenticated = !!config.userId;
+		if (isAuthenticated) {
 			store.dispatch({
 				domain: 'user',
 				type: 'SET_USER',
@@ -105,25 +144,31 @@ function initializeApp() {
 		const configStore = store.getState('config');
 		logger.initialize(configStore.debug, configStore.logLevel);
 		logger.info('Config loaded:', configStore);
+
+		// Initialize core components that are needed for all pages
 		initializeErrorHandling();
-
-		// Initialize htmx directly
-		htmx.on('htmx:beforeSwap', handleRoomStateUpdate);
-		htmx.on('htmx:afterSwap', () => {
-			dynamicRender.update();
-		});
-
 		initializeHtmxLogging();
 		initializeThemeAndFontSize();
-		initializeBootstrap(); // Initialize all Bootstrap components
-		RoomManager.getInstance();
-		dynamicRender.initialize();
-		initializeChatApp();
-		initializeRoom();
+		initializeBootstrap(); // Initialize all Bootstrap components first
 		initializeThemeButtons();
+
+		// Initialize authenticated components if user is already logged in
+		if (isAuthenticated) {
+			handleAuthenticationStateChange(true);
+		}
+
+		// Set up authentication state change listener
+		store.subscribe('user', (userState) => {
+			const newIsAuthenticated = !!userState.id;
+			if (newIsAuthenticated !== isAuthenticated) {
+				handleAuthenticationStateChange(newIsAuthenticated);
+			}
+		});
+
 		logger.info('Frontend app initialized');
 	} catch (error) {
 		console.error('Failed to initialize application:', error);
+		logger.error('Failed to initialize application:', error);
 	}
 }
 

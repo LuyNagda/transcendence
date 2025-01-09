@@ -1,5 +1,5 @@
 import Store from '../state/store.js';
-import { Modal } from 'bootstrap';
+import { Offcanvas } from '../vendor.js';
 import logger from '../logger.js';
 
 export default class UIHandler {
@@ -8,21 +8,44 @@ export default class UIHandler {
 		this._store = Store.getInstance();
 		this.messageHistory = document.getElementById('message-history');
 		this.chatForm = document.querySelector('#chat-form');
-		this.chatCanvas = document.getElementById('ChatCanvas');
 		this.chatHeading = document.getElementById('chatHeading');
 		this.unreadBadge = document.getElementById('unreadBadge');
 		const navLink = document.querySelector('.nav-link[data-bs-target="#chatCanvas"]');
-		logger.debug('NavLink found:', { navLink: navLink?.outerHTML });
 
 		this.chatIcon = navLink?.querySelector('svg');
-		logger.debug('ChatIcon found:', { chatIcon: this.chatIcon?.outerHTML });
-
 		this.chatBadge = navLink?.querySelector('.chat-badge');
-		logger.debug('ChatBadge found:', { chatBadge: this.chatBadge?.outerHTML });
-
 		this.userList = document.querySelector('.user-list ul');
 
+		// Initialize basic event listeners
 		this.attachEventListeners();
+
+		// Initialize canvas after DOM is fully loaded
+		document.addEventListener('DOMContentLoaded', () => {
+			this.initializeCanvas();
+		});
+	}
+
+	initializeCanvas() {
+		this.chatCanvas = document.getElementById('chatCanvas');
+
+		if (this.chatCanvas) {
+			// Initialize Bootstrap Offcanvas
+			this.offcanvasInstance = new Offcanvas(this.chatCanvas);
+
+			this.chatCanvas.addEventListener('show.bs.offcanvas', () => {
+				logger.debug('Chat offcanvas showing');
+				this.chatApp.setChatModalOpen(true);
+			});
+
+			this.chatCanvas.addEventListener('hide.bs.offcanvas', () => {
+				logger.debug('Chat offcanvas hiding');
+				this.chatApp.setChatModalOpen(false);
+			});
+
+			logger.debug('Chat canvas initialized successfully');
+		} else {
+			logger.error('Chat canvas element not found');
+		}
 	}
 
 	attachEventListeners() {

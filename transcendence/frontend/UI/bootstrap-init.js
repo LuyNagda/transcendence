@@ -1,7 +1,8 @@
 import {
 	Modal,
 	Dropdown,
-	Toast
+	Toast,
+	Offcanvas
 } from '../vendor.js';
 
 import logger from '../logger.js';
@@ -10,6 +11,12 @@ import logger from '../logger.js';
 function initToasts() {
 	const toastElList = document.querySelectorAll('.toast');
 	[...toastElList].map(el => new Toast(el));
+}
+
+// Initialize all offcanvas elements
+function initOffcanvas() {
+	const offcanvasElList = document.querySelectorAll('.offcanvas');
+	[...offcanvasElList].map(el => new Offcanvas(el));
 }
 
 // Utility function to create and show a toast
@@ -86,6 +93,7 @@ function createToastContainer() {
 export function initializeBootstrap() {
 	try {
 		initToasts();
+		initOffcanvas();
 		logger.info('Bootstrap components initialized successfully');
 	} catch (error) {
 		logger.error('Error initializing Bootstrap components:', error);
@@ -96,5 +104,6 @@ export function initializeBootstrap() {
 export {
 	Modal,
 	Dropdown,
-	Toast
+	Toast,
+	Offcanvas
 };

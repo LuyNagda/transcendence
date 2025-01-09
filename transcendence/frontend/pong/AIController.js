@@ -97,12 +97,22 @@ class Activation_SoftMax {
     }
 }
 
+
+/**
+ * AIController class implements a neural network for controlling the AI paddle in Pong.
+ * It uses a 3-layer neural network architecture with ReLU and SoftMax activations.
+ * 
+ * @class AIController
+ */
+
 export class AIController {
-    static instance = null;
-    static initializing = false;
-    static initPromise = null;
+    static #instance = null;
 
     constructor() {
+        if (AIController.#instance) {
+            return AIController.#instance;
+        }
+
         logger.info('Initializing AIController');
         this.layer1 = null;
         this.layer2 = null;
@@ -112,23 +122,23 @@ export class AIController {
         this.activation3 = null;
         this.aiBall = null;
         this.lastBallUpdate = 0;
+
+        AIController.#instance = this;
+    }
+
+    static getInstance() {
+        if (!AIController.#instance) {
+            AIController.#instance = new AIController();
+        }
+        return AIController.#instance;
     }
 
     static async init(difficulty) {
-        if (this.initializing) return this.initPromise;
-        if (this.instance) return this.instance;
-
-        this.initializing = true;
-        this.initPromise = (async () => {
-            try {
-                this.instance = new AIController();
-                await this.instance._initialize(difficulty);
-                return this.instance;
-            } finally {
-                this.initializing = false;
-            }
-        })();
-        return this.initPromise;
+        const instance = AIController.getInstance();
+        if (!instance.layer1) { // Only initialize if not already initialized
+            await instance._initialize(difficulty);
+        }
+        return instance;
     }
 
     async _initialize(difficulty) {
