@@ -331,7 +331,8 @@ def backup_file(filename, nb_generation):
                         break
                     # Save the file with the new name
                     dest_file.write(chunk)
-                    print("Back-up complete: ", new_filename)
+                
+                print("Back-up complete: ", new_filename)
 
     except Exception as e:
         print(f"Save copy error: {e}")
