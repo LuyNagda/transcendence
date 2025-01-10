@@ -102,8 +102,8 @@ class Tournament(models.Model):
         ONGOING = 'ongoing'
         FINISHED = 'finished'
 
-    tournament_id = models.AutoField(unique=True)
-    tournament_status = models.CharField(max_length=10, choices=Status.choices, default=Status.ONGOING)
+    id = models.AutoField(unique=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ONGOING)
     pong_room = models.OneToOneField(PongRoom, on_delete=models.CASCADE, related_name='pong_room')
     pong_game = models.ManyToManyField(PongGame, on_delete=models.CASCADE, related_name='pong_game')
 
