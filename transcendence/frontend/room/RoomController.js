@@ -1,6 +1,6 @@
 import { RoomAPI } from './RoomAPI.js';
 import { UIService } from '../UI/UIService.js';
-import { RoomManager } from './RoomManager.js';
+import { RoomService } from './RoomService.js';
 import logger from '../logger.js';
 import Store from '../state/store.js';
 import { RoomModes, getDefaultSettingsForMode } from '../state/roomState.js';
@@ -65,7 +65,7 @@ export class RoomController {
 			});
 
 			// Initialize room manager with the same data
-			const roomManager = RoomManager.getInstance();
+			const roomManager = RoomService.getInstance();
 			roomManager.initialize(roomPayload);
 
 			// Update URL

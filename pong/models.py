@@ -97,10 +97,10 @@ class PongRoom(models.Model):
             'createdAt': self.created_at.isoformat()
         }
 
-class Tournament(models.Model):
-    class Status(models.TextChoices):
-        ONGOING = 'ongoing'
-        FINISHED = 'finished'
+# class Tournament(models.Model):
+#     class Status(models.TextChoices):
+#         ONGOING = 'ongoing'
+#         FINISHED = 'finished'
 
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100)
@@ -113,8 +113,8 @@ class Tournament(models.Model):
     def __str__(self):
         return f"TOURNAMENT[{self.id}]: {self.name} - {self.status}"
     
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
+#     def save(self, *args, **kwargs):
+#         super().save(*args, **kwargs)
 
     def serialize(self):
         return {

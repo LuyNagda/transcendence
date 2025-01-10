@@ -2,21 +2,21 @@ import { Room } from './Room.js';
 import logger from '../logger.js';
 import Store from '../state/store.js';
 
-export class RoomManager {
+export class RoomService {
 	static #instance = null;
 
 	constructor() {
-		if (RoomManager.#instance) {
-			return RoomManager.#instance;
+		if (RoomService.#instance) {
+			return RoomService.#instance;
 		}
 		this._currentRoom = null;
 		this._store = Store.getInstance();
 		this.#initializeRoomListener();
-		RoomManager.#instance = this;
+		RoomService.#instance = this;
 	}
 
 	static getInstance() {
-		return RoomManager.#instance ?? new RoomManager();
+		return RoomService.#instance ?? new RoomService();
 	}
 
 	/**

@@ -9,8 +9,8 @@
             <div class="mb-3">
                 <label for="paddleSpeed" class="form-label">Paddle Speed</label>
                 <input type="range" class="form-range" id="paddleSpeed" min="1" max="10" step="1"
-                    v-model="pongRoom.settings.paddleSpeed"
-                    v-on:input="pongRoom.handleSettingChange('paddleSpeed', $event.target.value, true)">
+                    data-setting="paddleSpeed" v-model="pongRoom.settings.paddleSpeed"
+                    v-on:input="pongRoom.handleSettingChange">
                 <div class="d-flex justify-content-between">
                     <span>Slow</span>
                     <span>Fast</span>
@@ -20,9 +20,8 @@
             <!-- Ball Speed -->
             <div class="mb-3">
                 <label for="ballSpeed" class="form-label">Ball Speed</label>
-                <input type="range" class="form-range" id="ballSpeed" min="1" max="10" step="1"
-                    v-model="pongRoom.settings.ballSpeed"
-                    v-on:input="pongRoom.handleSettingChange('ballSpeed', $event.target.value, true)">
+                <input type="range" class="form-range" id="ballSpeed" min="1" max="10" step="1" data-setting="ballSpeed"
+                    v-model="pongRoom.settings.ballSpeed" v-on:input="pongRoom.handleSettingChange">
                 <div class="d-flex justify-content-between">
                     <span>Slow</span>
                     <span>Fast</span>
@@ -33,8 +32,8 @@
             <div class="mb-3">
                 <label for="paddleSize" class="form-label">Paddle Size</label>
                 <input type="range" class="form-range" id="paddleSize" min="1" max="10" step="1"
-                    v-model="pongRoom.settings.paddleSize"
-                    v-on:input="pongRoom.handleSettingChange('paddleSize', $event.target.value, true)">
+                    data-setting="paddleSize" v-model="pongRoom.settings.paddleSize"
+                    v-on:input="pongRoom.handleSettingChange">
                 <div class="d-flex justify-content-between">
                     <span>Small</span>
                     <span>Large</span>
@@ -44,8 +43,8 @@
             <!-- Max Score -->
             <div class="mb-3">
                 <label for="maxScore" class="form-label">Points to Win</label>
-                <select class="form-select" id="maxScore" v-model="pongRoom.settings.maxScore"
-                    v-on:input="pongRoom.handleSettingChange('maxScore', $event.target.value, true)">
+                <select class="form-select" id="maxScore" data-setting="maxScore" v-model="pongRoom.settings.maxScore"
+                    v-on:change="pongRoom.handleSettingChange">
                     <option value="5">5 Points</option>
                     <option value="11">11 Points</option>
                     <option value="21">21 Points</option>
@@ -55,8 +54,8 @@
             <!-- AI Difficulty (only shown in AI mode) -->
             <div class="mb-3" v-if="pongRoom.mode === 'AI'">
                 <label for="aiDifficulty" class="form-label">AI Model</label>
-                <select class="form-select" id="aiDifficulty" v-model="pongRoom.settings.aiDifficulty"
-                    v-on:input="pongRoom.handleSettingChange('aiDifficulty', $event.target.value, false)">
+                <select class="form-select" id="aiDifficulty" data-setting="aiDifficulty"
+                    v-model="pongRoom.settings.aiDifficulty" v-on:change="pongRoom.handleSettingChange">
                     <option value="" disabled selected>Loading models...</option>
                 </select>
             </div>

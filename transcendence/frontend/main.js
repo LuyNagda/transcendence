@@ -5,7 +5,7 @@ import { initializeThemeAndFontSize, applyTheme, applyFontSize } from './UI/them
 import { initializeAiManager } from './pong/AiManager.js';
 import ChatApp from './chat/ChatApp.js';
 import dynamicRender from './UI/dynamic_render.js';
-import { RoomManager } from './room/RoomManager.js';
+import { RoomService } from './room/RoomService.js';
 import { RoomController } from './room/RoomController.js';
 import { Room } from './room/Room.js';
 import { initializeBootstrap } from './UI/bootstrap-init.js';
@@ -40,7 +40,7 @@ function initializeRoom() {
 		// Initialize room if present
 		const room = Room.initializeFromDOM();
 		if (room) {
-			RoomManager.getInstance().initialize(room);
+			RoomService.getInstance().initialize(room);
 			logger.info('Room initialized successfully', { roomId: room.roomId });
 		}
 	} catch (error) {
@@ -62,7 +62,7 @@ function handleRoomStateUpdate(event) {
 	try {
 		const roomState = Room.handleHtmxStateUpdate(event.detail.serverResponse);
 		if (roomState) {
-			RoomManager.getInstance().initialize(roomState);
+			RoomService.getInstance().initialize(roomState);
 		}
 	} catch (error) {
 		logger.error("Error processing room state update:", error);
@@ -76,7 +76,7 @@ window.initializeRoomData = function (roomState) {
 		logger.error("Invalid room state:", roomState);
 		return;
 	}
-	RoomManager.getInstance().initialize(roomState);
+	RoomService.getInstance().initialize(roomState);
 };
 
 // Add this function to handle authentication state changes
@@ -85,7 +85,7 @@ function handleAuthenticationStateChange(isAuthenticated) {
 	if (isAuthenticated) {
 		// Initialize managers and UI
 		dynamicRender.initialize();
-		RoomManager.getInstance();
+		RoomService.getInstance();
 
 		// Initialize chat last (after Bootstrap)
 		initializeChatApp();

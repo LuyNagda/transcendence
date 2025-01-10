@@ -154,11 +154,11 @@ export class Room {
 
 	async updateSetting(setting, value) {
 		try {
-			await this._networkManager.sendMessage('update_property', {
+			this._networkManager.sendMessage('update_property', {
 				property: 'settings',
 				setting: setting,
 				value: value
-			});
+			}, { requireResponse: false });
 		} catch (error) {
 			logger.error(`Failed to update ${setting}:`, error);
 			UIService.showAlert('error', `Failed to update ${setting}`);
