@@ -96,3 +96,26 @@ class PongRoom(models.Model):
             'maxPlayers': self.max_players,
             'createdAt': self.created_at.isoformat()
         }
+
+class Tournament(models.Model):
+    class Status(models.TextChoices):
+        ONGOING = 'ongoing'
+        FINISHED = 'finished'
+
+    tournament_id = models.CharField(max_length=10, unique=True)
+    tournament_status = models.CharField(max_length=10, choices=Status.choices, default=Status.ONGOING)
+    pong_room = models.OneToOneField(PongRoom, on_delete=models.CASCADE, related_name='pong_room')
+    pong_game = models.OneToOneField(PongGame, on_delete=models.CASCADE, related_name='pong_game')
+
+    def __str__(self):
+        return f"TOURNAMENT[{self.tournament_id}]: {self.status}"
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+    def serialize(self):
+        return {
+            'id': self.tournament_id,
+            'room': self.pong_room.serialize(),
+            'game': self.pong_game.get_state()
+        }
