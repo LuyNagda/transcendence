@@ -117,4 +117,14 @@ export class LocalNetworkManager extends BaseNetworkManager {
 		this._messageHandlers.clear();
 		logger.info('Local game manager destroyed');
 	}
+
+	/**
+	 * Resets room state for local/AI games
+	 * @returns {Promise<void>}
+	 */
+	async resetRoomState() {
+		logger.info('Resetting local room state');
+		// For AI games, we can resolve immediately as there's no network state to reset
+		return Promise.resolve();
+	}
 }

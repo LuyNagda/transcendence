@@ -355,48 +355,67 @@ export class RoomNetworkManager extends BaseNetworkManager {
 	}
 
 	/**
-	 * Resets room state with retry logic
+	 * Gets current room state through WebSocket
+	 * @returns {Promise<Object>} Current room state
+	 */
+	async getCurrentState() {
+		try {
+			const response = await this.sendMessage('get_state', {}, { timeout: 5000 });
+			if (response?.status === 'error') {
+				throw new RoomError(
+					response.message || 'Failed to get room state',
+					RoomErrorCodes.CONNECTION_ERROR,
+					true
+				);
+			}
+			return response.room_state;
+		} catch (error) {
+			throw new RoomError(
+				`Failed to get room state: ${error.message}`,
+				RoomErrorCodes.CONNECTION_ERROR,
+				true
+			);
+		}
+	}
+
+	/**
+	 * Resets room state with retry logic using WebSocket
 	 * @returns {Promise<void>}
 	 */
 	async resetRoomState() {
 		const maxRetries = 3;
 		let retryCount = 0;
 
-		while (retryCount < maxRetries) {
+		while (true) {
 			try {
-				// First update backend and wait for response
+				// Check current state first
+				const currentState = await this.getCurrentState();
+				if (currentState.state === 'LOBBY') {
+					logger.info('Room already in LOBBY state, skipping reset');
+					return;
+				}
+
+				// Send reset request through WebSocket
 				const response = await this.sendMessage('update_property', {
 					property: 'state',
 					value: 'LOBBY'
-				}, { timeout: 15000 });
+				}, { timeout: 5000 });
 
-				// Check for error response
 				if (response?.status === 'error') {
-					const errorMapping = mapErrorMessage(response.message);
-					if (errorMapping) {
-						throw new RoomError(
-							response.message || 'Failed to update room state',
-							errorMapping.code,
-							errorMapping.retryable
-						);
-					}
-				}
-
-				if (!response || response.status !== 'success') {
 					throw new RoomError(
-						response?.message || 'Failed to update room state',
-						RoomErrorCodes.INVALID_RESPONSE,
+						response.message || 'Failed to reset room state',
+						RoomErrorCodes.CONNECTION_ERROR,
 						true
 					);
 				}
 
-				// Wait for room state to be updated to LOBBY
+				// Wait for state to be updated to LOBBY
 				await this.waitForRoomState(
-					roomState => roomState.state === 'LOBBY',
-					15000
+					state => state.state === 'LOBBY',
+					5000
 				);
+				return;
 
-				return; // Success, exit the retry loop
 			} catch (error) {
 				// Don't retry if error is explicitly marked as non-retryable
 				if (error instanceof RoomError && !error.isRetryable) {
@@ -405,9 +424,6 @@ export class RoomNetworkManager extends BaseNetworkManager {
 
 				retryCount++;
 				if (retryCount >= maxRetries) {
-					if (error instanceof RoomError) {
-						throw error;
-					}
 					throw new RoomError(
 						`Failed to reset room state after ${maxRetries} attempts: ${error.message}`,
 						RoomErrorCodes.CONNECTION_ERROR,
@@ -437,6 +453,10 @@ export class RoomNetworkManager extends BaseNetworkManager {
 				// Check for error response
 				if (response?.status === 'error') {
 					const errorMapping = mapErrorMessage(response.message);
+					// If the error indicates the game is already in progress, consider it a success
+					if (response.message?.includes('not in LOBBY state')) {
+						return;
+					}
 					if (errorMapping) {
 						throw new RoomError(
 							response.message || 'Failed to start game',
@@ -460,8 +480,24 @@ export class RoomNetworkManager extends BaseNetworkManager {
 					);
 				}
 
-				// Wait for game_started event
-				await this.waitForEvent('game_started', null, 15000);
+				// Wait for game_started event with a shorter timeout
+				try {
+					await this.waitForEvent('game_started', null, 5000);
+				} catch (error) {
+					// If we timeout waiting for game_started but had a success response,
+					// check if the game is already in progress
+					const roomState = await this.waitForRoomState(
+						state => state.state === 'PLAYING',
+						5000
+					).catch(() => null);
+
+					if (roomState) {
+						// Game is already in progress, consider it a success
+						return;
+					}
+					// If we can't confirm the game state, throw the original error
+					throw error;
+				}
 				return; // Success, exit the retry loop
 			} catch (error) {
 				lastError = error;

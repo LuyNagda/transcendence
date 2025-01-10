@@ -5,6 +5,7 @@ export const roomActions = {
 	CREATE_ROOM: 'CREATE_ROOM',
 	JOIN_ROOM: 'JOIN_ROOM',
 	LEAVE_ROOM: 'LEAVE_ROOM',
+	UPDATE_ROOM: 'UPDATE_ROOM',
 	UPDATE_ROOM_SETTINGS: 'UPDATE_ROOM_SETTINGS',
 	UPDATE_MEMBERS: 'UPDATE_MEMBERS',
 	UPDATE_ROOM_STATUS: 'UPDATE_ROOM_STATUS',
@@ -279,6 +280,26 @@ export const roomReducers = {
 						...room.settings,
 						...settings,
 						mode  // Ensure mode is set in settings
+					}
+				}
+			},
+			lastUpdate: Date.now()
+		};
+	},
+
+	[roomActions.UPDATE_ROOM]: (state, payload) => {
+		const { id, ...roomData } = payload;
+		return {
+			...state,
+			rooms: {
+				...state.rooms,
+				[id]: {
+					...state.rooms[id],
+					...roomData,
+					settings: {
+						...(state.rooms[id]?.settings || {}),
+						...(roomData.settings || {}),
+						mode: roomData.mode || state.rooms[id]?.mode
 					}
 				}
 			},

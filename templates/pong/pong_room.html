@@ -17,16 +17,10 @@
         </div>
         <div class="col-md-8">
             <div id="dynamic-content">
-                <div v-if="pongRoom.state === 'LOBBY'">
-                    <div id="mode-selection-container" class="mb-4">
-                        {% include "pong/components/mode_selection.html" %}
-                    </div>
-                    <p>Waiting for the game to start...</p>
+                <div id="mode-selection-container" class="mb-4" v-if="pongRoom.state === 'LOBBY'">
+                    {% include "pong/components/mode_selection.html" %}
                 </div>
-                <div v-if="pongRoom.state === 'PLAYING'">
-                    {% include "pong/components/game.html" %}
-                </div>
-                <br><br>
+                {% include "pong/components/game.html" %}
             </div>
         </div>
     </div>

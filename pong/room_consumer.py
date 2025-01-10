@@ -93,7 +93,15 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 'user_id': self.user.id
             })
 
-            if action == 'update_property':
+            if action == 'get_state':
+                # Get current room state and send it back
+                room_state = await self.get_room_state()
+                response = {
+                    'id': message_id,
+                    'status': 'success',
+                    'room_state': room_state
+                }
+            elif action == 'update_property':
                 property = data.get('property')
                 value = data.get('value')
                 logger.info(f"Updating property: {property} with value: {value}")
@@ -125,6 +133,25 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                                 response = {'id': message_id, 'status': 'success', 'message': 'Mode updated'}
                             else:
                                 response = {'id': message_id, 'status': 'error', 'message': 'Failed to update mode'}
+                elif property == 'state':
+                    # Validate state transition
+                    current_state = self.room.state
+                    if value not in dict(PongRoom.State.choices):
+                        response = {'id': message_id, 'status': 'error', 'message': f'Invalid state: {value}'}
+                    elif current_state == value:
+                        # If already in target state, consider it success
+                        response = {'id': message_id, 'status': 'success', 'message': f'Already in state {value}'}
+                    elif current_state == 'PLAYING' and value == 'LOBBY':
+                        # Special handling for game completion
+                        success = await self.update_room_property('state', value)
+                        if success:
+                            # Notify all clients about state change
+                            await self.update_room()
+                            response = {'id': message_id, 'status': 'success', 'message': 'State updated to LOBBY'}
+                        else:
+                            response = {'id': message_id, 'status': 'error', 'message': 'Failed to update state'}
+                    else:
+                        response = {'id': message_id, 'status': 'error', 'message': f'Invalid state transition from {current_state} to {value}'}
                 else:
                     success = await self.update_room_property(property, value)
                     if success:
@@ -158,25 +185,29 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 else:
                     response = {'id': message_id, 'status': 'error', 'message': 'Failed to change mode'}
             elif action == 'start_game':
-                game = await self.create_game()
-                if game:
-                    # Notifier tous les joueurs que la partie commence
-                    event_data = {
-                        'type': 'game_started',
-                        'game_id': game.id,
-                        'player1_id': game.player1.id,
-                        'is_ai_game': game.player2_is_ai
-                    }
-                    if game.player2:
-                        event_data['player2_id'] = game.player2.id
-                    
-                    await self.channel_layer.group_send(
-                        self.room_group_name,
-                        event_data
-                    )
-                    response = {'id': data.get('id'), 'status': 'success', 'game_id': game.id}
+                # Check if room is in LOBBY state
+                if self.room.state != 'LOBBY':
+                    response = {'id': message_id, 'status': 'error', 'message': 'Room not in LOBBY state'}
                 else:
-                    response = {'id': data.get('id'), 'status': 'error', 'message': 'Failed to create game'}
+                    game = await self.create_game()
+                    if game:
+                        # Notify all players that the game is starting
+                        event_data = {
+                            'type': 'game_started',
+                            'game_id': game.id,
+                            'player1_id': game.player1.id,
+                            'is_ai_game': game.player2_is_ai
+                        }
+                        if game.player2:
+                            event_data['player2_id'] = game.player2.id
+                        
+                        await self.channel_layer.group_send(
+                            self.room_group_name,
+                            event_data
+                        )
+                        response = {'id': message_id, 'status': 'success', 'game_id': game.id}
+                    else:
+                        response = {'id': message_id, 'status': 'error', 'message': 'Failed to create game'}
             else:
                 logger.warning(f"Unknown action received: {action}")
                 response = {'id': message_id, 'status': 'error', 'message': f'Unknown action: {action}'}

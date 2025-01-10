@@ -28,6 +28,8 @@ class BasePongGameController {
 		this._isAIMode = this._settings.isAIMode;
 		this._aiController = null;
 		this._store = Store.getInstance();
+		this._handlers = { ...contextHandlers };
+		this._stateResetInProgress = false;
 
 		logger.info('Initializing game controller with settings:', this._settings);
 
@@ -49,9 +51,9 @@ class BasePongGameController {
 				});
 		}
 
-		// Subscribe to physics state changes
+		// Subscribe to physics state changes with debounced game completion
 		this._physics.subscribe({
-			onStateChange: (newState) => {
+			onStateChange: async (newState, oldState) => {
 				// Update global store with game state
 				this._store.dispatch({
 					domain: 'game',
@@ -69,6 +71,18 @@ class BasePongGameController {
 							player2: newState.scores.right
 						}
 					});
+				}
+
+				// Handle game completion
+				if (newState.gameStatus === 'finished' && oldState.gameStatus !== 'finished') {
+					if (!this._stateResetInProgress) {
+						this._stateResetInProgress = true;
+						try {
+							await this._handleGameComplete(newState.scores);
+						} finally {
+							this._stateResetInProgress = false;
+						}
+					}
 				}
 			}
 		});
@@ -276,16 +290,15 @@ class BasePongGameController {
 	}
 
 	destroy() {
+		if (this._gameEngine) {
+			this._gameEngine.stop();
+		}
 		if (this._networkManager) {
 			this._networkManager.destroy();
 		}
-		if (this._gameEngine) {
-			this._gameEngine.destroy();
-		}
-		if (this._inputHandler) {
-			this._inputHandler.destroy();
-		}
 		this._initialized = false;
+		this._gameEngine = null;
+		this._networkManager = null;
 	}
 
 	updateSettings(settings) {
@@ -396,64 +409,36 @@ class BasePongGameController {
 	}
 
 	async _handleGameComplete(scores) {
-		logger.info('Game completed with scores:', scores);
+		logger.info('Game finished - Final scores:', scores);
 
-		// Set game finished flag first to prevent reconnection attempts
-		this._gameFinished = true;
+		if (this._gameEngine) {
+			this._gameEngine.stop(); // Stop the game engine first
+		}
 
-		// Stop game engine and disable input
-		this._gameEngine.stop();
-		this._inputHandler.disable();
-
-		// Update game state to finished
-		this._physics.updateState({ gameStatus: 'finished' });
-
-		// Update store with final game state
-		this._store.dispatch({
-			domain: 'game',
-			type: 'UPDATE_STATUS',
-			payload: 'finished'
-		});
-
-		this._store.dispatch({
-			domain: 'game',
-			type: 'UPDATE_SCORE',
-			payload: {
-				player1: scores.left,
-				player2: scores.right
+		try {
+			// First reset room state
+			if (this._networkManager) {
+				try {
+					await this._networkManager.resetRoomState();
+				} catch (error) {
+					logger.error('Failed to reset room state:', error);
+					// Continue to try notifying handlers even if reset fails
+				}
 			}
-		});
 
-		// Send final scores and wait a moment for it to be delivered
-		if (this._networkManager && this._networkManager.isConnected()) {
-			try {
-				this._networkManager.sendGameMessage({
-					type: 'game_complete',
-					scores: scores
-				});
-
-				// Give time for the final message to be sent
-				await new Promise(resolve => setTimeout(resolve, 500));
-			} catch (error) {
-				logger.error('Error sending game completion messages:', error);
+			// Then notify any listeners about game completion
+			if (this._handlers?.onGameComplete) {
+				await this._handlers.onGameComplete(scores);
+			} else {
+				logger.warn('No game completion handler registered');
 			}
-		}
-
-		// Clean up network manager first
-		if (this._networkManager) {
-			this._networkManager.destroy();
-			this._networkManager = null;
-		}
-
-		// Clear sync interval if it exists
-		if (this._syncInterval) {
-			clearInterval(this._syncInterval);
-			this._syncInterval = null;
-		}
-
-		// Notify context handlers
-		if (this._contextHandlers?.onGameComplete) {
-			this._contextHandlers.onGameComplete(scores);
+		} catch (error) {
+			logger.error('Error handling game completion:', error);
+		} finally {
+			// Ensure game engine is stopped
+			if (this._gameEngine) {
+				this._gameEngine.stop();
+			}
 		}
 	}
 
@@ -496,6 +481,16 @@ class BasePongGameController {
 				}
 			});
 		}
+	}
+
+	stop() {
+		return new Promise((resolve) => {
+			if (this._gameEngine) {
+				this._gameEngine.stop();
+			}
+			// Give a small delay for any pending operations to complete
+			setTimeout(resolve, 100);
+		});
 	}
 }
 
