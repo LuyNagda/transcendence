@@ -108,7 +108,7 @@ class Tournament(models.Model):
     pong_game = models.ManyToManyField(PongGame, on_delete=models.CASCADE, related_name='pong_game')
 
     def __str__(self):
-        return f"TOURNAMENT[{self.tournament_id}]: {self.status}"
+        return f"TOURNAMENT[{self.id}]: {self.status}"
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
