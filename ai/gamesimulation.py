@@ -161,8 +161,8 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         y = gameconfig.HEIGHT / 2,
         size = gameconfig.BALL_SIZE
     )
-    ball_dx = gameconfig.BALL_SPEED
-    ball_dy = 0
+    ball_dx = gameconfig.BALL_SPEED * random.choice([-1, 1])
+    ball_dy = random.uniform(-2, 2)
 
     # Update AI's target position
     ai_ball = AI_ball(ball, 0, 0, 0)
