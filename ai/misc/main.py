@@ -14,10 +14,10 @@ def main():
     save_file = sys.argv[1]
 
     training_params = {
-        'nb_generation': 100,
-        'nb_species': 50,
-        'time_limit': 120,
-        'max_score': 5000
+        'nb_generation': 1000000000000,
+        'nb_species': 100,
+        'time_limit': 480,
+        'max_score': 2500
     }
 
     train_ai(save_file, training_params)
