@@ -123,6 +123,10 @@ class Ball:
 
 def reset_ball(ball):
     ball.center = (gameconfig.WIDTH//2, gameconfig.HEIGHT//2)
+    ball_dx = gameconfig.BALL_SPEED * random.choice([-1, 1])
+    ball_dy = random.uniform(-2, 2)
+
+    return ball_dx, ball_dy
 
 def collides(ball, paddle):
     if ball.bottom > paddle.top and ball.top < paddle.bottom and ball.left < paddle.right and ball.right > paddle.left:
@@ -142,9 +146,6 @@ def updateBallAngle(ball, ball_dy, paddle):
     ball_dy = gameconfig.BALL_SPEED * -math.sin(bounceAngle)
 
     return ball_dy
-
-def generate_random_number(low, high):
-    return random.randint(low, high)
 
 def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     # Initialize game objects
@@ -217,7 +218,7 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
             ball_dx *= -1
             ball.left = 50
             if j == 0:
-                ball_dy = gameconfig.BALL_SPEED * -math.sin(generate_random_number(-75, 75))
+                ball_dy = random.uniform(-2, 2)
                 j = 42
             else:
                 ball_dy = 0
@@ -233,7 +234,7 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         # Ball out of bounds
         if ball.right >= gameconfig.WIDTH:
             left_score += 1
-            reset_ball(ball)
+            ball_dx, ball_dy = reset_ball(ball)
 
         # End the game
         if left_score >= max_score:
