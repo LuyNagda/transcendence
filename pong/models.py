@@ -102,20 +102,21 @@ class Tournament(models.Model):
         ONGOING = 'ongoing'
         FINISHED = 'finished'
 
-    tournament_id = models.AutoField(unique=True)
-    tournament_status = models.CharField(max_length=10, choices=Status.choices, default=Status.ONGOING)
+    id = models.AutoField(primary_key=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ONGOING)
     pong_room = models.OneToOneField(PongRoom, on_delete=models.CASCADE, related_name='pong_room')
-    pong_game = models.ManyToManyField(PongGame, on_delete=models.CASCADE, related_name='pong_game')
+    pong_game = models.ManyToManyField(PongGame, related_name='pong_game')
 
     def __str__(self):
-        return f"TOURNAMENT[{self.tournament_id}]: {self.status}"
+        return f"TOURNAMENT[{self.id}]: {self.status}"
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
     def serialize(self):
         return {
-            'id': self.tournament_id,
-            'room': self.pong_room.serialize(),
-            'game': self.pong_game.get_state()
+            'id': self.id,
+            'status': self.status,
+            'pong_room': self.pong_room.id,
+            'pong_game': [game.id for game in self.pong_game.all()],
         }
