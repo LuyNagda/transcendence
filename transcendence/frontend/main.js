@@ -2,6 +2,7 @@ import { htmx } from './vendor.js';
 import logger from './logger.js';
 import { initializeErrorHandling, initializeHtmxLogging } from './htmx-debug.js';
 import { initializeThemeAndFontSize, applyTheme, applyFontSize } from './UI/theme.js';
+import { initializeAiManager } from './pong/AiManager.js';
 import ChatApp from './chat/ChatApp.js';
 import dynamicRender from './UI/dynamic_render.js';
 import { RoomManager } from './room/RoomManager.js';
@@ -151,6 +152,7 @@ function initializeApp() {
 		initializeThemeAndFontSize();
 		initializeBootstrap(); // Initialize all Bootstrap components first
 		initializeThemeButtons();
+		initializeAiManager();
 
 		// Initialize authenticated components if user is already logged in
 		if (isAuthenticated) {

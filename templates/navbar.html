@@ -30,6 +30,10 @@
                 </a>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
                     <li>
+                        <a class="dropdown-item" href="#" hx-get="{% url 'ai-manager' %}" hx-target="#content"
+                        hx-swap="outerHTML" hx-push-url="true">Ai's manager</a>
+                    </li>
+                    <li>
                         <a class="dropdown-item" href="#" hx-get="{% url 'profile' %}" hx-target="#content"
                             hx-swap="outerHTML" hx-push-url="true">Edit</a>
                     </li>
