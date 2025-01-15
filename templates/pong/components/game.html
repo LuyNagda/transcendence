@@ -1,39 +1,70 @@
 {% load static %}
 
-<div class="arcade-cabinet">
-    <div class="screen">
-        <canvas width="858" height="525" id="game"></canvas>
+<div id="game-container">
+    <div class="arcade-cabinet">
+        <div class="screen">
+            <canvas width="858" height="525" id="game"></canvas>
+        </div>
     </div>
 </div>
 
 <style>
+    /* Game container styles */
+    #game-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        min-height: 600px;
+        background-color: #222;
+        margin: 20px 0;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    /* Arcade cabinet styling */
     .arcade-cabinet {
         background-color: #111;
         border: 20px solid #333;
         border-radius: 20px;
         padding: 40px;
         box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
-        margin: 20px auto;
-        max-width: 1000px;
+        max-width: 100%;
+        box-sizing: border-box;
     }
 
+    /* Screen container */
     .screen {
         background-color: #000;
         border: 10px solid #444;
         border-radius: 20px;
         overflow: hidden;
-        position: relative;
     }
 
+    /* Canvas element */
     canvas {
         display: block;
         width: 100%;
-        height: 100%;
+        height: auto;
         image-rendering: pixelated;
+        image-rendering: crisp-edges;
     }
 
+    /* Font for score display */
     @font-face {
         font-family: 'PongScore';
         src: url('{% static "fonts/pong-score.ttf" %}');
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        #game-container {
+            min-height: 400px;
+        }
+
+        .arcade-cabinet {
+            border-width: 10px;
+            padding: 20px;
+        }
     }
 </style>

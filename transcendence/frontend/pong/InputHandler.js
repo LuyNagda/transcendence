@@ -1,4 +1,4 @@
-import logger from '../utils/logger.js';
+import logger from '../logger.js';
 
 export class InputHandler {
 	constructor(isHost) {
@@ -6,16 +6,18 @@ export class InputHandler {
 		this._keyStates = new Map();
 		this._handlers = new Map();
 		this._enabled = true;
+		this._lastInputTime = 0;
+		this._inputThrottleMs = 16; // ~60fps
 
 		// Define control schemes
 		this._controls = {
 			host: {
-				up: 'w',
-				down: 's'
+				up: ['w', 'W'],
+				down: ['s', 'S']
 			},
 			guest: {
-				up: 'ArrowUp',
-				down: 'ArrowDown'
+				up: ['ArrowUp'],
+				down: ['ArrowDown']
 			}
 		};
 
@@ -73,16 +75,24 @@ export class InputHandler {
 	}
 
 	_handleKeyDown(event) {
+		const now = Date.now();
+		if (now - this._lastInputTime < this._inputThrottleMs) return;
+		this._lastInputTime = now;
+
 		if (!this._enabled) {
 			logger.debug('Key down event ignored - InputHandler disabled');
 			return;
 		}
 
-		const key = event.key.toLowerCase();
+		const key = event.key;
 		const controls = this._isHost ? this._controls.host : this._controls.guest;
 
+		// Check if the key is a valid control
+		const isUpKey = controls.up.includes(key);
+		const isDownKey = controls.down.includes(key);
+
 		// Prevent default behavior for game controls
-		if (Object.values(controls).includes(key)) {
+		if (isUpKey || isDownKey) {
 			event.preventDefault();
 		}
 
@@ -94,8 +104,8 @@ export class InputHandler {
 		}
 
 		// Handle paddle movement
-		if (key === controls.up || key === controls.down) {
-			const direction = key === controls.up ? 'up' : 'down';
+		if (isUpKey || isDownKey) {
+			const direction = isUpKey ? 'up' : 'down';
 			this._notifyHandlers('paddleMove', { direction, isHost: this._isHost });
 			logger.debug('Paddle move event triggered:', direction);
 		}
@@ -107,11 +117,15 @@ export class InputHandler {
 			return;
 		}
 
-		const key = event.key.toLowerCase();
+		const key = event.key;
 		const controls = this._isHost ? this._controls.host : this._controls.guest;
 
+		// Check if the key is a valid control
+		const isUpKey = controls.up.includes(key);
+		const isDownKey = controls.down.includes(key);
+
 		// Prevent default behavior for game controls
-		if (Object.values(controls).includes(key)) {
+		if (isUpKey || isDownKey) {
 			event.preventDefault();
 		}
 
@@ -121,7 +135,7 @@ export class InputHandler {
 		logger.debug('Key up event processed:', key);
 
 		// Handle paddle stop
-		if (key === controls.up || key === controls.down) {
+		if (isUpKey || isDownKey) {
 			this._notifyHandlers('paddleStop', { isHost: this._isHost });
 			logger.debug('Paddle stop event triggered');
 		}

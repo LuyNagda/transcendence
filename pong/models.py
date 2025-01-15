@@ -31,10 +31,10 @@ class PongGame(models.Model):
 
 class PongRoom(models.Model):
     class Mode(models.TextChoices):
-        AI = 'AI', 'AI'
-        CLASSIC = 'CLASSIC', 'Classic'
-        RANKED = 'RANKED', 'Ranked'
-        TOURNAMENT = 'TOURNAMENT', 'Tournament'
+        AI = 'AI', 'AI Mode'
+        CLASSIC = 'CLASSIC', 'Classic Mode'
+        RANKED = 'RANKED', 'Ranked Mode'
+        TOURNAMENT = 'TOURNAMENT', 'Tournament Mode'
 
     class State(models.TextChoices):
         LOBBY = 'LOBBY', 'Lobby'
@@ -43,7 +43,7 @@ class PongRoom(models.Model):
     room_id = models.CharField(max_length=10, unique=True)
     players = models.ManyToManyField(User, related_name='pong_rooms')
     pending_invitations = models.ManyToManyField(User, related_name='pending_pong_invitations')
-    mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.CLASSIC)
+    mode = models.CharField(max_length=20, choices=Mode.choices, default=Mode.AI)
     state = models.CharField(max_length=20, choices=State.choices, default=State.LOBBY)
     created_at = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_pong_rooms', null=True)
@@ -66,6 +66,9 @@ class PongRoom(models.Model):
         else:
             return 2
 
+    def get_max_players(self):
+        return self.max_players
+
     def save(self, *args, **kwargs):
         if self.mode:
             self.mode = self.mode.upper()
@@ -74,14 +77,46 @@ class PongRoom(models.Model):
         super().save(*args, **kwargs)
 
     def serialize(self):
-        """Returns a dictionary representation of the room state"""
         return {
             'id': self.room_id,
             'mode': self.mode,
-            'owner': self.owner.player_data,
-            'players': [player.player_data for player in self.players.all()],
-            'pendingInvitations': [user.player_data for user in self.pending_invitations.all()],
-            'maxPlayers': self.max_players,
             'state': self.state,
-            'availableSlots': self.max_players - self.players.count()
+            'owner': {
+                'id': self.owner.id,
+                'username': self.owner.username
+            } if self.owner else None,
+            'players': [{
+                'id': player.id,
+                'username': player.username
+            } for player in self.players.all()],
+            'pendingInvitations': [{
+                'id': user.id,
+                'username': user.username
+            } for user in self.pending_invitations.all()],
+            'maxPlayers': self.max_players,
+            'createdAt': self.created_at.isoformat()
+        }
+
+class Tournament(models.Model):
+    class Status(models.TextChoices):
+        ONGOING = 'ongoing'
+        FINISHED = 'finished'
+
+    id = models.AutoField(primary_key=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ONGOING)
+    pong_room = models.OneToOneField(PongRoom, on_delete=models.CASCADE, related_name='pong_room')
+    pong_game = models.ManyToManyField(PongGame, related_name='pong_game')
+
+    def __str__(self):
+        return f"TOURNAMENT[{self.id}]: {self.status}"
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+
+    def serialize(self):
+        return {
+            'id': self.id,
+            'status': self.status,
+            'pong_room': self.pong_room.id,
+            'pong_game': [game.id for game in self.pong_game.all()],
         }

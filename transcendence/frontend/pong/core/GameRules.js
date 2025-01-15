@@ -1,89 +1,70 @@
 export class GameRules {
-	static WINNING_SCORE = 11;
-	static BALL_SPEED = 107;
-	static LEFT_PADDLE_X = 15;
-	static PADDLE_HEIGHT = 50;
-	static PADDLE_WIDTH = 5;
-	static PADDLE_SPEED = 15;
-	static INITIAL_BALL_SPEED = 2;
+	// Game physical properties
 	static CANVAS_WIDTH = 858;
 	static CANVAS_HEIGHT = 525;
+	static BALL_WIDTH = 10;
+	static BALL_HEIGHT = 10;
+	static BASE_PADDLE_WIDTH = 10;
+	static BASE_PADDLE_HEIGHT = 30;
 
-	constructor(gameState) {
-		this._gameState = gameState;
-	}
+	// Modifiable settings
+	static BASE_PADDLE_SPEED = 10;
+	static BASE_BALL_SPEED = 25;
 
-	handleBallCollisions(deltaTime) {
-		const ball = { ...this._gameState.getState().ball };
-		if (ball.resetting) return null;
+	static DIFFICULTY_LEVELS = {
+		EASY: 'Easy',
+		MEDIUM: 'Medium',
+		HARD: 'Hard'
+	};
 
-		// Wall collisions
-		if (ball.y <= 0 || ball.y + ball.height >= GameRules.CANVAS_HEIGHT) {
-			ball.dy *= -1;
-			ball.y = ball.y <= 0 ? 0 : GameRules.CANVAS_HEIGHT - ball.height;
+	static DEFAULT_SETTINGS = {
+		ballSpeed: 5,
+		paddleSpeed: 5,
+		paddleSize: 5,
+		maxScore: 5,
+		aiDifficulty: 'Easy',
+		relaunchTime: 2000
+	};
+
+	static DEFAULT_AI_SETTINGS = {
+		...GameRules.DEFAULT_SETTINGS,
+		aiDifficulty: 'Easy',
+		ballSpeed: 4,
+		paddleSpeed: 6
+	};
+
+	static DEFAULT_RANKED_SETTINGS = {
+		...GameRules.DEFAULT_SETTINGS,
+		maxScore: 11,
+		ballSpeed: 6,
+		paddleSize: 4,
+		relaunchTime: 1000
+	};
+
+	static AI_SPEED_MULTIPLIERS = {
+		Easy: 0.7,
+		Medium: 1.0,
+		Hard: 1.3
+	};
+
+	static validateSettings(settings) {
+		const validatedSettings = { ...settings };
+
+		// Clamp values to reasonable ranges
+		validatedSettings.ballSpeed = Math.max(1, Math.min(10, settings.ballSpeed));
+		validatedSettings.paddleSpeed = Math.max(1, Math.min(10, settings.paddleSpeed));
+		validatedSettings.paddleSize = Math.max(1, Math.min(100, settings.paddleSize));
+		validatedSettings.maxScore = Math.max(1, Math.min(21, settings.maxScore));
+
+		// Validate AI difficulty
+		if (settings.aiDifficulty && !Object.values(GameRules.DIFFICULTY_LEVELS).includes(settings.aiDifficulty)) {
+			validatedSettings.aiDifficulty = GameRules.DEFAULT_SETTINGS.aiDifficulty;
 		}
 
-		// Goal detection
-		if (ball.x <= 0 || ball.x >= GameRules.CANVAS_WIDTH) {
-			const scoringSide = ball.x <= 0 ? 'right' : 'left';
-			return { type: 'goal', scoringSide, ball: this._getResetBall() };
-		}
-
-		// Update position
-		ball.x += ball.dx * deltaTime * GameRules.BALL_SPEED;
-		ball.y += ball.dy * deltaTime * GameRules.BALL_SPEED;
-
-		return { type: 'move', ball };
+		return validatedSettings;
 	}
 
-	handlePaddleCollisions(ball, paddle, isLeftPaddle) {
-		if (this._detectPaddleCollision(ball, paddle)) {
-			ball.dx = isLeftPaddle ? Math.abs(ball.dx) : -Math.abs(ball.dx);
-			ball.x = isLeftPaddle ?
-				paddle.x + paddle.width :
-				paddle.x - ball.width;
-
-			this._updateBallAngle(ball, paddle);
-			return true;
-		}
-		return false;
-	}
-
-	_detectPaddleCollision(ball, paddle) {
-		return ball.x <= paddle.x + paddle.width &&
-			ball.x + ball.width >= paddle.x &&
-			ball.y + ball.height >= paddle.y &&
-			ball.y <= paddle.y + paddle.height;
-	}
-
-	_updateBallAngle(ball, paddle) {
-		const relativeIntersectY = (paddle.y + (paddle.height / 2)) - (ball.y + (ball.height / 2));
-		const normalizedRelativeIntersectionY = relativeIntersectY / (paddle.height / 2);
-		const bounceAngle = normalizedRelativeIntersectionY * (5 * Math.PI / 12);
-		ball.dy = GameRules.INITIAL_BALL_SPEED * -Math.sin(bounceAngle);
-	}
-
-	_getResetBall() {
-		return {
-			x: GameRules.CANVAS_WIDTH / 2,
-			y: GameRules.CANVAS_HEIGHT / 2,
-			width: 5,
-			height: 5,
-			dx: 0,
-			dy: 0,
-			resetting: true
-		};
-	}
-
-	getInitialBallVelocity() {
-		return {
-			dx: GameRules.INITIAL_BALL_SPEED * (Math.random() > 0.5 ? 1 : -1),
-			dy: GameRules.INITIAL_BALL_SPEED * (Math.random() * 2 - 1)
-		};
-	}
-
-	isGameOver(scores) {
-		return scores.left >= GameRules.WINNING_SCORE ||
-			scores.right >= GameRules.WINNING_SCORE;
+	static getAISpeedMultiplier(difficulty) {
+		return GameRules.AI_SPEED_MULTIPLIERS[difficulty] || GameRules.AI_SPEED_MULTIPLIERS.MEDIUM;
 	}
 } 

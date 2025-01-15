@@ -7,7 +7,9 @@
     "esbuild": "^0.24.0"
   },
   "dependencies": {
+    "bootstrap": "^5.3.3",
     "gl-matrix": "^3.4.3",
+    "htmx.org": "^1.9.12",
     "regl": "^2.1.1"
   }
 }

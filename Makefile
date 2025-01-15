@@ -86,11 +86,15 @@ siege: stop daemon
 	@make clean
 	cat siege.log
 
+docker-stop:
+	$(SRC_ENV) docker compose down
+
 docker-clean:
-	docker compose down --rmi all
+	docker compose down --rmi local --remove-orphans
+	docker rm -f $$(docker ps -a -q --filter "name=aa-transcendence") 2>/dev/null || true
 
 docker-fclean:
-	docker system prune --all --volumes -f
+	docker system prune -af
 
 clean: docker-stop docker-clean
 

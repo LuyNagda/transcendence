@@ -1,63 +1,120 @@
-import logger from '../utils/logger.js';
-import WSService from '../utils/WSService.js';
+import logger from '../logger.js';
 import UserService from './UserService.js';
 import MessageService from './MessageService.js';
 import UIHandler from './UIHandler.js';
+import { ChatNetworkManager } from './ChatNetworkManager.js';
+import Store from '../state/store.js';
 
 export default class ChatApp {
 	constructor() {
-		this.WSService = null;
+		this._store = Store.getInstance();
+		this._store.DEBUG = true;
+		this.networkManager = new ChatNetworkManager();
 		this.userService = new UserService(this);
 		this.uiHandler = new UIHandler(this);
 		this.messageService = new MessageService(this.uiHandler, this.userService);
-		this.messageCountByUser = {};
-		this.initializeWebSocket();
+		this._lastMessageId = 0;
+		this._isChatOpen = false;
+		this.initializeNetwork();
+		this._initializeStoreSubscription();
+		this.selectLastActiveChat();
 	}
 
-	initializeWebSocket() {
-		this.wsService = new WSService();
-		this.wsService.initializeConnection('chat', '/ws/chat/');
+	async initializeNetwork() {
+		this.networkManager.on('chat_message', data => {
+			const senderId = Number(data.sender_id);
+			const currentUserId = this._store.getState('user').id;
 
-		this.wsService.on('chat', 'onMessage', this.handleMessage.bind(this));
-		this.wsService.on('chat', 'onClose', this.handleClose.bind(this));
-		this.wsService.on('chat', 'onOpen', this.handleOpen.bind(this));
+			// Don't count messages from self
+			if (senderId === currentUserId) {
+				return;
+			}
+
+			// Increment unread count only if chat is closed
+			const shouldIncrementUnread = !this._isChatOpen;
+
+			this._store.dispatch({
+				domain: 'chat',
+				type: 'ADD_MESSAGE',
+				payload: {
+					roomId: senderId,
+					message: {
+						id: Number(data.id || this._lastMessageId + 1),
+						sender: senderId,
+						content: data.message,
+						timestamp: Number(data.timestamp || Date.now()),
+						type: 'text'
+					},
+					incrementUnread: shouldIncrementUnread
+				}
+			});
+		});
+
+		this.networkManager.on('game_invitation', data => {
+			this.handleGameInvitation(data.game_id, data.sender_id, data.room_id);
+		});
+
+		this.networkManager.on('tournament_warning', data => {
+			this.handleTournamentWarning(data.tournament_id, data.match_time);
+		});
+
+		this.networkManager.on('user_profile', data => {
+			this.uiHandler.displayProfileModal(data.profile);
+		});
+
+		this.networkManager.on('user_status_change', data => {
+			logger.debug('Received user_status_change:', {
+				user_id: data.user_id,
+				status: data.status,
+				user_id_type: typeof data.user_id
+			});
+
+			const userId = Number(data.user_id);
+			logger.debug('Converted user_id to number:', {
+				userId,
+				type: typeof userId
+			});
+
+			const currentState = this._store.getState('user');
+			logger.debug('Current user state:', {
+				users: currentState.users,
+				hasUser: currentState.users[userId] !== undefined
+			});
+
+			this._store.dispatch({
+				domain: 'user',
+				type: 'UPDATE_STATUS',
+				payload: {
+					userId,
+					status: data.status
+				}
+			});
+			this.userService.refreshUserList();
+		});
+
+		this.networkManager.on('error', data => {
+			alert("Error: " + data.error);
+		});
+
+		this.networkManager.on('redirect', data => {
+			window.location.href = data.url;
+		});
+
+		await this.networkManager.connect();
 	}
 
-	handleMessage(data) {
-		logger.debug("Received data:", data);
-		switch (data.type) {
-			case 'chat_message':
-				this.messageService.addMessage(data.message, data.sender_id, data.timestamp, false);
-				if (!this.chatModalOpen) this.incrementUnreadMessageCount();
-				break;
-			case 'game_invitation':
-				this.handleGameInvitation(data.game_id, data.sender_id);
-				break;
-			case 'tournament_warning':
-				this.handleTournamentWarning(data.tournament_id, data.match_time);
-				break;
-			case 'user_profile':
-				this.uiHandler.displayProfileModal(data.profile);
-				break;
-			case 'user_status_change':
-				this.userService.updateUserStatus(data.user_id, data.status);
-				this.userService.refreshUserList();
-				break;
-			case 'error':
-				alert("Error: " + data.error);
-				break;
-			default:
-				logger.warn('Unknown message type:', data.type);
-		}
-	}
+	_initializeStoreSubscription() {
+		this._store.subscribe('chat', (chatState) => {
+			// Calculate total unread count across all rooms
+			const totalUnread = Object.values(chatState.unreadCounts).reduce((sum, count) => sum + count, 0);
+			this.uiHandler.updateUnreadCount(totalUnread);
 
-	handleClose() {
-		logger.warn('WebSocket closed.');
-	}
-
-	handleOpen() {
-		logger.debug('WebSocket connection established');
-		this.wsService.processQueue('chat');
+			// Update messages for active room
+			if (chatState.activeRoom) {
+				const messages = chatState.messages[chatState.activeRoom] || [];
+				this.uiHandler.updateMessages(messages);
+			}
+		});
 	}
 
 	handleFormSubmit(e) {
@@ -72,128 +129,218 @@ export default class ChatApp {
 			return;
 		}
 
-		const recipientId = activeUser.dataset.userId;
-		if (!this.userService.currentUserId) {
+		if (activeUser.classList.contains('blocked')) {
+			alert("This user has blocked you. You cannot send them messages.");
+			messageInput.value = '';
+			return;
+		}
+
+		const recipientId = Number(activeUser.dataset.userId);
+		const currentUserId = this._store.getState('user').id;
+		if (!currentUserId) {
 			alert("Unable to send message. User ID not found.");
 			return;
 		}
 
+		this._lastMessageId++;
+		const messageId = this._lastMessageId;
+
 		logger.info(`Sending message to user ${recipientId}: ${message}`);
-		this.wsService.send('chat', {
+		this.networkManager.sendMessage({
 			type: 'chat_message',
 			message: message,
-			recipient_id: recipientId
+			recipient_id: recipientId,
+			id: messageId
 		});
 
-		this.messageService.addMessage(message, this.userService.currentUserId, new Date(), true);
+		this._store.dispatch({
+			domain: 'chat',
+			type: 'ADD_MESSAGE',
+			payload: {
+				roomId: recipientId,
+				message: {
+					id: messageId,
+					sender: currentUserId,
+					content: message,
+					timestamp: Date.now(),
+					type: 'text'
+				}
+			}
+		});
+
 		messageInput.value = '';
 	}
 
 	handleUserClick(event) {
 		const button = event.currentTarget;
-		const userId = parseInt(button.dataset.userId);
+		const userId = Number(button.dataset.userId);
+		const userName = button.querySelector('.user-name').textContent;
+		const isBlocked = button.classList.contains('blocked');
 
-		this.userService.selectedUserId = userId;
 		document.querySelectorAll('.user-chat').forEach(btn => {
 			btn.classList.remove('active');
 		});
 		button.classList.add('active');
+
+		// Update chat header with user name
+		const chatHeading = document.getElementById('chatHeading');
+		if (chatHeading)
+			chatHeading.textContent = userName;
+
+		// Show chat form and update input state
+		const chatFormDiv = document.getElementById('chat-form-div');
+		if (chatFormDiv) {
+			chatFormDiv.style.display = 'block';
+			const chatInput = document.querySelector('#chat-message');
+			const sendButton = document.querySelector('#button-addon2');
+			if (chatInput && sendButton) {
+				if (isBlocked) {
+					chatInput.disabled = true;
+					chatInput.placeholder = "This user has blocked you";
+					sendButton.disabled = true;
+				} else {
+					chatInput.disabled = false;
+					chatInput.placeholder = "Type your message...";
+					sendButton.disabled = false;
+				}
+			}
+		}
+
+		// Clear unread count for this specific user
+		const chatState = this._store.getState('chat');
+		if (chatState.unreadCounts[userId]) {
+			const newUnreadCounts = { ...chatState.unreadCounts };
+			delete newUnreadCounts[userId];
+			this._store.dispatch({
+				domain: 'chat',
+				type: 'SET_ACTIVE_ROOM',
+				payload: userId,
+				unreadCounts: newUnreadCounts
+			});
+		} else {
+			this._store.dispatch({
+				domain: 'chat',
+				type: 'SET_ACTIVE_ROOM',
+				payload: userId
+			});
+		}
+
 		this.loadMessageHistory(userId);
-		document.getElementById('chat-form-div').style.display = 'block';
-		this.updateChatHeading(userId);
-		this.messageCountByUser[userId] = 0;
-		this.uiHandler.updateChatIcon(0);
 	}
 
 	loadMessageHistory(userId) {
 		fetch(`/chat/history/${userId}/`, {
 			method: 'GET',
 			headers: {
-				'X-CSRFToken': this.wsService.getCSRFToken(),
+				'X-CSRFToken': this.networkManager.getCSRFToken(),
 				'Content-Type': 'application/json'
 			}
 		})
 			.then(response => response.json())
 			.then(data => {
-				this.uiHandler.messageHistory.innerHTML = '';
-				this.messageCountByUser[userId] = data.length;
-				logger.debug("Message history loaded:", data);
-				data.forEach(message => {
-					try {
-						const isSent = message.sender_id === this.userService.currentUserId;
-						this.messageService.addMessage(message.content, message.sender_id, new Date(message.timestamp), isSent);
-					} catch (error) {
-						logger.error('Error adding message:', error);
+				const messages = data.map(message => ({
+					id: Number(message.id),
+					sender: Number(message.sender_id),
+					content: message.content,
+					timestamp: message.timestamp,
+					type: message.type || 'text'
+				}));
+
+				// Update last message ID
+				messages.forEach(message => {
+					this._lastMessageId = Math.max(this._lastMessageId, message.id);
+				});
+
+				// Clear existing history
+				this._store.dispatch({
+					domain: 'chat',
+					type: 'CLEAR_HISTORY',
+					payload: { roomId: userId }
+				});
+
+				// Add all messages at once
+				this._store.dispatch({
+					domain: 'chat',
+					type: 'ADD_MESSAGES',
+					payload: {
+						roomId: userId,
+						messages
 					}
 				});
-				this.uiHandler.messageHistory.scrollTop = this.uiHandler.messageHistory.scrollHeight;
-				this.updateChatHeading(userId);
 			})
 			.catch(error => {
 				logger.error('Error loading message history:', error);
 			});
 	}
 
-	updateChatHeading(userId) {
-		const userName = this.userService.getUserName(userId);
-		const messageCount = this.messageCountByUser[userId] || 0;
-		this.uiHandler.updateChatHeading(userName, messageCount);
+	handleSpecialActions(e) {
+		const userId = Number(e.currentTarget.dataset.userId);
+		const isInvitePong = e.currentTarget.classList.contains('invite-pong');
+		const isViewProfile = e.currentTarget.classList.contains('view-profile');
+		const isBlock = e.currentTarget.classList.contains('block-user');
+		const isUnblock = e.currentTarget.classList.contains('unblock-user');
+
+		if (isInvitePong) {
+			this.networkManager.sendMessage({
+				type: 'game_invitation',
+				recipient_id: userId,
+				game_id: 'pong'
+			});
+			alert('Game invitation sent!');
+		} else if (isViewProfile) {
+			this.networkManager.sendMessage({
+				type: 'get_profile',
+				user_id: userId
+			});
+		} else if (isBlock || isUnblock) {
+			this.handleBlockAction(userId, isBlock);
+		}
 	}
 
-	handleUserBlockToggle(e) {
-		e.preventDefault();
-		const element = e.currentTarget;
-		const userId = element.dataset.userId;
-		const action = element.classList.contains('block-user') ? 'block' : 'unblock';
-		const method = action === 'block' ? 'POST' : 'DELETE';
+	handleBlockAction(userId, isBlock) {
+		const action = isBlock ? 'block' : 'unblock';
+		const method = isBlock ? 'POST' : 'DELETE';
 
 		fetch(`/chat/${action}/${userId}/`, {
 			method: method,
 			headers: {
-				'X-CSRFToken': this.wsService.getCSRFToken(),
+				'X-CSRFToken': this.networkManager.getCSRFToken(),
 				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({})
+			}
 		})
-			.then(response => {
-				if (response.ok) return response.json();
-				throw new Error('Network response was not ok.');
+			.then(async response => {
+				const contentType = response.headers.get('content-type');
+				if (contentType && contentType.includes('application/json')) {
+					return response.json();
+				}
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+				return { success: true };
 			})
 			.then(data => {
 				if (data.success) {
-					if (action === 'block') {
-						element.textContent = 'Unblock';
-						element.classList.remove('block-user', 'btn-danger');
-						element.classList.add('unblock-user', 'btn-secondary');
-					} else {
-						element.textContent = 'Block';
-						element.classList.remove('unblock-user', 'btn-secondary');
-						element.classList.add('block-user', 'btn-danger');
-					}
-					this.userService.updateUserStatus(userId, action === 'block' ? 'blocked' : 'online');
+					// Refresh the user list to update statuses and buttons
+					this.userService.refreshUserList();
+				} else {
+					throw new Error('Server returned unsuccessful response');
 				}
 			})
 			.catch(error => {
-				logger.error('Error:', error);
-				alert('An error occurred while processing your request.');
+				logger.error('Error handling block action:', error);
+				alert(`Failed to ${action} user. Please try again.`);
 			});
 	}
 
-	handleSpecialActions(e) {
-		const userId = e.currentTarget.dataset.userId;
-		const isInvitePong = e.currentTarget.classList.contains('invite-pong');
-		const type = isInvitePong ? 'game_invitation' : 'get_profile';
-
-		const payload = isInvitePong
-			? { type: 'game_invitation', recipient_id: userId, game_id: 'pong' }
-			: { type: 'user_profile', user_id: userId };
-
-		this.wsService.send('chat', payload);
-	}
-
-	handleGameInvitation(gameId, senderId) {
+	handleGameInvitation(gameId, senderId, roomId) {
 		if (confirm(`You've been invited to play ${gameId}. Do you want to accept?`)) {
-			window.location.href = `/games/${gameId}/?opponent=${senderId}`;
+			// Accept invitation and join room
+			this.networkManager.sendMessage({
+				type: 'accept_game_invitation',
+				sender_id: senderId,
+				game_id: gameId,
+				room_id: roomId
+			});
 		}
 	}
 
@@ -201,24 +348,45 @@ export default class ChatApp {
 		alert(`Your next match in tournament ${tournamentId} is scheduled for ${matchTime}`);
 	}
 
-	incrementUnreadMessageCount() {
-		this.unreadMessageCount++;
-		this.uiHandler.updateChatIcon(this.unreadMessageCount);
-	}
-
-	resetUnreadMessageCount() {
-		this.unreadMessageCount = 0;
-		this.uiHandler.updateChatIcon(this.unreadMessageCount);
-	}
-
 	setChatModalOpen(isOpen) {
-		this.chatModalOpen = isOpen;
+		this._isChatOpen = isOpen;
+
 		if (isOpen) {
-			this.resetUnreadMessageCount();
+			// Clear all unread counts when opening chat
+			this._store.dispatch({
+				domain: 'chat',
+				type: 'CLEAR_ALL_UNREAD'
+			});
 		}
 	}
 
 	destroy() {
-		this.wsService.destroy('chat');
+		this.networkManager.destroy();
+	}
+
+	async selectLastActiveChat() {
+		const chatState = this._store.getState('chat');
+		if (!chatState) return;
+
+		// Find the room with the most recent message
+		let lastActiveRoom = null;
+		let lastMessageTime = 0;
+
+		Object.entries(chatState.messages).forEach(([roomId, messages]) => {
+			if (messages && messages.length > 0) {
+				const lastMessage = messages[messages.length - 1];
+				if (lastMessage.timestamp > lastMessageTime) {
+					lastMessageTime = lastMessage.timestamp;
+					lastActiveRoom = Number(roomId);
+				}
+			}
+		});
+
+		if (lastActiveRoom) {
+			const userButton = document.querySelector(`.user-chat[data-user-id="${lastActiveRoom}"]`);
+			if (userButton) {
+				userButton.click();
+			}
+		}
 	}
 }

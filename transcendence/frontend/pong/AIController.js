@@ -1,4 +1,4 @@
-import logger from "../utils/logger.js";
+import logger from "../logger.js";
 import { GameRules } from './core/GameRules.js';
 
 class Layer_Dense {
@@ -97,10 +97,22 @@ class Activation_SoftMax {
     }
 }
 
+
+/**
+ * AIController class implements a neural network for controlling the AI paddle in Pong.
+ * It uses a 3-layer neural network architecture with ReLU and SoftMax activations.
+ * 
+ * @class AIController
+ */
+
 export class AIController {
-    static instance = null;
+    static #instance = null;
 
     constructor() {
+        if (AIController.#instance) {
+            return AIController.#instance;
+        }
+
         logger.info('Initializing AIController');
         this.layer1 = null;
         this.layer2 = null;
@@ -110,21 +122,30 @@ export class AIController {
         this.activation3 = null;
         this.aiBall = null;
         this.lastBallUpdate = 0;
+
+        AIController.#instance = this;
     }
 
-    static async init(ai_name) {
+    static getInstance() {
+        if (!AIController.#instance) {
+            AIController.#instance = new AIController();
+        }
+        return AIController.#instance;
+    }
+
+    static async init(difficulty) {
+        const instance = AIController.getInstance();
+        if (!instance.layer1) { // Only initialize if not already initialized
+            await instance._initialize(difficulty);
+        }
+        return instance;
+    }
+
+    async _initialize(difficulty) {
         try {
-            if (this.instance) {
-                logger.info('Returning existing AIController instance');
-                return this.instance;
-            }
-
-            logger.info('Creating new AIController instance');
-            this.instance = new AIController();
-
-            logger.info(`Initializing AI with difficulty: ${ai_name}`);
-            // Fetch AI data based on ai_name
-            const response = await fetch(`/ai/get-ai/${ai_name}`);
+            logger.info(`Initializing AI with difficulty: ${difficulty}`);
+            // Update the URL format to match the backend endpoint
+            const response = await fetch(`/ai/get-ai/${difficulty}`);
             if (!response.ok)
                 throw new Error(`Failed to fetch AI data: ${response.status}`);
             const setup = await response.json();
@@ -152,15 +173,14 @@ export class AIController {
                 }
             });
 
-            this.instance.layer1 = new Layer_Dense(setup.layer1.weights, setup.layer1.biases);
-            this.instance.layer2 = new Layer_Dense(setup.layer2.weights, setup.layer2.biases);
-            this.instance.layer3 = new Layer_Dense(setup.layer3.weights, setup.layer3.biases);
-            this.instance.activation1 = new Activation_ReLU();
-            this.instance.activation2 = new Activation_ReLU();
-            this.instance.activation3 = new Activation_SoftMax();
+            this.layer1 = new Layer_Dense(setup.layer1.weights, setup.layer1.biases);
+            this.layer2 = new Layer_Dense(setup.layer2.weights, setup.layer2.biases);
+            this.layer3 = new Layer_Dense(setup.layer3.weights, setup.layer3.biases);
+            this.activation1 = new Activation_ReLU();
+            this.activation2 = new Activation_ReLU();
+            this.activation3 = new Activation_SoftMax();
 
             logger.info('AIController initialization completed successfully');
-            return this.instance;
         }
         catch (error) {
             logger.error('Error in AIController initialization:', error);
@@ -186,7 +206,7 @@ export class AIController {
         try {
             // Normalize inputs for the neural network
             let X = [[
-                this.aiBall.x / GameRules.CANVAS_HEIGHT,
+                this.aiBall.x / GameRules.CANVAS_WIDTH,
                 this.aiBall.y / GameRules.CANVAS_HEIGHT,
                 this.aiBall.dx,
                 this.aiBall.dy,
