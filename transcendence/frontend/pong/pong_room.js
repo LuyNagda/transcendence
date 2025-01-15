@@ -130,7 +130,7 @@ export class PongRoom {
 
     // // // TODO: New fetch to implement
     // // Fetch saved AIs and populate the dropdown
-    // async function fetchSavedAIs() {
+    // async fetchSavedAIs() {
     //     const dropdown = document.getElementById('ai-difficulty');
 
     //     try {
@@ -162,15 +162,15 @@ export class PongRoom {
         const apiUrl = '/ai/list-saved-ai'; // Adjust the endpoint if necessary
         try {
             const response = await fetch(apiUrl);
-        if (!response.ok) {
-            throw new Error('Network response was not ok ' + response.statusText);
-        }
+            if (!response.ok) {
+                throw new Error('Network response was not ok ' + response.statusText);
+            }
 
-        const data = await response.json();
-        this._savedAI = data.saved_ai;
-        this.populateDropdown(); // Populate the dropdown once data is fetched
-        } catch (error) {
-            console.error('Error fetching saved AI:', error);
+            const data = await response.json();
+            this._savedAI = data.saved_ai;
+            this.populateDropdown(); // Populate the dropdown once data is fetched
+            } catch (error) {
+                console.error('Error fetching saved AI:', error);
         }
     }
     
