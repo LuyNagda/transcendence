@@ -1,6 +1,6 @@
 {% load static %}
 {% block content %}
-<div class="offcanvas offcanvas-start w-50" data-bs-backdrop="static" tabindex="-1" id="chatCanvas"
+<div class="offcanvas offcanvas-start" data-bs-backdrop="static" tabindex="-1" id="chatCanvas"
     aria-labelledby="chatCanvasLabel">
     <div class="offcanvas-header">
         <h4 id="chatCanvasLabel" class="offcanvas-title">Chat</h4>
@@ -8,7 +8,7 @@
             0
             <span class="visually-hidden">Unread messages</span>
         </span>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
     </div>
     <div class="offcanvas-body">
         <div class="row">
@@ -16,7 +16,7 @@
                 <ul class="rounded bg-dark-subtle m-0 p-3" style="list-style-type: none;">
                     {% for user in users %}
                     <li>
-                        <button href="#" class="btn btn-transparent btn-sm me-1 user-chat" data-user-id="{{ user.id }}"
+                        <button href="#" class="btn btn-transparent btn-sm me-1 user-chat d-flex align-items-center" data-user-id="{{ user.id }}"
                             aria-label="Chat with {{ user.name|default:user.username }}">
                             <img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 25px;"
                                 alt="{{ user.name|default:user.username }}'s profile picture">
@@ -65,10 +65,9 @@
                         {% endif %}
                         {% endif %}
                         <button class="btn btn-success invite-user" data-user-id="{{ user.id }}"
-                            aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite to
-                            Pong</button>
+                            aria-label="Invite {{ user.name|default:user.username }} to Pong">Invite</button>
                         <button class="btn btn-primary view-profile" data-user-id="{{ user.id }}"
-                            aria-label="View profile of {{ user.name|default:user.username }}">View Profile</button> -->
+                            aria-label="View profile of {{ user.name|default:user.username }}">Profile</button>
                     </div>
                 </div>
             </div>
@@ -162,5 +161,28 @@
     .user-chat.active {
         background-color: var(--bs-light-bg-subtle);
     }
+
+	#chatCanvas {
+        min-width: 700px !important;
+    }
+
+	@media (min-width: 100px) and (max-width: 899px) {
+		#chatCanvas {
+			width: 100%;
+    }
+}
+
+	@media (min-width: 900px) and (max-width: 1199px) {
+		#chatCanvas {
+			width: 75%;
+		}
+	}
+
+	@media (min-width: 1200px) {
+		#chatCanvas {
+			width: 50%;
+		}
+	}
+
 </style>
 {% endblock content %}

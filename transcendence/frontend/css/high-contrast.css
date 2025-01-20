@@ -116,5 +116,5 @@
 	--bs-form-valid-border-color: #32cd32;
 	--bs-form-invalid-color: #ff4500;
 	--bs-form-invalid-border-color: #ff4500;
-	--bs-btn-close-color: var(--bs-light)
+	--bs-btn-close-color: var(--bs-light);
   }

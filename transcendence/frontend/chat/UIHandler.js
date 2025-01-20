@@ -88,27 +88,15 @@ export default class UIHandler {
 				<li>
 					<div class="d-flex flex-column">
 						<button href="#" 
-							class="btn btn-transparent btn-sm me-1 user-chat ${user.id === chatState.activeRoom ? 'active' : ''} ${isBlocked ? 'blocked' : ''}" 
+							class="btn btn-transparent btn-sm me-1 mt-1 mb-1 d-flex justify-content-start align-items-center user-chat ${user.id === chatState.activeRoom ? 'active' : ''} ${isBlocked ? 'blocked' : ''}" 
 							data-user-id="${user.id}">
 							<img src="${user.profile_picture}" class="rounded-circle" style="max-width: 20px;" 
 								alt="${user.name || user.username}'s profile picture">
-							<span class="user-name">${user.name || user.username}</span>
-							<span class="status-icon">
+							<span class="user-name ms-2">${user.name || user.username}</span>
+							<span class="status-icon ms-2">
 								${isBlocked ? '&#x1F534;' : (user.online ? '&#x1F7E2;' : '&#x26AA;')}
 							</span>
 						</button>
-						<div class="btn-group mt-1" role="group" aria-label="User actions">
-							<button class="btn btn-sm btn-danger block-user" data-user-id="${user.id}"
-								style="display: ${isBlocked ? 'none' : 'inline-block'}"
-								aria-label="Block ${user.name || user.username}">Block</button>
-							<button class="btn btn-sm btn-warning unblock-user" data-user-id="${user.id}"
-								style="display: ${isBlocked ? 'inline-block' : 'none'}"
-								aria-label="Unblock ${user.name || user.username}">Unblock</button>
-							<button class="btn btn-sm btn-success invite-pong" data-user-id="${user.id}"
-								aria-label="Invite ${user.name || user.username} to Pong">Invite</button>
-							<button class="btn btn-sm btn-primary view-profile" data-user-id="${user.id}"
-								aria-label="View profile of ${user.name || user.username}">Profile</button>
-						</div>
 					</div>
 				</li>
 			`;
