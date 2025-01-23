@@ -103,12 +103,15 @@ class Tournament(models.Model):
         FINISHED = 'finished'
 
     id = models.AutoField(primary_key=True)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.ONGOING)
-    pong_room = models.OneToOneField(PongRoom, on_delete=models.CASCADE, related_name='pong_room')
-    pong_game = models.ManyToManyField(PongGame, related_name='pong_game')
+    name = models.CharField(max_length=100)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.UPCOMING)
+    pong_room = models.OneToOneField(PongRoom, on_delete=models.CASCADE, related_name='tournament')
+    pong_games = models.ManyToManyField(PongGame, related_name='tournaments')
+    start_date = models.DateTimeField(auto_now_add=True)
+    end_date = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
-        return f"TOURNAMENT[{self.id}]: {self.status}"
+        return f"TOURNAMENT[{self.id}]: {self.name} - {self.status}"
     
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -116,7 +119,20 @@ class Tournament(models.Model):
     def serialize(self):
         return {
             'id': self.id,
+            'name': self.name,
             'status': self.status,
             'pong_room': self.pong_room.id,
-            'pong_game': [game.id for game in self.pong_game.all()],
+            'pong_games': [game.id for game in self.pong_games.all()],
+            'start_date': self.created_at.isoformat(),
+            'end_date': self.end_date.isoformat() if self.end_date else None,
         }
+
+class Match(models.Model):
+    tournament = models.ForeignKey(Tournament, related_name='matches', on_delete=models.CASCADE)
+    pong_game = models.OneToOneField(PongGame, on_delete=models.CASCADE)
+    round_number = models.IntegerField()
+    scheduled_at = models.DateTimeField()
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"MATCH[{self.id}]: Tournament {self.tournament.id} - Round {self.round_number}"
