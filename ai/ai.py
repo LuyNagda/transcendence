@@ -1,6 +1,5 @@
 import os, json, multiprocessing, re
 import numpy as np
-from django.core.files.storage import default_storage
 from ai.gamesimulation import train_normal
 
 NB_INPUTS = 5
