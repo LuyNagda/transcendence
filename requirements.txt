@@ -14,4 +14,3 @@ djangorestframework-simplejwt
 requests
 bugsnag
 numpy
-pygame

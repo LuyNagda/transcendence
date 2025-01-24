@@ -1,9 +1,5 @@
-import random, math, pygame
+import random, math
 from . import gameconfig
-
-ball : pygame.rect
-ball_dx : float
-ball_dy : float
 
 class AI_ball:
     x: float
@@ -14,7 +10,7 @@ class AI_ball:
     def __init__(self, x, y=None, dx=None, dy=None):
         if y == None:
             ball = x
-            self.update(ball, ball_dx, ball_dy)
+            self.update(ball)
         else:
             self.x = x
             self.y = y
@@ -24,11 +20,11 @@ class AI_ball:
     def __repr__(self):
         return f"x = {self.x}\t\t\ty = {self.y} \ndx = {self.dx}\t\t\tdy = {self.dy}\n"
     
-    def update(self, ball, ball_dx, ball_dy):
+    def update(self, ball):
         self.x = ball.x
         self.y = ball.y
-        self.dx = ball_dx
-        self.dy = ball_dy
+        self.dx = ball.dx
+        self.dy = ball.dy
 
 # Create paddles and ball
 class Paddle:
@@ -37,7 +33,6 @@ class Paddle:
         self.y = y
         self.width = width
         self.height = height
-        # Add center property to match pygame.Rect behavior
         self._center = (x + width/2, y + height/2)
     
     @property
@@ -67,9 +62,11 @@ class Paddle:
         return self.x + self.width
 
 class Ball:
-    def __init__(self, x, y, size):
+    def __init__(self, x, y, dx, dy, size):
         self.x = x
         self.y = y
+        self.dx = dx
+        self.dy = dy
         self.size = size
         self.width = size
         self.height = size
@@ -123,10 +120,8 @@ class Ball:
 
 def reset_ball(ball):
     ball.center = (gameconfig.WIDTH//2, gameconfig.HEIGHT//2)
-    ball_dx = gameconfig.BALL_SPEED * random.choice([-1, 1])
-    ball_dy = random.uniform(-2, 2)
-
-    return ball_dx, ball_dy
+    ball.dx = gameconfig.BALL_SPEED * random.choice([-1, 1])
+    ball.dy = random.uniform(-2, 2)
 
 def collides(ball, paddle):
     if ball.bottom > paddle.top and ball.top < paddle.bottom and ball.left < paddle.right and ball.right > paddle.left:
@@ -134,7 +129,7 @@ def collides(ball, paddle):
 
     return False
 
-def updateBallAngle(ball, ball_dy, paddle):
+def updateBallAngle(ball, paddle):
     # Calculate the relative's position of the collision with the paddle
     relativeIntersectY = (paddle.y + (paddle.height / 2)) - (ball.y + (ball.height / 2))
     normalizedRelativeIntersectionY = relativeIntersectY / (paddle.height / 2)
@@ -143,9 +138,7 @@ def updateBallAngle(ball, ball_dy, paddle):
     bounceAngle = normalizedRelativeIntersectionY * (5 * math.pi / 12)
 
     # Update the ball's vertical velocity
-    ball_dy = gameconfig.BALL_SPEED * -math.sin(bounceAngle)
-
-    return ball_dy
+    ball.dy = gameconfig.BALL_SPEED * -math.sin(bounceAngle)
 
 def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     # Initialize game objects
@@ -160,14 +153,14 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     ball = Ball(
         x = gameconfig.WIDTH / 2,
         y = gameconfig.HEIGHT / 2,
+        dx = gameconfig.BALL_SPEED * random.choice([-1, 1]),
+        dy = random.uniform(-2, 2),
         size = gameconfig.BALL_SIZE
     )
-    ball_dx = gameconfig.BALL_SPEED * random.choice([-1, 1])
-    ball_dy = random.uniform(-2, 2)
 
     # Update AI's target position
     ai_ball = AI_ball(ball, 0, 0, 0)
-    ai_ball.update(ball, ball_dx, ball_dy)
+    ai_ball.update(ball)
 
     running = True
     left_score = 0
@@ -180,12 +173,12 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         i += 1
 
         # Move the ball
-        ball.x += ball_dx
-        ball.y += ball_dy
+        ball.x += ball.dx
+        ball.y += ball.dy
 
         # Update the ai view
         if i % 60 == 0:
-            ai_ball.update(ball, ball_dx, ball_dy)
+            ai_ball.update(ball)
 
         # Move the right paddle
         match (Ai_selected.decision(rightPaddle.y, ai_ball, gameconfig.HEIGHT)):
@@ -204,37 +197,37 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         # Ball collision with top and bottom
         if ball.top <= 0:
             ball.top = gameconfig.GRID
-            ball_dy *= -1
-            if abs(ball_dy) < 1:
-                ball_dy = 1 if ball_dy > 0 else -1
+            ball.dy *= -1
+            if abs(ball.dy) < 1:
+                ball.dy = 1 if ball.dy > 0 else -1
         elif ball.bottom >= gameconfig.HEIGHT:
             ball.bottom = gameconfig.HEIGHT - gameconfig.GRID
-            ball_dy *= -1
-            if abs(ball_dy) < 1:
-                ball_dy = 1 if ball_dy > 0 else -1
+            ball.dy *= -1
+            if abs(ball.dy) < 1:
+                ball.dy = 1 if ball.dy > 0 else -1
 
         # Ball collision with left wall
         if ball.x <= 50:
-            ball_dx *= -1
+            ball.dx *= -1
             ball.left = 50
             if j == 0:
-                ball_dy = random.uniform(-2, 2)
+                ball.dy = random.uniform(-2, 2)
                 j = 42
             else:
-                ball_dy = 0
+                ball.dy = 0
                 j = 0
         # Ball collision with AI's paddles
         if collides(ball, rightPaddle):
             if ball.right < rightPaddle.right:
-                ball_dx *= -1
+                ball.dx *= -1
                 ball.right = rightPaddle.left
                 Ai_selected.ai_score += 1
-                ball_dy = updateBallAngle(ball, ball_dy, rightPaddle)
+                updateBallAngle(ball, rightPaddle)
 
         # Ball out of bounds
         if ball.right >= gameconfig.WIDTH:
             left_score += 1
-            ball_dx, ball_dy = reset_ball(ball)
+            reset_ball(ball)
 
         # End the game
         if left_score >= max_score:
