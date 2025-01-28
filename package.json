@@ -1,15 +1,23 @@
 {
+  "type": "module",
   "scripts": {
     "build": "NODE_ENV=production node esbuild.config.js",
-    "dev": "NODE_ENV=development node esbuild.config.js"
+    "dev": "NODE_ENV=development node esbuild.config.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0"
+    "esbuild": "^0.24.2",
+    "esbuild-jest": "^0.5.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
   },
   "dependencies": {
     "bootstrap": "^5.3.3",
     "gl-matrix": "^3.4.3",
     "htmx.org": "^1.9.12",
     "regl": "^2.1.1"
-  }
+  },
+  "packageManager": "pnpm@9.4.0+sha512.f549b8a52c9d2b8536762f99c0722205efc5af913e77835dbccc3b0b0b2ca9e7dc8022b78062c17291c48e88749c70ce88eb5a74f1fa8c4bf5e18bb46c8bd83a"
 }

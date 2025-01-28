@@ -9,7 +9,6 @@ def global_context(request):
         'config': {
             'debug': getattr(settings, 'DEBUG', False),
             'logLevel': getattr(settings, 'LOG_LEVEL', 'DEBUG'),
-            'userId': request.user.id if request.user.is_authenticated else None,
             
             # WebRTC config
             'rtc': {

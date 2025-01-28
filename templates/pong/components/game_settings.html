@@ -4,13 +4,13 @@
     <div class="card-body">
         <!-- Settings form for room owner -->
         <form id="settings-form"
-            v-if="pongRoom.settings && !pongRoom.gameStarted && pongRoom.owner && pongRoom.currentUser && pongRoom.owner.id === pongRoom.currentUser.id">
+            v-if="room.settings && !room.gameStarted && room.owner && room.currentUser && room.owner.id === room.currentUser.id">
             <!-- Paddle Speed -->
             <div class="mb-3">
                 <label for="paddleSpeed" class="form-label">Paddle Speed</label>
                 <input type="range" class="form-range" id="paddleSpeed" min="1" max="10" step="1"
-                    data-setting="paddleSpeed" v-model="pongRoom.settings.paddleSpeed"
-                    v-on:input="pongRoom.handleSettingChange">
+                    data-setting="paddleSpeed" v-model="room.settings.paddleSpeed"
+                    v-on:change="room.handleSettingChange">
                 <div class="d-flex justify-content-between">
                     <span>Slow</span>
                     <span>Fast</span>
@@ -21,7 +21,7 @@
             <div class="mb-3">
                 <label for="ballSpeed" class="form-label">Ball Speed</label>
                 <input type="range" class="form-range" id="ballSpeed" min="1" max="10" step="1" data-setting="ballSpeed"
-                    v-model="pongRoom.settings.ballSpeed" v-on:input="pongRoom.handleSettingChange">
+                    v-model="room.settings.ballSpeed" v-on:change="room.handleSettingChange">
                 <div class="d-flex justify-content-between">
                     <span>Slow</span>
                     <span>Fast</span>
@@ -32,8 +32,7 @@
             <div class="mb-3">
                 <label for="paddleSize" class="form-label">Paddle Size</label>
                 <input type="range" class="form-range" id="paddleSize" min="1" max="10" step="1"
-                    data-setting="paddleSize" v-model="pongRoom.settings.paddleSize"
-                    v-on:input="pongRoom.handleSettingChange">
+                    data-setting="paddleSize" v-model="room.settings.paddleSize" v-on:change="room.handleSettingChange">
                 <div class="d-flex justify-content-between">
                     <span>Small</span>
                     <span>Large</span>
@@ -43,8 +42,8 @@
             <!-- Max Score -->
             <div class="mb-3">
                 <label for="maxScore" class="form-label">Points to Win</label>
-                <select class="form-select" id="maxScore" data-setting="maxScore" v-model="pongRoom.settings.maxScore"
-                    v-on:change="pongRoom.handleSettingChange">
+                <select class="form-select" id="maxScore" data-setting="maxScore" v-model="room.settings.maxScore"
+                    v-on:change="room.handleSettingChange">
                     <option value="5">5 Points</option>
                     <option value="11">11 Points</option>
                     <option value="21">21 Points</option>
@@ -52,61 +51,61 @@
             </div>
 
             <!-- AI Difficulty (only shown in AI mode) -->
-            <div class="mb-3" v-if="pongRoom.mode === 'AI'">
+            <div class="mb-3" v-if="room.mode === 'AI'">
                 <label for="aiDifficulty" class="form-label">AI Model</label>
                 <select class="form-select" id="aiDifficulty" data-setting="aiDifficulty"
-                    v-model="pongRoom.settings.aiDifficulty" v-on:change="pongRoom.handleSettingChange">
+                    v-model="room.settings.aiDifficulty" v-on:change="room.handleSettingChange">
                     <option value="" disabled selected>Loading models...</option>
                 </select>
             </div>
         </form>
 
         <!-- Read-only settings display -->
-        <div v-if="pongRoom.settings && pongRoom.gameStarted">
+        <div v-if="room.settings && room.gameStarted">
             <div class="mb-3">
-                <label class="form-label">Paddle Speed</label>
+                <div class="text-muted mb-1">Paddle Speed</div>
                 <div class="progress">
-                    <div class="progress-bar" role="progressbar" v-text="pongRoom.settings.paddleSpeed + '/10'"
-                        v-bind:style="pongRoom.getProgressBarStyle(pongRoom.settings.paddleSpeed)">
+                    <div class="progress-bar" role="progressbar" v-text="room.settings.paddleSpeed + '/10'"
+                        v-bind:style="room.getProgressBarStyle(room.settings.paddleSpeed)">
                     </div>
                 </div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Ball Speed</label>
+                <div class="text-muted mb-1">Ball Speed</div>
                 <div class="progress">
-                    <div class="progress-bar" role="progressbar" v-text="pongRoom.settings.ballSpeed + '/10'"
-                        v-bind:style="pongRoom.getProgressBarStyle(pongRoom.settings.ballSpeed)">
+                    <div class="progress-bar" role="progressbar" v-text="room.settings.ballSpeed + '/10'"
+                        v-bind:style="room.getProgressBarStyle(room.settings.ballSpeed)">
                     </div>
                 </div>
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Paddle Size</label>
+                <div class="text-muted mb-1">Paddle Size</div>
                 <div class="progress">
-                    <div class="progress-bar" role="progressbar" v-text="pongRoom.settings.paddleSize + '%'"
-                        v-bind:style="pongRoom.getProgressBarStyle(pongRoom.settings.paddleSize)">
+                    <div class="progress-bar" role="progressbar" v-text="room.settings.paddleSize + '%'"
+                        v-bind:style="room.getProgressBarStyle(room.settings.paddleSize)">
                     </div>
                 </div>
             </div>
 
             <div class="d-flex justify-content-between mb-3">
                 <div>
-                    <label class="form-label">Points to Win</label>
+                    <div class="text-muted mb-1">Points to Win</div>
                     <p class="mb-0 fs-5">
-                        <span v-text="pongRoom.settings.maxScore"></span> Points
+                        <span v-text="room.settings.maxScore"></span> Points
                     </p>
                 </div>
 
-                <div v-if="pongRoom.mode === 'AI'">
-                    <label class="form-label">AI Model</label>
-                    <p class="mb-0 fs-5" v-text="pongRoom.settings.aiDifficulty"></p>
+                <div v-if="room.mode === 'AI'">
+                    <div class="text-muted mb-1">AI Model</div>
+                    <p class="mb-0 fs-5" v-text="room.settings.aiDifficulty"></p>
                 </div>
             </div>
         </div>
 
         <!-- No settings message -->
-        <div v-if="!pongRoom.settings" class="alert alert-warning">
+        <div v-if="!room.settings" class="alert alert-warning">
             Loading settings...
         </div>
     </div>

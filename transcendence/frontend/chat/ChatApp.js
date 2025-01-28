@@ -3,10 +3,17 @@ import UserService from './UserService.js';
 import MessageService from './MessageService.js';
 import UIHandler from './UIHandler.js';
 import { ChatNetworkManager } from './ChatNetworkManager.js';
-import Store from '../state/store.js';
+import Store, { actions } from '../state/store.js';
 
 export default class ChatApp {
+	static instance = null;
+
 	constructor() {
+		if (ChatApp.instance) {
+			logger.debug('ChatApp instance already exists');
+			return ChatApp.instance;
+		}
+
 		this._store = Store.getInstance();
 		this._store.DEBUG = true;
 		this.networkManager = new ChatNetworkManager();
@@ -18,89 +25,54 @@ export default class ChatApp {
 		this.initializeNetwork();
 		this._initializeStoreSubscription();
 		this.selectLastActiveChat();
+
+		ChatApp.instance = this;
+	}
+
+	static getInstance() {
+		if (!ChatApp.instance) {
+			ChatApp.instance = new ChatApp();
+		}
+		return ChatApp.instance;
+	}
+
+	static hasInstance() {
+		return !!ChatApp.instance;
+	}
+
+	static resetInstance() {
+		ChatApp.instance = null;
 	}
 
 	async initializeNetwork() {
-		this.networkManager.on('chat_message', data => {
-			const senderId = Number(data.sender_id);
-			const currentUserId = this._store.getState('user').id;
+		try {
+			const chatState = this._store.getState('chat');
+			const userState = this._store.getState('user');
 
-			// Don't count messages from self
-			if (senderId === currentUserId) {
+			// Ensure chat state is initialized
+			if (!chatState || !chatState.users) {
+				logger.debug('Chat state not initialized yet, waiting...');
+				setTimeout(() => this.initializeNetwork(), 100);
 				return;
 			}
 
-			// Increment unread count only if chat is closed
-			const shouldIncrementUnread = !this._isChatOpen;
+			// Rest of the initialization code...
+			const currentUser = userState.id;
+			const blockedUsers = userState.blockedUsers;
 
-			this._store.dispatch({
-				domain: 'chat',
-				type: 'ADD_MESSAGE',
-				payload: {
-					roomId: senderId,
-					message: {
-						id: Number(data.id || this._lastMessageId + 1),
-						sender: senderId,
-						content: data.message,
-						timestamp: Number(data.timestamp || Date.now()),
-						type: 'text'
-					},
-					incrementUnread: shouldIncrementUnread
-				}
-			});
-		});
+			// Filter out blocked users
+			const allowedUsers = Object.values(chatState.users).filter(user =>
+				user.id !== currentUser && !blockedUsers.has(user.id)
+			);
 
-		this.networkManager.on('game_invitation', data => {
-			this.handleGameInvitation(data.game_id, data.sender_id, data.room_id);
-		});
+			// Initialize network manager
+			this._networkManager = new ChatNetworkManager(this);
+			this._networkManager.connect();
 
-		this.networkManager.on('tournament_warning', data => {
-			this.handleTournamentWarning(data.tournament_id, data.match_time);
-		});
-
-		this.networkManager.on('user_profile', data => {
-			this.uiHandler.displayProfileModal(data.profile);
-		});
-
-		this.networkManager.on('user_status_change', data => {
-			logger.debug('Received user_status_change:', {
-				user_id: data.user_id,
-				status: data.status,
-				user_id_type: typeof data.user_id
-			});
-
-			const userId = Number(data.user_id);
-			logger.debug('Converted user_id to number:', {
-				userId,
-				type: typeof userId
-			});
-
-			const currentState = this._store.getState('user');
-			logger.debug('Current user state:', {
-				users: currentState.users,
-				hasUser: currentState.users[userId] !== undefined
-			});
-
-			this._store.dispatch({
-				domain: 'user',
-				type: 'UPDATE_STATUS',
-				payload: {
-					userId,
-					status: data.status
-				}
-			});
-			this.userService.refreshUserList();
-		});
-
-		this.networkManager.on('error', data => {
-			alert("Error: " + data.error);
-		});
-
-		this.networkManager.on('redirect', data => {
-			window.location.href = data.url;
-		});
-
-		await this.networkManager.connect();
+			logger.debug('Chat network initialized successfully');
+		} catch (error) {
+			logger.error('Error initializing chat network:', error);
+		}
 	}
 
 	_initializeStoreSubscription() {
@@ -129,6 +101,7 @@ export default class ChatApp {
 			return;
 		}
 
+		// TODO: condition en trop ? Server blocke deja
 		if (activeUser.classList.contains('blocked')) {
 			alert("This user has blocked you. You cannot send them messages.");
 			messageInput.value = '';
@@ -173,8 +146,9 @@ export default class ChatApp {
 
 	handleUserClick(event) {
 		const button = event.currentTarget;
-		const userId = Number(button.dataset.userId);
-		const userName = button.querySelector('.user-name').textContent;
+		const userState = this._store.getState('user');
+		const userId = userState.id;
+		const userName = userState.username;
 		const isBlocked = button.classList.contains('blocked');
 
 		document.querySelectorAll('.user-chat').forEach(btn => {
@@ -213,14 +187,14 @@ export default class ChatApp {
 			delete newUnreadCounts[userId];
 			this._store.dispatch({
 				domain: 'chat',
-				type: 'SET_ACTIVE_ROOM',
+				type: actions.chat.SET_ACTIVE_ROOM,
 				payload: userId,
 				unreadCounts: newUnreadCounts
 			});
 		} else {
 			this._store.dispatch({
 				domain: 'chat',
-				type: 'SET_ACTIVE_ROOM',
+				type: actions.chat.SET_ACTIVE_ROOM,
 				payload: userId
 			});
 		}
@@ -254,14 +228,14 @@ export default class ChatApp {
 				// Clear existing history
 				this._store.dispatch({
 					domain: 'chat',
-					type: 'CLEAR_HISTORY',
+					type: actions.chat.CLEAR_HISTORY,
 					payload: { roomId: userId }
 				});
 
 				// Add all messages at once
 				this._store.dispatch({
 					domain: 'chat',
-					type: 'ADD_MESSAGES',
+					type: actions.chat.ADD_MESSAGES,
 					payload: {
 						roomId: userId,
 						messages
@@ -284,7 +258,7 @@ export default class ChatApp {
 			this.networkManager.sendMessage({
 				type: 'game_invitation',
 				recipient_id: userId,
-				game_id: 'pong'
+				game_id: 'pong' // TODO: send actual game id
 			});
 			alert('Game invitation sent!');
 		} else if (isViewProfile) {
@@ -355,7 +329,7 @@ export default class ChatApp {
 			// Clear all unread counts when opening chat
 			this._store.dispatch({
 				domain: 'chat',
-				type: 'CLEAR_ALL_UNREAD'
+				type: actions.chat.CLEAR_ALL_UNREAD
 			});
 		}
 	}

@@ -1,6 +1,8 @@
-const esbuild = require('esbuild');
-const path = require('path');
+import * as esbuild from 'esbuild';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isProd = process.env.NODE_ENV === 'production';
 
 const buildOptions = {

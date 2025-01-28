@@ -28,7 +28,7 @@ export async function initializeAiManager() {
                     option.disabled = true;
                 dropdown.appendChild(option);
             });
-        } catch(error) {
+        } catch (error) {
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error: ${error.message}`;
         }
@@ -41,7 +41,7 @@ export async function initializeAiManager() {
     }
 
     // Enable all the page's buttons
-        function enabled_buttons() {
+    function enabled_buttons() {
         document.getElementById("delete-ai-btn").disabled = false;
         document.getElementById("train-ai-btn").disabled = false;
     }
@@ -126,7 +126,7 @@ export async function initializeAiManager() {
         }
         enabled_buttons();
     });
-    
+
     // Handle Delete AI button click
     deleteButton.addEventListener("click", async () => {
         disabled_buttons();
@@ -138,7 +138,7 @@ export async function initializeAiManager() {
             return;
         }
         managingLog.innerText = `Request for deleting AI '${selectedAI}'...`;
-    
+
         try {
             // Await the fetch response
             const response = await fetch('/ai/delete-saved-ai/', {
@@ -148,19 +148,19 @@ export async function initializeAiManager() {
                 },
                 body: JSON.stringify({ ai_name: selectedAI }),
             });
-    
+
             // Parse the response JSON
             const data = await response.json();
-    
+
             if (!response.ok) {
                 enabled_buttons();
                 throw new Error(data.error || 'Deleting saved AIs failed');
             }
-    
+
             // Update the log on success
             managingLog.className = 'alert alert-success';
             managingLog.innerText = `AI successfully deleted: ${data.message}`;
-    
+
             // Refresh the dropdown
             fetchSavedAIs();
         } catch (error) {
@@ -171,7 +171,7 @@ export async function initializeAiManager() {
 
         enabled_buttons()
     });
-    
+
     // Initial fetch of saved AIs
     fetchSavedAIs();
 }

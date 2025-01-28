@@ -1,0 +1,136 @@
+<style>
+	.dropdown-toggle::after {
+		display: none !important;
+	}
+
+	.font-size-icon {
+		display: flex;
+		align-items: baseline;
+		gap: 2px;
+	}
+
+	.font-size-letter {
+		font-weight: normal;
+	}
+
+	.font-size-letter.small {
+		font-size: 12px;
+	}
+
+	.font-size-letter.medium {
+		font-size: 16px;
+	}
+
+	.font-size-letter.large {
+		font-size: 20px;
+	}
+
+	.font-size-letter.active {
+		font-weight: 900;
+	}
+
+	.theme-icon {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 20px;
+		height: 20px;
+		line-height: 1;
+		margin-top: 2px;
+	}
+
+	.theme-icon svg {
+		width: 20px;
+		height: 20px;
+		flex-shrink: 0;
+	}
+
+	.nav-item {
+		display: flex;
+		align-items: center;
+	}
+
+	.nav-link {
+		display: flex;
+		align-items: center;
+	}
+</style>
+
+<!-- Theme Switcher -->
+<li class="nav-item dropdown d-flex justify-content-center" role="navigation">
+	<a class="nav-link dropdown-toggle" href="#" role="button" id="themeDropdown" data-bs-toggle="dropdown"
+		aria-expanded="false" aria-label="Theme Switcher" data-domain="ui" style="--bs-dropdown-toggle-icon: none;">
+		<span class="theme-icon">
+			<svg v-if="theme === 'light'" xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-sun"
+				viewBox="0 0 16 16" aria-hidden="true">
+				<path
+					d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708" />
+			</svg>
+			<svg v-else-if="theme === 'dark'" xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-moon"
+				viewBox="0 0 16 16" aria-hidden="true">
+				<path
+					d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278" />
+			</svg>
+			<svg v-else xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-circle-half"
+				viewBox="0 0 16 16" aria-hidden="true">
+				<path d="M8 15A7 7 0 1 0 8 1zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16" />
+			</svg>
+		</span>
+	</a>
+	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown" data-domain="ui">
+		<li v-if="theme !== 'light'">
+			<a class="dropdown-item" href="#" v-on:click="updateTheme('light')">
+				Light
+				<span class="visually-hidden">Switch to light theme</span>
+			</a>
+		</li>
+		<li v-if="theme !== 'dark'">
+			<a class="dropdown-item" href="#" v-on:click="updateTheme('dark')">
+				Dark
+				<span class="visually-hidden">Switch to dark theme</span>
+			</a>
+		</li>
+		<li v-if="theme !== 'high-contrast'">
+			<a class="dropdown-item" href="#" v-on:click="updateTheme('high-contrast')">
+				High Contrast
+				<span class="visually-hidden">Switch to high contrast theme</span>
+			</a>
+		</li>
+	</ul>
+</li>
+
+<!-- Font Size Switcher -->
+<li class="nav-item dropdown d-flex justify-content-center" role="navigation">
+	<a class="nav-link dropdown-toggle" href="#" role="button" id="fontSizeDropdown" data-bs-toggle="dropdown"
+		aria-expanded="false" aria-label="Font Size Switcher" data-domain="ui" style="--bs-dropdown-toggle-icon: none;">
+		<span class="font-size-icon">
+			<span v-if="fontSize === 'small'" class="font-size-letter small active" aria-hidden="true">A</span>
+			<span v-if="fontSize !== 'small'" class="font-size-letter small" aria-hidden="true">A</span>
+			<span v-if="fontSize === 'medium'" class="font-size-letter medium active" aria-hidden="true">A</span>
+			<span v-if="fontSize !== 'medium'" class="font-size-letter medium" aria-hidden="true">A</span>
+			<span v-if="fontSize === 'large'" class="font-size-letter large active" aria-hidden="true">A</span>
+			<span v-if="fontSize !== 'large'" class="font-size-letter large" aria-hidden="true">A</span>
+		</span>
+		<span class="visually-hidden" v-text="'Current font size: ' + fontSize"></span>
+	</a>
+	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="fontSizeDropdown" data-domain="ui" v-cloak>
+		<li v-if="fontSize !== 'small'">
+			<a class="dropdown-item" href="#" v-on:click="updateFontSize('small')">
+				Small
+				<span class="visually-hidden">Switch to small font size</span>
+			</a>
+		</li>
+		<li v-if="fontSize !== 'medium'">
+			<a class="dropdown-item" href="#" v-on:click="updateFontSize('medium')">
+				Medium
+				<span class="visually-hidden">Switch to medium font size</span>
+			</a>
+		</li>
+		<li v-if="fontSize !== 'large'">
+			<a class="dropdown-item" href="#" v-on:click="updateFontSize('large')">
+				Large
+				<span class="visually-hidden">Switch to large font size</span>
+			</a>
+		</li>
+	</ul>
+</li>

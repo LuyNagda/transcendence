@@ -149,4 +149,11 @@ export class ConnectionManager {
 	emit(event, data) {
 		logger.debug(`ConnectionManager event: ${event}`, data);
 	}
+
+	/** TODO : Remove duplicate
+	 * Destroys all connections and cleans up resources
+	 */
+	destroy() {
+		this.disconnectAll();
+	}
 }

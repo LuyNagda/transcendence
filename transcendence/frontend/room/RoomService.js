@@ -2,93 +2,88 @@ import { Room } from './Room.js';
 import logger from '../logger.js';
 import Store from '../state/store.js';
 
+/**
+ * Service responsible for managing room lifecycle and coordination between components
+ */
 export class RoomService {
-	static #instance = null;
-
-	constructor() {
-		if (RoomService.#instance) {
-			return RoomService.#instance;
-		}
-		this._currentRoom = null;
-		this._store = Store.getInstance();
-		this.#initializeRoomListener();
-		RoomService.#instance = this;
-	}
-
-	static getInstance() {
-		return RoomService.#instance ?? new RoomService();
-	}
+	static _currentRoom = null;
+	static _store = Store.getInstance();
 
 	/**
-	 * Initialize or update a room with new state
-	 * @param {Object} roomState - The room state to initialize/update with
+	 * Initialize a new room or destroy existing one
+	 * @param {Object} roomData - The room initialization data
 	 */
-	initialize(roomState) {
-		if (!roomState) {
-			this.destroyCurrentRoom();
-			this.#updateDOMAttribute('None');
+	static initialize(roomData) {
+		if (!roomData) {
+			RoomService.destroyCurrentRoom();
+			RoomService.#updateDOMAttribute('None');
 			return;
 		}
 
-		logger.info("Initializing room with state:", roomState);
-		if (!roomState.id && !roomState.roomId) {
-			logger.error("Invalid room state:", roomState);
+		logger.info("Initializing room:", roomData);
+
+		// Cascading roomId lookup
+		const roomId = roomData.id ||
+			roomData.roomId ||
+			roomData._networkManager?._roomId ||
+			roomData._gameManager?._roomId ||
+			roomData._stateManager?._roomId;
+
+		if (!roomId) {
+			logger.error("Invalid room data - no room ID found:", roomData);
 			return;
 		}
-
-		const roomId = roomState.id || roomState.roomId;
 
 		try {
-			if (this._currentRoom?.roomId === roomId) {
-				// Update existing room through store
-				this._store.dispatch({
-					domain: 'room',
-					type: 'UPDATE_ROOM_SETTINGS',
-					payload: {
-						roomId,
-						settings: roomState.settings || {}
-					}
-				});
+			if (RoomService._currentRoom?.roomId === roomId) {
+				// Room exists, let state manager handle the update
+				RoomService._currentRoom.updateState(roomData);
 			} else {
 				// Create new room
-				this.destroyCurrentRoom();
-				this._currentRoom = new Room(roomId);
-
-				// Initialize room in store
-				const userState = this._store.getState('user');
-				this._store.dispatch({
-					domain: 'room',
-					type: 'CREATE_ROOM',
-					payload: {
-						id: roomId,
-						name: roomState.name || `Room ${roomId}`,
-						type: roomState.type || 'public',
-						createdBy: userState.id,
-						settings: roomState.settings || {}
-					}
-				});
+				RoomService.destroyCurrentRoom();
+				RoomService._currentRoom = new Room(roomId);
 			}
-			this.#updateDOMAttribute(JSON.stringify(roomState));
-			logger.info("Room initialized successfully");
+
+			// Update store with current room state
+			RoomService._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM',
+				payload: {
+					...roomData,
+					id: roomId
+				}
+			});
+
+			RoomService.#updateDOMAttribute(roomId);
 		} catch (error) {
 			logger.error("Failed to initialize room:", error);
-			this.destroyCurrentRoom();
-			this.#updateDOMAttribute('None');
+			RoomService.destroyCurrentRoom();
 		}
 	}
 
 	/**
-	 * Update the current room state
+	 * Update or clear the current room
 	 * @param {Object|string} roomData - The new room data or 'None' to clear
 	 */
-	updateRoom(roomData) {
-		if (roomData === 'None' || !roomData || Object.keys(roomData).length === 0) {
-			this.destroyCurrentRoom();
-			this.#updateDOMAttribute('None');
-			logger.debug('Room data removed');
-		} else {
-			this.initialize(roomData);
-			logger.debug('Room data updated:', roomData);
+	static updateRoom(roomData) {
+		if (!roomData || !RoomService._currentRoom) {
+			return;
+		}
+
+		try {
+			RoomService._currentRoom.updateState(roomData);
+
+			// Update store with new room state
+			RoomService._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM',
+				payload: {
+					...roomData,
+					id: RoomService._currentRoom.roomId
+				}
+			});
+		} catch (error) {
+			logger.error("Failed to update room:", error);
 		}
 	}
 
@@ -96,31 +91,26 @@ export class RoomService {
 	 * Get the current active room instance
 	 * @returns {Room|null} The current room instance
 	 */
-	getCurrentRoom() {
-		return this._currentRoom;
+	static getCurrentRoom() {
+		return RoomService._currentRoom;
 	}
 
 	/**
 	 * Destroy the current room instance
 	 */
-	destroyCurrentRoom() {
-		if (this._currentRoom) {
-			const roomId = this._currentRoom.roomId;
-			this._currentRoom.destroy();
-			this._currentRoom = null;
+	static destroyCurrentRoom() {
+		if (RoomService._currentRoom) {
+			RoomService._currentRoom.destroy();
+			RoomService._currentRoom = null;
 
-			// Clear room from store
-			const userState = this._store.getState('user');
-			this._store.dispatch({
+			// Reset room state in store
+			RoomService._store.dispatch({
 				domain: 'room',
 				type: 'LEAVE_ROOM',
 				payload: {
-					roomId,
-					userId: userState.id
+					userId: RoomService._store.getState('user').id
 				}
 			});
-
-			logger.info("Current room destroyed");
 		}
 	}
 
@@ -129,19 +119,24 @@ export class RoomService {
 	 * Update the DOM data attribute for room
 	 * @param {string} value - The value to set
 	 */
-	#updateDOMAttribute(value) {
+	static #updateDOMAttribute(value) {
 		document.body.setAttribute('data-room', value);
 	}
 
 	/**
-	 * @private
 	 * Initialize the event listener for room updates
 	 */
-	#initializeRoomListener() {
+	static initializeRoomListener() {
 		logger.debug('Initializing room listener');
 		document.body.addEventListener('updateRoom', (event) => {
 			logger.debug('Received updateRoom event:', event);
-			this.updateRoom(event.detail.room);
+			RoomService.updateRoom(event.detail.room);
 		});
 	}
-} 
+}
+
+// Initialize room listener when module is loaded
+RoomService.initializeRoomListener();
+
+// Export the static class
+export default RoomService; 

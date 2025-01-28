@@ -1,26 +1,21 @@
 import { GameRules } from '../pong/core/GameRules.js';
 
-// Room State Actions
+export const RoomStates = {
+	LOBBY: 'LOBBY',
+	PLAYING: 'PLAYING'
+};
+
 export const roomActions = {
 	CREATE_ROOM: 'CREATE_ROOM',
 	JOIN_ROOM: 'JOIN_ROOM',
 	LEAVE_ROOM: 'LEAVE_ROOM',
 	UPDATE_ROOM: 'UPDATE_ROOM',
 	UPDATE_ROOM_SETTINGS: 'UPDATE_ROOM_SETTINGS',
-	UPDATE_MEMBERS: 'UPDATE_MEMBERS',
-	UPDATE_ROOM_STATUS: 'UPDATE_ROOM_STATUS',
+	UPDATE_PLAYERS: 'UPDATE_PLAYERS',
+	UPDATE_ROOM_STATE: 'UPDATE_ROOM_STATE',
 	UPDATE_ROOM_MODE: 'UPDATE_ROOM_MODE'
 };
 
-// Initial room state
-export const initialRoomState = {
-	rooms: {},  // Keyed by roomId
-	activeRoom: null,
-	invitations: [],  // Array of pending room invitations
-	lastUpdate: null
-};
-
-// Define room modes as constants
 export const RoomModes = {
 	AI: 'AI',
 	CLASSIC: 'CLASSIC',
@@ -28,7 +23,57 @@ export const RoomModes = {
 	TOURNAMENT: 'TOURNAMENT'
 };
 
-// Helper function to get max players for a mode
+export const SettingsSchema = {
+	mode: {
+		type: 'string',
+		enum: Object.values(RoomModes),
+		default: RoomModes.AI,
+		required: true
+	},
+	maxPlayers: {
+		type: 'number',
+		min: 1,
+		max: 8,
+		default: 2,
+		required: true
+	},
+	ballSpeed: {
+		type: 'number',
+		min: 1,
+		max: 10,
+		default: GameRules.DEFAULT_SETTINGS.ballSpeed,
+		required: true
+	},
+	paddleSpeed: {
+		type: 'number',
+		min: 1,
+		max: 10,
+		default: GameRules.DEFAULT_SETTINGS.paddleSpeed,
+		required: true
+	},
+	paddleSize: {
+		type: 'number',
+		min: 1,
+		max: 10,
+		default: GameRules.DEFAULT_SETTINGS.paddleSize,
+		required: true
+	},
+	maxScore: {
+		type: 'number',
+		min: 1,
+		max: 100,
+		default: GameRules.DEFAULT_SETTINGS.maxScore,
+		required: true
+	},
+	aiDifficulty: {
+		type: 'string',
+		enum: ['Easy', 'Medium', 'Hard'],
+		default: GameRules.DEFAULT_SETTINGS.aiDifficulty,
+		required: false,
+		condition: (settings) => settings.mode === RoomModes.AI
+	}
+};
+
 export const getMaxPlayersForMode = (mode) => {
 	switch (mode) {
 		case RoomModes.AI:
@@ -43,266 +88,242 @@ export const getMaxPlayersForMode = (mode) => {
 	}
 };
 
-// Define room statuses
-export const RoomStatus = {
-	ACTIVE: 'active',
-	CLOSED: 'closed',
-	GAME_IN_PROGRESS: 'game_in_progress',
-	FINISHED: 'finished'
-};
-
-// Default settings based on mode
 export const getDefaultSettingsForMode = (mode) => {
-	const baseSettings = {
-		mode: mode,
-		maxMembers: getMaxPlayersForMode(mode),
-		ballSpeed: GameRules.DEFAULT_SETTINGS.ballSpeed,
-		paddleSpeed: GameRules.DEFAULT_SETTINGS.paddleSpeed,
-		paddleSize: GameRules.DEFAULT_SETTINGS.paddleSize,
-		maxScore: GameRules.DEFAULT_SETTINGS.maxScore,
-		allowSpectators: true,
-		isPrivate: false
-	};
+	const settings = {};
 
-	// Add mode-specific settings
-	if (mode === RoomModes.AI) {
-		baseSettings.aiDifficulty = GameRules.DEFAULT_SETTINGS.aiDifficulty;
-	}
+	// Get defaults from schema
+	Object.entries(SettingsSchema).forEach(([key, schema]) => {
+		// Skip if the field has a condition that isn't met
+		if (schema.condition && !schema.condition({ mode })) {
+			return;
+		}
 
-	return baseSettings;
+		// Use schema default if available
+		if (schema.default !== undefined) {
+			settings[key] = schema.default;
+		}
+	});
+
+	// Override mode-specific settings
+	settings.mode = mode;
+	settings.maxPlayers = getMaxPlayersForMode(mode);
+
+	return settings;
 };
 
-// Room structure with mode included
-export const roomStructure = {
+export const initialRoomState = {
 	id: '',
-	name: '',
+	isPrivate: false,
 	mode: RoomModes.AI,
-	type: 'game',
-	status: RoomStatus.ACTIVE,
-	members: [],
+	state: RoomStates.LOBBY,
+	maxPlayers: getMaxPlayersForMode(RoomModes.AI),
+	players: [],
 	settings: getDefaultSettingsForMode(RoomModes.AI),
-	createdAt: null,
-	createdBy: null
+	createdAt: 0,
+	createdBy: 0,
+	pendingInvitations: [],
+	lastUpdate: null
 };
 
-// Room state validators
+/**
+ * Validates settings against the schema
+ * @param {Object} settings - Settings to validate
+ * @returns {Object} - { isValid: boolean, errors: string[] }
+ */
+export const validateSettings = (settings) => {
+	const errors = [];
+	const mode = settings.mode;
+
+	Object.entries(SettingsSchema).forEach(([key, schema]) => {
+		// Skip validation if the field has a condition that isn't met
+		if (schema.condition && !schema.condition(settings)) {
+			return;
+		}
+
+		const value = settings[key];
+
+		// Check required fields
+		if (schema.required && value === undefined) {
+			errors.push(`Missing required field: ${key}`);
+			return;
+		}
+
+		// Skip validation for optional fields that are not present
+		if (!schema.required && value === undefined) {
+			return;
+		}
+
+		// Validate type
+		switch (schema.type) {
+			case 'string':
+				if (typeof value !== 'string') {
+					errors.push(`${key} must be a string`);
+				}
+				if (schema.enum && !schema.enum.includes(value)) {
+					errors.push(`${key} must be one of: ${schema.enum.join(', ')}`);
+				}
+				break;
+			case 'number':
+				if (typeof value !== 'number') {
+					errors.push(`${key} must be a number`);
+				}
+				if (schema.min !== undefined && value < schema.min) {
+					errors.push(`${key} must be at least ${schema.min}`);
+				}
+				if (schema.max !== undefined && value > schema.max) {
+					errors.push(`${key} must be at most ${schema.max}`);
+				}
+				break;
+			case 'boolean':
+				if (typeof value !== 'boolean') {
+					errors.push(`${key} must be a boolean`);
+				}
+				break;
+		}
+	});
+
+	return {
+		isValid: errors.length === 0,
+		errors
+	};
+};
+
 export const roomValidators = {
-	rooms: (value) => {
-		return typeof value === 'object' &&
-			Object.values(value).every(room => {
-				return typeof room === 'object' &&
-					typeof room.id === 'string' &&
-					typeof room.name === 'string' &&
-					['public', 'private', 'game'].includes(room.type) &&
-					['active', 'closed', 'game_in_progress', 'finished'].includes(room.status) &&
-					Array.isArray(room.members) &&
-					typeof room.settings === 'object' &&
-					typeof room.settings.maxMembers === 'number' &&
-					typeof room.settings.allowSpectators === 'boolean' &&
-					typeof room.settings.isPrivate === 'boolean' &&
-					typeof room.createdAt === 'number' &&
-					typeof room.createdBy === 'string';
-			});
+	id: (value) => typeof value === 'string',
+	isPrivate: (value) => typeof value === 'boolean',
+	mode: (value) => Object.values(RoomModes).includes(value),
+	state: (value) => Object.values(RoomStates).includes(value),
+	players: (value) => Array.isArray(value),
+	settings: (value) => {
+		return (
+			typeof value === 'object' &&
+			typeof value.mode === 'string' &&
+			typeof value.maxPlayers === 'number' &&
+			validateSettings(value).isValid
+		);
 	},
-	activeRoom: (value) => value === null || typeof value === 'string',
-	invitations: (value) => {
-		return Array.isArray(value) &&
-			value.every(invitation => {
-				return typeof invitation === 'object' &&
-					typeof invitation.roomId === 'string' &&
-					typeof invitation.invitedBy === 'string' &&
-					typeof invitation.timestamp === 'number';
-			});
+	createdAt: (value) => typeof value === 'number',
+	createdBy: (value) => typeof value === 'number',
+	pend: (value) => {
+		return Array.isArray(value) && value.every((invitation) => {
+			return (
+				typeof invitation === 'object' &&
+				typeof invitation.roomId === 'string' &&
+				typeof invitation.invitedBy === 'string' &&
+				typeof invitation.timestamp === 'number'
+			);
+		});
 	}
 };
 
-// Room state reducers
 export const roomReducers = {
 	[roomActions.CREATE_ROOM]: (state, payload) => {
-		const { id, name, type, createdBy, settings = {} } = payload;
-		const mode = settings.mode || RoomModes.AI;
-
-		const newRoom = {
-			...roomStructure,
-			id,
-			name,
-			type,
-			mode,  // Set mode from payload or default
-			members: [createdBy],
-			settings: {
-				...getDefaultSettingsForMode(mode),
-				...settings,  // Override with any custom settings
-				mode  // Ensure mode is set in settings
-			},
-			createdAt: Date.now(),
-			createdBy: String(createdBy)
-		};
+		const { id, isPrivate, createdBy } = payload;
+		const now = Date.now();
 
 		return {
 			...state,
-			rooms: {
-				...state.rooms,
-				[id]: newRoom
-			},
-			activeRoom: id,
-			lastUpdate: Date.now()
+			id,
+			isPrivate: isPrivate || false,
+			createdBy: createdBy.id,
+			players: [createdBy],
+			lastUpdate: now,
+			createdAt: now
 		};
 	},
 
 	[roomActions.JOIN_ROOM]: (state, payload) => {
-		const { roomId, userId } = payload;
-		const room = state.rooms[roomId];
-
-		if (!room) return state;
+		const { userId, username } = payload;
+		const newPlayer = { id: userId, username };
 
 		return {
 			...state,
-			rooms: {
-				...state.rooms,
-				[roomId]: {
-					...room,
-					members: [...new Set([...room.members, userId])]
-				}
-			},
-			activeRoom: roomId,
-			invitations: state.invitations.filter(inv => inv.roomId !== roomId),
+			players: [...state.players.filter(p => p.id !== userId), newPlayer],
+			pend: state.pend.filter(inv => inv.roomId !== state.id),
 			lastUpdate: Date.now()
 		};
 	},
 
 	[roomActions.LEAVE_ROOM]: (state, payload) => {
-		const { roomId, userId } = payload;
-		const room = state.rooms[roomId];
+		const { userId } = payload;
+		const updatedPlayers = state.players.filter(p => p.id !== userId);
 
-		if (!room) return state;
-
-		const updatedMembers = room.members.filter(id => id !== userId);
-		const shouldCloseRoom = updatedMembers.length === 0;
-
-		if (shouldCloseRoom) {
-			const { [roomId]: _, ...remainingRooms } = state.rooms;
-			return {
-				...state,
-				rooms: remainingRooms,
-				activeRoom: state.activeRoom === roomId ? null : state.activeRoom,
-				lastUpdate: Date.now()
-			};
+		if (updatedPlayers.length === 0) {
+			return initialRoomState;
 		}
 
 		return {
 			...state,
-			rooms: {
-				...state.rooms,
-				[roomId]: {
-					...room,
-					members: updatedMembers
-				}
-			},
-			activeRoom: state.activeRoom === roomId ? null : state.activeRoom,
+			players: updatedPlayers,
 			lastUpdate: Date.now()
 		};
 	},
 
 	[roomActions.UPDATE_ROOM_SETTINGS]: (state, payload) => {
-		const { roomId, settings } = payload;
-		const room = state.rooms[roomId];
+		const { settings } = payload;
+		const newSettings = { ...state.settings, ...settings };
+		const validation = validateSettings(newSettings);
 
-		if (!room) return state;
+		if (!validation.isValid) {
+			console.error('Invalid room settings:', validation.errors);
+			return state;
+		}
 
 		return {
 			...state,
-			rooms: {
-				...state.rooms,
-				[roomId]: {
-					...room,
-					settings: {
-						...room.settings,
-						...settings
-					}
-				}
-			},
+			settings: newSettings,
 			lastUpdate: Date.now()
 		};
 	},
 
-	[roomActions.UPDATE_MEMBERS]: (state, payload) => {
-		const { roomId, members } = payload;
-		const room = state.rooms[roomId];
-
-		if (!room) return state;
+	[roomActions.UPDATE_PLAYERS]: (state, payload) => {
+		const { players } = payload;
 
 		return {
 			...state,
-			rooms: {
-				...state.rooms,
-				[roomId]: {
-					...room,
-					members
-				}
-			},
+			players,
 			lastUpdate: Date.now()
 		};
 	},
 
-	[roomActions.UPDATE_ROOM_STATUS]: (state, payload) => {
-		const { roomId, status } = payload;
-		const room = state.rooms[roomId];
-
-		if (!room) return state;
+	// State is the room status not entire room state in this context
+	[roomActions.UPDATE_ROOM_STATE]: (state, payload) => {
+		const { state: roomState } = payload;
 
 		return {
 			...state,
-			rooms: {
-				...state.rooms,
-				[roomId]: {
-					...room,
-					status
-				}
-			},
+			state: roomState,
 			lastUpdate: Date.now()
 		};
 	},
 
 	[roomActions.UPDATE_ROOM_MODE]: (state, payload) => {
-		const { roomId, mode, settings } = payload;
-		const room = state.rooms[roomId];
-
-		if (!room) return state;
+		const { mode } = payload;
 
 		return {
 			...state,
-			rooms: {
-				...state.rooms,
-				[roomId]: {
-					...room,
-					mode,
-					settings: {
-						...room.settings,
-						...settings,
-						mode  // Ensure mode is set in settings
-					}
-				}
+			mode,
+			maxPlayers: getMaxPlayersForMode(mode),
+			settings: {
+				...state.settings,
+				...getDefaultSettingsForMode(mode)
 			},
 			lastUpdate: Date.now()
 		};
 	},
 
 	[roomActions.UPDATE_ROOM]: (state, payload) => {
-		const { id, ...roomData } = payload;
+		const { settings, ...roomData } = payload;
+
 		return {
 			...state,
-			rooms: {
-				...state.rooms,
-				[id]: {
-					...state.rooms[id],
-					...roomData,
-					settings: {
-						...(state.rooms[id]?.settings || {}),
-						...(roomData.settings || {}),
-						mode: roomData.mode || state.rooms[id]?.mode
-					}
-				}
-			},
+			...roomData,
+			maxPlayers: getMaxPlayersForMode(roomData.mode || state.mode),
+			settings: settings ? {
+				...getDefaultSettingsForMode(roomData.mode || state.mode),
+				...state.settings,
+				...settings,
+			} : state.settings,
 			lastUpdate: Date.now()
 		};
 	}

@@ -1,9 +1,5 @@
-import random, math, pygame
+import random, math
 from . import gameconfig
-
-ball : pygame.rect
-ball_dx : float
-ball_dy : float
 
 class AI_ball:
     x: float

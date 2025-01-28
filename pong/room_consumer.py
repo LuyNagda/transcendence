@@ -93,7 +93,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 'user_id': self.user.id
             })
 
-            if action == 'get_state':
+            if action == 'get_state': # TODO: Probleme de loop car state a tout le monde ?
                 # Get current room state and send it back
                 room_state = await self.get_room_state()
                 response = {
@@ -107,7 +107,8 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 logger.info(f"Updating property: {property} with value: {value}")
                 
                 # Handle all settings-related updates through the settings channel
-                if property == 'settings' or property in ['maxScore', 'ballSpeed', 'paddleSpeed', 'aiDifficulty', 'powerUps']:
+                 # TODO: Only room owner can change settings
+                if property == 'settings' or property in ['maxScore', 'ballSpeed', 'paddleSpeed', 'aiDifficulty']:
                     setting = data.get('setting') or property
                     # Broadcast settings update to all room members
                     await self.channel_layer.group_send(
@@ -441,18 +442,15 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                         'ballSpeed': 4,
                         'paddleSpeed': 4,
                         'maxScore': 11,
-                        'powerUps': False,
                         'aiDifficulty': 'medium'
                     } if value == 'AI' else {
                         'ballSpeed': 6,
                         'paddleSpeed': 6,
                         'maxScore': 11,
-                        'powerUps': False
                     } if value == 'RANKED' else {
                         'ballSpeed': 5,
                         'paddleSpeed': 5,
                         'maxScore': 11,
-                        'powerUps': False
                     }
                     
                     # Get updated room state

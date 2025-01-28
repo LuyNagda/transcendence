@@ -1,165 +1,159 @@
-import dynamicRender from '../UI/dynamic_render.js';
+import javaisPasVu from '../UI/JavaisPasVu.js';
 import logger from '../logger.js';
-import { RoomModes, RoomStatus } from '../state/roomState.js';
+import { RoomStates, RoomModes } from '../state/roomState.js';
 import Store from '../state/store.js';
 
+/**
+ * Manages the UI state and interactions for a room
+ */
 export class RoomUIManager {
-	constructor(roomId, currentUser) {
-		this._store = Store.getInstance();
+	constructor(store, roomId, currentUser) {
+		this._store = store || Store.getInstance();
 		this._roomId = roomId;
 		this._currentUser = currentUser;
-		this._state = {};
-		this._initializeEventHandlers();
-		this._initializeStoreSubscription();
-		this._initializeGameContainer();
+		this._eventHandlers = new Map();
+		this._uiState = {
+			isLoading: false,
+			error: null,
+			activeTab: 'game',
+			showInviteModal: false
+		};
+
+		if (!javaisPasVu.initialized)
+			javaisPasVu.initialize(document.body);
+
+		// Initialize room state and UI
+		this._initializeRoomState();
+
+		this.handleSettingChange = this.handleSettingChange.bind(this);
+		this.handleModeChange = this.handleModeChange.bind(this);
 	}
 
-	updateUI(state) {
-		const previousStatus = this._state.status;
-		this._state = state;
+	_initializeRoomState() {
+		// Get initial state
+		const roomState = this._store.getState('room');
+		const userState = this._store.getState('user');
+		logger.debug('Initializing room state with:', roomState);
+		logger.debug('Initializing user state with:', userState);
 
-		// Update game container if status changed
-		if (previousStatus !== state.status) {
-			this.updateGameContainer(state.status);
-		}
-
-		dynamicRender.addObservedObject('pongRoom', this._getPublicState());
-		dynamicRender.scheduleUpdate();
-	}
-
-	_initializeEventHandlers() {
-		document.addEventListener('click', (event) => {
-			if (event.target?.id === 'startGameBtn') {
-				this.onStartGameClick && this.onStartGameClick();
+		// Register methods that will be available in the template
+		const methods = {
+			kickPlayer: (playerId) => {
+				logger.debug('Kick player called:', playerId);
+				this._callHandler('kickPlayer', playerId);
+			},
+			cancelInvitation: (invitationId) => {
+				logger.debug('Cancel invitation called:', invitationId);
+				this._callHandler('cancelInvitation', invitationId);
+			},
+			startGame: () => {
+				logger.debug('Start game called');
+				this._callHandler('startGame');
+			},
+			getCurrentUser: () => {
+				return this._currentUser || this._store.getState('user');
 			}
-		});
-
-		// Add global handler for select elements
-		window.handleSettingChange = (element, setting, parseAsInt) => {
-			const value = parseAsInt ? parseInt(element.value) : element.value;
-			this.onSettingChange && this.onSettingChange(setting, value);
 		};
+
+		// Process and update the room state
+		this._processRoomState(roomState, methods);
+
+		// Initialize store subscription for both room and user state
+		this._initializeStoreSubscription();
 	}
 
-	_initializeStoreSubscription() {
-		// Subscribe to user state changes
-		this._unsubscribeUser = this._store.subscribe('user', (userState) => {
-			this._currentUser = {
-				id: userState.id,
-				username: userState.username
-			};
-			// Update UI with new user data
-			this.updateUI(this._state);
-		});
-	}
+	_processRoomState(roomState, methods = {}) {
+		// Get existing methods to preserve them
+		const existingMethods = javaisPasVu.methods.get('room') || {};
 
-	_getPublicState() {
-		const isOwner = this._state.owner?.id === this._currentUser.id;
+		// Ensure roomState is not null/undefined
+		const safeRoomState = roomState || {};
 
-		return {
-			mode: this._state.mode,
-			state: this._state.status,
-			owner: this._state.owner,
-			players: this._state.players,
-			pendingInvitations: this._state.pendingInvitations,
-			maxPlayers: this._state.maxPlayers,
-			currentUser: this._currentUser,
-			availableSlots: this._getAvailableSlots(),
-			canStartGame: this._state.canStartGame,
-			isOwner: isOwner,
-			settings: {
-				...this._state.settings,
-				mode: this._state.mode,
-				maxScore: parseInt(this._state.settings?.maxScore) || 11
+		// Initialize base state with default values
+		const baseState = {
+			id: safeRoomState.id || '',
+			settings: safeRoomState.settings || {},
+			players: safeRoomState.players || [],
+			state: safeRoomState.state || RoomStates.LOBBY,
+			isLoading: this._uiState.isLoading || false,
+			error: this._uiState.error || null,
+			activeTab: this._uiState.activeTab || 'game',
+			showInviteModal: this._uiState.showInviteModal || false,
+			currentUser: this._currentUser || {},
+			mode: (safeRoomState.settings && safeRoomState.settings.mode) || 'AI',
+			maxPlayers: (safeRoomState.settings && safeRoomState.settings.maxPlayers) || 2,
+			pendingInvitations: safeRoomState.invitations || []
+		};
+
+		// Define computed properties
+		const computedProps = {
+			availableSlots(state) {
+				return Math.max(0, state.maxPlayers - (state.players?.length || 0));
 			},
-			gameStarted: this._state.status === RoomStatus.GAME_IN_PROGRESS,
-			startGameInProgress: this._state.startGameInProgress,
-			isLobbyState: this._state.status === RoomStatus.ACTIVE,
-			isFinishedState: this._state.status === RoomStatus.FINISHED,
-			buttonText: this._getButtonText(),
-			handleSettingChange: (setting, value, parseAsInt) => {
-				if (this._state.status !== RoomStatus.GAME_IN_PROGRESS) {
-					const parsedValue = parseAsInt ? parseInt(value) : value;
-					this.onSettingChange && this.onSettingChange(setting, parsedValue);
-				}
+			isOwner(state) {
+				return state.players?.some(p => p.id === state.currentUser?.id && p.isOwner) || false;
 			},
-			kickPlayer: (playerId) => this.onKickPlayer && this.onKickPlayer(playerId),
-			cancelInvitation: (invitationId) => this.onCancelInvitation && this.onCancelInvitation(invitationId),
-			changeMode: (event) => this.onModeChange && this.onModeChange(event),
-			getProgressBarStyle: this._getProgressBarStyle.bind(this)
+			isLobbyState(state) {
+				return state.state === RoomStates.LOBBY;
+			},
+			buttonText(state) {
+				return state.state === RoomStates.LOBBY ? 'Start Game' : 'Game in Progress';
+			},
+			startGameInProgress(state) {
+				return state.state !== RoomStates.LOBBY;
+			},
+			mappedPlayers(state) {
+				return (state.players || []).map(player => ({
+					...player,
+					isCurrentUser: player.id === state.currentUser?.id,
+					isOwner: player.isOwner || false,
+					canBeKicked: !player.isOwner && this.isOwner
+				}));
+			}
 		};
+
+		// Register data and computed properties with JavaisPasVu
+		javaisPasVu.registerData('room', {
+			...baseState,
+			...methods,
+			...existingMethods
+		}, computedProps);
+
+		// Debug log the registered state
+		logger.debug('Processed room state:', {
+			baseState,
+			computedProps: Object.keys(computedProps)
+		});
 	}
 
-	_getAvailableSlots() {
-		const playerCount = this._state.players?.length || 0;
-		const invitationCount = this._state.pendingInvitations?.length || 0;
-		return (this._state.maxPlayers || 0) - playerCount - invitationCount;
+	// UI State Management
+	_setActiveTab(tab) {
+		this._uiState.activeTab = tab;
+		javaisPasVu.setDataValue('room', 'activeTab', tab);
 	}
 
-	_getButtonText() {
-		if (this._state.startGameInProgress) return 'Starting...';
-		if (this._state.status === RoomStatus.FINISHED) return 'Start a new game';
-		return 'Start Game';
+	_toggleInviteModal() {
+		this._uiState.showInviteModal = !this._uiState.showInviteModal;
+		javaisPasVu.setDataValue('room', 'showInviteModal', this._uiState.showInviteModal);
 	}
 
-	_getProgressBarStyle(value) {
-		const numericValue = parseInt(value) || 1;
-		let percentage;
-
-		if (value === this._state.settings?.paddleSize) {
-			percentage = numericValue * 10;  // Convert 1-10 to 10-100%
-		} else {
-			const clampedValue = Math.max(1, Math.min(10, numericValue));
-			percentage = clampedValue * 10;
-		}
-
-		return {
-			width: `${percentage}%`,
-			transition: 'width 0.3s ease'
-		};
-	}
-
-	destroy() {
-		window.handleSettingChange = undefined;
-		if (this._unsubscribeUser) {
-			this._unsubscribeUser();
-		}
-	}
-
-	// Event handler setters
-	setStartGameHandler(handler) {
-		this.onStartGameClick = handler;
-	}
-
-	setSettingChangeHandler(handler) {
-		this.onSettingChange = handler;
-	}
-
-	setKickPlayerHandler(handler) {
-		this.onKickPlayer = handler;
-	}
-
-	setCancelInvitationHandler(handler) {
-		this.onCancelInvitation = handler;
-	}
-
-	setModeChangeHandler(handler) {
-		this.onModeChange = handler;
-	}
-
+	// Game Container Management
 	_initializeGameContainer() {
-		const gameContainer = document.querySelector('#game-container');
-		if (!gameContainer) {
-			logger.warn('Game container not found during initialization');
+		const container = document.getElementById('game-container');
+		if (!container) {
+			logger.warn('Game container not found');
 			return;
 		}
 
-		// Find the screen element where we'll show messages
-		const screen = gameContainer.querySelector('.screen');
-		if (screen) {
-			this._showLobbyMessage(screen);
-		} else {
+		const screen = container.querySelector('.game-screen');
+		if (!screen) {
 			logger.warn('Screen element not found in game container');
+			return;
+		}
+
+		const roomState = this._store.getState('room');
+		if (roomState.state === RoomStates.LOBBY) {
+			this._showLobbyMessage(screen);
 		}
 	}
 
@@ -168,7 +162,6 @@ export class RoomUIManager {
 		messageDiv.className = 'text-center p-4 game-message';
 		messageDiv.innerHTML = '<h4>Welcome to the Game Room!</h4><p>Click Start Game when ready.</p>';
 
-		// Remove any existing messages
 		const existingMessage = screen.querySelector('.game-message');
 		if (existingMessage) {
 			existingMessage.remove();
@@ -177,46 +170,113 @@ export class RoomUIManager {
 		screen.appendChild(messageDiv);
 	}
 
-	_showGameFinishedMessage(screen) {
-		const messageDiv = document.createElement('div');
-		messageDiv.className = 'text-center p-4 game-message';
-		messageDiv.innerHTML = '<h4>Game Finished!</h4><p>Start another game when ready.</p>';
-
-		// Remove any existing messages
-		const existingMessage = screen.querySelector('.game-message');
-		if (existingMessage) {
-			existingMessage.remove();
-		}
-
-		screen.appendChild(messageDiv);
+	// Event Handler Registration
+	setStartGameHandler(handler) {
+		this._eventHandlers.set('startGame', handler);
 	}
 
-	updateGameContainer(status) {
-		const gameContainer = document.querySelector('#game-container');
-		if (!gameContainer) return;
+	setSettingChangeHandler(handler) {
+		this._eventHandlers.set('settingChange', handler);
+	}
 
-		const screen = gameContainer.querySelector('.screen');
-		if (!screen) {
-			logger.warn('Screen element not found in game container');
-			return;
-		}
+	setKickPlayerHandler(handler) {
+		this._eventHandlers.set('kickPlayer', handler);
+	}
 
-		// Clear any existing messages
-		const existingMessage = screen.querySelector('.game-message');
-		if (existingMessage) {
-			existingMessage.remove();
-		}
+	setCancelInvitationHandler(handler) {
+		this._eventHandlers.set('cancelInvitation', handler);
+	}
 
-		switch (status) {
-			case RoomStatus.ACTIVE:
-				this._showLobbyMessage(screen);
-				break;
-			case RoomStatus.FINISHED:
-				this._showGameFinishedMessage(screen);
-				break;
-			case RoomStatus.GAME_IN_PROGRESS:
-				// Screen is ready for game canvas
-				break;
+	setModeChangeHandler(handler) {
+		this._eventHandlers.set('modeChange', handler);
+	}
+
+	setInviteFriendHandler(handler) {
+		this._eventHandlers.set('inviteFriend', handler);
+	}
+
+	_callHandler(handlerName, ...args) {
+		const handler = this._eventHandlers.get(handlerName);
+		if (handler) {
+			try {
+				handler(...args);
+			} catch (error) {
+				logger.error(`Error in ${handlerName} handler:`, error);
+			}
 		}
 	}
-} 
+
+	// Store Subscription
+	_initializeStoreSubscription() {
+		// Subscribe to room state changes
+		this._store.subscribe('room', (state, type) => {
+			logger.debug('Room state updated:', state);
+			this._processRoomState(state);
+		});
+
+		// Subscribe to user state changes
+		this._store.subscribe('user', (state, type) => {
+			logger.debug('User state updated:', state);
+			this._currentUser = state;
+			javaisPasVu.registerData('user', state);
+
+			// Force update all user elements
+			document.querySelectorAll('[data-domain="user"]').forEach(el => {
+				javaisPasVu.updateElement(el, 'user');
+			});
+
+			// Re-process room state since it depends on user data
+			const roomState = this._store.getState('room');
+			if (roomState) {
+				this._processRoomState(roomState);
+			}
+		});
+	}
+
+	handleSettingChange(setting, value, parseAsInt = false) {
+		try {
+			logger.debug('Class handleSettingChange called:', { setting, value, parseAsInt });
+			const roomState = this._store.getState('room');
+
+			if (roomState.state === RoomStates.PLAYING) {
+				logger.warn('Cannot change settings while game is in progress');
+				return;
+			}
+
+			const parsedValue = parseAsInt ? parseInt(value) : value;
+			logger.debug('Calling setting change handler with:', { setting, parsedValue });
+			this.onSettingChange && this.onSettingChange(setting, parsedValue);
+		} catch (error) {
+			logger.error('Error in handleSettingChange:', error);
+		}
+	}
+
+	handleModeChange(event) {
+		try {
+			logger.debug('Handling mode change:', event.target.value);
+			if (this.onModeChange) {
+				this.onModeChange(event);
+			} else {
+				logger.warn('No mode change handler set');
+			}
+		} catch (error) {
+			logger.error('Error in handleModeChange:', error);
+		}
+	}
+
+	destroy() {
+		const roomContainer = document.getElementById('pong-room');
+		if (roomContainer) {
+			roomContainer.removeEventListener('click', this._handleClick);
+			roomContainer.removeEventListener('change', this._handleChange);
+			roomContainer.removeEventListener('submit', this._handleSubmit);
+		}
+		this._eventHandlers.clear();
+		this._store.unsubscribe('room');
+	}
+}
+
+// Factory function to create RoomUIManager instance
+export const createRoomUIManager = (store, roomId, currentUser) => {
+	return new RoomUIManager(store, roomId, currentUser);
+};

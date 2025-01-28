@@ -86,7 +86,15 @@ class HtmxUserMiddleware:
         
         if 'HX-Request' in request.headers:
             user_id = request.user.id if request.user.is_authenticated else None
-            new_trigger = {'updateUserId': {'userId': user_id}}
+            new_trigger = {
+                'stateUpdate': {
+                    'domain': 'user',
+                    'state': {
+                        'id': user_id,
+                        'isAuthenticated': request.user.is_authenticated
+                    }
+                }
+            }
             
             existing_trigger = response.get('HX-Trigger')
             if existing_trigger:

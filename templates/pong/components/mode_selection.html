@@ -1,4 +1,4 @@
-<section v-if="pongRoom.currentUser.id === pongRoom.owner.id" id="mode-selection" class="my-5"
+<section v-if="room.currentUser.id === room.owner.id" id="mode-selection" class="my-5"
     aria-labelledby="mode-selection-heading">
     <h2 id="mode-selection-heading">Choose Game Mode</h2>
     <form id="mode-form" method="post" onsubmit="return false;" aria-labelledby="mode-selection-heading">
@@ -14,9 +14,9 @@
 
         <div class="form-group mb-3">
             <label for="game-mode" id="game-mode-label">Game Mode</label>
-            <select id="game-mode" name="game-mode" class="form-control" v-model="pongRoom.mode"
-                v-on:change="pongRoom.changeMode" aria-labelledby="game-mode-label"
-                aria-describedby="game-mode-description" :disabled="pongRoom.owner.id !== pongRoom.currentUser.id">
+            <select id="game-mode" name="mode" class="form-control" v-model="room.mode"
+                v-on:change="room.handleModeChange" aria-labelledby="game-mode-label"
+                aria-describedby="game-mode-description" :disabled="room.owner.id !== room.currentUser.id">
                 <option value="AI">AI Mode</option>
                 <option value="CLASSIC">Classic Mode</option>
                 <option value="RANKED">Ranked Mode</option>
@@ -31,5 +31,5 @@
 </section>
 
 <section v-else id="current-mode" class="my-5" aria-labelledby="current-mode-heading">
-    <h2 id="current-mode-heading">Current Game Mode: <span v-text="pongRoom.mode"></span></h2>
+    <h2 id="current-mode-heading">Current Game Mode: <span v-text="room.mode"></span></h2>
 </section>

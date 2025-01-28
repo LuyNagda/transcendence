@@ -289,7 +289,7 @@ class ChatHandler:
 
     @database_sync_to_async
     def save_message(self, message, recipient_id):
-        try:
+        try: # TODO: check timestamp enregistre ?
             recipient = User.objects.get(id=recipient_id)
             return ChatMessage.objects.create(
                 sender=self.consumer.user,

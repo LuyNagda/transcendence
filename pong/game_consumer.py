@@ -96,6 +96,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 self.connection_state = 'validated'
 
                 # 5. Add to game group and accept connection using a lock
+                # TODO: Lock encore utile si gamestate sync par webrtc ?
                 async with channel_layer_lock(self.channel_layer, f"game_{self.game_id}_connect"):
                     await self.channel_layer.group_add(self.game_group_name, self.channel_name)
                     await self.accept()
@@ -236,6 +237,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         }
                     )
                     # Also send game finished notification
+                    # TODO: Save en db les scores ?
                     await self.channel_layer.group_send(
                         room_group_name,
                         {

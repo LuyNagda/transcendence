@@ -1,43 +1,22 @@
 import logger from '../logger.js';
-import { RoomNetworkManager } from './RoomNetworkManager.js';
-import { RoomStateManager } from './RoomStateManager.js';
-import { RoomGameManager } from './RoomGameManager.js';
-import { RoomUIManager } from './RoomUIManager.js';
-import { AIService } from './AIService.js';
 import Store from '../state/store.js';
-import { RoomModes } from '../state/roomState.js';
-import { UIService } from '../UI/UIService.js';
+import { RoomModes, RoomStates } from '../state/roomState.js';
+import { createRoomStateManager } from './RoomStateManager.js';
+import { createRoomUIManager } from './RoomUIManager.js';
+import { createRoomGameManager } from './RoomGameManager.js';
+import { createRoomNetworkManager } from './RoomNetworkManager.js';
 
+/**
+ * Main Room class that coordinates between different managers
+ */
 export class Room {
-	static States = {
-		LOBBY: 'LOBBY',
-		PLAYING: 'PLAYING',
-		FINISHED: 'FINISHED'
-	};
-
-	static Modes = RoomModes;
-
-	static initializeFromDOM() {
-		const roomElement = document.getElementById('pong-room');
-		if (!roomElement) return null;
-
-		try {
-			const roomId = JSON.parse(document.getElementById("room-id").textContent);
-			const currentUser = JSON.parse(document.getElementById("current-user-data").textContent);
-			return new Room(roomId, currentUser);
-		} catch (error) {
-			logger.error('Failed to initialize room from DOM:', error);
-			return null;
-		}
-	}
-
-	constructor(roomId, currentUser) {
+	constructor(roomId) {
 		if (!roomId) {
 			throw new Error('Room ID is required');
 		}
 
-		// Initialize store
 		this._store = Store.getInstance();
+		this._roomId = roomId;
 
 		// Get current user from store
 		const userState = this._store.getState('user');
@@ -47,164 +26,226 @@ export class Room {
 		};
 
 		// Initialize managers
-		this._stateManager = new RoomStateManager(roomId);
-		this._networkManager = new RoomNetworkManager(roomId);
-		this._gameManager = new RoomGameManager(roomId, this._currentUser, this._networkManager);
-		this._uiManager = new RoomUIManager(roomId, this._currentUser);
+		this._initializeManagers();
+		this._setupEventHandlers();
 
-		// Initialize network manager and bind event handlers
-		this._initializeNetworkManager();
-		this._initializeUIHandlers();
-
-		// Load AI models if needed
-		this._loadAvailableAIModels();
+		logger.info('Room initialized successfully:', {
+			roomId: this._roomId,
+			user: this._currentUser
+		});
 	}
 
-	async _initializeNetworkManager() {
-		try {
-			await this._networkManager.connect();
+	_initializeManagers() {
+		// Initialize state manager first
+		this._stateManager = createRoomStateManager(this._store, this._roomId);
 
-			this._networkManager.on('room_update', (data) => {
-				this._stateManager.updateState(data.room_state);
-				this._updateUI();
-			});
+		// Initialize network manager based on mode
+		this._networkManager = createRoomNetworkManager(
+			this._store,
+			this._roomId,
+			this._stateManager.mode === RoomModes.AI ? null : undefined
+		);
 
-			this._networkManager.on('game_started', async (data) => {
-				try {
-					await this._handleGameStarted(data);
-				} catch (error) {
-					logger.error("Error handling game start:", error);
-					this._gameManager.handleGameFailure();
-				}
-			});
+		// Initialize UI manager
+		this._uiManager = createRoomUIManager(
+			this._store,
+			this._roomId,
+			this._currentUser
+		);
 
-			this._networkManager.on('settings_update', (data) => {
-				this._handleSettingsUpdate(data);
-			});
-
-		} catch (error) {
-			logger.error('Failed to initialize network manager:', error);
-		}
+		// Initialize game manager
+		this._gameManager = createRoomGameManager(
+			this._store,
+			this._roomId,
+			this._currentUser,
+			this._networkManager
+		);
 	}
 
-	_initializeUIHandlers() {
+	_setupEventHandlers() {
+		// Set up UI event handlers
 		this._uiManager.setStartGameHandler(() => this.startGame());
 		this._uiManager.setSettingChangeHandler((setting, value) => this.updateSetting(setting, value));
 		this._uiManager.setKickPlayerHandler((playerId) => this.kickPlayer(playerId));
 		this._uiManager.setCancelInvitationHandler((invitationId) => this.cancelInvitation(invitationId));
-		this._uiManager.setModeChangeHandler((event) => this.changeMode(event));
+		this._uiManager.setModeChangeHandler((event) => this.handleModeChange(event));
+		this._uiManager.setInviteFriendHandler((friendId) => this.inviteFriend(friendId));
+
+		// Set up game event handlers
+		this._gameManager.on('game_failure', (error) => {
+			logger.error('Game failure:', error);
+			this._stateManager.transitionToLobby();
+		});
+
+		// Set up network event handlers
+		this._networkManager.on('disconnected', () => {
+			logger.warn('Network connection lost');
+			this._stateManager.transitionToLobby();
+		});
+
+		this._networkManager.on('max_reconnect_attempts', () => {
+			logger.error('Failed to reconnect to server');
+			this._stateManager.transitionToLobby();
+		});
 	}
 
 	async startGame() {
-		if (this._gameManager.isGameInProgress()) {
-			logger.warn('Game start already in progress');
-			return;
-		}
-
 		try {
-			this._gameManager.setGameInProgress(true);
-			this._useWebGL = document.getElementById('webgl-toggle')?.checked || false;
-			this._gameManager.setWebGL(this._useWebGL);
-
-			await this._networkManager.startGame();
-
-		} catch (error) {
-			logger.error('Error starting game:', error);
-			this._gameManager.handleGameFailure();
-			UIService.showAlert('error', 'Failed to start game: ' + error.message);
-		}
-	}
-
-	async _handleGameStarted(data) {
-		const isHost = this._currentUser.id === data.player1_id;
-
-		try {
-			await this._gameManager.initializeAndStartGame(
-				data.game_id,
-				isHost,
-				this._stateManager.settings
-			);
-
-			this._stateManager.updateState({ status: Room.States.PLAYING });
-			this._updateUI();
-
-		} catch (error) {
-			logger.error("Failed to start game:", error);
-			this._gameManager.handleGameFailure();
-			throw error;
-		}
-	}
-
-	async changeMode(event) {
-		const newMode = event.target.value;
-		if (!newMode || !Object.values(RoomModes).includes(newMode)) {
-			return;
-		}
-
-		try {
-			await this._networkManager.sendMessage('update_property', {
-				property: 'mode',
-				value: newMode
+			// Update room state to PLAYING
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM_STATE',
+				payload: {
+					state: RoomStates.PLAYING
+				}
 			});
+
+			// Initialize game manager if needed
+			if (!this._gameManager) {
+				this._gameManager = createRoomGameManager(
+					this._store,
+					this._roomId,
+					this._currentUser,
+					this._networkManager
+				);
+			}
+
+			await this._networkManager?.startGame();
 		} catch (error) {
-			logger.error('Failed to change mode:', error);
-			UIService.showAlert('error', 'Failed to change game mode');
+			logger.error('Failed to start game:', error);
+			// Reset room state to LOBBY on error
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM_STATE',
+				payload: {
+					state: RoomStates.LOBBY
+				}
+			});
 		}
 	}
 
 	async updateSetting(setting, value) {
 		try {
-			this._networkManager.sendMessage('update_property', {
-				property: 'settings',
-				setting: setting,
-				value: value
-			}, { requireResponse: false });
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM_SETTINGS',
+				payload: {
+					settings: {
+						[setting]: value
+					}
+				}
+			});
+
+			await this._networkManager?.updateSetting(setting, value);
 		} catch (error) {
-			logger.error(`Failed to update ${setting}:`, error);
-			UIService.showAlert('error', `Failed to update ${setting}`);
+			logger.error('Failed to update setting:', error);
 		}
 	}
 
-	_handleSettingsUpdate(data) {
-		if (data.setting && data.value !== undefined) {
-			this._stateManager.updateSettings({ [data.setting]: data.value });
-		} else if (data.settings) {
-			this._stateManager.updateSettings(data.settings);
-		}
-		this._updateUI();
-	}
+	async handleModeChange(event) {
+		const newMode = event.target.value;
+		try {
+			// Update mode in store
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM_MODE',
+				payload: {
+					mode: newMode
+				}
+			});
 
-	inviteFriend(friendId) {
-		this._networkManager.sendMessage("invite_friend", { friend_id: friendId });
-	}
+			// Reinitialize network manager for new mode
+			await this._reinitializeNetworkManager(newMode);
 
-	cancelInvitation(invitationId) {
-		this._networkManager.sendMessage("cancel_invitation", { invitation_id: invitationId });
-	}
-
-	kickPlayer(playerId) {
-		this._networkManager.sendMessage("kick_player", { player_id: playerId });
-	}
-
-	async _loadAvailableAIModels() {
-		const select = document.getElementById('aiDifficulty');
-		if (select) {
-			await AIService.updateAIModelSelect(select);
+			await this._networkManager?.updateMode(newMode);
+		} catch (error) {
+			logger.error('Failed to change mode:', error);
 		}
 	}
 
-	_updateUI() {
-		const state = {
-			...this._stateManager._state,
-			startGameInProgress: this._gameManager.isGameInProgress(),
-			canStartGame: this._stateManager.canStartGame()
-		};
-		this._uiManager.updateUI(state);
+	async _reinitializeNetworkManager(mode) {
+		// Clean up old network manager
+		if (this._networkManager) {
+			this._networkManager.destroy();
+		}
+
+		// Create new network manager
+		this._networkManager = createRoomNetworkManager(
+			this._store,
+			this._roomId,
+			mode === RoomModes.AI ? null : undefined
+		);
+
+		// Update game manager with new network manager
+		this._gameManager.updateNetworkManager(this._networkManager);
+
+		// Connect if needed
+		if (mode !== RoomModes.AI) {
+			await this._networkManager.connect();
+		}
+	}
+
+	// Player management methods
+	async kickPlayer(playerId) {
+		try {
+			this._store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_PLAYERS',
+				payload: {
+					players: this._stateManager.players.filter(id => id !== playerId)
+				}
+			});
+
+			await this._networkManager?.kickPlayer(playerId);
+		} catch (error) {
+			logger.error('Failed to kick player:', error);
+		}
+	}
+
+	async inviteFriend(friendId) {
+		if (!this._stateManager.availableSlots) {
+			logger.warn('Room is full');
+			return;
+		}
+
+		try {
+			await this._networkManager.inviteFriend(friendId);
+		} catch (error) {
+			logger.error('Failed to invite friend:', error);
+		}
+	}
+
+	async cancelInvitation(invitationId) {
+		if (!this._stateManager.isOwner(this._currentUser.id)) {
+			logger.warn('Only room owner can cancel invitations');
+			return;
+		}
+
+		try {
+			await this._networkManager.cancelInvitation(invitationId);
+			this._stateManager.removeInvitation(invitationId);
+		} catch (error) {
+			logger.error('Failed to cancel invitation:', error);
+		}
 	}
 
 	destroy() {
-		this._gameManager.destroy();
-		this._networkManager.destroy();
-		this._uiManager.destroy();
+		this._networkManager?.destroy();
+		this._gameManager?.destroy();
+		this._uiManager?.destroy();
+		this._stateManager?.destroy();
+
+		this._store.dispatch({
+			domain: 'room',
+			type: 'LEAVE_ROOM',
+			payload: {
+				userId: this._currentUser.id
+			}
+		});
 	}
-} 
+}
+
+// Factory function to create Room instance
+export const createRoom = (roomId) => {
+	return new Room(roomId);
+}; 

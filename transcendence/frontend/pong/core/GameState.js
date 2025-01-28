@@ -222,7 +222,7 @@ export class PongPhysics {
 								ball: { ...this._state.ball, ...velocity, resetting: false }
 							});
 						}
-					}, this._settingsManager.getSettings().relaunchTime);
+					}, this._settingsManager.getRelaunchTime());
 				}
 			} else {
 				this.updateState({ ball: ballUpdate.ball });

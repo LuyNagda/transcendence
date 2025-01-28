@@ -6,7 +6,10 @@ export const chatActions = {
 	UPDATE_PARTICIPANTS: 'UPDATE_PARTICIPANTS',
 	CLEAR_HISTORY: 'CLEAR_HISTORY',
 	UPDATE_TYPING_STATUS: 'UPDATE_TYPING_STATUS',
-	CLEAR_ALL_UNREAD: 'CLEAR_ALL_UNREAD'
+	CLEAR_ALL_UNREAD: 'CLEAR_ALL_UNREAD',
+	UPDATE_USERS: 'UPDATE_USERS',
+	UPDATE_USER: 'UPDATE_USER',
+	INITIALIZE: 'INITIALIZE'
 };
 
 // Initial chat state
@@ -16,7 +19,8 @@ export const initialChatState = {
 	participants: {},
 	typingStatus: {},
 	unreadCounts: {},
-	lastMessageTimestamp: null
+	lastMessageTimestamp: null,
+	users: {} // Map of user_id to user info
 };
 
 // Message structure validator
@@ -27,6 +31,16 @@ const validateMessage = (message) => {
 		typeof message.content === 'string' &&
 		typeof message.timestamp === 'number' &&
 		(!message.type || ['text', 'system', 'game_invite'].includes(message.type));
+};
+
+// User structure validator
+const validateUser = (user) => {
+	return typeof user === 'object' &&
+		user !== null &&
+		typeof user.id === 'number' &&
+		typeof user.username === 'string' &&
+		typeof user.status === 'string' &&
+		typeof user.blocked === 'boolean';
 };
 
 // Chat state validators
@@ -58,11 +72,67 @@ export const chatValidators = {
 			Object.values(value).every(count =>
 				typeof count === 'number' && count >= 0
 			);
+	},
+	users: (value) => {
+		return typeof value === 'object' &&
+			Object.values(value).every(validateUser);
 	}
 };
 
 // Chat state reducers
 export const chatReducers = {
+	[chatActions.INITIALIZE]: (state) => {
+		// Ensure we have all required fields with proper initial values
+		return {
+			...initialChatState,
+			...state,
+			users: state.users || {},  // Ensure users object exists
+			messages: state.messages || {},
+			participants: state.participants || {},
+			typingStatus: state.typingStatus || {},
+			unreadCounts: state.unreadCounts || {},
+			lastMessageTimestamp: state.lastMessageTimestamp || Date.now()
+		};
+	},
+
+	[chatActions.UPDATE_USERS]: (state, payload) => {
+		// Payload should be an array of users
+		if (!Array.isArray(payload)) {
+			logger.error('Invalid UPDATE_USERS payload:', payload);
+			return state;
+		}
+
+		const newUsers = { ...state.users };
+		payload.forEach(user => {
+			if (validateUser(user)) {
+				newUsers[user.id] = user;
+			}
+		});
+
+		return {
+			...state,
+			users: newUsers,
+			lastMessageTimestamp: Date.now()
+		};
+	},
+
+	[chatActions.UPDATE_USER]: (state, payload) => {
+		// Payload should be a single user object
+		if (!validateUser(payload)) {
+			logger.error('Invalid UPDATE_USER payload:', payload);
+			return state;
+		}
+
+		return {
+			...state,
+			users: {
+				...state.users,
+				[payload.id]: payload
+			},
+			lastMessageTimestamp: Date.now()
+		};
+	},
+
 	[chatActions.CLEAR_ALL_UNREAD]: (state) => {
 		return {
 			...state,

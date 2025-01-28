@@ -1,145 +1,242 @@
 import Store from '../state/store.js';
-import { RoomModes, getMaxPlayersForMode, getDefaultSettingsForMode, roomActions, RoomStatus } from '../state/roomState.js';
+import { RoomModes, getMaxPlayersForMode, getDefaultSettingsForMode, roomActions, RoomStates } from '../state/roomState.js';
 import logger from '../logger.js';
+import { GameRules } from '../pong/core/GameRules.js';
 
+/**
+ * Single source of truth for room state management
+ */
 export class RoomStateManager {
-	constructor(roomId) {
-		this._store = Store.getInstance();
+	constructor(store, roomId) {
+		this._store = store || Store.getInstance();
 		this._roomId = roomId;
-		this._state = {
-			mode: RoomModes.AI,
-			status: RoomStatus.ACTIVE,
-			owner: { id: null, username: null },
-			players: [],
-			pendingInvitations: [],
-			maxPlayers: getMaxPlayersForMode(RoomModes.AI),
-			settings: getDefaultSettingsForMode(RoomModes.AI)
-		};
-		this._initializeStoreSubscription();
+		this._subscribers = new Set();
 	}
 
-	// Getters
+
+	// Getters that read directly from store
 	get roomId() { return this._roomId; }
-	get mode() { return this._state.settings.mode; }
-	get owner() { return this._state.owner; }
-	get players() { return Array.isArray(this._state.players) ? this._state.players : []; }
-	get pendingInvitations() { return Array.isArray(this._state.pendingInvitations) ? this._state.pendingInvitations : []; }
-	get maxPlayers() { return this._state.maxPlayers; }
-	get state() { return this._state.status; }
-	get settings() { return this._state.settings; }
+
+	get state() {
+		const roomState = this._store.getState('room');
+		return roomState.state;
+	}
+
+	get mode() {
+		const roomState = this._store.getState('room');
+		return roomState.mode;
+	}
+
+	get settings() {
+		const roomState = this._store.getState('room');
+		return roomState.settings;
+	}
+
+	get players() {
+		const roomState = this._store.getState('room');
+		return roomState.players;
+	}
+
+	get pendingInvitations() {
+		const room = this._store.getState('room').rooms[this._roomId];
+		return room?.pendingInvitations || [];
+	}
+
+	get owner() {
+		const roomState = this._store.getState('room');
+		return roomState.createdBy;
+	}
+
+	get maxPlayers() {
+		const roomState = this._store.getState('room');
+		return roomState.settings.maxPlayers;
+	}
 
 	get availableSlots() {
-		const playerCount = this._state.players.length;
-		const invitationCount = this._state.pendingInvitations.length;
-		return this._state.maxPlayers - playerCount - invitationCount;
+		const roomState = this._store.getState('room');
+		return roomState.settings.maxPlayers - roomState.players.length;
 	}
 
-	updateState(newState) {
-		const processedState = this._processAndValidateState(newState);
-		const hasChanged = this._applyStateChanges(processedState);
+	// Helper methods for common state checks
+	canStartGame() {
+		const roomState = this._store.getState('room');
+		return roomState.players.length >= 2 && roomState.state === RoomStates.LOBBY;
+	}
 
-		if (hasChanged) {
-			this._notifyStateChange();
+	isOwner(userId) {
+		const roomState = this._store.getState('room');
+		return roomState.createdBy === userId;
+	}
+
+	hasPlayer(userId) {
+		const roomState = this._store.getState('room');
+		return roomState.players.includes(userId);
+	}
+
+	hasPendingInvitation(userId) {
+		const room = this._store.getState('room');
+		return room?.pendingInvitations.length > 0;
+	}
+
+	// Player management methods
+	addPlayer(player) {
+		if (!player || !player.id || !player.username) return;
+		if (this.hasPlayer(player.id)) return;
+
+		this.updateState({
+			players: [...this.players, player]
+		});
+	}
+
+	removePlayer(playerId) {
+		if (!playerId || !this.hasPlayer(playerId)) return;
+
+		this.updateState({
+			players: this.players.filter(p => p.id !== playerId)
+		});
+	}
+
+	// Invitation management methods
+	addInvitation(invitation) {
+		if (!invitation || !invitation.id) return;
+		if (this.hasPendingInvitation(invitation.id)) return;
+
+		this.updateState({
+			pendingInvitations: [...this.pendingInvitations, invitation]
+		});
+	}
+
+	removeInvitation(invitationId) {
+		if (!invitationId) return;
+
+		this.updateState({
+			pendingInvitations: this.pendingInvitations.filter(inv => inv.id !== invitationId)
+		});
+	}
+
+	// Mode management methods
+	async changeMode(newMode) {
+		if (!Object.values(RoomModes).includes(newMode)) {
+			logger.warn('Invalid mode selected:', newMode);
+			return false;
+		}
+
+		try {
+			const defaultSettings = getDefaultSettingsForMode(newMode);
+			this.updateSettings({
+				...defaultSettings,
+				mode: newMode
+			});
+			return true;
+		} catch (error) {
+			logger.error('Failed to change mode:', error);
+			return false;
 		}
 	}
 
-	updateSettings(settings) {
-		const validatedSettings = {
-			...this._state.settings,
-			...settings
-		};
+	// State transition methods
+	transitionToPlaying() {
+		if (!this.canStartGame()) {
+			logger.warn('Cannot transition to playing state - not enough players');
+			return false;
+		}
 
-		this._state.settings = validatedSettings;
-		this._notifyStateChange();
-
-		return validatedSettings;
+		this.updateState({ state: RoomStates.PLAYING });
+		return true;
 	}
 
-	_mapStatus(status) {
-		// Map server status to client status
-		const statusMap = {
-			'active': RoomStatus.ACTIVE,
-			'LOBBY': RoomStatus.ACTIVE,
-			'game_in_progress': RoomStatus.GAME_IN_PROGRESS,
-			'PLAYING': RoomStatus.GAME_IN_PROGRESS,
-			'finished': RoomStatus.FINISHED,
-			'FINISHED': RoomStatus.FINISHED,
-			'closed': RoomStatus.CLOSED,
-			'CLOSED': RoomStatus.CLOSED
-		};
-		return statusMap[status] || status;
+	transitionToLobby() {
+		this.updateState({ state: RoomStates.LOBBY });
+		return true;
 	}
 
-	_processAndValidateState(roomState) {
-		const mode = roomState.mode || (roomState.settings?.mode) || this._state.mode;
-		const status = this._mapStatus(roomState.status || this._state.status);
+	// State update methods
+	updateState(newState) {
+		if (!newState) return;
 
-		logger.debug('Processing room state:', {
-			incoming: roomState,
-			mappedStatus: status,
-			currentState: this._state
-		});
+		const oldState = this._store.getState('room').rooms[this._roomId];
+		if (!oldState) return;
 
-		return {
-			mode,
-			settings: {
-				...getDefaultSettingsForMode(mode),
-				...(roomState.settings || {}),
-				mode
-			},
-			owner: roomState.owner || this._state.owner,
-			players: Array.isArray(roomState.players) ? roomState.players : this._state.players,
-			pendingInvitations: Array.isArray(roomState.pendingInvitations) ? roomState.pendingInvitations : this._state.pendingInvitations,
-			maxPlayers: roomState.maxPlayers || getMaxPlayersForMode(mode),
-			status
-		};
-	}
-
-	_applyStateChanges(newState) {
-		const oldStateStr = JSON.stringify(this._state);
-		this._state = {
-			...this._state,
-			...newState
-		};
-		return oldStateStr !== JSON.stringify(this._state);
-	}
-
-	_notifyStateChange() {
-		// Update store
+		// Dispatch update to store
 		this._store.dispatch({
 			domain: 'room',
 			type: roomActions.UPDATE_ROOM,
 			payload: {
 				id: this._roomId,
-				...this._state
+				...newState
 			}
 		});
+
+		if (oldState.state !== newState.state)
+			this._handleStateTransition(oldState.state, newState.state);
+
+		this._notifyStateChange();
 	}
 
-	canStartGame() {
-		const playerCount = this._state.players.length;
-		if (this._state.mode === RoomModes.TOURNAMENT) {
-			return playerCount >= 3 && playerCount <= this._state.maxPlayers;
-		} else if (this._state.mode === RoomModes.AI) {
-			return playerCount === 1;
+	updateSettings(settings) {
+		const { settings: validatedSettings } = GameRules.validateSettings({
+			...this.settings,
+			...settings
+		});
+
+		this._store.dispatch({
+			domain: 'room',
+			type: roomActions.UPDATE_ROOM_SETTINGS,
+			payload: {
+				roomId: this._roomId,
+				settings: validatedSettings
+			}
+		});
+
+		this._notifyStateChange();
+	}
+
+	_handleStateTransition(oldState, newState) {
+		logger.debug('Room state transition:', { from: oldState, to: newState });
+
+		if (newState === RoomStates.PLAYING) {
+			this._ensureGameCanvasReady();
 		}
-		return playerCount === this._state.maxPlayers;
 	}
 
-	_initializeStoreSubscription() {
-		// Subscribe to room state changes
-		this._unsubscribeRoom = this._store.subscribe('room', (roomState) => {
-			const activeRoomId = roomState.activeRoom;
-			const activeRoom = roomState.rooms[activeRoomId];
-			if (activeRoomId === this._roomId && activeRoom) {
-				this.updateState(activeRoom);
-			}
-		});
+	_ensureGameCanvasReady() {
+		const canvas = document.querySelector('#game-container .screen #game');
+		if (!canvas) {
+			logger.error('Game canvas not found during transition to PLAYING state');
+			return;
+		}
+
+		if (canvas.width !== GameRules.CANVAS_WIDTH || canvas.height !== GameRules.CANVAS_HEIGHT) {
+			canvas.width = GameRules.CANVAS_WIDTH;
+			canvas.height = GameRules.CANVAS_HEIGHT;
+		}
+	}
+
+	// Subscription management
+	subscribe(callback) {
+		this._subscribers.add(callback);
+		return () => this._subscribers.delete(callback);
+	}
+
+	_notifyStateChange() {
+		const state = this._store.getState('room').rooms[this._roomId];
+		this._subscribers.forEach(callback => callback(state));
 	}
 
 	destroy() {
-		if (this._unsubscribeRoom) {
-			this._unsubscribeRoom();
-		}
+		this._store.dispatch({
+			domain: 'room',
+			type: roomActions.LEAVE_ROOM,
+			payload: {
+				roomId: this._roomId,
+				userId: this._store.getState('user').id
+			}
+		});
+		this._subscribers.clear();
 	}
+}
+
+// Factory function to create RoomStateManager instance
+export const createRoomStateManager = (store, roomId) => {
+	return new RoomStateManager(store, roomId);
 } 

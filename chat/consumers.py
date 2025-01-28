@@ -5,7 +5,6 @@ from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from .models import BlockedUser
 from .handler import ChatHandler
-from channels.exceptions import DenyConnection
 
 User = get_user_model()
 
@@ -104,7 +103,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     "status": status
                 }
             )
-
+    # TODO: revoir architecture channels pourquoi self.send
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
             'type': 'chat_message',

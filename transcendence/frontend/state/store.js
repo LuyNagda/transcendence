@@ -1,9 +1,18 @@
 import logger from '../logger.js';
-import { gameActions, gameReducers, initialGameState } from './gameState.js';
+import { isDeepEqual } from '../utils.js';
+import { configActions, configReducers, configValidators, initialConfigState } from './configState.js';
 import { userActions, userReducers, userValidators, initialUserState } from './userState.js';
 import { chatActions, chatReducers, chatValidators, initialChatState } from './chatState.js';
 import { roomActions, roomReducers, roomValidators, initialRoomState } from './roomState.js';
-import { configActions, configReducers, configValidators, initialConfigState } from './configState.js';
+import { gameActions, gameReducers, initialGameState } from './gameState.js';
+import { uiActions, uiReducers, uiValidators, initialUIState } from './uiState.js';
+
+// Event types for state changes
+export const StateChangeTypes = {
+	UPDATE: 'update',
+	RESET: 'reset',
+	BATCH_UPDATE: 'batch_update'
+};
 
 class Store {
 	constructor() {
@@ -12,25 +21,36 @@ class Store {
 		}
 		Store.instance = this;
 
+		// Initialize reducer and validator maps
+		this.reducers = {
+			config: configReducers,
+			ui: uiReducers,
+			user: userReducers,
+			chat: chatReducers,
+			room: roomReducers,
+			game: gameReducers
+		};
+
+		this.validators = {
+			config: configValidators,
+			user: userValidators,
+			chat: chatValidators,
+			room: roomValidators,
+			ui: uiValidators
+		};
+
 		// Initialize state
 		this.state = {
-			game: initialGameState,
+			config: initialConfigState,
 			user: initialUserState,
 			chat: initialChatState,
 			room: initialRoomState,
-			config: initialConfigState
+			game: initialGameState,
+			ui: initialUIState
 		};
 
-		// Initialize action history for undo/redo
-		this.history = [];
-		this.historyIndex = -1;
-		this.maxHistoryLength = 50;
-
-		// Initialize subscribers
+		// Initialize unified subscribers
 		this.subscribers = new Map();
-
-		// Debug mode
-		this.DEBUG = false;
 
 		// Load persisted state
 		this.loadPersistedState();
@@ -54,291 +74,290 @@ class Store {
 		return domain ? this.state[domain] : this.state;
 	}
 
-	// Validate state changes
-	validateStateChange(domain, newState) {
-		if (domain === 'game') return true;  // No validation for game state
+	// Get value at specific path
+	getValueAtPath(path) {
+		return path.split('.').reduce((obj, key) => obj && obj[key], this.state);
+	}
 
-		logger.debug('Starting state validation:', {
-			domain,
-			currentState: this.state[domain],
-			newState,
-			DEBUG: this.DEBUG
+	// Subscribe to state changes with optional path
+	subscribe(path, callback) {
+		if (!this.subscribers.has(path)) {
+			this.subscribers.set(path, new Set());
+		}
+		this.subscribers.get(path).add(callback);
+
+		// Return unsubscribe function
+		return () => {
+			const subscribers = this.subscribers.get(path);
+			if (subscribers) {
+				subscribers.delete(callback);
+				if (subscribers.size === 0) {
+					this.subscribers.delete(path);
+				}
+			}
+		};
+	}
+
+	// Notify subscribers of state changes
+	notifySubscribers(domain, type = StateChangeTypes.UPDATE) {
+		this.subscribers.forEach((subscribers, path) => {
+			// If path is a domain name, treat it as a domain subscription
+			if (path === domain) {
+				subscribers.forEach(callback => {
+					try {
+						callback(this.state[domain], type);
+					} catch (error) {
+						logger.error('Error in subscriber callback:', error);
+					}
+				});
+			}
+			// If path contains dots, treat it as a path subscription
+			else if (path.startsWith(`${domain}.`)) {
+				const value = this.getValueAtPath(path);
+				subscribers.forEach(callback => {
+					try {
+						callback(value, type);
+					} catch (error) {
+						logger.error('Error in path subscriber callback:', error);
+					}
+				});
+			}
+		});
+	}
+
+	// Batch update multiple state changes
+	batchUpdate(updates) {
+		const domains = new Set();
+
+		updates.forEach(({ domain, type, payload }) => {
+			const reducers = this.reducers[domain];
+
+			if (!reducers || !reducers[type]) {
+				logger.error(`No reducer found for action: ${domain}.${type}`);
+				return;
+			}
+
+			try {
+				const domainState = this.state[domain];
+				const newDomainState = reducers[type](domainState, payload);
+
+				if (!this.validateStateChange(domain, newDomainState)) {
+					throw new Error(`Invalid state transition for ${domain}`);
+				}
+
+				this.state = {
+					...this.state,
+					[domain]: newDomainState
+				};
+
+				domains.add(domain);
+			} catch (error) {
+				logger.error('State update failed:', error);
+			}
 		});
 
-		const validators = {
-			user: userValidators,
-			chat: chatValidators,
-			room: roomValidators,
-			config: configValidators
-		}[domain];
+		// Notify subscribers for all updated domains
+		domains.forEach(domain => {
+			this.notifySubscribers(domain, StateChangeTypes.BATCH_UPDATE);
+		});
 
+		// Persist state
+		this.persistState();
+	}
+
+	// Validate state changes
+	validateStateChange(domain, newState) {
+		// Skip validation for game state
+		if (domain === 'game') return true;
+
+		const validators = this.validators[domain];
 		if (!validators) {
 			logger.error(`No validators found for domain: ${domain}`);
 			return false;
 		}
 
-		// For partial state updates, merge with existing state before validation
-		const fullState = {
-			...this.state[domain],
-			...newState
-		};
+		// For partial state updates, merge with existing state
+		const fullState = { ...this.state[domain], ...newState };
 
-		logger.debug('Full state to validate:', {
-			domain,
-			fullState,
-			validators: Object.keys(validators)
-		});
-
-		const validationResults = Object.entries(fullState).map(([key, value]) => {
+		// Validate each field with its corresponding validator
+		return Object.entries(fullState).every(([key, value]) => {
 			const validator = validators[key];
-			if (!validator) {
-				logger.debug(`No validator for ${domain}.${key}, skipping`);
-				return true;
-			}
+			if (!validator) return true; // Skip validation if no validator exists
 
 			const isValid = validator(value);
-			logger.debug(`Validation result for ${domain}.${key}:`, {
-				value,
-				valueType: typeof value,
-				validator: validator.toString(),
-				isValid
-			});
-
 			if (!isValid) {
 				logger.error(`Validation failed for ${domain}.${key}:`, {
 					value,
-					valueType: typeof value,
-					validator: validator.toString()
+					valueType: typeof value
 				});
 			}
 			return isValid;
 		});
-
-		const allValid = validationResults.every(result => result);
-		logger.debug('Validation complete:', {
-			domain,
-			allValid,
-			results: validationResults
-		});
-
-		return allValid;
 	}
 
-	// Dispatch action
+	// Update state with single action or batch of actions
 	dispatch(action) {
-		const { domain, type, payload } = action;
-
-		// Skip debug logging for game actions
-		if (domain !== 'game' && this.DEBUG) {
-			logger.info('Action dispatched:', { domain, type, payload });
-		}
-
-		// Get appropriate reducer
-		const reducers = {
-			game: gameReducers,
-			user: userReducers,
-			chat: chatReducers,
-			room: roomReducers,
-			config: configReducers
-		}[domain];
-
-		if (!reducers || !reducers[type]) {
-			logger.error(`No reducer found for action: ${domain}.${type}`);
-			return;
-		}
-
 		try {
-			// Create new state immutably
-			const domainState = this.state[domain];
-			const newDomainState = reducers[type](domainState, payload);
+			const actions = Array.isArray(action) ? action : [action];
+			const updatedDomains = new Set();
 
-			// Validate state transition
-			if (!this.validateStateChange(domain, newDomainState)) {
-				throw new Error(`Invalid state transition for ${domain}`);
-			}
+			actions.forEach(({ domain, type, payload }) => {
+				const currentState = this.getState(domain);
+				const reducers = this.reducers[domain];
 
-			// Save to history for undo/redo only for non-game actions
-			if (domain !== 'game') {
-				this.saveToHistory();
-			}
+				if (!reducers || !reducers[type]) {
+					logger.warn(`No reducer found for action: ${domain}.${type}`);
+					return;
+				}
 
-			// Update state
-			this.state = {
-				...this.state,
-				[domain]: newDomainState
-			};
+				const newState = reducers[type](currentState, payload);
 
-			// Notify subscribers
-			this.notifySubscribers(domain);
+				// Skip if state hasn't changed
+				if (isDeepEqual(currentState, newState)) return;
 
-			// Persist state only for non-game actions
-			if (domain !== 'game') {
+				// Validate state change
+				if (!this.validateStateChange(domain, newState)) {
+					logger.error(`Invalid state transition for ${domain}`);
+					return;
+				}
+
+				// Update state
+				this.state = {
+					...this.state,
+					[domain]: newState
+				};
+
+				updatedDomains.add(domain);
+			});
+
+			// Notify subscribers and persist state if any domains were updated
+			if (updatedDomains.size > 0) {
+				updatedDomains.forEach(domain => {
+					this.notifySubscribers(domain, actions.length > 1 ? StateChangeTypes.BATCH_UPDATE : StateChangeTypes.UPDATE);
+				});
 				this.persistState();
 			}
-
 		} catch (error) {
-			logger.error('State update failed:', error);
-			throw error;
+			logger.error('Error updating state:', error);
 		}
 	}
 
-	// Subscribe to state changes
-	subscribe(domain, callback) {
-		if (!this.subscribers.has(domain)) {
-			this.subscribers.set(domain, new Set());
-		}
-		this.subscribers.get(domain).add(callback);
-
-		// Return unsubscribe function
-		return () => {
-			this.subscribers.get(domain).delete(callback);
-		};
-	}
-
-	// Notify subscribers of state changes
-	notifySubscribers(domain) {
-		const subscribers = this.subscribers.get(domain);
-		if (subscribers) {
-			subscribers.forEach(callback => {
-				try {
-					callback(this.state[domain]);
-				} catch (error) {
-					logger.error('Error in subscriber callback:', error);
-				}
-			});
-		}
-	}
-
-	// Save current state to history
-	saveToHistory() {
-		this.history = this.history.slice(0, this.historyIndex + 1);
-		this.history.push(JSON.stringify(this.state));
-		this.historyIndex++;
-
-		// Limit history length
-		if (this.history.length > this.maxHistoryLength) {
-			this.history = this.history.slice(-this.maxHistoryLength);
-			this.historyIndex = this.history.length - 1;
-		}
-	}
-
-	// Undo last action
-	undo() {
-		if (this.historyIndex > 0) {
-			this.historyIndex--;
-			this.state = JSON.parse(this.history[this.historyIndex]);
-			Object.keys(this.state).forEach(domain => this.notifySubscribers(domain));
-			if (this.DEBUG) {
-				logger.info('State restored from history. Index:', this.historyIndex);
-			}
-		}
-	}
-
-	// Redo previously undone action
-	redo() {
-		if (this.historyIndex < this.history.length - 1) {
-			this.historyIndex++;
-			this.state = JSON.parse(this.history[this.historyIndex]);
-			Object.keys(this.state).forEach(domain => this.notifySubscribers(domain));
-			if (this.DEBUG) {
-				logger.info('State restored from history. Index:', this.historyIndex);
-			}
-		}
+	// Persist UI state separately
+	persistUIState(uiState) {
+		if (!uiState) return;
+		localStorage.setItem('themeLocal', uiState.theme);
+		localStorage.setItem('sizeLocal', uiState.fontSize);
 	}
 
 	// Persist state to localStorage
 	persistState() {
 		try {
-			// Convert Sets to arrays before stringifying and exclude game state
+			// Convert Sets to arrays and exclude game state
 			const stateToStore = Object.entries(this.state).reduce((acc, [domain, state]) => {
-				if (domain === 'game') return acc;  // Skip game state persistence
-
-				if (domain === 'user' && state.blockedUsers instanceof Set) {
-					return {
-						...acc,
-						[domain]: {
-							...state,
-							blockedUsers: Array.from(state.blockedUsers)
-						}
-					};
+				// Skip game state and handle special cases
+				if (domain === 'game') return acc;
+				if (domain === 'ui') {
+					this.persistUIState(state);
 				}
-				return { ...acc, [domain]: state };
+
+				// Handle Set conversions
+				const processedState = this._processStateForStorage(domain, state);
+				return { ...acc, [domain]: processedState };
 			}, {});
 
 			localStorage.setItem('app_state', JSON.stringify(stateToStore));
-			if (this.DEBUG) {
-				logger.info('State persisted to localStorage');
-			}
 		} catch (error) {
 			logger.error('Failed to persist state:', error);
 		}
+	}
+
+	// Process state for storage
+	_processStateForStorage(domain, state) {
+		if (domain === 'user' && state.blockedUsers instanceof Set) {
+			return {
+				...state,
+				blockedUsers: Array.from(state.blockedUsers)
+			};
+		}
+		return state;
 	}
 
 	// Load persisted state from localStorage
 	loadPersistedState() {
 		try {
 			const persistedState = localStorage.getItem('app_state');
-			if (persistedState) {
-				const parsedState = JSON.parse(persistedState);
+			if (!persistedState) return;
 
-				// Convert arrays back to Sets where needed
-				if (parsedState.user && parsedState.user.blockedUsers) {
-					parsedState.user.blockedUsers = new Set(parsedState.user.blockedUsers);
-				}
+			const parsedState = JSON.parse(persistedState);
 
-				// Merge with initial state, keeping game state fresh
-				this.state = {
-					...this.state,
-					...parsedState,
-					game: initialGameState  // Always use fresh game state
-				};
+			// Process loaded state
+			const processedState = Object.entries(parsedState).reduce((acc, [domain, state]) => {
+				const processedDomainState = this._processLoadedState(domain, state);
+				return { ...acc, [domain]: processedDomainState };
+			}, {});
 
-				if (this.DEBUG) {
-					logger.info('State loaded from localStorage');
-				}
-			}
+			// Merge with initial state
+			this.state = {
+				...this.state,
+				...processedState,
+				game: initialGameState, // Always use fresh game state
+				ui: { ...processedState.ui, ...this._loadUIState() } // Merge UI state
+			};
 		} catch (error) {
 			logger.error('Failed to load persisted state:', error);
 		}
 	}
 
-	// Debug mode
-	enableDebug() {
-		this.DEBUG = true;
-		logger.info('Store debug mode enabled');
+	// Process loaded state
+	_processLoadedState(domain, state) {
+		if (domain === 'user' && state.blockedUsers) {
+			return {
+				...state,
+				blockedUsers: new Set(state.blockedUsers)
+			};
+		}
+		return state;
 	}
 
-	disableDebug() {
-		this.DEBUG = false;
-		logger.info('Store debug mode disabled');
+	// Load UI state separately
+	_loadUIState() {
+		const theme = localStorage.getItem('themeLocal') || 'light';
+		const fontSize = localStorage.getItem('sizeLocal') || 'small';
+		return { theme, fontSize };
 	}
 
 	// Reset store to initial state
 	reset() {
+		// Clear all state
 		this.state = {
-			game: initialGameState,
+			config: initialConfigState,
 			user: initialUserState,
 			chat: initialChatState,
 			room: initialRoomState,
-			config: initialConfigState
+			game: initialGameState,
+			ui: initialUIState
 		};
-		this.history = [];
-		this.historyIndex = -1;
-		Object.keys(this.state).forEach(domain => this.notifySubscribers(domain));
-		this.persistState();
-		if (this.DEBUG) {
-			logger.info('Store reset to initial state');
-		}
+
+		// Clear localStorage
+		localStorage.removeItem('app_state');
+
+		// Notify all subscribers
+		Object.keys(this.state).forEach(domain => {
+			this.notifySubscribers(domain);
+		});
+
+		logger.debug('Store reset to initial state');
 	}
 }
 
 // Export actions for convenience
 export const actions = {
-	game: gameActions,
+	config: configActions,
 	user: userActions,
 	chat: chatActions,
 	room: roomActions,
-	config: configActions
+	game: gameActions,
+	ui: uiActions
 };
 
 export default Store;

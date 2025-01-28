@@ -1,15 +1,17 @@
+import logger from '../logger.js';
+import javaisPasVu from '../UI/JavaisPasVu.js';
+import Store, { actions } from '../state/store.js';
+
 import { GameEngine } from './core/GameEngine';
 import { PongPhysics } from './core/PongPhysics';
+import { SettingsManager } from './core/SettingsManager.js';
+import { GameRules } from './core/GameRules.js';
+
 import { InputHandler } from './InputHandler.js';
 import { WebGLRenderer } from './renderers/WebGLRenderer.js';
 import { Canvas2DRenderer } from './renderers/CanvasRenderer.js';
 import { AIController } from './AIController.js';
-import logger from '../logger.js';
-import { SettingsManager } from './core/SettingsManager.js';
-import { GameRules } from './core/GameRules.js';
-import dynamicRender from '../UI/dynamic_render.js';
 import { PongNetworkManager } from './PongNetworkManager.js';
-import Store from '../state/store.js';
 import { LocalNetworkManager } from './LocalNetworkManager.js';
 
 // Base game controller with common functionality
@@ -30,6 +32,9 @@ class BasePongGameController {
 		this._store = Store.getInstance();
 		this._handlers = { ...contextHandlers };
 		this._stateResetInProgress = false;
+		this._gameStatus = 'waiting';
+		this._gameCompleteInProgress = false;
+		this._resetInProgress = false;
 
 		logger.info('Initializing game controller with settings:', this._settings);
 
@@ -55,34 +60,45 @@ class BasePongGameController {
 		this._physics.subscribe({
 			onStateChange: async (newState, oldState) => {
 				// Update global store with game state
-				this._store.dispatch({
-					domain: 'game',
-					type: 'UPDATE_STATUS',
-					payload: newState.gameStatus
-				});
-
-				// Update scores in store
-				if (newState.scores) {
+				if (newState.gameStatus !== oldState.gameStatus) {
+					logger.debug('Game status changed:', {
+						from: oldState.gameStatus,
+						to: newState.gameStatus
+					});
 					this._store.dispatch({
 						domain: 'game',
-						type: 'UPDATE_SCORE',
+						type: actions.game.UPDATE_STATUS,
+						payload: newState.gameStatus
+					});
+					this._gameStatus = newState.gameStatus;
+				}
+
+				// Update scores in store
+				if (newState.scores && (
+					newState.scores.left !== oldState.scores.left ||
+					newState.scores.right !== oldState.scores.right
+				)) {
+					logger.debug('Scores updated:', newState.scores);
+					this._store.dispatch({
+						domain: 'game',
+						type: actions.game.UPDATE_SCORE,
 						payload: {
 							player1: newState.scores.left,
 							player2: newState.scores.right
 						}
 					});
+
+					// Check for game completion based on score
+					if (this._checkGameComplete(newState.scores)) {
+						logger.debug('Game complete triggered from score threshold');
+						await this._handleGameComplete(newState.scores);
+					}
 				}
 
-				// Handle game completion
+				// Handle game completion from state change
 				if (newState.gameStatus === 'finished' && oldState.gameStatus !== 'finished') {
-					if (!this._stateResetInProgress) {
-						this._stateResetInProgress = true;
-						try {
-							await this._handleGameComplete(newState.scores);
-						} finally {
-							this._stateResetInProgress = false;
-						}
-					}
+					logger.debug('Game complete triggered from state change');
+					await this._handleGameComplete(newState.scores);
 				}
 			}
 		});
@@ -102,9 +118,6 @@ class BasePongGameController {
 			this._networkManager = null;
 		}
 
-		// Initialize input handler
-		this._inputHandler.initialize();
-
 		// Add settings change listener
 		this._settingsManager.addListener((newSettings, oldSettings) => {
 			this._physics.updateSettings(newSettings);
@@ -113,13 +126,19 @@ class BasePongGameController {
 			}
 		});
 
-		// Initialize settings with DynamicRender
-		dynamicRender.addObservedObject('gameSettings', {
+		// Initialize settings with JavaisPasVu
+		javaisPasVu.addObservedObject('gameSettings', {
 			...validatedSettings,
 			handleSettingChange: (setting, value) => {
 				this.updateSettings({ [setting]: value });
 			}
 		});
+
+		// Add debug logging for event binding
+		logger.debug('Initializing PongGame event handlers');
+
+		// Track event bindings
+		this._boundEvents = new Set();
 	}
 
 	async _initializeAI(difficulty) {
@@ -231,6 +250,12 @@ class BasePongGameController {
 				throw new Error('Game canvas not found');
 			}
 
+			// Ensure canvas is properly sized
+			if (canvas.width !== GameRules.CANVAS_WIDTH || canvas.height !== GameRules.CANVAS_HEIGHT) {
+				canvas.width = GameRules.CANVAS_WIDTH;
+				canvas.height = GameRules.CANVAS_HEIGHT;
+			}
+
 			// Initialize renderer without view reversal
 			const renderer = this._useWebGL
 				? new WebGLRenderer(canvas, this._contextHandlers)
@@ -257,7 +282,7 @@ class BasePongGameController {
 			}
 
 			// Register components with game engine
-			this._gameEngine.registerComponent('state', this._physics);
+			this._gameEngine.registerComponent('state', this._physics); // TODO: Voir si fonctionne, sinon merge avec store
 			this._gameEngine.registerComponent('renderer', renderer);
 			this._gameEngine.registerComponent('network', this._networkManager);
 			this._gameEngine.registerComponent('input', this._inputHandler);
@@ -272,14 +297,13 @@ class BasePongGameController {
 			// Subscribe renderer to state changes
 			this._physics.subscribe(renderer);
 
-			// Subscribe self to state changes for game completion
-			this._physics.subscribe({
-				onStateChange: (newState, oldState) => {
-					if (newState.gameStatus === 'finished' && oldState.gameStatus !== 'finished') {
-						this._handleGameComplete(newState.scores);
-					}
-				}
-			});
+			// Add network game completion handler
+			if (this._networkManager) {
+				this._networkManager.on('gameComplete', (scores) => {
+					logger.debug('Game complete triggered from network event');
+					this._handleGameComplete(scores);
+				});
+			}
 
 			this._initialized = true;
 			return true;
@@ -299,6 +323,13 @@ class BasePongGameController {
 		this._initialized = false;
 		this._gameEngine = null;
 		this._networkManager = null;
+
+		logger.debug('Destroying PongGame instance');
+		// Clean up observers
+		if (this._physics) {
+			// Clear all observers
+			this._physics._observers.clear();
+		}
 	}
 
 	updateSettings(settings) {
@@ -409,36 +440,45 @@ class BasePongGameController {
 	}
 
 	async _handleGameComplete(scores) {
-		logger.info('Game finished - Final scores:', scores);
-
-		if (this._gameEngine) {
-			this._gameEngine.stop(); // Stop the game engine first
+		if (this._gameStatus === 'finished' || this._gameCompleteInProgress) {
+			logger.debug('Game already finished or completion in progress, ignoring duplicate call');
+			return;
 		}
 
+		logger.info('Handling game complete with scores:', scores);
+		this._gameCompleteInProgress = true;
+		this._gameStatus = 'finished';
+
 		try {
-			// First reset room state
-			if (this._networkManager) {
+			// Stop the game engine
+			this._gameEngine.stop();
+
+			// Reset network state only if not already in progress
+			if (!this._resetInProgress) {
+				this._resetInProgress = true;
 				try {
 					await this._networkManager.resetRoomState();
 				} catch (error) {
 					logger.error('Failed to reset room state:', error);
-					// Continue to try notifying handlers even if reset fails
+				} finally {
+					this._resetInProgress = false;
 				}
 			}
 
-			// Then notify any listeners about game completion
-			if (this._handlers?.onGameComplete) {
-				await this._handlers.onGameComplete(scores);
-			} else {
-				logger.warn('No game completion handler registered');
-			}
+			// Update store with final scores
+			this._store.dispatch({
+				domain: 'game',
+				type: actions.game.UPDATE_SCORES,
+				payload: {
+					scores: scores
+				}
+			});
+
+			logger.info('Game complete handler finished successfully');
 		} catch (error) {
-			logger.error('Error handling game completion:', error);
+			logger.error('Error in game complete handler:', error);
 		} finally {
-			// Ensure game engine is stopped
-			if (this._gameEngine) {
-				this._gameEngine.stop();
-			}
+			this._gameCompleteInProgress = false;
 		}
 	}
 
@@ -491,6 +531,24 @@ class BasePongGameController {
 			// Give a small delay for any pending operations to complete
 			setTimeout(resolve, 100);
 		});
+	}
+
+	_bindEvents() {
+		logger.debug('Binding game events');
+		// No need to bind score events here as they're handled in the main state change subscription
+	}
+
+	_checkGameComplete(scores) {
+		const isComplete = scores.left >= this._settingsManager.getSettings().maxScore || scores.right >= this._settingsManager.getSettings().maxScore;
+		if (isComplete) {
+			logger.debug('Game complete check - scores:', {
+				left: scores.left,
+				right: scores.right,
+				maxScore: this._settingsManager.getSettings().maxScore,
+				caller: new Error().stack
+			});
+		}
+		return isComplete;
 	}
 }
 

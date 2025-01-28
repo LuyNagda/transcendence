@@ -1,160 +1,213 @@
-import { createPongGameController } from '../pong/PongGameController.js';
-import { UIService } from '../UI/UIService.js';
-import Store from '../state/store.js';
 import logger from '../logger.js';
+import Store from '../state/store.js';
+import { RoomModes, RoomStates } from '../state/roomState.js';
+import { GameRules } from '../pong/core/GameRules.js';
 
+/**
+ * Manages game-specific logic for a room
+ */
 export class RoomGameManager {
-	constructor(roomId, currentUser, networkManager) {
+	constructor(store, roomId, currentUser, networkManager) {
+		this._store = store || Store.getInstance();
 		this._roomId = roomId;
 		this._currentUser = currentUser;
-		this._store = Store.getInstance();
 		this._networkManager = networkManager;
-		this._pongGame = null;
+		this._gameInProgress = false;
+		this._gameInstance = null;
 		this._useWebGL = false;
-		this._startGameInProgress = false;
-		this._isResetting = false;
+		this._eventHandlers = new Map();
+
+		this._initializeNetworkHandlers();
 	}
 
-	async initializeAndStartGame(gameId, isHost, settings) {
-		const canvas = document.querySelector('#game-container .screen #game');
-		if (!canvas) {
-			UIService.showAlert('error', 'Game canvas not found');
-			throw new Error("Game canvas not found");
-		}
+	_initializeNetworkHandlers() {
+		if (!this._networkManager) return;
 
+		this._networkManager.on('game_started', this._handleGameStarted.bind(this));
+		this._networkManager.on('game_ended', this._handleGameEnded.bind(this));
+	}
+
+	async _handleGameStarted(data) {
 		try {
-			// Create context handlers
-			const contextHandlers = this._createContextHandlers();
+			const { game_id, player1_id, player2_id, settings } = data;
+			const isHost = this._currentUser.id === player1_id;
 
-			// Create new game instance
-			this._pongGame = createPongGameController(
-				gameId,
-				this._currentUser,
-				isHost,
-				this._useWebGL,
-				settings,
-				contextHandlers
+			await this._initializeGame(game_id, isHost, settings);
+			this._emit('game_started', data);
+		} catch (error) {
+			logger.error('Error handling game start:', error);
+			this.handleGameFailure(error);
+		}
+	}
+
+	_handleGameEnded(data) {
+		try {
+			this._destroyGame();
+			this._emit('game_ended', data);
+		} catch (error) {
+			logger.error('Error handling game end:', error);
+		}
+	}
+
+	async _initializeGame(gameId, isHost, settings) {
+		try {
+			// Ensure game container is ready
+			const container = document.querySelector('#game-container .screen');
+			if (!container) {
+				throw new Error('Game container not found');
+			}
+
+			// Clear any existing game messages
+			const existingMessage = container.querySelector('.game-message');
+			if (existingMessage) {
+				existingMessage.remove();
+			}
+
+			// Ensure canvas exists and is properly sized
+			const canvas = container.querySelector('#game');
+			if (!canvas) {
+				throw new Error('Game canvas not found');
+			}
+
+			// Set canvas dimensions
+			canvas.width = GameRules.CANVAS_WIDTH;
+			canvas.height = GameRules.CANVAS_HEIGHT;
+
+			// Initialize game instance
+			const gameMode = settings.mode || RoomModes.CLASSIC;
+			const GameClass = await this._loadGameClass(gameMode);
+
+			this._gameInstance = new GameClass(
+				canvas,
+				this._networkManager,
+				{
+					gameId,
+					isHost,
+					settings: this._validateGameSettings(settings),
+					useWebGL: this._useWebGL
+				}
 			);
 
-			const initialized = await this._pongGame.initialize();
-			if (!initialized) {
-				UIService.showAlert('error', 'Failed to initialize game');
-				throw new Error("Game initialization failed");
-			}
-
 			// Start the game
-			const started = await this._pongGame.start();
-			if (!started) {
-				UIService.showAlert('error', 'Failed to start game');
-				throw new Error("Game start failed");
-			}
+			await this._gameInstance.start();
+			this._gameInProgress = true;
 
-			this._startGameInProgress = false;
-			return true;
+			logger.info('Game initialized successfully:', {
+				gameId,
+				isHost,
+				mode: gameMode
+			});
 		} catch (error) {
-			logger.error("Failed to initialize game:", error);
-			UIService.showAlert('error', `Failed to start game: ${error.message}`);
+			logger.error('Failed to initialize game:', error);
 			throw error;
 		}
 	}
 
-	async handleGameComplete(scores) {
-		if (this._isResetting) {
-			logger.warn('Room reset already in progress, skipping');
-			return;
-		}
-
-		this._isResetting = true;
-		this._startGameInProgress = false;
-
+	async _loadGameClass(mode) {
 		try {
-			// Stop game engine first if it exists
-			if (this._pongGame) {
-				await this._pongGame.stop();
+			switch (mode) {
+				case RoomModes.AI:
+					const { AIGame } = await import('../pong/AIGame.js');
+					return AIGame;
+				case RoomModes.RANKED:
+					const { RankedGame } = await import('../pong/RankedGame.js');
+					return RankedGame;
+				case RoomModes.TOURNAMENT:
+					const { TournamentGame } = await import('../pong/TournamentGame.js');
+					return TournamentGame;
+				case RoomModes.CLASSIC:
+				default:
+					const { ClassicGame } = await import('../pong/ClassicGame.js');
+					return ClassicGame;
 			}
+		} catch (error) {
+			logger.error('Failed to load game class:', error);
+			throw new Error(`Failed to load game mode: ${mode}`);
+		}
+	}
 
-			// Reset network state
-			try {
-				await this._networkManager.resetRoomState();
-			} catch (error) {
-				logger.error('Failed to reset room state:', error);
-			}
+	_validateGameSettings(settings) {
+		const { settings: validatedSettings } = GameRules.validateSettings(settings);
+		return validatedSettings;
+	}
 
-			// Update store
-			this._store.dispatch({
-				domain: 'room',
-				type: 'UPDATE_ROOM_STATUS',
-				payload: {
-					roomId: this._roomId,
-					status: 'finished'
+	// Public API
+	isGameInProgress() {
+		return this._gameInProgress;
+	}
+
+	setGameInProgress(value) {
+		this._gameInProgress = value;
+	}
+
+	setWebGL(value) {
+		this._useWebGL = value;
+	}
+
+	handleGameFailure(error) {
+		logger.error('Game failure:', error);
+		this._gameInProgress = false;
+		this._destroyGame();
+		this._emit('game_failure', error);
+	}
+
+	_destroyGame() {
+		if (this._gameInstance) {
+			this._gameInstance.destroy();
+			this._gameInstance = null;
+		}
+		this._gameInProgress = false;
+	}
+
+	// Event handling
+	on(event, handler) {
+		if (!this._eventHandlers.has(event)) {
+			this._eventHandlers.set(event, new Set());
+		}
+		this._eventHandlers.get(event).add(handler);
+		return () => this.off(event, handler);
+	}
+
+	off(event, handler) {
+		const handlers = this._eventHandlers.get(event);
+		if (handlers) {
+			handlers.delete(handler);
+		}
+	}
+
+	_emit(event, data) {
+		const handlers = this._eventHandlers.get(event);
+		if (handlers) {
+			handlers.forEach(handler => {
+				try {
+					handler(data);
+				} catch (error) {
+					logger.error(`Error in ${event} handler:`, error);
 				}
 			});
-
-			// Clean up game instance last
-			if (this._pongGame) {
-				this._pongGame.destroy();
-				this._pongGame = null;
-			}
-		} finally {
-			this._isResetting = false;
 		}
 	}
 
-	handleGameFailure() {
-		if (this._pongGame) {
-			this._pongGame.destroy();
-			this._pongGame = null;
+	updateNetworkManager(networkManager) {
+		if (this._networkManager) {
+			this._networkManager.off('game_started', this._handleGameStarted);
+			this._networkManager.off('game_ended', this._handleGameEnded);
 		}
-
-		this._startGameInProgress = false;
-		UIService.showAlert('error', 'Game failed to start. Returning to lobby...');
-
-		// Update store
-		this._store.dispatch({
-			domain: 'room',
-			type: 'UPDATE_ROOM_STATUS',
-			payload: {
-				roomId: this._roomId,
-				status: 'finished'
-			}
-		});
-	}
-
-	_createContextHandlers() {
-		return {
-			onContextLost: (event) => {
-				event.preventDefault();
-				logger.warn('WebGL context lost');
-				UIService.showAlert('error', 'Game graphics context lost. Attempting to restore...');
-				setTimeout(() => this._pongGame?.restoreContext(), 1000);
-			},
-			onContextRestored: () => {
-				logger.info('WebGL context restored');
-				UIService.showAlert('success', 'Game graphics restored successfully');
-				this._pongGame?.reinitialize();
-			},
-			onGameComplete: (scores) => {
-				this.handleGameComplete(scores);
-			}
-		};
-	}
-
-	setWebGL(useWebGL) {
-		this._useWebGL = useWebGL;
-	}
-
-	isGameInProgress() {
-		return this._startGameInProgress;
-	}
-
-	setGameInProgress(inProgress) {
-		this._startGameInProgress = inProgress;
+		this._networkManager = networkManager;
+		this._initializeNetworkHandlers();
 	}
 
 	destroy() {
-		if (this._pongGame) {
-			this._pongGame.destroy();
-			this._pongGame = null;
+		this._destroyGame();
+		if (this._networkManager) {
+			this._networkManager.off('game_started', this._handleGameStarted);
+			this._networkManager.off('game_ended', this._handleGameEnded);
 		}
+		this._eventHandlers.clear();
 	}
-} 
+}
+
+// Factory function to create RoomGameManager instance
+export const createRoomGameManager = (store, roomId, currentUser, networkManager) => {
+	return new RoomGameManager(store, roomId, currentUser, networkManager);
+}; 

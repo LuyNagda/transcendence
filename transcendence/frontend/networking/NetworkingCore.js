@@ -221,7 +221,9 @@ export class WebSocketConnection extends BaseConnection {
 		}
 
 		try {
-			this._ws.send(JSON.stringify(data));
+			// Ensure data is properly stringified only once
+			const message = typeof data === 'string' ? data : JSON.stringify(data);
+			this._ws.send(message);
 		} catch (error) {
 			logger.error('Error sending WebSocket message:', error);
 			this.queueMessage(data);
@@ -247,7 +249,11 @@ export class WebSocketConnection extends BaseConnection {
 	 * @private
 	 */
 	_handleClose(event) {
-		if (event.code === 1006 && this._reconnectAttempts < this._maxReconnectAttempts) {
+		if (event.code === 1000) {
+			// Normal closure, just log at debug level
+			logger.debug(`WebSocket closed normally (code ${event.code})`);
+			this.state = ConnectionState.DISCONNECTED;
+		} else if (event.code === 1006 && this._reconnectAttempts < this._maxReconnectAttempts) {
 			this._reconnectAttempts++;
 			const delay = Math.min(1000 * Math.pow(2, this._reconnectAttempts - 1), 30000);
 			logger.info(`WebSocket closed abnormally, attempting reconnect in ${delay}ms`);
@@ -651,39 +657,48 @@ export class BaseNetworkManager {
 			type === 'start_game' || type === 'update_property' ? 15000 : 10000
 		);
 
+		logger.debug(`[NetworkCore] Sending request ${type} with ID ${messageId}, timeout ${timeout}ms`);
+
 		return new Promise((resolve, reject) => {
 			const timeoutHandler = setTimeout(() => {
 				if (this._pendingRequests.has(messageId)) {
+					logger.error(`[NetworkCore] Request ${type} (ID: ${messageId}) timed out after ${timeout}ms`);
+					logger.debug(`[NetworkCore] Current pending requests: ${Array.from(this._pendingRequests.keys()).join(', ')}`);
 					this._pendingRequests.delete(messageId);
 					reject(new Error(`Request timeout after ${timeout}ms`));
 				}
 			}, timeout);
 
-			// Store the promise handlers
+			// Store the promise handlers and metadata
 			this._pendingRequests.set(messageId, {
 				resolve,
 				reject,
-				timeout: timeoutHandler,
-				timestamp: Date.now()
+				timeoutHandler,
+				timestamp: Date.now(),
+				type
 			});
 
-			const message = {
-				action: type,
-				message_id: messageId,
-				...data
-			};
-
-			const connection = this._getMainConnection();
-			if (!connection?.state.canSend) {
-				clearTimeout(timeoutHandler);
-				this._pendingRequests.delete(messageId);
-				reject(new Error('Connection not available'));
-				return;
-			}
-
+			// Send the actual message
 			try {
-				connection.send(message);
+				const mainConnection = this._getMainConnection();
+				if (!mainConnection || mainConnection.state.name !== 'connected') {
+					logger.error(`[NetworkCore] Cannot send ${type} - No active connection (state: ${mainConnection?.state?.name || 'none'})`);
+					clearTimeout(timeoutHandler);
+					this._pendingRequests.delete(messageId);
+					reject(new Error('No active connection'));
+					return;
+				}
+
+				const message = {
+					action: type,
+					message_id: messageId,
+					...data
+				};
+
+				logger.debug(`[NetworkCore] Sending message for ${type} through connection`);
+				mainConnection.send(message);
 			} catch (error) {
+				logger.error(`[NetworkCore] Error sending ${type}: ${error.message}`);
 				clearTimeout(timeoutHandler);
 				this._pendingRequests.delete(messageId);
 				reject(error);
@@ -742,8 +757,23 @@ export class BaseNetworkManager {
 	 * Handles connection closure
 	 * @protected
 	 */
-	_handleClose() {
-		logger.warn('Connection closed');
+	_handleClose(event) {
+		const code = event?.code;
+		const reason = event?.reason || 'No reason provided';
+
+		if (code === 1000) {
+			// Normal closure
+			logger.debug(`Connection closed normally (code: ${code}, reason: ${reason})`);
+		} else if (code === 1001) {
+			// Going away (e.g., page navigation)
+			logger.debug(`Connection closed due to navigation (code: ${code}, reason: ${reason})`);
+		} else if (code === undefined) {
+			// No code provided (likely internal closure)
+			logger.debug('Connection closed internally');
+		} else {
+			// Abnormal closure
+			logger.warn(`Connection closed abnormally (code: ${code}, reason: ${reason})`);
+		}
 		this._isConnected = false;
 	}
 
@@ -753,7 +783,8 @@ export class BaseNetworkManager {
 	 */
 	_handleError(error) {
 		logger.error('Connection error:', error);
-		this._handleClose();
+		// Pass an error event to _handleClose to ensure proper logging
+		this._handleClose({ code: error?.code || -1 });
 	}
 
 	/**

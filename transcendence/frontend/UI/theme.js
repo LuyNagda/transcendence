@@ -1,83 +1,213 @@
-// Theme and Font Size Management
+import Store, { actions } from '../state/store.js';
+import logger from '../logger.js';
+import { UI_THEME, UI_FONT_SIZE } from '../state/uiState.js';
 
-// Get stored theme and font size preferences, or set defaults
-const themeLocal = localStorage.getItem('themeLocal') || 'light';
-const sizeLocal = localStorage.getItem('sizeLocal') || 'small';
+function applyThemeToDOM(theme) {
+	try {
+		logger.debug('Applying theme to DOM:', theme);
 
-// Get DOM elements
-const navbarBrand = document.querySelector('.navbar-brand');
-const btn = document.querySelector('.btn');
-const formControls = document.querySelectorAll('.form-control');
-const toggleFontSizeBtn = document.getElementById('toggleFontSizeBtn');
+		// Apply theme to document
+		document.documentElement.setAttribute('data-bs-theme', theme);
+		document.body.classList.remove('theme-light', 'theme-dark', 'theme-high-contrast');
+		document.body.classList.add(`theme-${theme}`);
 
-// Font size application function
-function applyFontSize(size) {
-	if (size == 'large') {
-		localStorage.setItem('sizeLocal', 'large');
-		document.body.style.fontSize = '1.5rem';
-		if (navbarBrand) navbarBrand.style.fontSize = '1.5rem';
-		if (btn) btn.style.fontSize = '1.5rem';
-		if (formControls) {
-			formControls.forEach(function (formControl) {
-				formControl.style.fontSize = '1.5rem';
-				formControl.style.paddingTop = '3rem';
-				formControl.style.paddingBottom = '2rem';
-			});
-		}
-		document.querySelectorAll('h4').forEach(function (h4) {
-			h4.style.fontSize = '2rem';
-		});
-		document.querySelectorAll('h5').forEach(function (h5) {
-			h5.style.fontSize = '1.75rem';
-		});
-	} else {
-		localStorage.setItem('sizeLocal', 'small');
-		document.body.style.fontSize = '1rem';
-		if (navbarBrand) navbarBrand.style.fontSize = '1.25rem';
-		if (btn) btn.style.fontSize = '1rem';
-		if (formControls) {
-			formControls.forEach(function (formControl) {
-				formControl.style.fontSize = '1rem';
-				formControl.style.padding = '0.375rem 0.75rem';
-			});
-		}
-		document.querySelectorAll('h4').forEach(function (h4) {
-			h4.style.fontSize = '1.5rem';
-		});
-		document.querySelectorAll('h5').forEach(function (h5) {
-			h5.style.fontSize = '1.25rem';
-		});
-	}
-}
-
-// Theme application function
-function applyTheme(theme) {
-	localStorage.setItem('themeLocal', theme);
-	document.documentElement.setAttribute('data-bs-theme', theme);
-	var themeIcon = document.getElementById('themeIcon');
-	if (themeIcon) {
+		// Update theme-specific styles
+		const root = document.documentElement;
 		switch (theme) {
-			case 'light':
-				themeIcon.setAttribute('d', 'M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708');
-				break;
 			case 'dark':
-				themeIcon.setAttribute('d', 'M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278M4.858 1.311A7.27 7.27 0 0 0 1.025 7.71c0 4.02 3.279 7.276 7.319 7.276a7.32 7.32 0 0 0 5.205-2.162q-.506.063-1.029.063c-4.61 0-8.343-3.714-8.343-8.29 0-1.167.242-2.278.681-3.286');
+				root.style.setProperty('--bs-body-bg', '#212529');
+				root.style.setProperty('--bs-body-color', '#f8f9fa');
 				break;
 			case 'high-contrast':
-				themeIcon.setAttribute('d', 'M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0');
+				root.style.setProperty('--bs-body-bg', '#000000');
+				root.style.setProperty('--bs-body-color', '#ffffff');
+				root.style.setProperty('--bs-primary', '#ffff00');
+				break;
+			default: // light
+				root.style.setProperty('--bs-body-bg', '#ffffff');
+				root.style.setProperty('--bs-body-color', '#212529');
 				break;
 		}
+
+		logger.debug('Theme applied to DOM:', {
+			theme,
+			documentTheme: document.documentElement.getAttribute('data-bs-theme'),
+			bodyClasses: document.body.classList.toString(),
+			uiElements: document.querySelectorAll('[data-domain="ui"]')
+		});
+	} catch (error) {
+		logger.error('Error applying theme to DOM:', error);
 	}
 }
 
-// Initialize theme and font size
+function applyFontSizeToDOM(fontSize) {
+	try {
+		logger.debug('Applying font size to DOM:', fontSize);
+
+		// Remove all font size classes
+		document.body.classList.remove(
+			`font-${UI_FONT_SIZE.SMALL}`,
+			`font-${UI_FONT_SIZE.MEDIUM}`,
+			`font-${UI_FONT_SIZE.LARGE}`
+		);
+		document.body.classList.add(`font-${fontSize}`);
+
+		// Update body font size
+		const fontSizes = {
+			[UI_FONT_SIZE.SMALL]: '0.875rem',
+			[UI_FONT_SIZE.MEDIUM]: '1rem',
+			[UI_FONT_SIZE.LARGE]: '1.25rem'
+		};
+		document.body.style.fontSize = fontSizes[fontSize];
+
+		// Update navbar brand
+		const navbarBrand = document.querySelector('.navbar-brand');
+		if (navbarBrand) {
+			const brandSizes = {
+				[UI_FONT_SIZE.SMALL]: '1.1rem',
+				[UI_FONT_SIZE.MEDIUM]: '1.25rem',
+				[UI_FONT_SIZE.LARGE]: '1.5rem'
+			};
+			navbarBrand.style.fontSize = brandSizes[fontSize];
+		}
+
+		// Update buttons
+		const buttons = document.querySelectorAll('.btn');
+		buttons.forEach(btn => {
+			btn.style.fontSize = fontSizes[fontSize];
+		});
+
+		// Update form controls
+		const formControls = document.querySelectorAll('.form-control');
+		formControls.forEach(control => {
+			control.style.fontSize = fontSizes[fontSize];
+			const paddings = {
+				[UI_FONT_SIZE.SMALL]: '0.25rem 0.5rem',
+				[UI_FONT_SIZE.MEDIUM]: '0.375rem 0.75rem',
+				[UI_FONT_SIZE.LARGE]: '0.5rem 1rem'
+			};
+			control.style.padding = paddings[fontSize];
+		});
+
+		// Update headings
+		const h4Sizes = {
+			[UI_FONT_SIZE.SMALL]: '1.25rem',
+			[UI_FONT_SIZE.MEDIUM]: '1.5rem',
+			[UI_FONT_SIZE.LARGE]: '1.75rem'
+		};
+		document.querySelectorAll('h4').forEach(h4 => {
+			h4.style.fontSize = h4Sizes[fontSize];
+		});
+
+		const h5Sizes = {
+			[UI_FONT_SIZE.SMALL]: '1rem',
+			[UI_FONT_SIZE.MEDIUM]: '1.25rem',
+			[UI_FONT_SIZE.LARGE]: '1.5rem'
+		};
+		document.querySelectorAll('h5').forEach(h5 => {
+			h5.style.fontSize = h5Sizes[fontSize];
+		});
+
+		logger.debug('Font size applied to DOM:', {
+			fontSize,
+			bodyClasses: document.body.classList.toString()
+		});
+	} catch (error) {
+		logger.error('Error applying font size to DOM:', error);
+	}
+}
+
+function updateTheme(theme) {
+	const store = Store.getInstance();
+	const validThemes = ['light', 'dark', 'high-contrast'];
+
+	if (!validThemes.includes(theme)) {
+		logger.error('Invalid theme value:', theme);
+		return;
+	}
+
+	try {
+		const currentState = store.getState('ui');
+		logger.debug('Updating theme:', {
+			newTheme: theme,
+			currentState,
+			currentThemeInDOM: document.documentElement.getAttribute('data-bs-theme')
+		});
+
+		// Update local storage first
+		localStorage.setItem('themeLocal', theme);
+
+		// Update store state - this will trigger StateSync to handle UI updates
+		store.dispatch({
+			domain: 'ui',
+			type: actions.ui.UPDATE_THEME,
+			payload: {
+				...currentState,
+				theme
+			}
+		});
+
+		logger.debug('Theme update dispatched:', {
+			theme,
+			newState: store.getState('ui')
+		});
+	} catch (error) {
+		logger.error('Error updating theme:', error);
+	}
+}
+
+function updateFontSize(size) {
+	const store = Store.getInstance();
+	const validSizes = ['small', 'large'];
+
+	if (!validSizes.includes(size)) {
+		logger.error('Invalid font size value:', size);
+		return;
+	}
+
+	try {
+		localStorage.setItem('sizeLocal', size);
+		applyFontSizeToDOM(size);
+
+		store.dispatch({
+			domain: 'ui',
+			type: actions.ui.UPDATE_FONT_SIZE,
+			payload: { fontSize: size }
+		});
+	} catch (error) {
+		logger.error('Error updating font size:', error);
+	}
+}
+
 function initializeThemeAndFontSize() {
-	applyFontSize(sizeLocal);
-	applyTheme(themeLocal);
+	const store = Store.getInstance();
+	const state = store.getState('ui');
 
-	if (toggleFontSizeBtn) {
-		toggleFontSizeBtn.checked = sizeLocal === 'large';
+	const theme = state?.theme || localStorage.getItem('themeLocal') || 'light';
+	const fontSize = state?.fontSize || localStorage.getItem('sizeLocal') || 'small';
+
+	if (!state) {
+		store.dispatch({
+			domain: 'ui',
+			type: actions.ui.INITIALIZE,
+			payload: { theme, fontSize }
+		});
 	}
+
+	logger.debug('Initializing theme and font size:', {
+		theme,
+		fontSize,
+		state: store.getState('ui')
+	});
+
+	applyThemeToDOM(theme);
+	applyFontSizeToDOM(fontSize);
 }
 
-export { initializeThemeAndFontSize, applyTheme, applyFontSize };
+export {
+	initializeThemeAndFontSize,
+	updateTheme,
+	updateFontSize,
+	applyThemeToDOM,
+	applyFontSizeToDOM
+};

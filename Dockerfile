@@ -1,21 +1,21 @@
-FROM python:3.10-bookworm AS builder
+FROM python:3.10-alpine AS builder
 
-RUN apt-get update && apt-get install -y libpq-dev python3-venv nodejs npm
+RUN apk add --no-cache postgresql-dev python3-dev nodejs npm gcc musl-dev linux-headers && \
+	npm install -g pnpm
 
 WORKDIR /app
 
-# Copy only requirements.txt first to leverage Docker cache
 COPY requirements.txt .
 
 RUN python3 -m venv /app/.venv
 RUN .venv/bin/pip install --upgrade pip && \
 	.venv/bin/pip install -r requirements.txt
 
-COPY package.json package-lock.json ./
+COPY package.json pnpm-lock.yaml ./
 
-RUN npm install
+RUN pnpm install
 
-FROM python:3.10-bookworm
+FROM python:3.10-alpine
 
 ENV DB_NAME=${DB_NAME}
 ENV DB_HOST=${DB_HOST}
@@ -31,7 +31,8 @@ ENV DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
 ENV DEBUG=${DEBUG}
 ENV DOMAIN=${DOMAIN}
 
-RUN apt-get update && apt-get install -y curl make git libpq-dev openssl nodejs npm
+RUN apk add --no-cache curl make git postgresql-dev openssl nodejs npm bash && \
+	npm install -g pnpm
 
 SHELL ["/bin/bash", "-c"]
 
@@ -43,7 +44,7 @@ RUN rm -rf /app/.venv /app/node_modules
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/node_modules /app/node_modules
 
-RUN npm run build
+RUN pnpm build
 
 RUN chmod +x install.sh
 

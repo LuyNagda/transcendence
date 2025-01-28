@@ -1,7 +1,6 @@
 export const initialConfigState = {
 	debug: false,
 	logLevel: 'ERROR',
-	userId: null,
 	rtc: {
 		stunUrl: '',
 		turnUrl1: '',
@@ -29,7 +28,6 @@ export const configReducers = {
 export const configValidators = {
 	debug: (value) => typeof value === 'boolean',
 	logLevel: (value) => typeof value === 'string',
-	userId: (value) => value === null || typeof value === 'number',
 	rtc: (value) => typeof value === 'object' && value !== null,
 	api: (value) => typeof value === 'object' && value !== null,
 };

@@ -1,7 +1,7 @@
 {% load static %}
 {% load chat_tags %}
 <!DOCTYPE html>
-<html data-bs-theme="light">
+<html lang="en">
 
 <head>
     <meta charset="utf-8">
@@ -14,8 +14,10 @@
 
 <body class="d-flex flex-column min-vh-100" data-config-id="app-config">
     {{ config|json_script:"app-config" }}
-    <div id="toast-container" class="toast-container position-fixed bottom-0 start-0 p-3 mx-3" style="z-index: 1050;">
-    </div>
+    {% if user.is_authenticated %}
+    <div hidden data-user-info='{"id": {{ user.id }}, "username": "{{ user.username }}"}'></div>
+    {% endif %}
+    <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1050;"> </div>
     <main class="flex-grow-1" id="content">
         {% block content %}{% endblock %}
     </main>

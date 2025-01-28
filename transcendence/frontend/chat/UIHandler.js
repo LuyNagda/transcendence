@@ -6,6 +6,12 @@ export default class UIHandler {
 	constructor(chatApp) {
 		this.chatApp = chatApp;
 		this._store = Store.getInstance();
+		this._initializeUIElements();
+		this._initializeCanvas();
+		this._attachEventListeners();
+	}
+
+	_initializeUIElements() {
 		this.messageHistory = document.getElementById('message-history');
 		this.chatForm = document.querySelector('#chat-form');
 		this.chatHeading = document.getElementById('chatHeading');
@@ -15,17 +21,9 @@ export default class UIHandler {
 		this.chatIcon = navLink?.querySelector('svg');
 		this.chatBadge = navLink?.querySelector('.chat-badge');
 		this.userList = document.querySelector('.user-list ul');
-
-		// Initialize basic event listeners
-		this.attachEventListeners();
-
-		// Initialize canvas after DOM is fully loaded
-		document.addEventListener('DOMContentLoaded', () => {
-			this.initializeCanvas();
-		});
 	}
 
-	initializeCanvas() {
+	_initializeCanvas() {
 		this.chatCanvas = document.getElementById('chatCanvas');
 
 		if (this.chatCanvas) {
@@ -48,31 +46,40 @@ export default class UIHandler {
 		}
 	}
 
-	attachEventListeners() {
+	_attachEventListeners() {
 		if (this.chatForm) {
-			this.chatForm.addEventListener('submit', (e) => this.chatApp.handleFormSubmit(e));
+			this.chatForm.addEventListener('submit', (e) => {
+				e.preventDefault();
+				this.chatApp.handleFormSubmit(e);
+			});
 		}
-		this.attachUserListEventListeners();
-		document.querySelectorAll('.invite-pong, .view-profile, .block-user, .unblock-user').forEach(element => {
-			element.addEventListener('click', (e) => this.chatApp.handleSpecialActions(e));
-		});
+
 		if (this.chatCanvas) {
 			this.chatCanvas.addEventListener('shown.bs.offcanvas', () => {
-				logger.debug('Chat canvas shown');
 				this.chatApp.setChatModalOpen(true);
 			});
+
 			this.chatCanvas.addEventListener('hidden.bs.offcanvas', () => {
-				logger.debug('Chat canvas hidden');
 				this.chatApp.setChatModalOpen(false);
 			});
-		} else {
-			logger.warn('Chat canvas element not found');
 		}
+
+		this._attachUserListEventListeners();
+		this._attachActionButtonListeners();
 	}
 
-	attachUserListEventListeners() {
-		document.querySelectorAll('.user-chat').forEach(element => {
-			element.addEventListener('click', (e) => this.chatApp.handleUserClick(e));
+	_attachUserListEventListeners() {
+		if (!this.userList) {
+			logger.warn('User list element not found');
+			return;
+		}
+
+		this.userList.addEventListener('click', (event) => {
+			const userItem = event.target.closest('[data-user-id]');
+			if (userItem) {
+				const userId = Number(userItem.dataset.userId);
+				this.chatApp.handleUserClick(event);
+			}
 		});
 	}
 
@@ -115,11 +122,11 @@ export default class UIHandler {
 			}
 		}
 
-		this.attachUserListEventListeners();
-		this.attachActionButtonListeners();
+		this._attachUserListEventListeners();
+		this._attachActionButtonListeners();
 	}
 
-	attachActionButtonListeners() {
+	_attachActionButtonListeners() {
 		document.querySelectorAll('.invite-pong, .view-profile, .block-user, .unblock-user').forEach(element => {
 			const clone = element.cloneNode(true);
 			element.parentNode.replaceChild(clone, element);

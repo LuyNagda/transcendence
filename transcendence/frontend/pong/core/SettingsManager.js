@@ -2,33 +2,28 @@ import logger from '../../logger.js';
 import { GameRules } from './GameRules.js';
 
 export class SettingsManager {
-	static DEFAULT_SETTINGS = {
-		...GameRules.DEFAULT_SETTINGS,
-		canvasWidth: 858,
-		canvasHeight: 525
-	};
-
 	constructor(initialSettings = {}) {
 		this._listeners = new Set();
+		const { settings } = GameRules.validateSettings(initialSettings);
 		this._settings = {
-			...SettingsManager.DEFAULT_SETTINGS,
-			...initialSettings
+			...GameRules.DEFAULT_SETTINGS,
+			...settings
 		};
 		logger.debug('SettingsManager initialized with settings:', this._settings);
 	}
 
 	// Get canvas dimensions
 	getCanvasWidth() {
-		return this._settings.canvasWidth;
+		return GameRules.CANVAS_WIDTH;
 	}
 
 	getCanvasHeight() {
-		return this._settings.canvasHeight;
+		return GameRules.CANVAS_HEIGHT;
 	}
 
 	// Calculate paddle height based on current settings
 	getPaddleHeight() {
-		return 20 + (this._settings.paddleSize * 4);
+		return GameRules.BASE_PADDLE_HEIGHT + (this._settings.paddleSize * 4);
 	}
 
 	// Calculate paddle speed based on current settings
@@ -92,9 +87,18 @@ export class SettingsManager {
 	// Update settings and notify listeners
 	updateSettings(newSettings) {
 		const oldSettings = { ...this._settings };
+		const { isValid, settings } = GameRules.validateSettings(newSettings);
+
+		if (!isValid) {
+			logger.warn('Some settings were invalid and reset to defaults:', {
+				original: newSettings,
+				validated: settings
+			});
+		}
+
 		this._settings = {
 			...this._settings,
-			...newSettings
+			...settings
 		};
 
 		logger.debug('Settings updated:', {
@@ -109,6 +113,11 @@ export class SettingsManager {
 	// Get current settings
 	getSettings() {
 		return { ...this._settings };
+	}
+
+	// Get relaunch time
+	getRelaunchTime() {
+		return GameRules.RELAUNCH_TIME;
 	}
 
 	// Private method to notify listeners

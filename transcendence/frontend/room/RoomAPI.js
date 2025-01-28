@@ -34,7 +34,7 @@ export class RoomAPI {
 
 	static async fetchRoomHtml(roomId) {
 		try {
-			const response = await fetch(`/pong/room/${roomId}/`, {
+			const response = await fetch(`/pong/room/${roomId}/partial/`, {
 				method: 'GET',
 				credentials: 'include',
 				headers: {

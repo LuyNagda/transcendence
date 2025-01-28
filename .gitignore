@@ -11,3 +11,4 @@ transcendence/static/*
 !transcendence/static/favicon.ico
 node_modules
 ai/myenv/
+coverage/

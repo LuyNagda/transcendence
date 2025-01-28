@@ -1,5 +1,4 @@
 {% extends 'base.html' %}
-{% load chat_tags %}
 
 {% block title %}Pong Room{% endblock %}
 
@@ -17,7 +16,7 @@
         </div>
         <div class="col-md-8">
             <div id="dynamic-content">
-                <div id="mode-selection-container" class="mb-4" v-if="pongRoom.state === 'LOBBY'">
+                <div id="mode-selection-container" class="mb-4" v-if="room.state === 'LOBBY'">
                     {% include "pong/components/mode_selection.html" %}
                 </div>
                 {% include "pong/components/game.html" %}

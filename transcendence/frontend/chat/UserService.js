@@ -1,5 +1,6 @@
 import logger from '../logger.js';
 import Store from '../state/store.js';
+import { chatActions } from '../state/chatState.js';
 
 export default class UserService {
 	constructor(chatApp) {
@@ -23,18 +24,16 @@ export default class UserService {
 
 			const users = await response.json();
 
-			// Update user statuses in store with complete user data
-			users.forEach(user => {
-				this._store.dispatch({
-					domain: 'user',
-					type: 'UPDATE_USER',
-					payload: {
-						id: user.id,
-						status: user.online ? 'online' : 'offline',
-						username: user.username,
-						blocked: user.blocked
-					}
-				});
+			// Update users in chat state
+			this._store.dispatch({
+				domain: 'chat',
+				type: chatActions.UPDATE_USERS,
+				payload: users.map(user => ({
+					id: user.id,
+					username: user.username,
+					status: user.online ? 'online' : 'offline',
+					blocked: user.blocked
+				}))
 			});
 
 			// Update UI through UIHandler

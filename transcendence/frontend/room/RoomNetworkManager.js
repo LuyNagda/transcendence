@@ -1,6 +1,8 @@
 import logger from '../logger.js';
 import { BaseNetworkManager } from '../networking/NetworkingCore.js';
 import Store from '../state/store.js';
+import { roomActions, RoomStates } from '../state/roomState.js';
+import { userActions } from '../state/userState.js';
 
 /**
  * Custom error types for room-specific errors
@@ -20,7 +22,7 @@ export const RoomErrorCodes = {
 	UNAUTHORIZED: 'UNAUTHORIZED',
 	ROOM_NOT_FOUND: 'ROOM_NOT_FOUND',
 	VALIDATION_ERROR: 'VALIDATION_ERROR',
-	GAME_IN_PROGRESS: 'GAME_IN_PROGRESS',
+	ALREADY_PLAYING: 'ALREADY_PLAYING',
 	PLAYER_COUNT_ERROR: 'PLAYER_COUNT_ERROR',
 
 	// Potentially retryable errors
@@ -37,7 +39,7 @@ const ERROR_MESSAGE_MAPPING = {
 	'room not found': { code: RoomErrorCodes.ROOM_NOT_FOUND, retryable: false },
 	'not authorized': { code: RoomErrorCodes.UNAUTHORIZED, retryable: false },
 	'invalid player count': { code: RoomErrorCodes.PLAYER_COUNT_ERROR, retryable: false },
-	'game already in progress': { code: RoomErrorCodes.GAME_IN_PROGRESS, retryable: false },
+	'game already in progress': { code: RoomErrorCodes.ALREADY_PLAYING, retryable: false },
 	'validation error': { code: RoomErrorCodes.VALIDATION_ERROR, retryable: false }
 };
 
@@ -66,7 +68,7 @@ export class RoomNetworkManager extends BaseNetworkManager {
 	 * @param {string} roomId - Unique identifier for the room
 	 * @throws {Error} If roomId is not provided
 	 */
-	constructor(roomId) {
+	constructor(store, roomId, webSocketUrl) {
 		super();
 		if (!roomId) {
 			logger.error('Room ID is required');
@@ -75,7 +77,9 @@ export class RoomNetworkManager extends BaseNetworkManager {
 
 		this._roomId = roomId;
 		this._pendingModeChange = null;
-		this._store = Store.getInstance();
+		this._store = store || Store.getInstance();
+		this._resetStateInProgress = false;
+		this._webSocketUrl = webSocketUrl;
 	}
 
 	/**
@@ -95,11 +99,12 @@ export class RoomNetworkManager extends BaseNetworkManager {
 
 			while (!connected && retryCount < maxRetries) {
 				try {
+					const endpoint = this._webSocketUrl || `/ws/pong_room/${this._roomId}/`;
 					const connection = this._connectionManager.createConnection(
 						'websocket',
 						'room',
 						{
-							endpoint: `/ws/pong_room/${this._roomId}/`,
+							endpoint,
 							options: {
 								maxReconnectAttempts: 5,
 								reconnectInterval: 1000,
@@ -142,7 +147,7 @@ export class RoomNetworkManager extends BaseNetworkManager {
 
 		this._store.dispatch({
 			domain: 'user',
-			type: 'UPDATE_USER',
+			type: userActions.UPDATE,
 			payload: {
 				id: userData.id,
 				username: userData.username,
@@ -198,6 +203,38 @@ export class RoomNetworkManager extends BaseNetworkManager {
 				this._processRoomState(data.room_state);
 			}
 
+			// Handle property updates
+			if (messageType === 'property_update') {
+				if (data.property === 'mode') {
+					this._store.dispatch({
+						domain: 'room',
+						type: roomActions.UPDATE_ROOM_MODE,
+						payload: {
+							mode: data.value,
+							settings: getDefaultSettingsForMode(data.value)
+						}
+					});
+				} else if (data.property === 'settings') {
+					if (data.setting) {
+						// Individual setting update
+						this._store.dispatch({
+							domain: 'room',
+							type: roomActions.UPDATE_SETTINGS,
+							payload: {
+								[data.setting]: data.value
+							}
+						});
+					} else if (data.value) {
+						// Bulk settings update
+						this._store.dispatch({
+							domain: 'room',
+							type: roomActions.UPDATE_SETTINGS,
+							payload: data.value
+						});
+					}
+				}
+			}
+
 			if (messageType === 'room_update' && this._pendingModeChange) {
 				const { property, value } = this._pendingModeChange;
 				this._pendingModeChange = null;
@@ -220,26 +257,33 @@ export class RoomNetworkManager extends BaseNetworkManager {
 	 * @returns {Promise} Promise that resolves with the response
 	 */
 	async sendMessage(action, data = {}, options = {}) {
-		if (!this._isConnected) {
-			logger.warn('Attempting to reconnect before sending message');
-			const connected = await this.connect();
-			if (!connected) {
-				throw new Error('Failed to establish connection');
-			}
+		logger.debug(`[RoomNetwork] Preparing to send message: ${action}`);
+
+		if (!this._roomId) {
+			logger.error('[RoomNetwork] No room ID available');
+			throw new RoomError('No room ID available', RoomErrorCodes.VALIDATION_ERROR, false);
 		}
 
-		if (action === 'update_property' && data.property === 'maxPlayers') {
-			const mode = data.value === 1 ? 'AI' :
-				data.value === 8 ? 'TOURNAMENT' : 'CLASSIC';
-			logger.info(`Converting maxPlayers=${data.value} to mode=${mode}`);
+		// Flatten the message structure to match backend expectations
+		const messageData = {
+			room_id: this._roomId,
+			action,
+			...data
+		};
 
-			this._pendingModeChange = { property: 'mode', value: mode };
-			return { status: 'success' };
+		try {
+			logger.debug(`[RoomNetwork] Sending ${action} with data:`, messageData);
+			const response = await super.sendRequest(action, messageData, options);
+			logger.debug(`[RoomNetwork] Response received for ${action}:`, response);
+			return response;
+		} catch (error) {
+			logger.error(`[RoomNetwork] Error sending ${action}:`, error);
+			throw error;
 		}
+	}
 
-		// Remove any type/action field from data to avoid confusion
-		const { type, action: _, ...cleanData } = data;
-		return this.sendRequest(action, cleanData, options);
+	get roomId() {
+		return this._roomId;
 	}
 
 	/**
@@ -330,7 +374,8 @@ export class RoomNetworkManager extends BaseNetworkManager {
 			4002: { message: "Error during connection validation. Please check your game status and try again.", retryable: false },
 			4003: { message: "You are not authorized to join this game.", retryable: false },
 			4004: { message: "Game not found. It may have been deleted.", retryable: false },
-			1006: { message: "Connection closed abnormally. Will retry...", retryable: true }
+			1006: { message: "Connection closed abnormally. Will retry...", retryable: true },
+			1000: { message: "Connection closed normally.", retryable: false, isNormal: true }
 		};
 
 		const mapping = errorMappings[code] || {
@@ -338,7 +383,8 @@ export class RoomNetworkManager extends BaseNetworkManager {
 			retryable: false
 		};
 
-		logger.error(mapping.message);
+		if (!mapping.isNormal)
+			logger.error(mapping.message);
 		return mapping.retryable;
 	}
 
@@ -349,7 +395,11 @@ export class RoomNetworkManager extends BaseNetworkManager {
 	_handleClose(event) {
 		const shouldRetry = this._handleConnectionError(event.code);
 		if (!shouldRetry) {
-			logger.warn('Room WebSocket closed');
+			if (event.code !== 1000) {
+				logger.warn('Room WebSocket closed');
+			} else {
+				logger.debug('Room WebSocket closed normally');
+			}
 			this._isConnected = false;
 		}
 	}
@@ -383,143 +433,132 @@ export class RoomNetworkManager extends BaseNetworkManager {
 	 * @returns {Promise<void>}
 	 */
 	async resetRoomState() {
+		if (this._resetStateInProgress) {
+			logger.debug('Room state reset already in progress, waiting for completion');
+			return;
+		}
+
+		this._resetStateInProgress = true;
 		const maxRetries = 3;
 		let retryCount = 0;
 
-		while (true) {
-			try {
-				// Check current state first
-				const currentState = await this.getCurrentState();
-				if (currentState.state === 'LOBBY') {
-					logger.info('Room already in LOBBY state, skipping reset');
-					return;
-				}
-
-				// Send reset request through WebSocket
-				const response = await this.sendMessage('update_property', {
-					property: 'state',
-					value: 'LOBBY'
-				}, { timeout: 5000 });
-
-				if (response?.status === 'error') {
-					throw new RoomError(
-						response.message || 'Failed to reset room state',
-						RoomErrorCodes.CONNECTION_ERROR,
-						true
-					);
-				}
-
-				// Wait for state to be updated to LOBBY
-				await this.waitForRoomState(
-					state => state.state === 'LOBBY',
-					5000
-				);
+		try {
+			// Check current state first
+			const currentState = await this.getCurrentState();
+			if (currentState.state === RoomStates.LOBBY) {
+				logger.info('Room already in LOBBY state, skipping reset');
 				return;
-
-			} catch (error) {
-				// Don't retry if error is explicitly marked as non-retryable
-				if (error instanceof RoomError && !error.isRetryable) {
-					throw error;
-				}
-
-				retryCount++;
-				if (retryCount >= maxRetries) {
-					throw new RoomError(
-						`Failed to reset room state after ${maxRetries} attempts: ${error.message}`,
-						RoomErrorCodes.CONNECTION_ERROR,
-						true
-					);
-				}
-				logger.warn(`Retry ${retryCount}/${maxRetries} to reset room state`);
-				await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s between retries
 			}
+
+			while (retryCount < maxRetries) {
+				try {
+					const response = await this.sendMessage('update_property', {
+						property: 'state',
+						value: RoomStates.LOBBY
+					}, { timeout: 3000 });
+
+					if (response?.status === 'error') {
+						throw new RoomError(
+							response.message || 'Failed to reset room state',
+							RoomErrorCodes.CONNECTION_ERROR,
+							true
+						);
+					}
+
+					await this.waitForRoomState(
+						state => state.state === RoomStates.LOBBY,
+						3000
+					);
+
+					logger.info('Room state reset successful');
+					return;
+
+				} catch (error) {
+					// Don't retry if error is explicitly marked as non-retryable
+					if (error instanceof RoomError && !error.isRetryable) {
+						throw error;
+					}
+
+					retryCount++;
+					if (retryCount >= maxRetries) {
+						throw new RoomError(
+							`Failed to reset room state after ${maxRetries} attempts: ${error.message}`,
+							RoomErrorCodes.CONNECTION_ERROR,
+							true
+						);
+					}
+					logger.warn(`Retry ${retryCount}/${maxRetries} to reset room state`);
+					await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s between retries
+				}
+			}
+		} finally {
+			this._resetStateInProgress = false;
 		}
 	}
 
 	/**
-	 * Starts the game with retry logic
+	 * Starts the game
 	 * @returns {Promise<void>}
 	 */
 	async startGame() {
-		const maxRetries = 3;
-		let retryCount = 0;
-		let lastError = null;
+		logger.debug('[RoomNetwork] Attempting to start game');
+		try {
+			if (!this._roomId) {
+				throw new RoomError('No room ID available', RoomErrorCodes.VALIDATION_ERROR, false);
+			}
 
-		while (retryCount < maxRetries) {
-			try {
-				// Send start game request
-				const response = await this.sendMessage('start_game', {}, { timeout: 15000 });
+			const response = await this.sendMessage('start_game', {}, { timeout: 15000 });
 
-				// Check for error response
-				if (response?.status === 'error') {
-					const errorMapping = mapErrorMessage(response.message);
-					// If the error indicates the game is already in progress, consider it a success
-					if (response.message?.includes('not in LOBBY state')) {
-						return;
-					}
-					if (errorMapping) {
-						throw new RoomError(
-							response.message || 'Failed to start game',
-							errorMapping.code,
-							errorMapping.retryable
-						);
-					}
-					// Default to game create error if no specific mapping
+			logger.debug(`[RoomNetwork] Start game response received: ${JSON.stringify(response)}`);
+
+			if (response?.status === 'error') {
+				const errorMapping = mapErrorMessage(response.message);
+				// If the error indicates the game is already in progress, consider it a success
+				if (response.message?.includes('not in LOBBY state')) {
+					logger.info('[RoomNetwork] Game already in progress, considering start successful');
+					return;
+				}
+				if (errorMapping) {
+					logger.error(`[RoomNetwork] Mapped error starting game: ${response.message}, code: ${errorMapping.code}`);
 					throw new RoomError(
 						response.message || 'Failed to start game',
-						RoomErrorCodes.GAME_CREATE_ERROR,
-						true
+						errorMapping.code,
+						errorMapping.retryable
 					);
 				}
-
-				if (!response || response.status !== 'success') {
-					throw new RoomError(
-						'Invalid response from server',
-						RoomErrorCodes.INVALID_RESPONSE,
-						true
-					);
-				}
-
-				// Wait for game_started event with a shorter timeout
-				try {
-					await this.waitForEvent('game_started', null, 5000);
-				} catch (error) {
-					// If we timeout waiting for game_started but had a success response,
-					// check if the game is already in progress
-					const roomState = await this.waitForRoomState(
-						state => state.state === 'PLAYING',
-						5000
-					).catch(() => null);
-
-					if (roomState) {
-						// Game is already in progress, consider it a success
-						return;
-					}
-					// If we can't confirm the game state, throw the original error
-					throw error;
-				}
-				return; // Success, exit the retry loop
-			} catch (error) {
-				lastError = error;
-				// Don't retry if error is explicitly marked as non-retryable
-				if (error instanceof RoomError && !error.isRetryable) {
-					throw error;
-				}
-
-				retryCount++;
-				if (retryCount >= maxRetries) {
-					if (error instanceof RoomError) {
-						throw error;
-					}
-					throw new RoomError(
-						`Failed to start game after ${maxRetries} attempts: ${lastError.message}`,
-						RoomErrorCodes.CONNECTION_ERROR,
-						true
-					);
-				}
-				logger.warn(`Retry ${retryCount}/${maxRetries} to start game. Error: ${error.message}`);
-				await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1s between retries
+				logger.error(`[RoomNetwork] Unmapped error starting game: ${response.message}`);
+				throw new RoomError(
+					response.message || 'Failed to start game',
+					RoomErrorCodes.GAME_CREATE_ERROR,
+					true
+				);
 			}
+
+			if (!response || response.status !== 'success') {
+				throw new RoomError(
+					'Invalid response from server',
+					RoomErrorCodes.INVALID_RESPONSE,
+					true
+				);
+			}
+
+			try {
+				logger.info('Waiting for game_started event');
+				await this.waitForEvent('game_started', null, 5000);
+			} catch (error) {
+				// If we timeout waiting for game_started but had a success response,
+				// check if the game is already in progress
+				const roomState = await this.waitForRoomState(
+					state => state.state === 'PLAYING',
+					5000
+				).catch(() => null);
+				if (roomState) // Game is already in progress, consider it a success
+					return;
+				throw error;
+			}
+		} catch (error) {
+			logger.error('Error starting game:', error);
+			throw error;
 		}
 	}
 
@@ -549,3 +588,8 @@ export class RoomNetworkManager extends BaseNetworkManager {
 		}
 	}
 }
+
+// Factory function to create RoomNetworkManager instance
+export const createRoomNetworkManager = (store, roomId, webSocketUrl) => {
+	return new RoomNetworkManager(store, roomId, webSocketUrl);
+};
