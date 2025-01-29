@@ -57,9 +57,9 @@
 </style>
 
 <!-- Theme Switcher -->
-<li class="nav-item dropdown d-flex justify-content-center" role="navigation">
+<li class="nav-item dropdown d-flex justify-content-center" role="navigation" data-domain="ui">
 	<a class="nav-link dropdown-toggle" href="#" role="button" id="themeDropdown" data-bs-toggle="dropdown"
-		aria-expanded="false" aria-label="Theme Switcher" data-domain="ui" style="--bs-dropdown-toggle-icon: none;">
+		aria-expanded="false" aria-label="Theme Switcher" style="--bs-dropdown-toggle-icon: none;">
 		<span class="theme-icon">
 			<svg v-if="theme === 'light'" xmlns="http://www.w3.org/2000/svg" fill="currentColor" class="bi bi-sun"
 				viewBox="0 0 16 16" aria-hidden="true">
@@ -77,21 +77,21 @@
 			</svg>
 		</span>
 	</a>
-	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown" data-domain="ui">
+	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown">
 		<li v-if="theme !== 'light'">
-			<a class="dropdown-item" href="#" v-on:click="updateTheme('light')">
+			<a class="dropdown-item" href="#" data-theme="light" v-on:click="updateTheme">
 				Light
 				<span class="visually-hidden">Switch to light theme</span>
 			</a>
 		</li>
 		<li v-if="theme !== 'dark'">
-			<a class="dropdown-item" href="#" v-on:click="updateTheme('dark')">
+			<a class="dropdown-item" href="#" data-theme="dark" v-on:click="updateTheme">
 				Dark
 				<span class="visually-hidden">Switch to dark theme</span>
 			</a>
 		</li>
 		<li v-if="theme !== 'high-contrast'">
-			<a class="dropdown-item" href="#" v-on:click="updateTheme('high-contrast')">
+			<a class="dropdown-item" href="#" data-theme="high-contrast" v-on:click="updateTheme">
 				High Contrast
 				<span class="visually-hidden">Switch to high contrast theme</span>
 			</a>
@@ -100,9 +100,9 @@
 </li>
 
 <!-- Font Size Switcher -->
-<li class="nav-item dropdown d-flex justify-content-center" role="navigation">
+<li class="nav-item dropdown d-flex justify-content-center" role="navigation" data-domain="ui">
 	<a class="nav-link dropdown-toggle" href="#" role="button" id="fontSizeDropdown" data-bs-toggle="dropdown"
-		aria-expanded="false" aria-label="Font Size Switcher" data-domain="ui" style="--bs-dropdown-toggle-icon: none;">
+		aria-expanded="false" aria-label="Font Size Switcher" style="--bs-dropdown-toggle-icon: none;">
 		<span class="font-size-icon">
 			<span v-if="fontSize === 'small'" class="font-size-letter small active" aria-hidden="true">A</span>
 			<span v-if="fontSize !== 'small'" class="font-size-letter small" aria-hidden="true">A</span>
@@ -113,21 +113,21 @@
 		</span>
 		<span class="visually-hidden" v-text="'Current font size: ' + fontSize"></span>
 	</a>
-	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="fontSizeDropdown" data-domain="ui" v-cloak>
+	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="fontSizeDropdown" v-cloak>
 		<li v-if="fontSize !== 'small'">
-			<a class="dropdown-item" href="#" v-on:click="updateFontSize('small')">
+			<a class="dropdown-item" href="#" data-size="small" v-on:click="updateFontSize">
 				Small
 				<span class="visually-hidden">Switch to small font size</span>
 			</a>
 		</li>
 		<li v-if="fontSize !== 'medium'">
-			<a class="dropdown-item" href="#" v-on:click="updateFontSize('medium')">
+			<a class="dropdown-item" href="#" data-size="medium" v-on:click="updateFontSize">
 				Medium
 				<span class="visually-hidden">Switch to medium font size</span>
 			</a>
 		</li>
 		<li v-if="fontSize !== 'large'">
-			<a class="dropdown-item" href="#" v-on:click="updateFontSize('large')">
+			<a class="dropdown-item" href="#" data-size="large" v-on:click="updateFontSize">
 				Large
 				<span class="visually-hidden">Switch to large font size</span>
 			</a>

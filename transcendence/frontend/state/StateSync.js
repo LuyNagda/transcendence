@@ -2,7 +2,6 @@ import Store, { actions } from './store.js';
 import logger from '../logger.js';
 import javaisPasVu from '../UI/JavaisPasVu.js';
 import { isDeepEqual } from '../utils.js';
-import HTMXService from './HTMXService.js';
 import RoomService from '../room/RoomService.js';
 import ChatApp from '../chat/ChatApp.js';
 import { updateTheme, applyThemeToDOM, applyFontSizeToDOM } from '../UI/theme.js';
@@ -13,8 +12,8 @@ import { Dropdown, Toast, Offcanvas } from '../vendor.js';
  * 
  * Responsibilities:
  * - Syncs store state with JavaisPasVu UI framework
- * - Handles HTMX state updates through HTMXService
  * - Manages state observers and updates
+ * - Coordinates domain-specific state management
  */
 class StateSync {
 	static #instance = null;
@@ -31,12 +30,187 @@ class StateSync {
 		}
 
 		this.store = Store.getInstance();
-		this.htmxService = HTMXService.getInstance();
 		this.stateObservers = new Map();
 		this.domains = ['user', 'chat', 'room', 'game', 'ui'];
 		this.domainMethods = new Map();
 
+		// Set up HTMX state update handling
+		this.setupHTMXStateHandling();
+
 		StateSync.#instance = this;
+	}
+
+	/**
+	 * Set up HTMX state update handling through JavaisPasVu
+	 */
+	setupHTMXStateHandling() {
+		javaisPasVu.on('htmx:afterSettle', (event) => {
+			this.handleServerUpdate(event);
+		});
+
+		javaisPasVu.on('htmx:beforeSwap', (event) => {
+			// Preserve existing state before swap
+			const currentState = {
+				ui: this.store.getState('ui'),
+				room: this.store.getState('room')
+			};
+			event.detail.currentState = currentState;
+		});
+
+		javaisPasVu.on('htmx:error', (event) => {
+			logger.error('HTMX error:', event.detail);
+			this.store.dispatch({
+				domain: 'ui',
+				type: 'SET_ERROR',
+				payload: {
+					message: 'Request failed',
+					details: event.detail
+				}
+			});
+		});
+	}
+
+	/**
+	 * Handle server state updates from HTMX responses
+	 */
+	handleServerUpdate(event) {
+		const response = event.detail.elt;
+		const previousState = event.detail.currentState;
+
+		// Handle state updates from data attributes
+		const statePath = response.getAttribute('data-state-path');
+		const stateValue = response.getAttribute('data-state-value');
+
+		if (statePath && stateValue) {
+			try {
+				const [domain] = statePath.split('.');
+				const state = JSON.parse(stateValue);
+
+				// Special handling for room updates
+				if (domain === 'room') {
+					this._handleRoomStateUpdate(state);
+				} else {
+					this.updateDomainState(domain, state);
+				}
+			} catch (error) {
+				logger.error('Failed to process state update:', error);
+			}
+		}
+
+		// Handle state updates from response content
+		const stateData = response.querySelector('[data-state-update]');
+		if (stateData) {
+			try {
+				const updates = JSON.parse(stateData.textContent);
+				Object.entries(updates).forEach(([domain, state]) => {
+					if (domain === 'room') {
+						this._handleRoomStateUpdate(state);
+					} else {
+						this.updateDomainState(domain, state);
+					}
+				});
+			} catch (error) {
+				logger.error('Failed to process state update:', error);
+			}
+		}
+
+		// Handle UI updates after state changes
+		this._handleSwapUIUpdates(response, previousState);
+	}
+
+	/**
+	 * Handle room-specific state updates
+	 */
+	_handleRoomStateUpdate(data) {
+		const currentRoom = RoomService.getCurrentRoom();
+
+		if (data.type === 'EVENT') {
+			this.callMethod('room', 'handleRoomEvent', data.event);
+		} else if (data.type === 'STATE_UPDATE' && currentRoom && currentRoom.roomId === data.roomId) {
+			this.callMethod('room', 'updateRoomState', data.roomId, data.state);
+		} else if (data.type === 'ROOM_CLOSED' && currentRoom && currentRoom.roomId === data.roomId) {
+			RoomService.destroyCurrentRoom();
+		} else if (data.type === 'UPDATE_ROOM_SETTINGS' && currentRoom) {
+			// Handle settings updates
+			if (data.settings) {
+				currentRoom._stateManager.updateSettings(data.settings);
+			}
+		} else {
+			// Handle regular room state updates
+			this.updateDomainState('room', data);
+		}
+
+		// Handle room state persistence
+		if (currentRoom) {
+			sessionStorage.setItem('lastRoomState', JSON.stringify({
+				roomId: currentRoom.roomId,
+				state: currentRoom._stateManager.state,
+				settings: currentRoom._stateManager.settings
+			}));
+		}
+	}
+
+	/**
+	 * Handle UI updates after HTMX swap
+	 */
+	_handleSwapUIUpdates(target, previousState) {
+		if (!target) return;
+
+		try {
+			// Initialize Bootstrap components if needed
+			if (target.querySelector('[data-bs-toggle]')) {
+				this.initializeBootstrapComponents(target);
+			}
+
+			// Get current UI state
+			const uiState = this.store.getState('ui') || previousState?.ui;
+			if (uiState) {
+				// Ensure theme and font size are applied
+				if (uiState.theme) applyThemeToDOM(uiState.theme);
+				if (uiState.fontSize) applyFontSizeToDOM(uiState.fontSize);
+			}
+
+			// Update UI elements
+			if (javaisPasVu && javaisPasVu.initialized) {
+				// Update swapped region first
+				target.querySelectorAll('[data-domain]').forEach(el => {
+					const domain = el.getAttribute('data-domain');
+					javaisPasVu.updateElement(el, domain);
+				});
+
+				// Update all UI elements for consistency
+				document.querySelectorAll('[data-domain="ui"]').forEach(el => {
+					if (!target.contains(el)) {
+						javaisPasVu.updateElement(el, 'ui');
+					}
+				});
+			}
+		} catch (error) {
+			logger.error('Error handling UI updates after swap:', error);
+		}
+	}
+
+	/**
+	 * Update domain state and notify observers
+	 */
+	updateDomainState(domain, state) {
+		if (!this.validateState(domain, state)) {
+			logger.error(`Invalid state update for domain ${domain}:`, state);
+			return;
+		}
+
+		// Update store
+		this.store.dispatch({
+			domain,
+			type: 'UPDATE_FROM_SERVER',
+			payload: state
+		});
+
+		// Update JavaisPasVu
+		javaisPasVu.registerData(domain, state);
+
+		// Notify observers
+		this.notifyStateObservers(domain, state);
 	}
 
 	/**
@@ -66,19 +240,6 @@ class StateSync {
 
 			applyThemeToDOM(savedTheme);
 			applyFontSizeToDOM(savedFontSize);
-
-			// Initialize HTMX service with state update callback
-			this.htmxService.initialize(this.handleServerUpdate.bind(this));
-
-			// Set up user state subscription
-			this.store.subscribe('user', (userState) => {
-				if (userState?.initialized) {
-					this.callMethod('room', 'handleRoomInitialization');
-					this.callMethod('chat', 'initializeChat');
-				} else {
-					this.callMethod('chat', 'resetChat');
-				}
-			});
 
 			logger.info('StateSync initialized');
 		} catch (error) {
@@ -432,56 +593,6 @@ class StateSync {
 		}
 	}
 
-	_setupHtmxHandlers() {
-		document.body.addEventListener('htmx:afterSettle', (event) => {
-			const response = event.detail.elt;
-			const path = response.getAttribute('data-state-path');
-			const value = response.getAttribute('data-state-value');
-
-			if (path && value) {
-				try {
-					const parsedValue = JSON.parse(value);
-					const [domain] = path.split('.');
-					this.handleServerUpdate(domain, parsedValue);
-				} catch (error) {
-					logger.error('Failed to parse HTMX state update:', error);
-				}
-			}
-		});
-
-		document.body.addEventListener('htmx:beforeRequest', (event) => {
-			const trigger = event.detail.elt;
-			const requestPath = trigger.getAttribute('data-request-path');
-
-			if (requestPath) {
-				const [domain] = requestPath.split('.');
-				this.store.dispatch({
-					type: 'SET_LOADING',
-					payload: {
-						domain,
-						loading: true
-					}
-				});
-			}
-		});
-
-		document.body.addEventListener('htmx:afterRequest', (event) => {
-			const trigger = event.detail.elt;
-			const requestPath = trigger.getAttribute('data-request-path');
-
-			if (requestPath) {
-				const [domain] = requestPath.split('.');
-				this.store.dispatch({
-					type: 'SET_LOADING',
-					payload: {
-						domain,
-						loading: false
-					}
-				});
-			}
-		});
-	}
-
 	handleStoreUpdate(domain, state) {
 		logger.debug(`Store update for ${domain}:`, { state, type: 'update', domainElements: document.querySelectorAll(`[data-domain="${domain}"]`) });
 
@@ -625,133 +736,6 @@ class StateSync {
 			logger.debug('Bootstrap components initialized for target:', target);
 		} catch (error) {
 			logger.error('Error initializing Bootstrap components:', error);
-		}
-	}
-
-	/**
-	 * Handle state updates from server/HTMX
-	 */
-	handleServerUpdate(domain, data) {
-		logger.debug(`Handling server update for domain ${domain}:`, data);
-
-		// Special handling for room updates
-		if (domain === 'room') {
-			this._handleRoomServerUpdate(data);
-			return;
-		}
-
-		// Handle HTMX events
-		if (domain === 'htmx') {
-			this.handleHTMXEvent(data);
-			return;
-		}
-
-		// Handle regular state updates
-		if (this.validateState(domain, data)) {
-			this.store.dispatch({
-				type: 'UPDATE_FROM_SERVER',
-				payload: {
-					domain,
-					data
-				}
-			});
-		} else {
-			logger.error(`Invalid state update for domain ${domain}:`, data);
-		}
-	}
-
-	_handleRoomServerUpdate(data) {
-		const currentRoom = RoomService.getCurrentRoom();
-
-		if (data.type === 'EVENT') {
-			// Handle room events through the room event handler
-			this.callMethod('room', 'handleRoomEvent', data.event);
-		} else if (data.type === 'STATE_UPDATE') {
-			// Handle direct state updates
-			if (currentRoom && currentRoom.roomId === data.roomId) {
-				this.callMethod('room', 'updateRoomState', data.roomId, data.state);
-			}
-		} else if (data.type === 'ROOM_CLOSED') {
-			// Handle room closure
-			if (currentRoom && currentRoom.roomId === data.roomId) {
-				RoomService.destroyCurrentRoom();
-			}
-		}
-	}
-
-	/**
-	 * Handle HTMX events and coordinate UI updates
-	 */
-	handleHTMXEvent(event) {
-		logger.debug('Handling HTMX event:', event);
-
-		switch (event.type) {
-			case 'AFTER_SWAP':
-				// Get current UI state
-				const uiState = this.store.getState('ui');
-				if (!uiState) {
-					logger.warn('No UI state available during HTMX swap');
-					return;
-				}
-
-				// Re-register UI state with JavaisPasVu to ensure bindings are maintained
-				if (javaisPasVu && javaisPasVu.initialized) {
-					logger.debug('Re-registering UI state after HTMX swap:', uiState);
-					javaisPasVu.registerData('ui', uiState);
-					javaisPasVu.registerMethods('ui', this.domainMethods.get('ui') || {});
-				}
-
-				// Initialize UI components in swapped region
-				this.handleSwapUpdate(event.target);
-				break;
-
-			default:
-				logger.warn('Unknown HTMX event type:', event.type);
-		}
-	}
-
-	/**
-	 * Handle UI updates after HTMX swap
-	 */
-	handleSwapUpdate(target) {
-		if (!target) return;
-
-		try {
-			// Initialize Bootstrap components if needed
-			if (target.querySelector('[data-bs-toggle]')) {
-				this.initializeBootstrapComponents(target);
-			}
-
-			// Get current UI state
-			const uiState = this.store.getState('ui');
-			if (!uiState) return;
-
-			// Ensure theme and font size are applied
-			if (uiState.theme) {
-				applyThemeToDOM(uiState.theme);
-			}
-			if (uiState.fontSize) {
-				applyFontSizeToDOM(uiState.fontSize);
-			}
-
-			// Update UI elements in the swapped region and re-bind events
-			if (javaisPasVu && javaisPasVu.initialized) {
-				// First update elements in the swapped region
-				const swappedElements = target.querySelectorAll('[data-domain="ui"]');
-				swappedElements.forEach(el => {
-					javaisPasVu.updateElement(el, 'ui');
-				});
-
-				// Then update all UI elements to ensure consistency
-				const allElements = document.querySelectorAll('[data-domain="ui"]');
-				allElements.forEach(el => {
-					if (!target.contains(el)) { // Skip elements we just updated
-						javaisPasVu.updateElement(el, 'ui');
-					}
-				});
-			}
-		} catch (error) {
-			logger.error('Error handling swap update:', error);
 		}
 	}
 

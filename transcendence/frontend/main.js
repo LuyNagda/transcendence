@@ -1,10 +1,9 @@
 import logger from './logger.js';
 import javaisPasVu from './UI/JavaisPasVu.js';
-import { UIService } from './UI/UIService.js';
-import StateSync from './state/StateSync.js';
-import { RoomController, createRoomController } from './room/RoomController.js';
-import Store from './state/store.js';
+import { plugin as htmxPlugin } from './UI/HTMXPlugin.js';
+import { plugin as uiPlugin } from './UI/theme.js';
 import { initializeThemeAndFontSize } from './UI/theme.js';
+import Store from './state/store.js';
 
 function _initializeErrorHandling() {
 	window.onerror = function (message, source, lineno, colno, error) {
@@ -17,6 +16,7 @@ function _initializeErrorHandling() {
 	});
 }
 
+// Initialize application
 function initializeApp() {
 	try {
 		const configElement = document.getElementById('app-config');
@@ -25,26 +25,32 @@ function initializeApp() {
 			return;
 		}
 		const config = JSON.parse(configElement.textContent);
-		logger.initialize(config.debug, config.logLevel);
+		logger.initialize(config);
 		logger.info('Starting application initialization');
 
 		_initializeErrorHandling();
 
-		javaisPasVu.initialize(document.body);
+		// Initialize store
+		Store.getInstance();
 
-		UIService.initialize();
+		// Initialize JavaisPasVu
+		javaisPasVu.initialize();
 
-		StateSync.initialize(document.body);
+		// Install plugins in correct order
+		javaisPasVu.use(uiPlugin);
+		javaisPasVu.use(htmxPlugin);
 
-		// Initialize RoomController with dependencies
-		const store = Store.getInstance();
-		const roomController = createRoomController(store);
+		// Initialize theme and font size
+		initializeThemeAndFontSize();
 
-		logger.info('Frontend app initialized');
+		logger.info('Application initialized successfully');
 	} catch (error) {
-		console.error('Failed to initialize application:', error);
-		logger.error('Failed to initialize application:', error);
+		console.error('Error initializing application:', error);
+		if (logger.error) {
+			logger.error('Error initializing application:', error);
+		}
 	}
 }
 
+// Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', initializeApp);

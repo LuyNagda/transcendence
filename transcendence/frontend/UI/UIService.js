@@ -1,7 +1,7 @@
 import logger from '../logger.js';
 import { Modal, Dropdown, Toast, Offcanvas } from '../vendor.js';
 import Store, { actions } from '../state/store.js';
-import { applyThemeToDOM, applyFontSizeToDOM } from './theme.js';
+import { UI_THEME, UI_FONT_SIZE, uiValidators } from '../state/uiState.js';
 import javaisPasVu from './JavaisPasVu.js';
 
 export const AlertTypes = {
@@ -17,80 +17,53 @@ export const UIService = {
 
 	initialize() {
 		this.store = Store.getInstance();
-		// Get initial UI state from store
-		const uiState = this.store.getState('ui');
-		logger.debug('Initial UI state:', uiState);
 
-		// Apply theme and font size to DOM immediately
-		this.applyTheme(uiState.theme);
-		this.applyFontSize(uiState.fontSize);
-
+		// Initialize Bootstrap components
 		this.initializeBootstrap();
-		this._initializeUIState();
 
-		// Force update on UI elements after initialization
-		document.querySelectorAll('[data-domain="ui"]').forEach(el => {
-			this.javaisPasVu.updateElement(el, 'ui');
-		});
+		// Subscribe to store changes for UI updates
+		this._subscribeToUIStateChanges();
+
+		logger.debug('UIService initialized');
 	},
 
-	applyTheme(theme) {
-		if (!theme) {
-			logger.warn('No theme provided to applyTheme');
-			return;
-		}
-		logger.debug('UIService applying theme:', theme);
-		applyThemeToDOM(theme);
+	_subscribeToUIStateChanges() {
+		// Subscribe to specific UI state changes
+		this.store.subscribe('ui.modals', this._handleModalStateChange.bind(this));
+		this.store.subscribe('ui.toasts', this._handleToastStateChange.bind(this));
+		this.store.subscribe('ui.offcanvas', this._handleOffcanvasStateChange.bind(this));
 	},
 
-	applyFontSize(fontSize) {
-		if (!fontSize) {
-			logger.warn('No fontSize provided to applyFontSize');
-			return;
-		}
-		logger.debug('UIService applying font size:', fontSize);
-		applyFontSizeToDOM(fontSize);
-	},
-
-	_initializeUIState() {
-		// Get initial state from store
-		const uiState = this.store.getState('ui');
-		logger.debug('Initializing UI state with:', uiState);
-
-		// Register UI state and methods with JavaisPasVu
-		this.javaisPasVu.registerData('ui', {
-			...uiState,
-			updateTheme: (newTheme) => {
-				logger.debug('Theme update requested:', newTheme);
-				this.store.dispatch({
-					domain: 'ui',
-					type: actions.ui.UPDATE_THEME,
-					payload: { theme: newTheme }
-				});
-			},
-			updateFontSize: (size) => {
-				logger.debug('Font size update requested:', size);
-				this.store.dispatch({
-					domain: 'ui',
-					type: actions.ui.UPDATE_FONT_SIZE,
-					payload: { fontSize: size }
-				});
+	_handleModalStateChange(modals) {
+		Object.entries(modals || {}).forEach(([id, modalData]) => {
+			const modalElement = document.getElementById(id);
+			if (modalElement) {
+				const modal = Modal.getInstance(modalElement) || new Modal(modalElement);
+				modal.show();
 			}
 		});
+	},
 
-		// Subscribe to store changes
-		this.store.subscribe('ui', (state) => {
-			if (state) {
-				logger.debug('UI state updated:', state);
-				// Update JavaisPasVu data
-				const currentData = this.javaisPasVu.getDataValue('ui');
-				this.javaisPasVu.registerData('ui', {
-					...currentData,
-					...state
-				});
-				// Apply changes to DOM
-				if (state.theme) this.applyTheme(state.theme);
-				if (state.fontSize) this.applyFontSize(state.fontSize);
+	_handleToastStateChange(toasts) {
+		(toasts || []).forEach(toastData => {
+			const toastElement = document.getElementById(toastData.id);
+			if (toastElement) {
+				const toast = Toast.getInstance(toastElement) || new Toast(toastElement);
+				toast.show();
+			}
+		});
+	},
+
+	_handleOffcanvasStateChange(offcanvasState) {
+		Object.entries(offcanvasState || {}).forEach(([id, isOpen]) => {
+			const offcanvasElement = document.getElementById(id);
+			if (offcanvasElement) {
+				const offcanvas = Offcanvas.getInstance(offcanvasElement) || new Offcanvas(offcanvasElement);
+				if (isOpen) {
+					offcanvas.show();
+				} else {
+					offcanvas.hide();
+				}
 			}
 		});
 	},
@@ -121,77 +94,46 @@ export const UIService = {
 		[...offcanvasElList].map(el => new Offcanvas(el));
 	},
 
+	// UI State Getters
+	getTheme() {
+		return this.javaisPasVu.getState('ui')?.theme || UI_THEME.LIGHT;
+	},
+
+	getFontSize() {
+		return this.javaisPasVu.getState('ui')?.fontSize || UI_FONT_SIZE.SMALL;
+	},
+
+	// UI State Actions
+	updateTheme(theme) {
+		this.javaisPasVu.callMethod('ui', 'updateTheme', theme);
+	},
+
+	updateFontSize(fontSize) {
+		this.javaisPasVu.callMethod('ui', 'updateFontSize', fontSize);
+	},
+
 	createModal(options = {}) {
 		const modalId = `modal-${Date.now()}`;
-		this.store.dispatch({
-			domain: 'ui',
-			type: actions.ui.SHOW_MODAL,
-			payload: {
-				id: modalId,
-				title: options.title || '',
-				body: options.body || '',
-				footer: options.footer || '',
-				modalClass: options.modalClass || '',
-				onClose: options.onClose
-			}
+		this.javaisPasVu.callMethod('ui', 'showModal', {
+			id: modalId,
+			title: options.title || '',
+			body: options.body || '',
+			footer: options.footer || '',
+			modalClass: options.modalClass || '',
+			onClose: options.onClose
 		});
-
 		return {
-			hide: () => {
-				this.store.dispatch({
-					domain: 'ui',
-					type: actions.ui.HIDE_MODAL,
-					payload: { id: modalId }
-				});
-			}
+			hide: () => this.javaisPasVu.callMethod('ui', 'hideModal', modalId)
 		};
 	},
 
-	_createToastElement(type, message) {
-		let bgColorClass = 'text-bg-success';
-		switch (type) {
-			case AlertTypes.ERROR:
-				bgColorClass = 'text-bg-danger';
-				break;
-			case AlertTypes.WARNING:
-				bgColorClass = 'text-bg-warning';
-				break;
-			case AlertTypes.INFO:
-				bgColorClass = 'text-bg-info';
-				break;
-		}
-
-		const toastElement = document.createElement('div');
-		toastElement.className = `toast align-items-center border-0 ${bgColorClass}`;
-		toastElement.setAttribute('role', 'alert');
-		toastElement.setAttribute('aria-live', 'assertive');
-		toastElement.setAttribute('aria-atomic', 'true');
-
-		toastElement.innerHTML = `
-			<div class="d-flex">
-				<div class="toast-body">
-					${message}
-				</div>
-				<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-			</div>
-		`;
-
-		return toastElement;
-	},
-
-	showAlert(type, message) {
+	showAlert(type, message, options = {}) {
 		logger.debug("Showing toast alert:", type, message);
-
-		this.store.dispatch({
-			domain: 'ui',
-			type: actions.ui.SHOW_TOAST,
-			payload: {
-				id: `toast-${Date.now()}`,
-				type,
-				message,
-				autohide: true,
-				delay: 5000
-			}
+		this.javaisPasVu.callMethod('ui', 'showToast', {
+			type,
+			message,
+			autohide: options.autohide ?? true,
+			delay: options.delay ?? 5000
 		});
 	}
 };

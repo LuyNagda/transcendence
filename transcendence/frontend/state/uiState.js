@@ -43,19 +43,45 @@ export const uiValidators = {
 	toasts: (value) => Array.isArray(value),
 	offcanvas: (value) => typeof value === 'object' && value !== null,
 	theme: (value) => Object.values(UI_THEME).includes(value),
-	fontSize: (value) => Object.values(UI_FONT_SIZE).includes(value)
+	fontSize: (value) => {
+		if (value instanceof Event) return false;
+		if (typeof value !== 'string') return false;
+		return Object.values(UI_FONT_SIZE).includes(value);
+	}
 };
 
 export const uiReducers = {
-	[uiActions.INITIALIZE]: (state, payload) => ({
-		...initialUIState,
-		...payload
-	}),
+	[uiActions.INITIALIZE]: (state, payload) => {
+		// Validate payload
+		const validatedPayload = {
+			...payload,
+			theme: payload.theme && Object.values(UI_THEME).includes(payload.theme)
+				? payload.theme
+				: getFromStorage(STORAGE_KEYS.THEME, UI_THEME.LIGHT),
+			fontSize: payload.fontSize && Object.values(UI_FONT_SIZE).includes(payload.fontSize)
+				? payload.fontSize
+				: getFromStorage(STORAGE_KEYS.FONT_SIZE, UI_FONT_SIZE.SMALL)
+		};
 
-	[uiActions.UPDATE]: (state, payload) => ({
-		...state,
-		...payload
-	}),
+		return {
+			...initialUIState,
+			...validatedPayload
+		};
+	},
+
+	[uiActions.UPDATE]: (state, payload) => {
+		// Validate payload before applying
+		const validatedPayload = {
+			...payload,
+			theme: payload.theme ? (Object.values(UI_THEME).includes(payload.theme) ? payload.theme : state.theme) : state.theme,
+			fontSize: payload.fontSize ? (Object.values(UI_FONT_SIZE).includes(payload.fontSize) ? payload.fontSize : state.fontSize) : state.fontSize
+		};
+
+		return {
+			...state,
+			...validatedPayload
+		};
+	},
 
 	[uiActions.SHOW_MODAL]: (state, payload) => ({
 		...state,
@@ -102,6 +128,10 @@ export const uiReducers = {
 
 	[uiActions.UPDATE_FONT_SIZE]: (state, payload) => {
 		const fontSize = payload.fontSize;
+		// Validate font size
+		if (!fontSize || typeof fontSize !== 'string' || !Object.values(UI_FONT_SIZE).includes(fontSize)) {
+			return state;
+		}
 		setInStorage(STORAGE_KEYS.FONT_SIZE, fontSize);
 		return {
 			...state,

@@ -5,7 +5,7 @@ import { userActions, userReducers, userValidators, initialUserState } from './u
 import { chatActions, chatReducers, chatValidators, initialChatState } from './chatState.js';
 import { roomActions, roomReducers, roomValidators, initialRoomState } from './roomState.js';
 import { gameActions, gameReducers, initialGameState } from './gameState.js';
-import { uiActions, uiReducers, uiValidators, initialUIState } from './uiState.js';
+import { uiActions, uiReducers, uiValidators, initialUIState, UI_FONT_SIZE, UI_THEME } from './uiState.js';
 
 // Event types for state changes
 export const StateChangeTypes = {
@@ -178,17 +178,22 @@ class Store {
 
 		// For partial state updates, merge with existing state
 		const fullState = { ...this.state[domain], ...newState };
+		logger.debug(`Validating state for ${domain}:`, fullState);
 
 		// Validate each field with its corresponding validator
 		return Object.entries(fullState).every(([key, value]) => {
 			const validator = validators[key];
-			if (!validator) return true; // Skip validation if no validator exists
+			if (!validator) {
+				logger.debug(`No validator for ${domain}.${key}, skipping`);
+				return true;
+			}
 
 			const isValid = validator(value);
 			if (!isValid) {
 				logger.error(`Validation failed for ${domain}.${key}:`, {
 					value,
-					valueType: typeof value
+					valueType: typeof value,
+					validator: validator.toString()
 				});
 			}
 			return isValid;
@@ -202,6 +207,8 @@ class Store {
 			const updatedDomains = new Set();
 
 			actions.forEach(({ domain, type, payload }) => {
+				logger.debug('Processing action:', { domain, type, payload });
+
 				const currentState = this.getState(domain);
 				const reducers = this.reducers[domain];
 
@@ -211,13 +218,21 @@ class Store {
 				}
 
 				const newState = reducers[type](currentState, payload);
+				logger.debug('State after reducer:', { domain, newState });
 
 				// Skip if state hasn't changed
-				if (isDeepEqual(currentState, newState)) return;
+				if (isDeepEqual(currentState, newState)) {
+					logger.debug('State unchanged, skipping update');
+					return;
+				}
 
 				// Validate state change
 				if (!this.validateStateChange(domain, newState)) {
-					logger.error(`Invalid state transition for ${domain}`);
+					logger.error(`Invalid state transition for ${domain}:`, {
+						currentState,
+						newState,
+						action: { type, payload }
+					});
 					return;
 				}
 
@@ -228,11 +243,13 @@ class Store {
 				};
 
 				updatedDomains.add(domain);
+				logger.debug(`State updated for ${domain}:`, newState);
 			});
 
 			// Notify subscribers and persist state if any domains were updated
 			if (updatedDomains.size > 0) {
 				updatedDomains.forEach(domain => {
+					logger.debug(`Notifying subscribers for ${domain}`);
 					this.notifySubscribers(domain, actions.length > 1 ? StateChangeTypes.BATCH_UPDATE : StateChangeTypes.UPDATE);
 				});
 				this.persistState();
@@ -245,8 +262,17 @@ class Store {
 	// Persist UI state separately
 	persistUIState(uiState) {
 		if (!uiState) return;
-		localStorage.setItem('themeLocal', uiState.theme);
-		localStorage.setItem('sizeLocal', uiState.fontSize);
+
+		// Validate theme before persisting
+		if (uiState.theme && typeof uiState.theme === 'string') {
+			localStorage.setItem('themeLocal', uiState.theme);
+		}
+
+		// Validate fontSize before persisting
+		if (uiState.fontSize && typeof uiState.fontSize === 'string' &&
+			Object.values(UI_FONT_SIZE).includes(uiState.fontSize)) {
+			localStorage.setItem('sizeLocal', uiState.fontSize);
+		}
 	}
 
 	// Persist state to localStorage
@@ -319,11 +345,15 @@ class Store {
 		return state;
 	}
 
-	// Load UI state separately
+	// Load UI state from localStorage
 	_loadUIState() {
-		const theme = localStorage.getItem('themeLocal') || 'light';
-		const fontSize = localStorage.getItem('sizeLocal') || 'small';
-		return { theme, fontSize };
+		const theme = localStorage.getItem('themeLocal');
+		const fontSize = localStorage.getItem('sizeLocal');
+
+		return {
+			theme: theme && Object.values(UI_THEME).includes(theme) ? theme : UI_THEME.LIGHT,
+			fontSize: fontSize && Object.values(UI_FONT_SIZE).includes(fontSize) ? fontSize : UI_FONT_SIZE.SMALL
+		};
 	}
 
 	// Reset store to initial state

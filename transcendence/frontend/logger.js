@@ -1,84 +1,67 @@
+// Log levels
+const LogLevel = {
+	DEBUG: 10,
+	INFO: 20,
+	WARN: 30,
+	ERROR: 40
+};
+
+// Default configuration
+const defaultConfig = {
+	debug: false,
+	logLevel: 'INFO',
+	currentLevel: LogLevel.INFO
+};
+
 class Logger {
 	constructor() {
-		this.debugSettings = false;
-		this.logLevel = 'ERROR';
-		this.levels = {
-			'DEBUG': 10,
-			'INFO': 20,
-			'WARN': 30,
-			'ERROR': 40
+		this.config = { ...defaultConfig };
+	}
+
+	initialize(config = {}) {
+		this.config = {
+			...defaultConfig,
+			...config,
+			currentLevel: LogLevel[config.logLevel || defaultConfig.logLevel]
 		};
-		this.currentLevel = this.levels['ERROR'];
-		this.queue = [];
-		this.initialized = false;
+
+		console.log('Logger initialized with:', this.config);
 	}
 
-	initialize(debug = false, logLevel = 'ERROR') {
-		this.debugSettings = debug;
-		this.logLevel = logLevel.toUpperCase();
-		this.currentLevel = this.levels[this.logLevel] || this.levels['ERROR'];
-		this.initialized = true;
-		console.log('Logger initialized with:', {
-			debug: this.debugSettings,
-			logLevel: this.logLevel,
-			currentLevel: this.currentLevel
-		});
-		this.processQueue();
+	_shouldLog(level) {
+		return this.config.debug || LogLevel[level] >= this.config.currentLevel;
 	}
 
-	processQueue() {
-		while (this.queue.length > 0) {
-			const { level, messages } = this.queue.shift();
-			this.log(level, ...messages);
+	_formatMessage(level, message, ...args) {
+		const timestamp = new Date().toISOString();
+		return `[${level}] ${message}`;
+	}
+
+	debug(message, ...args) {
+		if (this._shouldLog('DEBUG')) {
+			console.debug(this._formatMessage('DEBUG', message), ...args);
 		}
 	}
 
-	log(level, ...messages) {
-		if (!this.initialized) {
-			this.queue.push({ level, messages });
-			return;
-		}
-
-		const messageLevel = this.levels[level.toUpperCase()];
-
-		// Simplified condition for better debugging
-		if (messageLevel >= this.currentLevel) {
-			if (this.debugSettings || messageLevel >= this.levels['ERROR']) {
-				console[level.toLowerCase()](`[${level}]`, ...messages);
-
-				// Show stack trace for WARN levels
-				if (level === 'WARN') {
-					const stack = new Error().stack
-						.split('\n')
-						.slice(2) // Skip "Error" and current "log" function
-						.map(line => line.trim())
-						.join('\n');
-
-					console.groupCollapsed('Stack trace');
-					console.log(stack);
-					console.groupEnd();
-				}
-			}
+	info(message, ...args) {
+		if (this._shouldLog('INFO')) {
+			console.info(this._formatMessage('INFO', message), ...args);
 		}
 	}
 
-	debug(...messages) {
-		this.log('DEBUG', ...messages);
+	warn(message, ...args) {
+		if (this._shouldLog('WARN')) {
+			console.warn(this._formatMessage('WARN', message), ...args);
+		}
 	}
 
-	info(...messages) {
-		this.log('INFO', ...messages);
-	}
-
-	warn(...messages) {
-		this.log('WARN', ...messages);
-	}
-
-	error(...messages) {
-		this.log('ERROR', ...messages);
+	error(message, ...args) {
+		if (this._shouldLog('ERROR')) {
+			console.error(this._formatMessage('ERROR', message), ...args);
+		}
 	}
 }
 
-// Create and export a global logger instance
+// Create and export singleton instance
 const logger = new Logger();
 export default logger;

@@ -1,4 +1,6 @@
 import 'bootstrap/dist/css/bootstrap.css';
+import htmx from 'htmx.org';
+import 'bootstrap';
 
 export {
 	Modal,
@@ -7,4 +9,4 @@ export {
 	Offcanvas
 } from 'bootstrap';
 
-export { default as htmx } from 'htmx.org'; 
+export { htmx }; 
