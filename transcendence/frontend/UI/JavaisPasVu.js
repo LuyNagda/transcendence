@@ -8,16 +8,17 @@
  * - Component lifecycle
  * - Plugin system
  * - Domain-based state management
+ * - Interpolation with [[ ]] (not to confuse with Django SSR templating {{ }})
  * 
  * Supported directives:
  * - v-text: Text content binding
  * - v-if: Conditional rendering
  * - v-else-if: Conditional rendering
  * - v-else: Conditional rendering
- * - v-for: List rendering
  * - v-model: Two-way data binding
  * - v-on: Event handling
- * - v-bind:style: Style binding
+ * - /!\ Not yet fully tested: v-for: List rendering
+ * - !\ Not yet implemented: v-bind:style: Style binding
  */
 import logger from "../logger.js";
 
@@ -124,16 +125,14 @@ class JavaisPasVu {
 
     // Hook system
     on(hookName, callback) {
-        if (this.hooks[hookName]) {
+        if (this.hooks[hookName])
             this.hooks[hookName].add(callback);
-        }
         return () => this.off(hookName, callback);
     }
 
     off(hookName, callback) {
-        if (this.hooks[hookName]) {
+        if (this.hooks[hookName])
             this.hooks[hookName].delete(callback);
-        }
     }
 
     emit(hookName, ...args) {
@@ -159,14 +158,13 @@ class JavaisPasVu {
         this.initialized = true;
         this.emit('mounted');
 
-        logger.info("JavaisPasVu initialized");
         return this;
     }
 
     /**
      * Register reactive data for a specific domain
      */
-    registerData(domain, data, computedProps = {}) {
+    registerData(domain, data) {
         if (!this.domains.has(domain)) {
             this.domains.set(domain, {
                 state: reactive({}),
@@ -177,20 +175,37 @@ class JavaisPasVu {
 
         const domainData = this.domains.get(domain);
 
-        // Update state
-        Object.assign(domainData.state, data);
+        // First, identify computed properties
+        const computedProps = {};
+        const regularData = {};
+
+        Object.entries(data).forEach(([key, value]) => {
+            if (typeof value === 'function') {
+                computedProps[key] = value;
+            } else {
+                regularData[key] = value;
+            }
+        });
+
+        // Update regular state first
+        Object.assign(domainData.state, regularData);
 
         // Register computed properties
         if (Object.keys(computedProps).length > 0) {
             this.registerComputed(domain, computedProps);
         }
 
+        logger.debug(`Registered data for domain ${domain}:`, data);
+
         // Find all elements with this domain and compile them once
         const elements = document.querySelectorAll(`[data-domain="${domain}"]`);
         if (elements.length > 0) {
+            logger.debug(`Found ${elements.length} elements for domain ${domain}`);
             // Only compile the root element to avoid duplicate compilation
             const rootElement = elements[0];
             this.compileElement(rootElement, domainData.state);
+        } else {
+            logger.warn(`No elements found for domain ${domain}`);
         }
     }
 
@@ -242,7 +257,11 @@ class JavaisPasVu {
             const effect = () => {
                 try {
                     ReactiveEffect.push(effect);
-                    return getter.call(domainData.state);
+                    const result = getter.call(domainData.state);
+                    return result === undefined ? '' : result;
+                } catch (error) {
+                    logger.error(`Error in computed property ${key}:`, error);
+                    return '';
                 } finally {
                     ReactiveEffect.pop();
                 }
@@ -251,10 +270,23 @@ class JavaisPasVu {
             // Store computed effect
             domainData.computed.set(key, effect);
 
+            // If property already exists, delete it first
+            if (key in domainData.state) {
+                delete domainData.state[key];
+            }
+
             // Define getter on state
             Object.defineProperty(domainData.state, key, {
-                get: () => effect(),
-                enumerable: true
+                get: () => {
+                    try {
+                        return effect();
+                    } catch (error) {
+                        logger.error(`Error getting computed property ${key}:`, error);
+                        return '';
+                    }
+                },
+                enumerable: true,
+                configurable: true  // Allow property to be redefined
             });
         });
     }
@@ -341,12 +373,21 @@ class JavaisPasVu {
 
         this.emit('beforeCompile', el, state);
 
-        const domain = el.getAttribute('data-domain');
+        // Get domain from element or closest parent with data-domain
+        const domain = el.getAttribute('data-domain') || el.closest('[data-domain]')?.getAttribute('data-domain');
         const domainData = domain ? this.domains.get(domain) : null;
+
+        // Use provided state, domain state, or empty object as context
         const context = state || (domainData?.state || {});
+
+        logger.debug(`Compiling element with domain ${domain}:`, {
+            element: el.outerHTML,
+            context: context
+        });
 
         // Process directives in order
         this.processVIf(el, context);
+        this.processVText(el, context);
         this.processVFor(el, context);
         this.processVModel(el, context);
         this.processVBind(el, context);
@@ -357,7 +398,12 @@ class JavaisPasVu {
 
         // Process children recursively after parent is compiled
         Array.from(el.children).forEach(child => {
-            this.compileElement(child, context);
+            const childDomain = child.getAttribute('data-domain');
+            if (childDomain) {
+                this.compileElement(child);
+            } else {
+                this.compileElement(child, context);
+            }
         });
     }
 
@@ -379,11 +425,29 @@ class JavaisPasVu {
         effect();
     }
 
-    // Process v-for directive
+    processVText(el, context) {
+        const vText = el.getAttribute('v-text');
+        if (!vText) return;
+
+        const effect = () => {
+            try {
+                ReactiveEffect.push(effect);
+                const value = this.evaluateExpression(vText, context);
+                el.textContent = value === undefined || value === null ? '' : String(value);
+            } finally {
+                ReactiveEffect.pop();
+            }
+        };
+
+        effect();
+    }
+
     processVFor(el, parentContext) {
         const vFor = el.getAttribute('v-for');
         if (!vFor) return;
 
+        // Parse iterator expression, handling both forms:
+        // "item in items" and "(item, index) in items"
         const [iteratorExp, arrayExp] = vFor.split(' in ').map(s => s.trim());
         const items = this.evaluateExpression(arrayExp, parentContext);
 
@@ -392,69 +456,138 @@ class JavaisPasVu {
             return;
         }
 
+        // Parse iterator variables
+        let itemVar, indexVar;
+        if (iteratorExp.includes('(')) {
+            // Handle (item, index) form
+            const match = iteratorExp.match(/\(\s*(\w+)\s*,\s*(\w+)\s*\)/);
+            if (!match) {
+                logger.error('Invalid v-for iterator expression:', iteratorExp);
+                return;
+            }
+            [, itemVar, indexVar] = match;
+        } else {
+            // Handle simple item form
+            itemVar = iteratorExp;
+        }
+
         // Create template if not exists
         const template = el.cloneNode(true);
         template.removeAttribute('v-for');
 
-        // Clear existing items
-        while (el.nextSibling && el.nextSibling.__v_for_item) {
-            el.parentNode.removeChild(el.nextSibling);
+        // Get the parent node and next sibling for proper insertion
+        const parent = el.parentNode;
+        let anchor = el.nextSibling;
+
+        // First, mark all existing v-for items for removal
+        const itemsToRemove = [];
+        while (anchor && anchor.__v_for_item) {
+            const next = anchor.nextSibling;
+            itemsToRemove.push(anchor);
+            anchor = next;
         }
+
+        // Remove all old items first
+        itemsToRemove.forEach(item => {
+            if (item.parentNode === parent) {
+                parent.removeChild(item);
+            }
+        });
+
+        // Create fragment to hold new items
+        const fragment = document.createDocumentFragment();
 
         // Create new items
         items.forEach((item, index) => {
             const clone = template.cloneNode(true);
             clone.__v_for_item = true;
 
-            // Create item context
-            const itemContext = {
-                ...parentContext,
-                [iteratorExp]: item,
-                index
-            };
+            // Create item context by combining parent context with iterator variables
+            const itemContext = Object.create(null);
+            Object.setPrototypeOf(itemContext, parentContext);
+            itemContext[itemVar] = item;
+            if (indexVar) {
+                itemContext[indexVar] = index;
+            }
 
             // Process clone with item context
             this.compileElement(clone, itemContext);
 
-            // Insert after current element
-            el.parentNode.insertBefore(clone, el.nextSibling);
+            // Add to fragment
+            fragment.appendChild(clone);
         });
+
+        // Insert all new items at once
+        parent.insertBefore(fragment, el.nextSibling);
 
         // Hide original template
         el.style.display = 'none';
     }
 
-    // Process v-model directive
     processVModel(el, context) {
         const vModel = el.getAttribute('v-model');
         if (!vModel) return;
 
-        // Set initial value
-        const value = this.evaluateExpression(vModel, context);
-        if (el.type === 'checkbox') {
-            el.checked = Boolean(value);
-        } else {
-            el.value = value || '';
+        try {
+            logger.debug(`Processing v-model for ${el.outerHTML}:`, {
+                model: vModel,
+                context: context
+            });
+
+            // Create effect for two-way binding
+            const effect = () => {
+                try {
+                    ReactiveEffect.push(effect);
+                    const value = this.evaluateExpression(vModel, context);
+                    logger.debug(`v-model effect evaluation:`, {
+                        model: vModel,
+                        value: value,
+                        elementType: el.type
+                    });
+
+                    if (el.type === 'checkbox') {
+                        el.checked = Boolean(value);
+                    } else {
+                        el.value = value === undefined || value === null ? '' : String(value);
+                    }
+                } catch (error) {
+                    logger.error('Error in v-model effect:', error);
+                } finally {
+                    ReactiveEffect.pop();
+                }
+            };
+
+            // Run effect for initial value
+            effect();
+
+            // Setup two-way binding
+            const eventType = el.type === 'checkbox' ? 'change' : 'input';
+            const handler = (event) => {
+                try {
+                    const newValue = el.type === 'checkbox' ? event.target.checked : event.target.value;
+                    logger.debug(`v-model update from DOM:`, {
+                        model: vModel,
+                        newValue: newValue,
+                        elementType: el.type
+                    });
+                    this.setValueByPath(context, vModel, newValue);
+                } catch (error) {
+                    logger.error('Error in v-model handler:', error);
+                }
+            };
+
+            // Remove old listener if exists
+            if (el.__v_model_handler)
+                el.removeEventListener(eventType, el.__v_model_handler);
+
+            // Add new listener
+            el.__v_model_handler = handler;
+            el.addEventListener(eventType, handler);
+        } catch (error) {
+            logger.error('Error in v-model processing:', error);
         }
-
-        // Setup two-way binding
-        const eventType = el.type === 'checkbox' ? 'change' : 'input';
-        const handler = (event) => {
-            const newValue = el.type === 'checkbox' ? event.target.checked : event.target.value;
-            this.setValueByPath(context, vModel, newValue);
-        };
-
-        // Remove old listener if exists
-        if (el.__v_model_handler) {
-            el.removeEventListener(eventType, el.__v_model_handler);
-        }
-
-        // Add new listener
-        el.__v_model_handler = handler;
-        el.addEventListener(eventType, handler);
     }
 
-    // Process v-bind directive
     processVBind(el, context) {
         Array.from(el.attributes).forEach(attr => {
             if (attr.name.startsWith('v-bind:') || attr.name.startsWith(':')) {
@@ -480,34 +613,59 @@ class JavaisPasVu {
         });
     }
 
-    // Process v-on directive
     processVOn(el, context) {
         Array.from(el.attributes).forEach(attr => {
-            if (attr.name.startsWith('v-on:') || attr.name.startsWith('@')) {
-                const event = attr.name.split(':')[1] || attr.name.slice(1);
-                const expression = attr.value;
+            // Handle both v-on: and @ prefixes
+            const isVOn = attr.name.startsWith('v-on:');
+            const isAtPrefix = attr.name.startsWith('@');
+            if (!isVOn && !isAtPrefix)
+                return;
 
-                // Remove old listener if exists
-                if (el.__v_on_handlers && el.__v_on_handlers[event]) {
-                    el.removeEventListener(event, el.__v_on_handlers[event]);
-                }
+            const event = isVOn ? attr.name.split(':')[1] : attr.name.slice(1);
+            const expression = attr.value;
 
-                // Create handler
-                const handler = (e) => {
-                    const methodName = expression.split('(')[0];
+            // Remove old listener if exists
+            if (el.__v_on_handlers && el.__v_on_handlers[event]) {
+                el.removeEventListener(event, el.__v_on_handlers[event]);
+            }
+
+            const handler = (e) => {
+                try {
+                    // Handle different expression formats:
+                    // 1. methodName($event.target.value)
+                    // 2. methodName()
+                    // 3. shorthand methodName
+                    let methodName, args;
+                    const methodCall = expression.match(/(\w+)\((.*?)\)/);
+
+                    if (methodCall) {
+                        [, methodName, args] = methodCall;
+                    } else {
+                        methodName = expression;
+                        args = '';
+                    }
+
                     const method = context[methodName];
                     if (typeof method === 'function') {
-                        method.call(context, e);
+                        const eventContext = { ...context, $event: e };
+
+                        // Handle different argument formats
+                        const evaluatedArgs = args ?
+                            args.split(',').map(arg => this.evaluateExpression(arg.trim(), eventContext)) :
+                            [e]; // If no args, pass the event object
+
+                        method.apply(context, evaluatedArgs);
                     }
-                };
+                } catch (error) {
+                    logger.error('Error in v-on handler:', error);
+                }
+            };
 
-                // Store handler reference
-                if (!el.__v_on_handlers) el.__v_on_handlers = {};
-                el.__v_on_handlers[event] = handler;
+            // Store handler reference
+            if (!el.__v_on_handlers) el.__v_on_handlers = {};
+            el.__v_on_handlers[event] = handler;
 
-                // Add listener
-                el.addEventListener(event, handler);
-            }
+            el.addEventListener(event, handler);
         });
     }
 
@@ -515,7 +673,7 @@ class JavaisPasVu {
     processInterpolation(el, context) {
         const textNodes = Array.from(el.childNodes).filter(node =>
             node.nodeType === Node.TEXT_NODE &&
-            node.textContent.includes('{{')
+            node.textContent.includes('[[')
         );
 
         textNodes.forEach(node => {
@@ -523,7 +681,7 @@ class JavaisPasVu {
             const effect = () => {
                 try {
                     ReactiveEffect.push(effect);
-                    const text = template.replace(/\{\{(.*?)\}\}/g, (_, exp) => {
+                    const text = template.replace(/\[\[(.*?)\]\]/g, (_, exp) => {
                         return this.evaluateExpression(exp.trim(), context);
                     });
                     node.textContent = text;
@@ -539,15 +697,63 @@ class JavaisPasVu {
     // Evaluate expression in context
     evaluateExpression(expression, context) {
         try {
-            const fn = new Function('ctx', `with(ctx) { return ${expression}; }`);
-            return fn(context);
+            // Create a proxy to safely handle property access
+            const proxy = new Proxy(context || {}, {
+                get(target, prop) {
+                    try {
+                        // First check if property exists in current context
+                        if (prop in target) {
+                            const value = target[prop];
+                            // If it's a function and not a method call, evaluate it
+                            if (typeof value === 'function' && !expression.includes('(')) {
+                                try {
+                                    const result = value.call(target);
+                                    return result === undefined ? '' : result;
+                                } catch (error) {
+                                    logger.error('Error evaluating computed property:', error);
+                                    return '';
+                                }
+                            }
+                            return value;
+                        }
+                        // If property doesn't exist, return undefined instead of throwing
+                        return undefined;
+                    } catch (error) {
+                        logger.error('Error accessing property:', error);
+                        return '';
+                    }
+                },
+                has(target, prop) {
+                    return prop in target;
+                }
+            });
+
+            // Wrap expression in try-catch for better error handling
+            const wrappedExpression = `
+                try {
+                    const result = ${expression};
+                    return result === undefined ? '' : result;
+                } catch (e) {
+                    return '';
+                }
+            `;
+
+            const fn = new Function('ctx', `with(ctx) { ${wrappedExpression} }`);
+            const result = fn(proxy);
+
+            logger.debug(`Expression evaluation:`, {
+                expression: expression,
+                context: context,
+                result: result
+            });
+
+            return result === undefined ? '' : result;
         } catch (error) {
             logger.error('Expression evaluation error:', error);
-            return null;
+            return '';
         }
     }
 
-    // Set value by path
     setValueByPath(obj, path, value) {
         const parts = path.split('.');
         const last = parts.pop();

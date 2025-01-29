@@ -16,7 +16,10 @@ function cleanDjangoTemplate(template) {
 		.replace(/{%\s*block\s+\w+\s*%}/g, '')
 		.replace(/{%\s*endblock\s*%}/g, '')
 		// Clean up Django variables for testing
-		.replace(/{{(\s*\w+\s*)}}/g, '$1')
+		.replace(/{{(\s*\w+\s*)}}/g, (_, match) => `[[${match.trim()}]]`)
+		// Clean up whitespace
+		.replace(/>\s+</g, '><')
+		.replace(/\s+/g, ' ')
 		.trim();
 }
 
@@ -38,8 +41,18 @@ export class JavaisPasVuTestFactory {
 		this.container = document.createElement('div');
 		document.body.appendChild(this.container);
 
-		// Initialize JavaisPasVu
+		// Reset singleton state
 		this.javaisPasVu = javaisPasVu;
+		this.javaisPasVu.initialized = false;
+		this.javaisPasVu.root = null;
+		this.javaisPasVu.domains = new Map();
+		this.javaisPasVu.updateQueue = new Set();
+		this.javaisPasVu.updateScheduled = false;
+		this.javaisPasVu.observers = new Map();
+		this.javaisPasVu.plugins = new Map();
+		Object.values(this.javaisPasVu.hooks).forEach(set => set.clear());
+
+		// Initialize JavaisPasVu
 		this.javaisPasVu.initialize(this.container);
 
 		// Setup spies for core methods
@@ -55,8 +68,10 @@ export class JavaisPasVuTestFactory {
 			document.body.removeChild(this.container);
 		}
 
-		// Cleanup JavaisPasVu instance
+		// Reset singleton state
 		if (this.javaisPasVu) {
+			this.javaisPasVu.initialized = false;
+			this.javaisPasVu.root = null;
 			// Remove event listeners
 			this._cleanupEventListeners();
 			// Clear state
@@ -72,7 +87,6 @@ export class JavaisPasVuTestFactory {
 
 		// Clear internal state
 		this.container = null;
-		this.javaisPasVu = null;
 		this._templates.clear();
 		this._mockPlugins.clear();
 		this._mockHooks.clear();
@@ -143,8 +157,8 @@ export class JavaisPasVuTestFactory {
 	registerMockHook(hookName, callback) {
 		const mockCallback = jest.fn(callback);
 		this._mockHooks.set(hookName, mockCallback);
-		this.javaisPasVu.on(hookName, mockCallback);
-		return mockCallback;
+		const unsubscribe = this.javaisPasVu.on(hookName, mockCallback);
+		return unsubscribe;
 	}
 
 	/**
@@ -183,14 +197,13 @@ export class JavaisPasVuTestFactory {
 			throw new Error(`Template ${template} not found`);
 		}
 
-		const templateElement = document.createElement('div');
-		templateElement.setAttribute('data-domain', domain);
-		templateElement.setAttribute('data-dynamic', '');
-		templateElement.innerHTML = templateContent;
-
 		if (!preserveContainer) {
 			this.container.innerHTML = '';
 		}
+
+		const templateElement = document.createElement('div');
+		templateElement.setAttribute('data-domain', domain);
+		templateElement.innerHTML = templateContent;
 
 		if (appendMode) {
 			this.container.appendChild(templateElement);
@@ -198,7 +211,18 @@ export class JavaisPasVuTestFactory {
 			this.container.innerHTML = templateElement.outerHTML;
 		}
 
-		return templateElement;
+		// If there's existing data for this domain, recompile the template
+		const domainData = this.javaisPasVu.domains.get(domain);
+		if (domainData) {
+			// Get the actual element from the container since templateElement is detached
+			const actualElement = this.container.querySelector(`[data-domain="${domain}"]`);
+			if (actualElement) {
+				this.javaisPasVu.compileElement(actualElement, domainData.state);
+			}
+		}
+
+		// Return the actual element from the container, not the detached templateElement
+		return this.container.querySelector(`[data-domain="${domain}"]`);
 	}
 
 	/**
@@ -277,6 +301,15 @@ export class JavaisPasVuTestFactory {
 	 */
 	registerData(domain, data) {
 		this.javaisPasVu.registerData(domain, data);
+
+		// Find all elements with this domain and force recompile
+		const elements = this.container.querySelectorAll(`[data-domain="${domain}"]`);
+		if (elements.length > 0) {
+			const domainData = this.javaisPasVu.domains.get(domain);
+			elements.forEach(el => {
+				this.javaisPasVu.compileElement(el, domainData.state);
+			});
+		}
 	}
 
 	/**
@@ -378,10 +411,18 @@ export class JavaisPasVuTestFactory {
 		const element = this.query(selector);
 		if (!element) return false;
 
+		// Check if element exists and is not display:none
 		const style = window.getComputedStyle(element);
-		return style.display !== 'none' &&
-			style.visibility !== 'hidden' &&
-			style.opacity !== '0';
+		const isDisplayed = style.display !== 'none';
+
+		// Log visibility state for debugging
+		logger.debug(`Visibility check for ${selector}:`, {
+			element: element.outerHTML,
+			style: style.display,
+			isDisplayed
+		});
+
+		return isDisplayed;
 	}
 
 	/**

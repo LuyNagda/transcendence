@@ -1,15 +1,8 @@
 /** @type {import('jest').Config} */
 const config = {
-	// The test environment that will be used for testing
 	testEnvironment: 'jsdom',
-
-	// The root directory that Jest should scan for tests and modules
 	roots: ['<rootDir>/transcendence/frontend'],
-
-	// Ignore patterns
 	testPathIgnorePatterns: ['/node_modules/'],
-
-	// Display test results with colors in the terminal
 	verbose: true,
 
 	// Transform files with esbuild
@@ -27,7 +20,10 @@ const config = {
 	// Module name mapper for imports
 	moduleNameMapper: {
 		'^(\\.{1,2}/.*)\\.js$': '$1'
-	}
+	},
+
+	// Add global logger mock
+	setupFilesAfterEnv: ['./jest.setup.js']
 };
 
 export default config; 
