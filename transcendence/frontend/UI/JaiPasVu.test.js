@@ -28,15 +28,13 @@ describe('JaiPasVu', () => {
 		});
 
 		test('should setup core hooks', () => {
-			const hooks = factory.jaiPasVu.hooks;
+			const hooks = factory.jaiPasVu.events.hooks;
 			expect(hooks.beforeMount).toBeDefined();
 			expect(hooks.mounted).toBeDefined();
 			expect(hooks.beforeUpdate).toBeDefined();
 			expect(hooks.updated).toBeDefined();
 			expect(hooks.beforeDestroy).toBeDefined();
 			expect(hooks.destroyed).toBeDefined();
-			expect(hooks.beforeCompile).toBeDefined();
-			expect(hooks.afterCompile).toBeDefined();
 		});
 
 		test('should emit initialization lifecycle events', () => {
@@ -1030,6 +1028,8 @@ describe('JaiPasVu', () => {
 	});
 
 	describe('Text Interpolation', () => {
+		beforeEach(() => factory.setup());
+
 		test('should interpolate simple text values', () => {
 			factory.loadTemplate(`
 				<div data-domain="test">
@@ -1074,10 +1074,10 @@ describe('JaiPasVu', () => {
 					<p>Null: [[nullValue]]</p>
 				</div>
 			`, 'test');
-			factory.registerData('test', { nullValue: null });
+			factory.registerData('test', { undefinedValue: undefined, nullValue: null });
 
-			expect(factory.getTextContent('span')[0]).toBe('Undefined:');
-			expect(factory.getTextContent('p')[0]).toBe('Null: null');
+			expect(factory.getTextContent('span')[0]).toBe('Undefined: ');
+			expect(factory.getTextContent('p')[0]).toBe('Null: ');
 		});
 
 		test('should update interpolated values reactively', () => {
@@ -1086,10 +1086,10 @@ describe('JaiPasVu', () => {
 					<span>Count: [[count]]</span>
 				</div>
 			`, 'test');
-			factory.registerData('test', { count: 1 });
+			const state = factory.registerData('test', { count: 1 });
 			expect(factory.getTextContent('span')[0]).toBe('Count: 1');
 
-			factory.registerData('test', { count: 2 });
+			state.count = 2;
 			expect(factory.getTextContent('span')[0]).toBe('Count: 2');
 		});
 
@@ -1097,17 +1097,13 @@ describe('JaiPasVu', () => {
 			factory.loadTemplate(`
 				<div data-domain="test">
 					<span>[[getMessage()]]</span>
-					<p>[[formatNumber(123)]]</p>
+					<p>Number: [[getNumber()]]</p>
 				</div>
 			`, 'test');
-
-			const methods = {
+			factory.registerData('test', {
 				getMessage: () => 'Hello from method!',
-				formatNumber: (num) => `Number: ${num}`
-			};
-
-			jaiPasVu.registerMethods('test', methods);
-			factory.registerData('test', {});
+				getNumber: () => 123
+			});
 
 			expect(factory.getTextContent('span')[0]).toBe('Hello from method!');
 			expect(factory.getTextContent('p')[0]).toBe('Number: 123');

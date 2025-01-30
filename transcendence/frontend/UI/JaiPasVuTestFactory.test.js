@@ -107,12 +107,9 @@ describe('JaiPasVuTestFactory', () => {
 		beforeEach(() => factory.setup());
 
 		test('registerData should update reactive state', () => {
-			factory.loadTemplate('<div data-domain="test">[[count]]</div>');
-			factory.registerData('test', { count: 0 });
-
-			const state = factory.getData('test');
-			expect(state.count).toBe(0);
-
+			// Add text content binding to the template
+			factory.loadTemplate('<div data-domain="test" v-text="count"></div>', 'test');
+			const state = factory.registerData('test', { count: 0 });
 			state.count = 1;
 			expect(factory.query('[data-domain="test"]').textContent).toBe('1');
 		});
@@ -200,8 +197,8 @@ describe('JaiPasVuTestFactory', () => {
 			const mockCallback = jest.fn();
 			const unsubscribe = factory.registerMockHook('beforeCompile', mockCallback);
 
-			// Manually emit the hook event to test the callback
-			factory.jaiPasVu.emit('beforeCompile', document.createElement('div'));
+			// Use factory's emit method instead of jaiPasVu directly
+			factory.emit('beforeCompile', document.createElement('div'));
 
 			expect(mockCallback).toHaveBeenCalled();
 			expect(typeof unsubscribe).toBe('function');
@@ -245,24 +242,26 @@ describe('JaiPasVuTestFactory', () => {
 		beforeEach(() => factory.setup());
 
 		test('should update all dynamic elements', () => {
-			// Setup dynamic elements
+			// Setup spy on compiler's compileElement method
+			const compileElementSpy = factory.getSubsystemSpy('compiler', 'compileElement');
+
 			factory.loadTemplate(`
 				<div data-domain="test">
-					<div data-dynamic>[[value]]</div>
-					<div data-dynamic>[[count]]</div>
+					<div data-dynamic>Dynamic 1</div>
+					<div data-dynamic>Dynamic 2</div>
 				</div>
 			`, 'test');
 
-			factory.registerData('test', { value: 'initial', count: 0 });
+			factory.registerData('test', { value: 'test' });
 
-			// Get update spy
-			const updateElementSpy = factory.getSpy('updateElement');
+			// Clear the mock calls from initial setup
+			compileElementSpy.mockClear();
 
-			// Trigger update all
+			// Now call updateAll and check only the new calls
 			factory.updateAll();
 
-			// Should call updateElement for each dynamic element
-			expect(updateElementSpy).toHaveBeenCalledTimes(2);
+			// Should call compileElement for each dynamic element
+			expect(compileElementSpy).toHaveBeenCalledTimes(2);
 		});
 	});
 

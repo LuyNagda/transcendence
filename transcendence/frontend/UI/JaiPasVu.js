@@ -22,68 +22,55 @@
  */
 import logger from "../logger.js";
 
-const ReactiveEffect = {
-    current: null,
-    stack: [],
+class ReactivitySystem {
+    constructor() {
+        this.current = null;
+        this.stack = [];
+    }
 
     push(effect) {
         this.stack.push(effect);
         this.current = effect;
-    },
+    }
 
     pop() {
         this.stack.pop();
         this.current = this.stack[this.stack.length - 1] || null;
     }
-};
 
-function reactive(obj) {
-    const subscribers = new WeakMap();
+    createReactive(obj) {
+        const subscribers = new WeakMap();
+        const system = this;
 
-    return new Proxy(obj, {
-        get(target, key) {
-            // Track dependency
-            if (ReactiveEffect.current) {
-                if (!subscribers.has(target)) {
-                    subscribers.set(target, new Map());
+        return new Proxy(obj, {
+            get(target, key) {
+                if (system.current) {
+                    if (!subscribers.has(target))
+                        subscribers.set(target, new Map());
+                    const keySubscribers = subscribers.get(target);
+                    if (!keySubscribers.has(key))
+                        keySubscribers.set(key, new Set());
+                    keySubscribers.get(key).add(system.current);
                 }
-                const keySubscribers = subscribers.get(target);
-                if (!keySubscribers.has(key)) {
-                    keySubscribers.set(key, new Set());
+                return target[key];
+            },
+            set(target, key, value) {
+                const oldValue = target[key];
+                target[key] = value;
+
+                if (oldValue !== value && subscribers.has(target)) {
+                    const keySubscribers = subscribers.get(target).get(key);
+                    if (keySubscribers)
+                        keySubscribers.forEach(effect => effect());
                 }
-                keySubscribers.get(key).add(ReactiveEffect.current);
+                return true;
             }
-            return target[key];
-        },
-        set(target, key, value) {
-            const oldValue = target[key];
-            target[key] = value;
-
-            // Trigger updates if value changed
-            if (oldValue !== value && subscribers.has(target)) {
-                const keySubscribers = subscribers.get(target).get(key);
-                if (keySubscribers) {
-                    keySubscribers.forEach(effect => effect());
-                }
-            }
-            return true;
-        }
-    });
+        });
+    }
 }
 
-class JaiPasVu {
+class EventSystem {
     constructor() {
-        if (JaiPasVu.instance) {
-            return JaiPasVu.instance;
-        }
-
-        this.initialized = false;
-        this.root = null;
-        this.domains = new Map();
-        this.updateQueue = new Set();
-        this.updateScheduled = false;
-        this.observers = new Map();
-        this.plugins = new Map();
         this.hooks = {
             beforeMount: new Set(),
             mounted: new Set(),
@@ -94,40 +81,14 @@ class JaiPasVu {
             beforeCompile: new Set(),
             afterCompile: new Set()
         };
-
-        JaiPasVu.instance = this;
     }
 
-    // Plugin system
-    use(plugin, options = {}) {
-        if (!plugin || typeof plugin !== 'object') {
-            logger.error('Invalid plugin:', plugin);
-            return this;
-        }
-
-        const pluginName = plugin.name || 'anonymous';
-
-        if (this.plugins.has(pluginName)) {
-            logger.warn(`Plugin ${pluginName} is already installed`);
-            return this;
-        }
-
-        try {
-            plugin.install(this, options);
-            this.plugins.set(pluginName, plugin);
-            logger.info(`Plugin ${pluginName} installed successfully`);
-        } catch (error) {
-            logger.error(`Failed to install plugin ${pluginName}:`, error);
-        }
-
-        return this;
-    }
-
-    // Hook system
     on(hookName, callback) {
-        if (this.hooks[hookName])
+        if (this.hooks[hookName]) {
             this.hooks[hookName].add(callback);
-        return () => this.off(hookName, callback);
+            return () => this.off(hookName, callback);
+        }
+        return () => { };
     }
 
     off(hookName, callback) {
@@ -146,100 +107,108 @@ class JaiPasVu {
             });
         }
     }
+}
 
-    initialize(root = document.body) {
-        if (this.initialized) {
-            logger.warn("JaiPasVu is already initialized");
+class PluginSystem {
+    constructor(app) {
+        this.app = app;
+        this.plugins = new Map();
+    }
+
+    use(plugin, options = {}) {
+        if (!plugin || typeof plugin !== 'object') {
+            logger.error('Invalid plugin:', plugin);
             return this;
         }
 
-        this.emit('beforeMount');
-        this.root = root;
-        this.initialized = true;
-        this.emit('mounted');
+        const pluginName = plugin.name || 'anonymous';
+
+        if (this.plugins.has(pluginName)) {
+            logger.warn(`Plugin ${pluginName} is already installed`);
+            return this;
+        }
+
+        try {
+            plugin.install(this.app, options);
+            this.plugins.set(pluginName, plugin);
+            logger.info(`Plugin ${pluginName} installed successfully`);
+        } catch (error) {
+            logger.error(`Failed to install plugin ${pluginName}:`, error);
+        }
 
         return this;
     }
+}
 
-    /**
-     * Register reactive data for a specific domain
-     */
+class DomainSystem {
+    constructor(app) {
+        this.app = app;
+        this.domains = new Map();
+        this.observers = new Map();
+    }
+
     registerData(domain, data) {
         if (!this.domains.has(domain)) {
             this.domains.set(domain, {
-                state: reactive({}),
+                state: this.app.reactivity.createReactive({}),
                 methods: {},
                 computed: new Map()
             });
         }
 
         const domainData = this.domains.get(domain);
-
-        // First, identify computed properties
         const computedProps = {};
         const regularData = {};
 
-        Object.entries(data).forEach(([key, value]) => {
-            if (typeof value === 'function') {
-                computedProps[key] = value;
-            } else {
-                regularData[key] = value;
-            }
+        // Clear existing state to prevent stale data
+        Object.keys(domainData.state).forEach(key => {
+            if (!(key in data) && typeof domainData.state[key] !== 'function')
+                delete domainData.state[key];
         });
 
-        // Update regular state first
+        // Separate computed properties and regular data
+        Object.entries(data).forEach(([key, value]) => {
+            if (typeof value === 'function')
+                computedProps[key] = value;
+            else
+                regularData[key] = value;
+        });
+
         Object.assign(domainData.state, regularData);
-
-        // Register computed properties
-        if (Object.keys(computedProps).length > 0) {
+        if (Object.keys(computedProps).length > 0)
             this.registerComputed(domain, computedProps);
-        }
 
-        logger.debug(`Registered data for domain ${domain}:`, data);
-
-        // Find all elements with this domain and compile them once
+        // Find all elements with this domain and recompile
         const elements = document.querySelectorAll(`[data-domain="${domain}"]`);
-        if (elements.length > 0) {
-            logger.debug(`Found ${elements.length} elements for domain ${domain}`);
-            // Only compile the root element to avoid duplicate compilation
-            const rootElement = elements[0];
-            this.compileElement(rootElement, domainData.state);
-        } else {
-            logger.warn(`No elements found for domain ${domain}`);
-        }
+        elements.forEach(el => {
+            this.app.compiler.compileElement(el);
+        });
+
+        return domainData.state;
     }
 
-    /**
-     * Register methods for a specific domain
-     */
     registerMethods(domain, methods) {
         if (!this.domains.has(domain)) {
             this.domains.set(domain, {
-                state: reactive({}),
+                state: this.app.reactivity.createReactive({}),
                 methods: {},
                 computed: new Map()
             });
         }
 
         const domainData = this.domains.get(domain);
-
-        // Bind methods to state
         domainData.methods = Object.entries(methods).reduce((acc, [key, method]) => {
             acc[key] = method.bind(domainData.state);
             return acc;
         }, {});
 
-        // Update state with methods
         Object.assign(domainData.state, domainData.methods);
     }
 
-    /**
-     * Register computed properties for a domain
-     */
     registerComputed(domain, computedProps) {
         if (!this.domains.has(domain)) {
             this.domains.set(domain, {
-                state: reactive({}),
+                state: this.app.reactivity.createReactive({}),
                 methods: {},
                 computed: new Map()
             });
@@ -253,29 +222,23 @@ class JaiPasVu {
                 return;
             }
 
-            // Create effect for computed property
             const effect = () => {
                 try {
-                    ReactiveEffect.push(effect);
+                    this.app.reactivity.push(effect);
                     const result = getter.call(domainData.state);
                     return result === undefined ? '' : result;
                 } catch (error) {
                     logger.error(`Error in computed property ${key}:`, error);
                     return '';
                 } finally {
-                    ReactiveEffect.pop();
+                    this.app.reactivity.pop();
                 }
             };
 
-            // Store computed effect
             domainData.computed.set(key, effect);
-
-            // If property already exists, delete it first
-            if (key in domainData.state) {
+            if (key in domainData.state)
                 delete domainData.state[key];
-            }
 
-            // Define getter on state
             Object.defineProperty(domainData.state, key, {
                 get: () => {
                     try {
@@ -286,61 +249,28 @@ class JaiPasVu {
                     }
                 },
                 enumerable: true,
-                configurable: true  // Allow property to be redefined
+                configurable: true
             });
         });
     }
 
-    /**
-     * Subscribe to data changes for a domain
-     */
-    subscribe(domain, callback) {
-        if (!this.observers.has(domain)) {
-            this.observers.set(domain, new Set());
-        }
-        this.observers.get(domain).add(callback);
+    getState(domain) {
+        return this.domains.get(domain)?.state;
+    }
 
-        // Return unsubscribe function
+    subscribe(domain, callback) {
+        if (!this.observers.has(domain))
+            this.observers.set(domain, new Set());
+        this.observers.get(domain).add(callback);
         return () => this.unsubscribe(domain, callback);
     }
 
-    // Unsubscribe from domain changes
     unsubscribe(domain, callback) {
         const observers = this.observers.get(domain);
-        if (observers) {
+        if (observers)
             observers.delete(callback);
-        }
     }
 
-    // Schedule UI updates
-    scheduleUpdate(domain) {
-        this.updateQueue.add(domain);
-
-        if (!this.updateScheduled) {
-            this.updateScheduled = true;
-            requestAnimationFrame(() => this.processUpdates());
-        }
-    }
-
-    // Process scheduled updates
-    processUpdates() {
-        try {
-            this.emit('beforeUpdate');
-            this.updateQueue.forEach(domain => {
-                const elements = document.querySelectorAll(`[data-domain="${domain}"]`);
-                elements.forEach(el => this.updateElement(el, domain));
-                this.notifyObservers(domain);
-            });
-            this.emit('updated');
-        } finally {
-            this.updateQueue.clear();
-            this.updateScheduled = false;
-        }
-    }
-
-    /**
-     * Notify observers of data changes for a domain
-     */
     notifyObservers(domain) {
         const observers = this.observers.get(domain);
         if (observers) {
@@ -354,66 +284,24 @@ class JaiPasVu {
             });
         }
     }
+}
 
-    // Update a specific element
-    updateElement(el, domain) {
-        const domainData = this.domains.get(domain);
-        if (!domainData) {
-            logger.warn(`No data found for domain: ${domain}`);
-            return;
-        }
-
-        // Force compilation since state has changed
-        this.compileElement(el, domainData.state);
+class DirectiveSystem {
+    constructor(app) {
+        this.app = app;
+        this.directives = new Map([
+            ['v-if', this.processVIf.bind(this)],
+            ['v-else-if', this.processVIf.bind(this)],
+            ['v-else', this.processVIf.bind(this)],
+            ['v-text', this.processVText.bind(this)],
+            ['v-for', this.processVFor.bind(this)],
+            ['v-model', this.processVModel.bind(this)],
+            ['v-bind', this.processVBind.bind(this)],
+            ['v-on', this.processVOn.bind(this)]
+        ]);
     }
 
-    // Compile and process element
-    compileElement(el, state = null) {
-        if (!el) return;
-
-        this.emit('beforeCompile', el, state);
-
-        // Get domain from element
-        const domain = el.getAttribute('data-domain');
-
-        const parentDomainEl = domain ? el.closest(`[data-domain]:not([data-domain="${domain}"])`) : null;
-        const parentDomain = parentDomainEl?.getAttribute('data-domain');
-        const parentData = parentDomain ? this.domains.get(parentDomain)?.state : null;
-
-        const domainData = domain ? this.domains.get(domain) : null;
-
-        // Create context by combining parent and current domain data
-        let context;
-        if (domain) {
-            // For domain elements, create a proxy that inherits from parent context
-            context = new Proxy(domainData?.state || {}, {
-                get(target, prop) {
-                    // First check current domain
-                    if (prop in target) {
-                        return target[prop];
-                    }
-                    // Then check parent domain
-                    if (parentData && prop in parentData) {
-                        return parentData[prop];
-                    }
-                    // Finally check provided state
-                    if (state && prop in state) {
-                        return state[prop];
-                    }
-                    return undefined;
-                },
-                has(target, prop) {
-                    return prop in target ||
-                        (parentData && prop in parentData) ||
-                        (state && prop in state);
-                }
-            });
-        } else {
-            // For non-domain elements, use provided state or parent domain state
-            context = state || parentData || {};
-        }
-
-        // Process directives in order
+    processDirectives(el, context) {
         this.processVIf(el, context);
 
         const isVisible = el.style.display !== 'none';
@@ -442,20 +330,6 @@ class JaiPasVu {
             this.processVOn(el, context);
             this.processInterpolation(el, context);
         }
-
-        this.emit('afterCompile', el, state);
-
-        // Only process children if this element is visible
-        if (el.style.display !== 'none') {
-            // Process children recursively after parent is compiled
-            Array.from(el.children).forEach(child => {
-                const childDomain = child.getAttribute('data-domain');
-                if (childDomain)
-                    this.compileElement(child);
-                else
-                    this.compileElement(child, context);
-            });
-        }
     }
 
     processVIf(el, context) {
@@ -465,10 +339,9 @@ class JaiPasVu {
 
         if (!vIf && !vElseIf && !vElse) return;
 
-        // Create effect for this element
         const effect = () => {
             try {
-                ReactiveEffect.push(effect);
+                this.app.reactivity.push(effect);
                 let shouldShow = false;
 
                 // Check if any parent is hidden
@@ -487,16 +360,14 @@ class JaiPasVu {
                     shouldShow = false;
                 } else {
                     if (vIf) {
-                        shouldShow = this.evaluateExpression(vIf, context);
+                        shouldShow = this.app.compiler.evaluateExpression(vIf, context);
                     } else if (vElseIf) {
                         // Only evaluate if no previous condition was true
                         if (!this.findTruePreviousCondition(el, context)) {
-                            shouldShow = this.evaluateExpression(vElseIf, context);
+                            shouldShow = this.app.compiler.evaluateExpression(vElseIf, context);
                         }
-                    } else if (vElse) {
-                        // Show if no previous condition was true
+                    } else if (vElse)
                         shouldShow = !this.findTruePreviousCondition(el, context);
-                    }
                 }
 
                 // Store the current visibility state
@@ -522,7 +393,7 @@ class JaiPasVu {
                 if (!shouldShow && vIf)
                     this.hideConditionalSiblings(el);
             } finally {
-                ReactiveEffect.pop();
+                this.app.reactivity.pop();
             }
         };
 
@@ -532,11 +403,10 @@ class JaiPasVu {
     findTruePreviousCondition(el, context) {
         let previous = el.previousElementSibling;
         while (previous) {
-            if (previous.hasAttribute('v-if')) {
-                return this.evaluateExpression(previous.getAttribute('v-if'), context);
-            }
+            if (previous.hasAttribute('v-if'))
+                return this.app.compiler.evaluateExpression(previous.getAttribute('v-if'), context);
             if (previous.hasAttribute('v-else-if')) {
-                const result = this.evaluateExpression(previous.getAttribute('v-else-if'), context);
+                const result = this.app.compiler.evaluateExpression(previous.getAttribute('v-else-if'), context);
                 if (result) return true;
             }
             previous = previous.previousElementSibling;
@@ -547,11 +417,10 @@ class JaiPasVu {
     hideConditionalSiblings(el) {
         let sibling = el.nextElementSibling;
         while (sibling) {
-            if (sibling.hasAttribute('v-else-if') || sibling.hasAttribute('v-else')) {
+            if (sibling.hasAttribute('v-else-if') || sibling.hasAttribute('v-else'))
                 sibling.style.display = 'none';
-            } else {
+            else
                 break;
-            }
             sibling = sibling.nextElementSibling;
         }
     }
@@ -562,11 +431,11 @@ class JaiPasVu {
 
         const effect = () => {
             try {
-                ReactiveEffect.push(effect);
-                const value = this.evaluateExpression(vText, context);
+                this.app.reactivity.push(effect);
+                const value = this.app.compiler.evaluateExpression(vText, context);
                 el.textContent = value === undefined || value === null ? '' : String(value);
             } finally {
-                ReactiveEffect.pop();
+                this.app.reactivity.pop();
             }
         };
 
@@ -574,163 +443,129 @@ class JaiPasVu {
     }
 
     processVFor(el, parentContext) {
-        const vFor = el.getAttribute('v-for');
-        if (!vFor) return;
+        const vForAttr = el.getAttribute('v-for');
+        if (!vForAttr) return;
 
-        // Check if any parent is hidden
-        let parentEl = el.parentElement;
-        let parentHidden = false;
-        while (parentEl) {
-            if (parentEl.style.display === 'none' || parentEl.hasAttribute('v-if')) {
-                const vIf = parentEl.getAttribute('v-if');
-                if (parentEl.style.display === 'none' || (vIf && !this.evaluateExpression(vIf, parentContext))) {
-                    parentHidden = true;
-                    break;
-                }
-            }
-            parentEl = parentEl.parentElement;
-        }
-
-        // If parent is hidden, hide this element and skip processing
-        if (parentHidden) {
-            el.style.display = 'none';
+        // Parse v-for expression (item in items) or (item, index in items)
+        const forMatch = vForAttr.match(/^\s*(?:\(?\s*(\w+)(?:\s*,\s*(\w+))?\s*\)?)\s+in\s+(\w+)\s*$/);
+        if (!forMatch) {
+            logger.error('Invalid v-for syntax:', vForAttr);
             return;
         }
 
-        const [iteratorExp, arrayExp] = vFor.split(' in ').map(s => s.trim());
-        const items = this.evaluateExpression(arrayExp, parentContext);
-
-        if (!Array.isArray(items)) {
-            logger.warn('v-for requires array:', arrayExp);
-            return;
-        }
-
-        // Parse iterator variables
-        let itemVar, indexVar;
-        if (iteratorExp.includes('(')) {
-            // Handle (item, index) form
-            const match = iteratorExp.match(/\(\s*(\w+)\s*,\s*(\w+)\s*\)/);
-            if (!match) {
-                logger.error('Invalid v-for iterator expression:', iteratorExp);
-                return;
-            }
-            [, itemVar, indexVar] = match;
-        } else {
-            // Handle simple item form
-            itemVar = iteratorExp;
-        }
-
-        // Create template if not exists
+        const [, itemName, indexName, arrayName] = forMatch;
         const template = el.cloneNode(true);
         template.removeAttribute('v-for');
+        const parent = el.parentNode;
+        const comment = document.createComment(`v-for: ${vForAttr}`);
+        parent.insertBefore(comment, el);
+        parent.removeChild(el);
 
-        // Get the parent node for proper insertion
-        const parentNode = el.parentNode;
-
-        // Remove all existing v-for items
-        const oldItems = Array.from(parentNode.children).filter(node =>
-            node !== el && node.__v_for_template === el
-        );
-        oldItems.forEach(item => {
-            if (item.parentNode) {
-                item.parentNode.removeChild(item);
-            }
-        });
-
-        // Create fragment to hold new items
-        const fragment = document.createDocumentFragment();
-
-        // Create new items
-        items.forEach((item, index) => {
-            const clone = template.cloneNode(true);
-            clone.__v_for_template = el;
-            clone.removeAttribute('v-for'); // Ensure v-for is removed
-            clone.style.display = ''; // Ensure clone is visible
-
-            // Create item context by combining parent context with iterator variables
-            const itemContext = Object.create(null);
-            Object.setPrototypeOf(itemContext, parentContext);
-            itemContext[itemVar] = item;
-            if (indexVar) {
-                itemContext[indexVar] = index;
+        const effect = () => {
+            const array = this.app.compiler.evaluateExpression(arrayName, parentContext);
+            if (!Array.isArray(array)) {
+                logger.error(`v-for array ${arrayName} is not an array:`, array);
+                return;
             }
 
-            // Process clone with item context
-            this.compileElement(clone, itemContext);
+            // Get existing elements
+            let elements = [];
+            let node = comment.nextSibling;
+            while (node && node.hasAttribute && node.hasAttribute('v-for-item')) {
+                elements.push(node);
+                node = node.nextSibling;
+            }
 
-            // Add to fragment
-            fragment.appendChild(clone);
-        });
+            // Remove excess elements
+            while (elements.length > array.length) {
+                const el = elements.pop();
+                parent.removeChild(el);
+            }
 
-        // Insert all new items at once
-        parentNode.insertBefore(fragment, el.nextSibling);
+            // Update or add elements
+            array.forEach((item, index) => {
+                const itemContext = Object.create(parentContext);
+                itemContext[itemName] = item;
+                if (indexName)
+                    itemContext[indexName] = index;
 
-        // Hide original template
-        el.style.display = 'none';
+                let element;
+                if (index < elements.length) {
+                    element = elements[index];
+                } else {
+                    element = template.cloneNode(true);
+                    element.setAttribute('v-for-item', '');
+                    parent.insertBefore(element, comment.nextSibling);
+                    elements.push(element);
+                }
+
+                // Recompile the element with the new context
+                this.app.compiler.compileElement(element, itemContext);
+            });
+        };
+
+        this.app.reactivity.push(effect);
+        effect();
+        this.app.reactivity.pop();
     }
 
     processVModel(el, context) {
         const vModel = el.getAttribute('v-model');
         if (!vModel) return;
 
-        try {
-            logger.debug(`Processing v-model for ${el.outerHTML}:`, {
-                model: vModel,
-                context: context
-            });
+        const effect = () => {
+            const value = this.app.compiler.evaluateExpression(vModel, context);
+            if (el.type === 'checkbox')
+                el.checked = !!value;
+            else if (el.type === 'radio')
+                el.checked = String(el.value) === String(value);
+            else
+                el.value = value === undefined || value === null ? '' : String(value);
+        };
 
-            // Create effect for two-way binding
-            const effect = () => {
-                try {
-                    ReactiveEffect.push(effect);
-                    const value = this.evaluateExpression(vModel, context);
-                    logger.debug(`v-model effect evaluation:`, {
-                        model: vModel,
-                        value: value,
-                        elementType: el.type
-                    });
+        const handler = (event) => {
+            let value;
+            if (el.type === 'checkbox')
+                value = el.checked;
+            else if (el.type === 'radio')
+                value = el.value;
+            else
+                value = el.value;
 
-                    if (el.type === 'checkbox') {
-                        el.checked = Boolean(value);
-                    } else {
-                        el.value = value === undefined || value === null ? '' : String(value);
-                    }
-                } catch (error) {
-                    logger.error('Error in v-model effect:', error);
-                } finally {
-                    ReactiveEffect.pop();
-                }
-            };
+            // Set the value in the context
+            const props = vModel.split('.');
+            let target = context;
+            const lastProp = props.pop();
 
-            // Run effect for initial value
-            effect();
+            // Navigate to the correct object
+            for (const prop of props) {
+                if (!(prop in target))
+                    target[prop] = {};
+                target = target[prop];
+            }
 
-            // Setup two-way binding
-            const eventType = el.type === 'checkbox' ? 'change' : 'input';
-            const handler = (event) => {
-                try {
-                    const newValue = el.type === 'checkbox' ? event.target.checked : event.target.value;
-                    logger.debug(`v-model update from DOM:`, {
-                        model: vModel,
-                        newValue: newValue,
-                        elementType: el.type
-                    });
-                    this.setValueByPath(context, vModel, newValue);
-                } catch (error) {
-                    logger.error('Error in v-model handler:', error);
-                }
-            };
+            if (target && typeof target === 'object')
+                target[lastProp] = value;
+        };
 
-            // Remove old listener if exists
-            if (el.__v_model_handler)
-                el.removeEventListener(eventType, el.__v_model_handler);
+        // Add event listeners based on input type
+        if (el.type === 'checkbox' || el.type === 'radio')
+            el.addEventListener('change', handler);
+        else
+            el.addEventListener('input', handler);
 
-            // Add new listener
-            el.__v_model_handler = handler;
-            el.addEventListener(eventType, handler);
-        } catch (error) {
-            logger.error('Error in v-model processing:', error);
-        }
+        // Initial value
+        this.app.reactivity.push(effect);
+        effect();
+        this.app.reactivity.pop();
+
+        // Store cleanup function
+        el.__v_model_cleanup = () => {
+            if (el.type === 'checkbox' || el.type === 'radio')
+                el.removeEventListener('change', handler);
+            else
+                el.removeEventListener('input', handler);
+        };
     }
 
     processVBind(el, context) {
@@ -751,8 +586,8 @@ class JaiPasVu {
 
                 const effect = () => {
                     try {
-                        ReactiveEffect.push(effect);
-                        const value = this.evaluateExpression(expression, context);
+                        this.app.reactivity.push(effect);
+                        const value = this.app.compiler.evaluateExpression(expression, context);
                         const propertyName = PROPERTY_MAP[prop] || prop;
                         if (typeof value === 'boolean' && (propertyName in el || prop in el)) {
                             // Use the mapped property name if it exists on the element, or fall back to the original prop name
@@ -764,7 +599,7 @@ class JaiPasVu {
                             el.setAttribute(prop, value);
                         }
                     } finally {
-                        ReactiveEffect.pop();
+                        this.app.reactivity.pop();
                     }
                 };
 
@@ -778,16 +613,14 @@ class JaiPasVu {
             // Handle both v-on: and @ prefixes
             const isVOn = attr.name.startsWith('v-on:');
             const isAtPrefix = attr.name.startsWith('@');
-            if (!isVOn && !isAtPrefix)
-                return;
+            if (!isVOn && !isAtPrefix) return;
 
             const event = isVOn ? attr.name.split(':')[1] : attr.name.slice(1);
             const expression = attr.value;
 
             // Remove old listener if exists
-            if (el.__v_on_handlers && el.__v_on_handlers[event]) {
+            if (el.__v_on_handlers && el.__v_on_handlers[event])
                 el.removeEventListener(event, el.__v_on_handlers[event]);
-            }
 
             const handler = (e) => {
                 try {
@@ -812,7 +645,7 @@ class JaiPasVu {
 
                         // Handle different argument formats
                         const evaluatedArgs = args ?
-                            args.split(',').map(arg => this.evaluateExpression(arg.trim(), eventContext)) :
+                            args.split(',').map(arg => this.app.compiler.evaluateExpression(arg.trim(), eventContext)) :
                             [e]; // If no args, pass the event object
 
                         method.apply(context, evaluatedArgs);
@@ -830,58 +663,174 @@ class JaiPasVu {
         });
     }
 
-    // Process text interpolation
     processInterpolation(el, context) {
-        const textNodes = Array.from(el.childNodes).filter(node =>
-            node.nodeType === Node.TEXT_NODE &&
-            node.textContent.includes('[[')
-        );
-
-        textNodes.forEach(node => {
-            const template = node.textContent;
-            const effect = () => {
-                try {
-                    ReactiveEffect.push(effect);
-                    const text = template.replace(/\[\[(.*?)\]\]/g, (_, exp) => {
-                        return this.evaluateExpression(exp.trim(), context);
-                    });
-                    node.textContent = text;
-                } finally {
-                    ReactiveEffect.pop();
+        const interpolationRegex = /\[\[(.*?)\]\]/g;
+        const processNode = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                const text = node.textContent;
+                if (interpolationRegex.test(text)) {
+                    const originalText = text;
+                    const effect = () => {
+                        let newText = originalText.replace(interpolationRegex, (match, expression) => {
+                            const value = this.app.compiler.evaluateExpression(expression.trim(), context);
+                            return value === undefined || value === null ? '' : String(value);
+                        });
+                        if (node.textContent !== newText) {
+                            node.textContent = newText;
+                        }
+                    };
+                    this.app.reactivity.push(effect);
+                    effect();
+                    this.app.reactivity.pop();
                 }
-            };
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                Array.from(node.childNodes).forEach(child => processNode(child));
+            }
+        };
+        processNode(el);
+    }
+}
 
-            effect();
-        });
+class TemplateCompiler {
+    constructor(app) {
+        this.app = app;
     }
 
-    // Evaluate expression in context
+    compileElement(el, state = null) {
+        if (!el) return;
+
+        this.app.events.emit('beforeCompile', el, state);
+
+        const domain = el.getAttribute('data-domain');
+        const parentDomainEl = domain ? el.closest(`[data-domain]:not([data-domain="${domain}"])`) : null;
+        const parentDomain = parentDomainEl?.getAttribute('data-domain');
+        const parentData = parentDomain ? this.app.domains.getState(parentDomain) : null;
+        const domainData = domain ? this.app.domains.getState(domain) : null;
+
+        let context;
+        if (domain)
+            context = this.createContext(domain, domainData, parentData, state);
+        else if (state)
+            context = state;
+        else if (parentData)
+            context = parentData;
+        else
+            context = {};
+
+        this.app.directives.processDirectives(el, context);
+        this.app.events.emit('afterCompile', el, state);
+
+        if (el.style.display !== 'none') {
+            Array.from(el.children).forEach(child => {
+                const childDomain = child.getAttribute('data-domain');
+                if (childDomain) // Pass parent context as state for nested domains
+                    this.compileElement(child, context);
+                else
+                    this.compileElement(child, context);
+            });
+        }
+    }
+
+    createContext(domain, domainData, parentData, state) {
+        if (!domainData) {
+            domainData = {
+                state: {},
+                methods: {},
+                computed: new Map()
+            };
+        }
+
+        // Create a proxy that inherits from parent context
+        const context = new Proxy({
+            $domain: domain,
+            $state: state || domainData.state || {},
+            $methods: domainData.methods || {},
+            $computed: domainData.computed || new Map(),
+            $parent: parentData
+        }, {
+            get(target, prop) {
+                // Special properties
+                if (prop in target)
+                    return target[prop];
+                // First check in current domain's state
+                if (target.$state && prop in target.$state)
+                    return target.$state[prop];
+                // Then check current domain's computed properties
+                if (target.$computed && target.$computed.has(prop))
+                    return target.$computed.get(prop)();
+                // Then check current domain's methods
+                if (target.$methods && prop in target.$methods)
+                    return target.$methods[prop];
+
+                // Finally check parent context if it exists
+                if (target.$parent) {
+                    if (prop in target.$parent) // Check parent's state
+                        return target.$parent[prop];
+                    // Check parent's computed properties
+                    if (target.$parent.$computed && target.$parent.$computed.has(prop))
+                        return target.$parent.$computed.get(prop)();
+                }
+
+                return undefined;
+            },
+            set(target, prop, value) {
+                // First try to set in current domain's state
+                if (target.$state && (prop in target.$state || !target.$parent)) {
+                    target.$state[prop] = value;
+                    return true;
+                }
+
+                // If not found in current domain and we have a parent, try to set in parent
+                if (target.$parent && prop in target.$parent) {
+                    target.$parent[prop] = value;
+                    return true;
+                }
+
+                // If not found anywhere, set in current domain's state
+                target.$state[prop] = value;
+                return true;
+            },
+            has(target, prop) {
+                return (target.$state && prop in target.$state) ||
+                    (target.$computed && target.$computed.has(prop)) ||
+                    (target.$methods && prop in target.$methods) ||
+                    (target.$parent && (
+                        prop in target.$parent ||
+                        (target.$parent.$computed && target.$parent.$computed.has(prop))
+                    ));
+            }
+        });
+
+        return context;
+    }
+
     evaluateExpression(expression, context) {
         try {
-            // Create a proxy to safely handle property access
             const proxy = new Proxy(context || {}, {
                 get(target, prop) {
                     try {
-                        // First check if property exists in current context
                         if (prop in target) {
                             const value = target[prop];
-                            // If it's a function and not a method call, evaluate it
-                            if (typeof value === 'function' && !expression.includes('(')) {
-                                try {
-                                    const result = value.call(target);
-                                    return result === undefined ? '' : result;
-                                } catch (error) {
-                                    logger.error('Error evaluating computed property:', error);
-                                    return '';
+                            // Handle method calls
+                            if (typeof value === 'function') {
+                                if (expression.includes('(')) {
+                                    return value.bind(target);
+                                } else {
+                                    try {
+                                        const result = value.call(target);
+                                        return result;
+                                    } catch (error) {
+                                        logger.error('Error evaluating method:', error);
+                                        return undefined;
+                                    }
                                 }
                             }
                             return value;
                         }
-                        // If property doesn't exist, return undefined instead of throwing
                         return undefined;
                     } catch (error) {
                         logger.error('Error accessing property:', error);
-                        return '';
+                        return undefined;
                     }
                 },
                 has(target, prop) {
@@ -889,69 +838,131 @@ class JaiPasVu {
                 }
             });
 
-            // Wrap expression in try-catch for better error handling
-            const wrappedExpression = `
-                try {
-                    const result = ${expression};
-                    return result === undefined ? '' : result;
-                } catch (e) {
-                    return '';
-                }
-            `;
-
-            const fn = new Function('ctx', `with(ctx) { ${wrappedExpression} }`);
-            const result = fn(proxy);
-
-            logger.debug(`Expression evaluation:`, {
-                expression: expression,
-                context: context,
-                result: result
-            });
-
-            return result === undefined ? '' : result;
+            const fn = new Function('ctx', `with(ctx) { return ${expression}; }`);
+            return fn(proxy);
         } catch (error) {
             logger.error('Expression evaluation error:', error);
-            return '';
+            return undefined;
         }
-    }
-
-    setValueByPath(obj, path, value) {
-        const parts = path.split('.');
-        const last = parts.pop();
-        const target = parts.reduce((obj, key) => obj[key], obj);
-        target[last] = value;
-    }
-
-    // Cleanup when elements are removed
-    cleanup(el) {
-        this.emit('beforeDestroy', el);
-
-        // Remove v-model handlers
-        if (el.__v_model_handler) {
-            el.removeEventListener('input', el.__v_model_handler);
-            el.removeEventListener('change', el.__v_model_handler);
-            delete el.__v_model_handler;
-        }
-
-        // Remove v-on handlers
-        if (el.__v_on_handlers) {
-            Object.entries(el.__v_on_handlers).forEach(([event, handler]) => {
-                el.removeEventListener(event, handler);
-            });
-            delete el.__v_on_handlers;
-        }
-
-        // Cleanup children
-        Array.from(el.children).forEach(child => this.cleanup(child));
-
-        this.emit('destroyed', el);
-    }
-
-    // Get domain state
-    getState(domain) {
-        return this.domains.get(domain)?.state;
     }
 }
 
-// Export a singleton instance
+class JaiPasVu {
+    constructor() {
+        if (JaiPasVu.instance)
+            return JaiPasVu.instance;
+
+        this.initialized = false;
+        this.root = null;
+        this.updateQueue = new Set();
+        this.updateScheduled = false;
+
+        this.reactivity = new ReactivitySystem();
+        this.events = new EventSystem();
+        this.plugins = new PluginSystem(this);
+        this.domains = new DomainSystem(this);
+        this.directives = new DirectiveSystem(this);
+        this.compiler = new TemplateCompiler(this);
+
+        JaiPasVu.instance = this;
+    }
+
+    initialize(root = document.body) {
+        if (this.initialized) {
+            logger.warn("JaiPasVu is already initialized");
+            return this;
+        }
+
+        this.events.emit('beforeMount');
+        this.root = root;
+        this.initialized = true;
+        this.events.emit('mounted');
+
+        return this;
+    }
+
+    // Public API methods
+    use(plugin, options = {}) {
+        return this.plugins.use(plugin, options);
+    }
+
+    on(hookName, callback) {
+        return this.events.on(hookName, callback);
+    }
+
+    off(hookName, callback) {
+        this.events.off(hookName, callback);
+    }
+
+    registerData(domain, data) {
+        this.domains.registerData(domain, data);
+    }
+
+    registerMethods(domain, methods) {
+        this.domains.registerMethods(domain, methods);
+    }
+
+    registerComputed(domain, computedProps) {
+        this.domains.registerComputed(domain, computedProps);
+    }
+
+    getState(domain) {
+        return this.domains.getState(domain);
+    }
+
+    cleanup(el) {
+        this.events.emit('beforeDestroy', el);
+
+        // Clean up event listeners
+        const events = [
+            'htmx:beforeRequest',
+            'htmx:afterRequest',
+            'htmx:beforeSwap',
+            'htmx:afterSwap',
+            'htmx:responseError'
+        ];
+        events.forEach(event => {
+            el.removeEventListener(event, () => { });
+        });
+
+        // Clean up domain observers and state
+        if (el.hasAttribute('data-domain')) {
+            const domain = el.getAttribute('data-domain');
+            if (this.domains.observers.has(domain)) {
+                this.domains.observers.get(domain).clear();
+            }
+        }
+
+        // Recursively cleanup child elements
+        Array.from(el.children).forEach(child => {
+            this.cleanup(child);
+        });
+
+        // Clean up v-model listeners
+        const vModelElements = el.querySelectorAll('[v-model]');
+        vModelElements.forEach(element => {
+            element.removeEventListener('input', () => { });
+            element.removeEventListener('change', () => { });
+        });
+
+        // Clean up v-on listeners
+        const vOnElements = el.querySelectorAll('[v-on\\:click], [v-on\\:input], [v-on\\:change], [v-on\\:submit]');
+        vOnElements.forEach(element => {
+            const attrs = element.attributes;
+            for (let i = 0; i < attrs.length; i++) {
+                const attr = attrs[i];
+                if (attr.name.startsWith('v-on:')) {
+                    const eventType = attr.name.split(':')[1];
+                    element.removeEventListener(eventType, () => { });
+                }
+            }
+        });
+
+        this.events.emit('destroyed', el);
+
+        if (el.parentNode && el !== this.root)
+            el.parentNode.removeChild(el);
+    }
+}
+
 export default new JaiPasVu();
