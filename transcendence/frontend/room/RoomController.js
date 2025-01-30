@@ -1,5 +1,5 @@
 import { RoomAPI } from './RoomAPI.js';
-import { UIService } from '../UI/UIService.js';
+import jaiPasVu from '../UI/JaiPasVu.js';
 import logger from '../logger.js';
 import Store from '../state/store.js';
 import { RoomModes, RoomStates, roomActions } from '../state/roomState.js';
@@ -8,10 +8,9 @@ import { RoomModes, RoomStates, roomActions } from '../state/roomState.js';
  * Controller responsible for handling room-related actions and coordinating between services
  */
 export class RoomController {
-	constructor(store, roomAPI, uiService) {
+	constructor(store, roomAPI) {
 		this._store = store || Store.getInstance();
 		this._roomAPI = roomAPI || RoomAPI;
-		this._uiService = uiService || UIService;
 		this._initializeEventHandlers();
 		logger.info('Room controller initialized successfully');
 	}
@@ -111,11 +110,11 @@ export class RoomController {
 			errorMessage += error.message || "Please try again.";
 		}
 
-		this._uiService.showAlert("error", errorMessage);
+		jaiPasVu.callMethod('ui', 'showAlert', 'error', errorMessage);
 	}
 }
 
 // Factory function to create RoomController instance
-export const createRoomController = (store, roomAPI, uiService) => {
-	return new RoomController(store, roomAPI, uiService);
+export const createRoomController = (store, roomAPI) => {
+	return new RoomController(store, roomAPI);
 }; 

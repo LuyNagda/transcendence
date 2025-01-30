@@ -4,13 +4,12 @@ import jaiPasVu from '../UI/JaiPasVu.js';
 import { isDeepEqual } from '../utils.js';
 import RoomService from '../room/RoomService.js';
 import ChatApp from '../chat/ChatApp.js';
-import { Dropdown, Toast, Offcanvas } from '../vendor.js';
 
 /**
  * StateSync - Coordinates state changes between different state management systems
  * 
  * Responsibilities:
- * - Syncs store state with JaiPasVu UI framework
+ * - Syncs store state with JaiPasVu framework
  * - Manages state observers and updates
  * - Coordinates domain-specific state management
  */
@@ -30,163 +29,10 @@ class StateSync {
 
 		this.store = Store.getInstance();
 		this.stateObservers = new Map();
-		this.domains = ['user', 'chat', 'room', 'game', 'ui'];
+		this.domains = ['user', 'chat', 'room', 'game'];
 		this.domainMethods = new Map();
 
-		// Set up HTMX state update handling
-		// this.setupHTMXStateHandling();
-
 		StateSync.#instance = this;
-	}
-
-	/**
-	 * Set up HTMX state update handling through JaiPasVu
-	 */
-	// setupHTMXStateHandling() {
-	// 	jaiPasVu.on('htmx:afterSettle', (event) => {
-	// 		this.handleServerUpdate(event);
-	// 	});
-
-	// 	jaiPasVu.on('htmx:beforeSwap', (event) => {
-	// 		// Preserve existing state before swap
-	// 		const currentState = {
-	// 			ui: this.store.getState('ui'),
-	// 			room: this.store.getState('room')
-	// 		};
-	// 		event.detail.currentState = currentState;
-	// 	});
-
-	// 	jaiPasVu.on('htmx:error', (event) => {
-	// 		logger.error('HTMX error:', event.detail);
-	// 		this.store.dispatch({
-	// 			domain: 'ui',
-	// 			type: 'SET_ERROR',
-	// 			payload: {
-	// 				message: 'Request failed',
-	// 				details: event.detail
-	// 			}
-	// 		});
-	// 	});
-	// }
-
-	/**
-	 * Handle server state updates from HTMX responses
-	 */
-	handleServerUpdate(event) {
-		const response = event.detail.elt;
-		const previousState = event.detail.currentState;
-
-		// Handle state updates from data attributes
-		const statePath = response.getAttribute('data-state-path');
-		const stateValue = response.getAttribute('data-state-value');
-
-		if (statePath && stateValue) {
-			try {
-				const [domain] = statePath.split('.');
-				const state = JSON.parse(stateValue);
-
-				// Special handling for room updates
-				if (domain === 'room') {
-					this._handleRoomStateUpdate(state);
-				} else {
-					this.updateDomainState(domain, state);
-				}
-			} catch (error) {
-				logger.error('Failed to process state update:', error);
-			}
-		}
-
-		// Handle state updates from response content
-		const stateData = response.querySelector('[data-state-update]');
-		if (stateData) {
-			try {
-				const updates = JSON.parse(stateData.textContent);
-				Object.entries(updates).forEach(([domain, state]) => {
-					if (domain === 'room') {
-						this._handleRoomStateUpdate(state);
-					} else {
-						this.updateDomainState(domain, state);
-					}
-				});
-			} catch (error) {
-				logger.error('Failed to process state update:', error);
-			}
-		}
-
-		// Handle UI updates after state changes
-		this._handleSwapUIUpdates(response, previousState);
-	}
-
-	/**
-	 * Handle room-specific state updates
-	 */
-	_handleRoomStateUpdate(data) {
-		const currentRoom = RoomService.getCurrentRoom();
-
-		if (data.type === 'EVENT') {
-			this.callMethod('room', 'handleRoomEvent', data.event);
-		} else if (data.type === 'STATE_UPDATE' && currentRoom && currentRoom.roomId === data.roomId) {
-			this.callMethod('room', 'updateRoomState', data.roomId, data.state);
-		} else if (data.type === 'ROOM_CLOSED' && currentRoom && currentRoom.roomId === data.roomId) {
-			RoomService.destroyCurrentRoom();
-		} else if (data.type === 'UPDATE_ROOM_SETTINGS' && currentRoom) {
-			// Handle settings updates
-			if (data.settings) {
-				currentRoom._stateManager.updateSettings(data.settings);
-			}
-		} else {
-			// Handle regular room state updates
-			this.updateDomainState('room', data);
-		}
-
-		// Handle room state persistence
-		if (currentRoom) {
-			sessionStorage.setItem('lastRoomState', JSON.stringify({
-				roomId: currentRoom.roomId,
-				state: currentRoom._stateManager.state,
-				settings: currentRoom._stateManager.settings
-			}));
-		}
-	}
-
-	/**
-	 * Handle UI updates after HTMX swap
-	 */
-	_handleSwapUIUpdates(target, previousState) {
-		if (!target) return;
-
-		try {
-			// Initialize Bootstrap components if needed
-			if (target.querySelector('[data-bs-toggle]')) {
-				this.initializeBootstrapComponents(target);
-			}
-
-			// Get current UI state
-			const uiState = this.store.getState('ui') || previousState?.ui;
-			if (uiState) {
-				// Ensure theme and font size are applied
-				if (uiState.theme) jaiPasVu.callMethod('ui', 'applyTheme', uiState.theme);
-				if (uiState.fontSize) jaiPasVu.callMethod('ui', 'applyFontSize', uiState.fontSize);
-			}
-
-			// Update UI elements
-			if (jaiPasVu && jaiPasVu.initialized) {
-				// Update swapped region first
-				target.querySelectorAll('[data-domain]').forEach(el => {
-					const domain = el.getAttribute('data-domain');
-					jaiPasVu.updateElement(el, domain);
-				});
-
-				// Update all UI elements for consistency
-				document.querySelectorAll('[data-domain="ui"]').forEach(el => {
-					if (!target.contains(el)) {
-						jaiPasVu.updateElement(el, 'ui');
-					}
-				});
-			}
-		} catch (error) {
-			logger.error('Error handling UI updates after swap:', error);
-		}
 	}
 
 	/**
@@ -233,23 +79,6 @@ class StateSync {
 				this._initializeDomain(domain);
 			});
 
-			// Get theme and font size from localStorage and update UI state
-			const savedTheme = localStorage.getItem('themeLocal') || 'light';
-			const savedFontSize = localStorage.getItem('sizeLocal') || 'small';
-
-			// Update UI state through store
-			this.store.dispatch({
-				domain: 'ui',
-				type: actions.ui.UPDATE_THEME,
-				payload: { theme: savedTheme }
-			});
-
-			this.store.dispatch({
-				domain: 'ui',
-				type: actions.ui.UPDATE_FONT_SIZE,
-				payload: { fontSize: savedFontSize }
-			});
-
 			logger.info('StateSync initialized');
 		} catch (error) {
 			logger.error('Failed to initialize StateSync:', error);
@@ -264,23 +93,6 @@ class StateSync {
 			domain: 'config',
 			type: 'INITIALIZE',
 			payload: config
-		});
-
-		// Get theme and font size from localStorage
-		const savedTheme = localStorage.getItem('themeLocal') || 'light';
-		const savedFontSize = localStorage.getItem('sizeLocal') || 'small';
-
-		// Initialize UI state
-		this.store.dispatch({
-			domain: 'ui',
-			type: 'INITIALIZE',
-			payload: {
-				theme: savedTheme,
-				fontSize: savedFontSize,
-				modals: {},
-				toasts: [],
-				offcanvas: {}
-			}
 		});
 
 		// Initialize user state if available
@@ -322,12 +134,6 @@ class StateSync {
 	}
 
 	registerDefaultMethods() {
-
-		// Add UI state subscriptions
-		this.store.subscribe('ui', (state) => {
-			logger.debug('UI state updated:', state);
-		});
-
 		// Register room domain methods with improved state management
 		this.registerMethods('room', {
 			handleRoomInitialization: () => {
@@ -636,70 +442,9 @@ class StateSync {
 				document.querySelectorAll(`[data-domain="${domain}"]`).forEach(el => {
 					jaiPasVu.updateElement(el, domain);
 				});
-
-				// For UI domain, handle UI updates
-				if (domain === 'ui') {
-					this.handleUIUpdate(state);
-				}
 			}
 		} finally {
 			this._isUpdating = false;
-		}
-	}
-
-	/**
-	 * Handle UI state updates and apply necessary changes
-	 */
-	handleUIUpdate(state) {
-		try {
-			// Handle HTMX swap updates
-			if (state.lastSwap) {
-				const { target } = state.lastSwap;
-				if (target) {
-					// Initialize Bootstrap components if needed
-					if (target.querySelector('[data-bs-toggle]')) {
-						this.initializeBootstrapComponents(target);
-					}
-
-					// Update UI elements in the swapped region
-					if (jaiPasVu && jaiPasVu.initialized) {
-						target.querySelectorAll('[data-domain]').forEach(el => {
-							const domain = el.getAttribute('data-domain');
-							jaiPasVu.updateElement(el, domain);
-						});
-					}
-				}
-			}
-
-			// Force update all UI elements to ensure consistency
-			document.querySelectorAll('[data-domain="ui"]').forEach(el => {
-				jaiPasVu.updateElement(el, 'ui');
-			});
-		} catch (error) {
-			logger.error('Error in handleUIUpdate:', error);
-		}
-	}
-
-	/**
-	 * Initialize Bootstrap components in a specific target element
-	 */
-	initializeBootstrapComponents(target = document.body) {
-		try {
-			// Initialize dropdowns
-			const dropdowns = target.querySelectorAll('[data-bs-toggle="dropdown"]');
-			dropdowns.forEach(el => new Dropdown(el));
-
-			// Initialize toasts
-			const toasts = target.querySelectorAll('.toast');
-			toasts.forEach(el => new Toast(el));
-
-			// Initialize offcanvas
-			const offcanvas = target.querySelectorAll('.offcanvas');
-			offcanvas.forEach(el => new Offcanvas(el));
-
-			logger.debug('Bootstrap components initialized for target:', target);
-		} catch (error) {
-			logger.error('Error initializing Bootstrap components:', error);
 		}
 	}
 

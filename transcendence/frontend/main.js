@@ -1,7 +1,7 @@
 import logger from './logger.js';
 import jaiPasVu from './UI/JaiPasVu.js';
-import { plugin as htmxPlugin } from './UI/HTMXPlugin.js';
-import { plugin as uiPlugin } from './UI/theme.js';
+import { htmxPlugin } from './UI/HTMXPlugin.js';
+import { uiPlugin } from './UI/UIPlugin.js';
 import Store from './state/store.js';
 import StateSync from './state/StateSync.js';
 function _initializeErrorHandling() {

@@ -1,5 +1,4 @@
 import logger from '../logger.js';
-import jaiPasVu from './JaiPasVu.js';
 import Store from '../state/store.js';
 import { htmx } from '../vendor.js';
 
@@ -14,8 +13,7 @@ import { htmx } from '../vendor.js';
  * - State synchronization
  */
 
-// HTMX Plugin for JaiPasVu
-const HTMXPlugin = {
+export const htmxPlugin = {
 	name: 'htmx',
 	app: null,
 
@@ -308,78 +306,3 @@ const HTMXPlugin = {
 		}
 	}
 };
-
-export { HTMXPlugin };
-
-// Utility functions
-export function isProcessing() {
-	return jaiPasVu.getState('htmx')?.isProcessing || false;
-}
-
-export function getProcessingClass() {
-	return jaiPasVu.getState('htmx')?.processingClass || 'htmx-processing';
-}
-
-export function getSwapStyle() {
-	return jaiPasVu.getState('htmx')?.swapStyle || 'innerHTML';
-}
-
-export function getActiveRequests() {
-	return jaiPasVu.callMethod('htmx', 'getActiveRequests') || [];
-}
-
-export function cancelRequest(target) {
-	jaiPasVu.callMethod('htmx', 'cancelRequest', target);
-}
-
-// Export service interface
-export const HTMXService = {
-	isProcessing,
-	getProcessingClass,
-	getSwapStyle,
-	getActiveRequests,
-	cancelRequest,
-
-	// State preservation methods
-	preserveState(domain) {
-		jaiPasVu.callMethod('htmx', 'preserveState', domain);
-	},
-
-	restoreState(domain) {
-		jaiPasVu.callMethod('htmx', 'restoreState', domain);
-	},
-
-	// Configuration methods
-	setProcessingClass(className) {
-		jaiPasVu.callMethod('htmx', 'setProcessingClass', className);
-	},
-
-	setSwapStyle(style) {
-		jaiPasVu.callMethod('htmx', 'setSwapStyle', style);
-	},
-
-	// Request helper
-	request(url, options = {}) {
-		const {
-			method = 'get',
-			target = null,
-			swap = getSwapStyle(),
-			values = null,
-			headers = {},
-			domain = 'global'
-		} = options;
-
-		return htmx.ajax(method, url, {
-			target,
-			swap,
-			values,
-			headers: {
-				...headers,
-				'X-Domain': domain
-			}
-		});
-	}
-};
-
-// Export plugin for use in main.js
-export const plugin = HTMXPlugin; 

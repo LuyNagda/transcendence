@@ -82,7 +82,7 @@ export class RoomUIManager {
 			currentUser: this._currentUser || {},
 			mode: (safeRoomState.settings && safeRoomState.settings.mode) || 'AI',
 			maxPlayers: (safeRoomState.settings && safeRoomState.settings.maxPlayers) || 2,
-			pendingInvitations: safeRoomState.invitations || []
+			pendingInvitations: safeRoomState.pendingInvitations || []
 		};
 
 		// Define computed properties
