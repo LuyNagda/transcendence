@@ -3,7 +3,7 @@ import jaiPasVu from './UI/JaiPasVu.js';
 import { plugin as htmxPlugin } from './UI/HTMXPlugin.js';
 import { plugin as uiPlugin } from './UI/theme.js';
 import Store from './state/store.js';
-
+import StateSync from './state/StateSync.js';
 function _initializeErrorHandling() {
 	window.onerror = function (message, source, lineno, colno, error) {
 		logger.error('Global error:', { message, source, lineno, colno, error });
@@ -34,6 +34,8 @@ function initializeApp() {
 		jaiPasVu.use(uiPlugin);
 		jaiPasVu.use(htmxPlugin);
 		jaiPasVu.initialize();
+
+		StateSync.initialize();
 
 		logger.info('Application initialized successfully');
 	} catch (error) {

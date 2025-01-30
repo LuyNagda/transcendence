@@ -26,6 +26,7 @@ export class Room {
 		};
 
 		// Initialize managers
+		logger.info('Initializing room managers');
 		this._initializeManagers();
 		this._setupEventHandlers();
 
@@ -124,9 +125,9 @@ export class Room {
 		}
 	}
 
-	// async leaveGame() {
-		
-	// }
+	async leaveGame() {
+		logger.info('Leaving game');
+	}
 
 	async updateSetting(setting, value) {
 		try {

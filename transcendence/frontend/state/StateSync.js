@@ -4,7 +4,6 @@ import jaiPasVu from '../UI/JaiPasVu.js';
 import { isDeepEqual } from '../utils.js';
 import RoomService from '../room/RoomService.js';
 import ChatApp from '../chat/ChatApp.js';
-import { applyThemeToDOM, applyFontSizeToDOM } from '../UI/theme.js';
 import { Dropdown, Toast, Offcanvas } from '../vendor.js';
 
 /**
@@ -166,8 +165,8 @@ class StateSync {
 			const uiState = this.store.getState('ui') || previousState?.ui;
 			if (uiState) {
 				// Ensure theme and font size are applied
-				if (uiState.theme) applyThemeToDOM(uiState.theme);
-				if (uiState.fontSize) applyFontSizeToDOM(uiState.fontSize);
+				if (uiState.theme) jaiPasVu.callMethod('ui', 'applyTheme', uiState.theme);
+				if (uiState.fontSize) jaiPasVu.callMethod('ui', 'applyFontSize', uiState.fontSize);
 			}
 
 			// Update UI elements
@@ -234,12 +233,22 @@ class StateSync {
 				this._initializeDomain(domain);
 			});
 
-			// Get theme and font size from localStorage
+			// Get theme and font size from localStorage and update UI state
 			const savedTheme = localStorage.getItem('themeLocal') || 'light';
 			const savedFontSize = localStorage.getItem('sizeLocal') || 'small';
 
-			applyThemeToDOM(savedTheme);
-			applyFontSizeToDOM(savedFontSize);
+			// Update UI state through store
+			this.store.dispatch({
+				domain: 'ui',
+				type: actions.ui.UPDATE_THEME,
+				payload: { theme: savedTheme }
+			});
+
+			this.store.dispatch({
+				domain: 'ui',
+				type: actions.ui.UPDATE_FONT_SIZE,
+				payload: { fontSize: savedFontSize }
+			});
 
 			logger.info('StateSync initialized');
 		} catch (error) {
@@ -255,11 +264,6 @@ class StateSync {
 			domain: 'config',
 			type: 'INITIALIZE',
 			payload: config
-		});
-
-		logger.debug('Initializing UI state with theme:', {
-			themeLocal: localStorage.getItem('themeLocal'),
-			sizeLocal: localStorage.getItem('sizeLocal')
 		});
 
 		// Get theme and font size from localStorage
@@ -321,10 +325,7 @@ class StateSync {
 
 		// Add UI state subscriptions
 		this.store.subscribe('ui', (state) => {
-			if (state?.theme)
-				applyThemeToDOM(state.theme);
-			if (state?.fontSize)
-				applyFontSizeToDOM(state.fontSize);
+			logger.debug('UI state updated:', state);
 		});
 
 		// Register room domain methods with improved state management
@@ -651,28 +652,6 @@ class StateSync {
 	 */
 	handleUIUpdate(state) {
 		try {
-			// Apply theme changes
-			if (state.theme) {
-				logger.debug('Applying theme from state:', state.theme);
-				jaiPasVu.callMethod('ui', 'applyTheme', state.theme);
-
-				// Update all UI elements to reflect the new theme
-				document.querySelectorAll('[data-domain="ui"]').forEach(el => {
-					jaiPasVu.updateElement(el, 'ui');
-				});
-			}
-
-			// Apply font size changes
-			if (state.fontSize) {
-				logger.debug('Applying font size from state:', state.fontSize);
-				jaiPasVu.callMethod('ui', 'applyFontSize', state.fontSize);
-
-				// Update all UI elements to reflect the new font size
-				document.querySelectorAll('[data-domain="ui"]').forEach(el => {
-					jaiPasVu.updateElement(el, 'ui');
-				});
-			}
-
 			// Handle HTMX swap updates
 			if (state.lastSwap) {
 				const { target } = state.lastSwap;
@@ -684,8 +663,9 @@ class StateSync {
 
 					// Update UI elements in the swapped region
 					if (jaiPasVu && jaiPasVu.initialized) {
-						target.querySelectorAll('[data-domain="ui"]').forEach(el => {
-							jaiPasVu.updateElement(el, 'ui');
+						target.querySelectorAll('[data-domain]').forEach(el => {
+							const domain = el.getAttribute('data-domain');
+							jaiPasVu.updateElement(el, domain);
 						});
 					}
 				}
