@@ -10,6 +10,8 @@ from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 from .models import PongGame, PongRoom
 from utils.htmx import with_state_update
+from rest_framework.response import Response
+from django.urls import reverse
 
 User = get_user_model()
 
@@ -85,71 +87,88 @@ def game_history(request):
     ).order_by('created_at')
     return render(request, 'pong/game_history.html', {'games': games, 'access_token': access_token, 'refresh_token': refresh_token})
 
-@api_view(['POST'])
+#@api_view(['POST'])
+#@permission_classes([IsAuthenticatedWithCookie])
+#def create_pong_room(request):
+#    try:
+#        # Validate request data
+#        if not request.user.is_authenticated:
+#            return JsonResponse({
+#                'status': 'error',
+#                'message': 'Authentication required'
+#            }, status=401)
+
+#        # Generate room ID and get mode
+#        room_id = str(uuid.uuid4())[:8]
+#        mode = request.data.get('mode', PongRoom.Mode.AI)
+
+#        # Validate mode
+#        if mode not in dict(PongRoom.Mode.choices):
+#            return JsonResponse({
+#                'status': 'error',
+#                'message': f'Invalid game mode: {mode}'
+#            }, status=400)
+
+#        # Create room
+#        room = PongRoom.objects.create(
+#            room_id=room_id,
+#            owner=request.user,
+#            mode=mode
+#        )
+#        room.players.add(request.user)
+
+#        # Log success
+#        logger.info(f"Room created with ID {room_id} by user {request.user.username}")
+
+#        # Prepare response data
+#        room_data = room.serialize()
+#        room_data['currentUser'] = request.user.player_data
+
+#        # Create response with room state in HX-Trigger
+#        response = JsonResponse({
+#            'status': 'success',
+#            'room_id': room.room_id,
+#            'room_data': room_data
+#        })
+        
+#        # Add state update using the new mechanism
+#        return with_state_update(response, 'room', room_data)
+
+#    except PongRoom.DoesNotExist:
+#        logger.error("Room creation failed: Room does not exist")
+#        return JsonResponse({
+#            'status': 'error',
+#            'message': 'Failed to create room'
+#        }, status=404)
+#    except ValueError as e:
+#        logger.error(f"Room creation failed: Invalid value - {str(e)}")
+#        return JsonResponse({
+#            'status': 'error',
+#            'message': str(e)
+#        }, status=400)
+#    except Exception as e:
+#        logger.error(f"Room creation failed: {str(e)}", exc_info=True)
+#        return JsonResponse({
+#            'status': 'error',
+#            'message': 'An unexpected error occurred'
+#        }, status=500)
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def create_pong_room(request):
     try:
-        # Validate request data
-        if not request.user.is_authenticated:
-            return JsonResponse({
-                'status': 'error',
-                'message': 'Authentication required'
-            }, status=401)
-
-        # Generate room ID and get mode
         room_id = str(uuid.uuid4())[:8]
-        mode = request.data.get('mode', PongRoom.Mode.AI)
-
-        # Validate mode
-        if mode not in dict(PongRoom.Mode.choices):
-            return JsonResponse({
-                'status': 'error',
-                'message': f'Invalid game mode: {mode}'
-            }, status=400)
-
-        # Create room
         room = PongRoom.objects.create(
             room_id=room_id,
             owner=request.user,
-            mode=mode
+            mode=PongRoom.Mode.CLASSIC
         )
         room.players.add(request.user)
-
-        # Log success
         logger.info(f"Room created with ID {room_id} by user {request.user.username}")
-
-        # Prepare response data
-        room_data = room.serialize()
-        room_data['currentUser'] = request.user.player_data
-
-        # Create response with room state in HX-Trigger
-        response = JsonResponse({
-            'status': 'success',
-            'room_id': room.room_id,
-            'room_data': room_data
-        })
-        
-        # Add state update using the new mechanism
-        return with_state_update(response, 'room', room_data)
-
-    except PongRoom.DoesNotExist:
-        logger.error("Room creation failed: Room does not exist")
-        return JsonResponse({
-            'status': 'error',
-            'message': 'Failed to create room'
-        }, status=404)
-    except ValueError as e:
-        logger.error(f"Room creation failed: Invalid value - {str(e)}")
-        return JsonResponse({
-            'status': 'error',
-            'message': str(e)
-        }, status=400)
+        return render(request, 'pong/pong.html', {'room_id': room_id, 'room': 'created'})
     except Exception as e:
-        logger.error(f"Room creation failed: {str(e)}", exc_info=True)
-        return JsonResponse({
-            'status': 'error',
-            'message': 'An unexpected error occurred'
-        }, status=500)
+        logger.error(f"Erreur lors de la création de la salle : {str(e)}")
+        logger.error(f"Error creating room for user {request.user.username}")
+        return JsonResponse({'status': 'error'})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])

@@ -26,13 +26,19 @@
                     <li class="list-group-item">Game statistics</li>
                 </ul>
             </section>
-            <section id="cta" class="text-center my-5">
-                <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#cta" hx-swap="innerHTML"
+            <section class="text-center my-5">
+				{% if room == 'created' %}
+				<button id="enter-room-btn" hx-get="{% url 'pong_room' room_id=room_id %}" hx-target="#content"
+					hx-swap="innerHTML" hx-push-url="true" class="btn btn-primary">
+					Enter Room
+				</button>
+				{% else %}
+                <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#content" hx-swap="innerHTML"
                     class="btn btn-primary">
                     Start a Game
                 </button>
+				{% endif %}
             </section>
-            <div id="enter-room"></div>
             <br><br><br><br>
         </main>
     </div>
