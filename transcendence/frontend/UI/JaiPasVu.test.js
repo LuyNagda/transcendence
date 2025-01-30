@@ -336,6 +336,304 @@ describe('JaiPasVu', () => {
 		// 	});
 		// });
 
+		describe('v-bind Directive', () => {
+			test('should bind boolean attributes correctly', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<button v-bind:disabled="isDisabled" id="disabled-btn">Button</button>
+						<input v-bind:readonly="isReadonly" id="readonly-input" />
+						<input v-bind:required="isRequired" id="required-input" />
+					</div>
+				`, 'test');
+				factory.registerData('test', {
+					isDisabled: true,
+					isReadonly: false,
+					isRequired: true
+				});
+				const button = factory.query('#disabled-btn');
+				const readonlyInput = factory.query('#readonly-input');
+				const requiredInput = factory.query('#required-input');
+				expect(button.disabled).toBe(true);
+				expect(readonlyInput.readOnly).toBe(false); // camelCase property name
+				expect(requiredInput.required).toBe(true);
+				factory.registerData('test', {
+					isDisabled: false,
+					isReadonly: true,
+					isRequired: false
+				});
+				expect(button.disabled).toBe(false);
+				expect(readonlyInput.readOnly).toBe(true); // camelCase property name
+				expect(requiredInput.required).toBe(false);
+				expect(button.getAttribute('disabled')).toBe(null);
+				expect(readonlyInput.getAttribute('readonly')).toBe('');
+				expect(requiredInput.getAttribute('required')).toBe(null);
+			});
+
+			test('should handle shorthand v-bind syntax', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<button :disabled="isDisabled" id="shorthand-btn">Button</button>
+					</div>
+				`, 'test');
+				factory.registerData('test', { isDisabled: true });
+				expect(factory.query('#shorthand-btn').disabled).toBe(true);
+				factory.registerData('test', { isDisabled: false });
+				expect(factory.query('#shorthand-btn').disabled).toBe(false);
+			});
+
+			test('should handle expressions in v-bind', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<button v-bind:disabled="count > 5" id="expr-btn">Button</button>
+					</div>
+				`, 'test');
+				factory.registerData('test', { count: 3 });
+				expect(factory.query('#expr-btn').disabled).toBe(false);
+				factory.registerData('test', { count: 7 });
+				expect(factory.query('#expr-btn').disabled).toBe(true);
+			});
+
+			test('should handle multiple bound attributes', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<button 
+							v-bind:disabled="isDisabled"
+							v-bind:class="buttonClass"
+							v-bind:aria-label="ariaLabel"
+							id="multi-bound-btn">
+							Button
+						</button>
+					</div>
+				`, 'test');
+				factory.registerData('test', {
+					isDisabled: true,
+					buttonClass: 'primary',
+					ariaLabel: 'Test Button'
+				});
+				const button = factory.query('#multi-bound-btn');
+				expect(button.disabled).toBe(true);
+				expect(button.getAttribute('class')).toBe('primary');
+				expect(button.getAttribute('aria-label')).toBe('Test Button');
+				factory.registerData('test', {
+					isDisabled: false,
+					buttonClass: 'secondary',
+					ariaLabel: 'Updated Button'
+				});
+				expect(button.disabled).toBe(false);
+				expect(button.getAttribute('class')).toBe('secondary');
+				expect(button.getAttribute('aria-label')).toBe('Updated Button');
+			});
+
+			test('should handle style binding with computed values', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<div class="progress">
+							<div id="progress-bar" class="progress-bar" role="progressbar"
+								v-text="settings.value + '/10'"
+								v-bind:style="getProgressBarStyle(settings.value)">
+							</div>
+						</div>
+					</div>
+				`, 'test');
+
+				const getProgressBarStyle = function (value) {
+					return {
+						width: `${(value / 10) * 100}%`,
+						backgroundColor: value > 7 ? '#28a745' : '#007bff'
+					};
+				};
+
+				// Register methods first
+				jaiPasVu.registerMethods('test', { getProgressBarStyle });
+
+				// Then register data to ensure methods are available during data registration
+				factory.registerData('test', {
+					settings: { value: 8 }
+				});
+
+				const progressBar = factory.query('#progress-bar');
+
+				// Check initial state
+				expect(progressBar.style.width).toBe('80%');
+				expect(progressBar.style.backgroundColor).toBe('rgb(40, 167, 69)'); // #28a745
+				expect(progressBar.textContent).toBe('8/10');
+
+				// Update value and check style changes
+				factory.registerData('test', {
+					settings: { value: 5 }
+				});
+
+				expect(progressBar.style.width).toBe('50%');
+				expect(progressBar.style.backgroundColor).toBe('rgb(0, 123, 255)'); // #007bff
+				expect(progressBar.textContent).toBe('5/10');
+			});
+
+			test('should handle complex game settings template with v-for and conditionals', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<div v-if="room.settings && room.gameStarted">
+							<div class="mb-3" v-for="setting in ['paddleSpeed', 'ballSpeed', 'paddleSize']">
+								<div class="text-muted mb-1">[[setting.replace(/([A-Z])/g, ' $1').trim()]]</div>
+								<div class="progress">
+									<div class="progress-bar" role="progressbar"
+										:style="room.getProgressBarStyle(room.settings[setting])">
+										[[room.settings[setting] + (setting === 'paddleSize' ? '%' : '/10')]]
+									</div>
+								</div>
+							</div>
+
+							<div class="d-flex justify-content-between mb-3">
+								<div>
+									<div class="text-muted mb-1">Points to Win</div>
+									<p class="mb-0 fs-5">[[room.settings.maxScore]] Points</p>
+								</div>
+
+								<div v-if="room.mode === 'AI'">
+									<div class="text-muted mb-1">AI Model</div>
+									<p class="mb-0 fs-5">[[room.settings.aiDifficulty]]</p>
+								</div>
+							</div>
+						</div>
+
+						<div v-if="!room.settings" class="alert alert-warning">Loading settings...</div>
+					</div>
+				`, 'test');
+
+				const getProgressBarStyle = function (value) {
+					return {
+						width: `${value * 10}%`,
+						backgroundColor: value > 7 ? '#28a745' : '#007bff'
+					};
+				};
+
+				// Test case 1: Loading state (no settings)
+				factory.registerData('test', {
+					room: {
+						gameStarted: true,
+						settings: null,
+						getProgressBarStyle
+					}
+				});
+
+				expect(factory.query('.alert-warning')).not.toBe(null);
+				expect(factory.query('.alert-warning').textContent.trim()).toBe('Loading settings...');
+				expect(factory.queryAll('.progress-bar').length).toBe(0);
+
+				// Test case 2: Game not started
+				factory.registerData('test', {
+					room: {
+						gameStarted: false,
+						settings: {
+							paddleSpeed: 7,
+							ballSpeed: 5,
+							paddleSize: 60,
+							maxScore: 10,
+							aiDifficulty: 'Hard'
+						},
+						getProgressBarStyle
+					}
+				});
+
+				expect(factory.query('.alert-warning')).toBe(null);
+				expect(factory.queryAll('.progress-bar').length).toBe(0);
+
+				// Test case 3: Full settings with AI mode
+				factory.registerData('test', {
+					room: {
+						gameStarted: true,
+						mode: 'AI',
+						settings: {
+							paddleSpeed: 7,
+							ballSpeed: 5,
+							paddleSize: 60,
+							maxScore: 10,
+							aiDifficulty: 'Hard'
+						},
+						getProgressBarStyle
+					}
+				});
+
+				// Check progress bars
+				const progressBars = factory.queryAll('.progress-bar');
+				expect(progressBars.length).toBe(3);
+
+				// Check settings labels
+				const settingLabels = factory.queryAll('.text-muted.mb-1');
+				expect(settingLabels[0].textContent).toBe('paddle Speed');
+				expect(settingLabels[1].textContent).toBe('ball Speed');
+				expect(settingLabels[2].textContent).toBe('paddle Size');
+
+				// Check progress bar values and styles
+				expect(progressBars[0].textContent.trim()).toBe('7/10');
+				expect(progressBars[0].style.width).toBe('70%');
+				expect(progressBars[0].style.backgroundColor).toBe('rgb(0, 123, 255)');
+
+				expect(progressBars[1].textContent.trim()).toBe('5/10');
+				expect(progressBars[1].style.width).toBe('50%');
+				expect(progressBars[1].style.backgroundColor).toBe('rgb(0, 123, 255)');
+
+				expect(progressBars[2].textContent.trim()).toBe('60%');
+				expect(progressBars[2].style.width).toBe('600%');
+				expect(progressBars[2].style.backgroundColor).toBe('rgb(40, 167, 69)');
+
+				// Check points and AI info
+				expect(factory.query('.mb-0.fs-5').textContent).toBe('10 Points');
+				expect(factory.queryAll('.mb-0.fs-5')[1].textContent).toBe('Hard');
+
+				// Test case 4: Non-AI mode
+				factory.registerData('test', {
+					room: {
+						gameStarted: true,
+						mode: 'PVP',
+						settings: {
+							paddleSpeed: 7,
+							ballSpeed: 5,
+							paddleSize: 60,
+							maxScore: 10,
+							aiDifficulty: 'Hard'
+						},
+						getProgressBarStyle
+					}
+				});
+
+				// Should still show progress bars
+				expect(factory.queryAll('.progress-bar').length).toBe(3);
+				// But no AI difficulty info
+				expect(factory.queryAll('.mb-0.fs-5').length).toBe(1);
+				expect(factory.queryAll('.mb-0.fs-5')[0].textContent).toBe('10 Points');
+
+				// Test case 5: Different settings values
+				factory.registerData('test', {
+					room: {
+						gameStarted: true,
+						mode: 'PVP',
+						settings: {
+							paddleSpeed: 9,
+							ballSpeed: 3,
+							paddleSize: 40,
+							maxScore: 5
+						},
+						getProgressBarStyle
+					}
+				});
+
+				const updatedBars = factory.queryAll('.progress-bar');
+				expect(updatedBars[0].textContent.trim()).toBe('9/10');
+				expect(updatedBars[0].style.width).toBe('90%');
+				expect(updatedBars[0].style.backgroundColor).toBe('rgb(40, 167, 69)');
+
+				expect(updatedBars[1].textContent.trim()).toBe('3/10');
+				expect(updatedBars[1].style.width).toBe('30%');
+				expect(updatedBars[1].style.backgroundColor).toBe('rgb(0, 123, 255)');
+
+				expect(updatedBars[2].textContent.trim()).toBe('40%');
+				expect(updatedBars[2].style.width).toBe('400%');
+				expect(updatedBars[2].style.backgroundColor).toBe('rgb(0, 123, 255)');
+
+				expect(factory.query('.mb-0.fs-5').textContent).toBe('5 Points');
+			});
+		});
+
 		describe('v-model Directive', () => {
 			test('should bind checkbox state', () => {
 				factory.loadTemplate(`
@@ -376,6 +674,61 @@ describe('JaiPasVu', () => {
 				factory.registerData('test', { text: 'updated' });
 				expect(input.value).toBe('updated');
 			});
+		});
+	});
+
+	describe('Button Functionality', () => {
+		beforeEach(() => {
+			factory.loadTemplate(`
+				<div data-domain="test">
+					<button id="startGameBtn" type="button" class="btn btn-primary" aria-label="Start the game"
+						v-bind:disabled="startGameInProgress" v-text="buttonText">
+						Start
+					</button>
+				</div>
+			`, 'test');
+		});
+
+		test('should update button text reactively', () => {
+			factory.registerData('test', { buttonText: 'Start Game', startGameInProgress: false });
+			const button = factory.query('#startGameBtn');
+			expect(button.textContent).toBe('Start Game');
+			factory.registerData('test', { buttonText: 'Starting...', startGameInProgress: true });
+			expect(button.textContent).toBe('Starting...');
+		});
+
+		test('should bind disabled state correctly', () => {
+			factory.registerData('test', { buttonText: 'Start', startGameInProgress: false });
+			const button = factory.query('#startGameBtn');
+			expect(button.disabled).toBe(false);
+			factory.registerData('test', { buttonText: 'Start', startGameInProgress: true });
+			expect(button.disabled).toBe(true);
+		});
+
+		test('should handle multiple reactive updates', () => {
+			factory.registerData('test', { buttonText: 'Start', startGameInProgress: false });
+			const button = factory.query('#startGameBtn');
+			expect(button.textContent).toBe('Start');
+			expect(button.disabled).toBe(false);
+			factory.registerData('test', { buttonText: 'Starting...', startGameInProgress: true });
+			expect(button.textContent).toBe('Starting...');
+			expect(button.disabled).toBe(true);
+			factory.registerData('test', { buttonText: 'Start', startGameInProgress: false });
+			expect(button.textContent).toBe('Start');
+			expect(button.disabled).toBe(false);
+		});
+
+		test('should preserve other attributes while updating bound ones', () => {
+			factory.registerData('test', { buttonText: 'Start', startGameInProgress: false });
+			const button = factory.query('#startGameBtn');
+			expect(button.getAttribute('type')).toBe('button');
+			expect(button.getAttribute('class')).toBe('btn btn-primary');
+			expect(button.getAttribute('aria-label')).toBe('Start the game');
+			// Update bound attributes
+			factory.registerData('test', { buttonText: 'Starting...', startGameInProgress: true });
+			expect(button.getAttribute('type')).toBe('button');
+			expect(button.getAttribute('class')).toBe('btn btn-primary');
+			expect(button.getAttribute('aria-label')).toBe('Start the game');
 		});
 	});
 

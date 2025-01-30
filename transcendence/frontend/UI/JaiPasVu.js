@@ -623,6 +623,16 @@ class JaiPasVu {
     }
 
     processVBind(el, context) {
+        // Map of HTML attribute names to DOM property names
+        const PROPERTY_MAP = {
+            'readonly': 'readOnly',
+            'class': 'className',
+            'for': 'htmlFor',
+            'maxlength': 'maxLength',
+            'minlength': 'minLength',
+            'tabindex': 'tabIndex'
+        };
+
         Array.from(el.attributes).forEach(attr => {
             if (attr.name.startsWith('v-bind:') || attr.name.startsWith(':')) {
                 const prop = attr.name.split(':')[1];
@@ -632,7 +642,12 @@ class JaiPasVu {
                     try {
                         ReactiveEffect.push(effect);
                         const value = this.evaluateExpression(expression, context);
-                        if (prop === 'style' && typeof value === 'object') {
+                        const propertyName = PROPERTY_MAP[prop] || prop;
+                        if (typeof value === 'boolean' && (propertyName in el || prop in el)) {
+                            // Use the mapped property name if it exists on the element, or fall back to the original prop name
+                            const targetProp = (propertyName in el) ? propertyName : prop;
+                            el[targetProp] = value;
+                        } else if (prop === 'style' && typeof value === 'object') {
                             Object.assign(el.style, value);
                         } else {
                             el.setAttribute(prop, value);
