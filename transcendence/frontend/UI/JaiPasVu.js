@@ -1,5 +1,5 @@
 /**
- * JavaisPasVu - A lightweight reactive UI framework
+ * JaiPasVu - A lightweight reactive UI framework
  * 
  * A standalone library providing Vue-like features:
  * - Reactive data binding
@@ -71,10 +71,10 @@ function reactive(obj) {
     });
 }
 
-class JavaisPasVu {
+class JaiPasVu {
     constructor() {
-        if (JavaisPasVu.instance) {
-            return JavaisPasVu.instance;
+        if (JaiPasVu.instance) {
+            return JaiPasVu.instance;
         }
 
         this.initialized = false;
@@ -95,7 +95,7 @@ class JavaisPasVu {
             afterCompile: new Set()
         };
 
-        JavaisPasVu.instance = this;
+        JaiPasVu.instance = this;
     }
 
     // Plugin system
@@ -149,7 +149,7 @@ class JavaisPasVu {
 
     initialize(root = document.body) {
         if (this.initialized) {
-            logger.warn("JavaisPasVu is already initialized");
+            logger.warn("JaiPasVu is already initialized");
             return this;
         }
 
@@ -793,4 +793,4 @@ class JavaisPasVu {
 }
 
 // Export a singleton instance
-export default new JavaisPasVu();
+export default new JaiPasVu();

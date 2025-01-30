@@ -1,4 +1,4 @@
-import javaisPasVu from '../UI/JavaisPasVu.js';
+import jaiPasVu from '../UI/JaiPasVu.js';
 import logger from '../logger.js';
 import { RoomStates, RoomModes } from '../state/roomState.js';
 import Store from '../state/store.js';
@@ -19,8 +19,8 @@ export class RoomUIManager {
 			showInviteModal: false
 		};
 
-		if (!javaisPasVu.initialized)
-			javaisPasVu.initialize(document.body);
+		if (!jaiPasVu.initialized)
+			jaiPasVu.initialize(document.body);
 
 		// Initialize room state and UI
 		this._initializeRoomState();
@@ -64,7 +64,7 @@ export class RoomUIManager {
 
 	_processRoomState(roomState, methods = {}) {
 		// Get existing methods to preserve them
-		const existingMethods = javaisPasVu.methods.get('room') || {};
+		const existingMethods = jaiPasVu.methods.get('room') || {};
 
 		// Ensure roomState is not null/undefined
 		const safeRoomState = roomState || {};
@@ -112,8 +112,8 @@ export class RoomUIManager {
 			}
 		};
 
-		// Register data and computed properties with JavaisPasVu
-		javaisPasVu.registerData('room', {
+		// Register data and computed properties with JaiPasVu
+		jaiPasVu.registerData('room', {
 			...baseState,
 			...methods,
 			...existingMethods
@@ -129,12 +129,12 @@ export class RoomUIManager {
 	// UI State Management
 	_setActiveTab(tab) {
 		this._uiState.activeTab = tab;
-		javaisPasVu.setDataValue('room', 'activeTab', tab);
+		jaiPasVu.setDataValue('room', 'activeTab', tab);
 	}
 
 	_toggleInviteModal() {
 		this._uiState.showInviteModal = !this._uiState.showInviteModal;
-		javaisPasVu.setDataValue('room', 'showInviteModal', this._uiState.showInviteModal);
+		jaiPasVu.setDataValue('room', 'showInviteModal', this._uiState.showInviteModal);
 	}
 
 	// Game Container Management
@@ -218,11 +218,11 @@ export class RoomUIManager {
 		this._store.subscribe('user', (state, type) => {
 			logger.debug('User state updated:', state);
 			this._currentUser = state;
-			javaisPasVu.registerData('user', state);
+			jaiPasVu.registerData('user', state);
 
 			// Force update all user elements
 			document.querySelectorAll('[data-domain="user"]').forEach(el => {
-				javaisPasVu.updateElement(el, 'user');
+				jaiPasVu.updateElement(el, 'user');
 			});
 
 			// Re-process room state since it depends on user data

@@ -1,5 +1,5 @@
 import logger from './logger.js';
-import javaisPasVu from './UI/JavaisPasVu.js';
+import jaiPasVu from './UI/JaiPasVu.js';
 import { plugin as htmxPlugin } from './UI/HTMXPlugin.js';
 import { plugin as uiPlugin } from './UI/theme.js';
 import { initializeThemeAndFontSize } from './UI/theme.js';
@@ -16,7 +16,6 @@ function _initializeErrorHandling() {
 	});
 }
 
-// Initialize application
 function initializeApp() {
 	try {
 		const configElement = document.getElementById('app-config');
@@ -33,14 +32,9 @@ function initializeApp() {
 		// Initialize store
 		Store.getInstance();
 
-		// Initialize JavaisPasVu
-		javaisPasVu.initialize();
-
-		// Install plugins in correct order
-		javaisPasVu.use(uiPlugin);
-		javaisPasVu.use(htmxPlugin);
-
-		// Initialize theme and font size
+		jaiPasVu.initialize();
+		jaiPasVu.use(uiPlugin);
+		jaiPasVu.use(htmxPlugin);
 		initializeThemeAndFontSize();
 
 		logger.info('Application initialized successfully');

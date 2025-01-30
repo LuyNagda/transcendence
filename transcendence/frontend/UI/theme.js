@@ -1,7 +1,7 @@
 import Store, { actions } from '../state/store.js';
 import logger from '../logger.js';
 import { UI_THEME, UI_FONT_SIZE } from '../state/uiState.js';
-import javaisPasVu from './JavaisPasVu.js';
+import jaiPasVu from './JaiPasVu.js';
 
 // Extracted updateTheme function for external use
 function updateTheme(theme) {
@@ -96,7 +96,7 @@ function updateFontSize(fontSize) {
 	});
 }
 
-// UI Plugin for JavaisPasVu
+// UI Plugin for JaiPasVu
 const UIPlugin = {
 	name: 'ui',
 	install(app) {
@@ -137,7 +137,7 @@ const UIPlugin = {
 				}
 			});
 
-			// Register initial state with JavaisPasVu
+			// Register initial state with JaiPasVu
 			app.registerData('ui', {
 				theme,
 				fontSize,

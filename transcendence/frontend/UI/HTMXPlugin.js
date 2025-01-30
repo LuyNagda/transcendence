@@ -1,10 +1,10 @@
 import logger from '../logger.js';
-import javaisPasVu from './JavaisPasVu.js';
+import jaiPasVu from './JaiPasVu.js';
 import Store from '../state/store.js';
 import { htmx } from '../vendor.js';
 
 /**
- * HTMXService - Integrates HTMX with JavaisPasVu and StateSync
+ * HTMXService - Integrates HTMX with JaiPasVu and StateSync
  * 
  * Features:
  * - Request processing and tracking
@@ -14,7 +14,7 @@ import { htmx } from '../vendor.js';
  * - State synchronization
  */
 
-// HTMX Plugin for JavaisPasVu
+// HTMX Plugin for JaiPasVu
 const HTMXPlugin = {
 	name: 'htmx',
 	install(app) {
@@ -24,20 +24,20 @@ const HTMXPlugin = {
 		htmx.config.historyCacheSize = 10;
 
 		// Initialize UI state from localStorage
-		const store = Store.getInstance();
-		const savedState = localStorage.getItem('ui_state');
-		if (savedState) {
-			try {
-				const uiState = JSON.parse(savedState);
-				store.dispatch({
-					domain: 'ui',
-					type: 'INITIALIZE',
-					payload: uiState
-				});
-			} catch (error) {
-				logger.error('Error initializing UI state:', error);
-			}
-		}
+		// const store = Store.getInstance();
+		// const savedState = localStorage.getItem('ui_state');
+		// if (savedState) {
+		// 	try {
+		// 		const uiState = JSON.parse(savedState);
+		// 		store.dispatch({
+		// 			domain: 'ui',
+		// 			type: 'INITIALIZE',
+		// 			payload: uiState
+		// 		});
+		// 	} catch (error) {
+		// 		logger.error('Error initializing UI state:', error);
+		// 	}
+		// }
 
 		// Register HTMX state
 		app.registerData('htmx', {
@@ -190,10 +190,35 @@ const HTMXPlugin = {
 					sessionStorage.removeItem('ui_state');
 				}
 
+				// First process state updates from server
 				this.processStateUpdates(app, event.detail);
+
+				// Then recompile the swapped element and its children
 				app.compileElement(target);
+
+				// Ensure any new HTMX elements are properly initialized
+				htmx.process(target);
 			}
 			app.emit('htmx:afterSwap', event);
+		});
+
+		// Add mutation observer to handle dynamically added HTMX elements
+		const observer = new MutationObserver((mutations) => {
+			mutations.forEach(mutation => {
+				mutation.addedNodes.forEach(node => {
+					if (node.nodeType === 1) { // Element node
+						if (node.hasAttribute('hx-get') || node.hasAttribute('hx-post')) {
+							app.compileElement(node);
+							htmx.process(node);
+						}
+					}
+				});
+			});
+		});
+
+		observer.observe(document.body, {
+			childList: true,
+			subtree: true
 		});
 
 		document.body.addEventListener('htmx:responseError', (event) => {
@@ -225,15 +250,20 @@ const HTMXPlugin = {
 		if (triggerHeader) {
 			try {
 				const triggers = JSON.parse(triggerHeader);
-				if (triggers.stateUpdate) {
-					const { domain, state } = triggers.stateUpdate;
-					store.dispatch({
-						domain,
-						type: 'UPDATE_FROM_SERVER',
-						payload: state
-					});
-					app.registerData(domain, state);
-				}
+				Object.entries(triggers).forEach(([key, value]) => {
+					if (key === 'stateUpdate') {
+						const { domain, state } = value;
+						store.dispatch({
+							domain,
+							type: 'UPDATE_FROM_SERVER',
+							payload: state
+						});
+						app.registerData(domain, state);
+					} else {
+						// Handle other custom triggers
+						app.emit(`htmx:trigger:${key}`, value);
+					}
+				});
 			} catch (error) {
 				logger.error('Error processing HX-Trigger header:', error);
 			}
@@ -263,23 +293,23 @@ export { HTMXPlugin };
 
 // Utility functions
 export function isProcessing() {
-	return javaisPasVu.getState('htmx')?.isProcessing || false;
+	return jaiPasVu.getState('htmx')?.isProcessing || false;
 }
 
 export function getProcessingClass() {
-	return javaisPasVu.getState('htmx')?.processingClass || 'htmx-processing';
+	return jaiPasVu.getState('htmx')?.processingClass || 'htmx-processing';
 }
 
 export function getSwapStyle() {
-	return javaisPasVu.getState('htmx')?.swapStyle || 'innerHTML';
+	return jaiPasVu.getState('htmx')?.swapStyle || 'innerHTML';
 }
 
 export function getActiveRequests() {
-	return javaisPasVu.callMethod('htmx', 'getActiveRequests') || [];
+	return jaiPasVu.callMethod('htmx', 'getActiveRequests') || [];
 }
 
 export function cancelRequest(target) {
-	javaisPasVu.callMethod('htmx', 'cancelRequest', target);
+	jaiPasVu.callMethod('htmx', 'cancelRequest', target);
 }
 
 // Export service interface
@@ -292,20 +322,20 @@ export const HTMXService = {
 
 	// State preservation methods
 	preserveState(domain) {
-		javaisPasVu.callMethod('htmx', 'preserveState', domain);
+		jaiPasVu.callMethod('htmx', 'preserveState', domain);
 	},
 
 	restoreState(domain) {
-		javaisPasVu.callMethod('htmx', 'restoreState', domain);
+		jaiPasVu.callMethod('htmx', 'restoreState', domain);
 	},
 
 	// Configuration methods
 	setProcessingClass(className) {
-		javaisPasVu.callMethod('htmx', 'setProcessingClass', className);
+		jaiPasVu.callMethod('htmx', 'setProcessingClass', className);
 	},
 
 	setSwapStyle(style) {
-		javaisPasVu.callMethod('htmx', 'setSwapStyle', style);
+		jaiPasVu.callMethod('htmx', 'setSwapStyle', style);
 	},
 
 	// Request helper

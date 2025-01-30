@@ -1,5 +1,5 @@
 import { jest, describe, test, expect, beforeEach, afterEach } from '@jest/globals';
-import { JavaisPasVuTestFactory } from '../../JavaisPasVuTestFactory.js';
+import { JaiPasVuTestFactory } from '../../JaiPasVuTestFactory.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -8,7 +8,7 @@ describe('Profile Template', () => {
 	const TEMPLATES_DIR = path.resolve(process.cwd(), 'templates');
 
 	beforeEach(() => {
-		factory = new JavaisPasVuTestFactory();
+		factory = new JaiPasVuTestFactory();
 		factory.setup();
 
 		// Load profile template

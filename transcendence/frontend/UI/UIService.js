@@ -2,7 +2,7 @@ import logger from '../logger.js';
 import { Modal, Dropdown, Toast, Offcanvas } from '../vendor.js';
 import Store, { actions } from '../state/store.js';
 import { UI_THEME, UI_FONT_SIZE, uiValidators } from '../state/uiState.js';
-import javaisPasVu from './JavaisPasVu.js';
+import jaiPasVu from './JaiPasVu.js';
 
 export const AlertTypes = {
 	SUCCESS: 'success',
@@ -13,7 +13,7 @@ export const AlertTypes = {
 
 export const UIService = {
 	store: null,
-	javaisPasVu: javaisPasVu,
+	jaiPasVu: jaiPasVu,
 
 	initialize() {
 		this.store = Store.getInstance();
@@ -96,25 +96,25 @@ export const UIService = {
 
 	// UI State Getters
 	getTheme() {
-		return this.javaisPasVu.getState('ui')?.theme || UI_THEME.LIGHT;
+		return this.jaiPasVu.getState('ui')?.theme || UI_THEME.LIGHT;
 	},
 
 	getFontSize() {
-		return this.javaisPasVu.getState('ui')?.fontSize || UI_FONT_SIZE.SMALL;
+		return this.jaiPasVu.getState('ui')?.fontSize || UI_FONT_SIZE.SMALL;
 	},
 
 	// UI State Actions
 	updateTheme(theme) {
-		this.javaisPasVu.callMethod('ui', 'updateTheme', theme);
+		this.jaiPasVu.callMethod('ui', 'updateTheme', theme);
 	},
 
 	updateFontSize(fontSize) {
-		this.javaisPasVu.callMethod('ui', 'updateFontSize', fontSize);
+		this.jaiPasVu.callMethod('ui', 'updateFontSize', fontSize);
 	},
 
 	createModal(options = {}) {
 		const modalId = `modal-${Date.now()}`;
-		this.javaisPasVu.callMethod('ui', 'showModal', {
+		this.jaiPasVu.callMethod('ui', 'showModal', {
 			id: modalId,
 			title: options.title || '',
 			body: options.body || '',
@@ -123,13 +123,13 @@ export const UIService = {
 			onClose: options.onClose
 		});
 		return {
-			hide: () => this.javaisPasVu.callMethod('ui', 'hideModal', modalId)
+			hide: () => this.jaiPasVu.callMethod('ui', 'hideModal', modalId)
 		};
 	},
 
 	showAlert(type, message, options = {}) {
 		logger.debug("Showing toast alert:", type, message);
-		this.javaisPasVu.callMethod('ui', 'showToast', {
+		this.jaiPasVu.callMethod('ui', 'showToast', {
 			type,
 			message,
 			autohide: options.autohide ?? true,

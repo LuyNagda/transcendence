@@ -1,12 +1,12 @@
 import { jest } from '@jest/globals';
-import { JavaisPasVuTestFactory } from './JavaisPasVuTestFactory';
-import javaisPasVu from './JavaisPasVu';
+import { JaiPasVuTestFactory } from './JaiPasVuTestFactory';
+import jaiPasVu from './JaiPasVu';
 
-describe('JavaisPasVuTestFactory', () => {
+describe('JaiPasVuTestFactory', () => {
 	let factory;
 
 	beforeEach(() => {
-		factory = new JavaisPasVuTestFactory();
+		factory = new JaiPasVuTestFactory();
 	});
 
 	afterEach(() => {
@@ -19,7 +19,7 @@ describe('JavaisPasVuTestFactory', () => {
 
 			expect(factory.container).toBeTruthy();
 			expect(factory.container.parentNode).toBe(document.body);
-			expect(javaisPasVu.initialized).toBe(true);
+			expect(jaiPasVu.initialized).toBe(true);
 		});
 
 		test('cleanup should remove container and reset state', () => {
@@ -28,7 +28,7 @@ describe('JavaisPasVuTestFactory', () => {
 
 			expect(factory.container).toBeNull();
 			expect(document.body.contains(factory.container)).toBe(false);
-			expect(javaisPasVu.initialized).toBe(false);
+			expect(jaiPasVu.initialized).toBe(false);
 		});
 	});
 
@@ -193,7 +193,7 @@ describe('JavaisPasVuTestFactory', () => {
 			factory.registerMockPlugin('testPlugin', mockPlugin);
 
 			expect(factory._mockPlugins.has('testPlugin')).toBe(true);
-			expect(mockPlugin.install).toHaveBeenCalledWith(factory.javaisPasVu, expect.any(Object));
+			expect(mockPlugin.install).toHaveBeenCalledWith(factory.jaiPasVu, expect.any(Object));
 		});
 
 		test('should register mock hook', () => {
@@ -201,7 +201,7 @@ describe('JavaisPasVuTestFactory', () => {
 			const unsubscribe = factory.registerMockHook('beforeCompile', mockCallback);
 
 			// Manually emit the hook event to test the callback
-			factory.javaisPasVu.emit('beforeCompile', document.createElement('div'));
+			factory.jaiPasVu.emit('beforeCompile', document.createElement('div'));
 
 			expect(mockCallback).toHaveBeenCalled();
 			expect(typeof unsubscribe).toBe('function');

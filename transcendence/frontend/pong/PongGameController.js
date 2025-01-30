@@ -1,5 +1,5 @@
 import logger from '../logger.js';
-import javaisPasVu from '../UI/JavaisPasVu.js';
+import jaiPasVu from '../UI/JaiPasVu.js';
 import Store, { actions } from '../state/store.js';
 
 import { GameEngine } from './core/GameEngine';
@@ -126,8 +126,8 @@ class BasePongGameController {
 			}
 		});
 
-		// Initialize settings with JavaisPasVu
-		javaisPasVu.addObservedObject('gameSettings', {
+		// Initialize settings with JaiPasVu
+		jaiPasVu.addObservedObject('gameSettings', {
 			...validatedSettings,
 			handleSettingChange: (setting, value) => {
 				this.updateSettings({ [setting]: value });

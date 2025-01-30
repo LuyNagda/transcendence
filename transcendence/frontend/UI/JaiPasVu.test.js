@@ -1,12 +1,12 @@
 import { jest, describe, test, expect, beforeEach, afterEach, beforeAll, afterAll } from '@jest/globals';
-import { JavaisPasVuTestFactory } from './JavaisPasVuTestFactory.js';
-import javaisPasVu from './JavaisPasVu.js';
+import { JaiPasVuTestFactory } from './JaiPasVuTestFactory.js';
+import jaiPasVu from './JaiPasVu.js';
 
-describe('JavaisPasVu', () => {
+describe('JaiPasVu', () => {
 	let factory;
 
 	beforeEach(() => {
-		factory = new JavaisPasVuTestFactory();
+		factory = new JaiPasVuTestFactory();
 		factory.setup();
 	});
 
@@ -16,19 +16,19 @@ describe('JavaisPasVu', () => {
 
 	describe('Core Framework Setup', () => {
 		test('should initialize framework correctly', () => {
-			expect(factory.javaisPasVu.initialized).toBe(true);
-			expect(factory.javaisPasVu.root).toBeDefined();
-			expect(factory.javaisPasVu.domains).toBeDefined();
-			expect(factory.javaisPasVu.updateQueue).toBeDefined();
+			expect(factory.jaiPasVu.initialized).toBe(true);
+			expect(factory.jaiPasVu.root).toBeDefined();
+			expect(factory.jaiPasVu.domains).toBeDefined();
+			expect(factory.jaiPasVu.updateQueue).toBeDefined();
 		});
 
 		test('should prevent multiple initializations', () => {
-			factory.javaisPasVu.initialize(document.body);
-			expect(global.consoleMocks.warn).toHaveBeenCalledWith('[WARN] JavaisPasVu is already initialized');
+			factory.jaiPasVu.initialize(document.body);
+			expect(global.consoleMocks.warn).toHaveBeenCalledWith('[WARN] JaiPasVu is already initialized');
 		});
 
 		test('should setup core hooks', () => {
-			const hooks = factory.javaisPasVu.hooks;
+			const hooks = factory.jaiPasVu.hooks;
 			expect(hooks.beforeMount).toBeDefined();
 			expect(hooks.mounted).toBeDefined();
 			expect(hooks.beforeUpdate).toBeDefined();
@@ -42,20 +42,20 @@ describe('JavaisPasVu', () => {
 		test('should emit initialization lifecycle events', () => {
 			const beforeMount = jest.fn();
 			const mounted = jest.fn();
-			const newFactory = new JavaisPasVuTestFactory();
+			const newFactory = new JaiPasVuTestFactory();
 
 			// Reset the singleton instance state
-			javaisPasVu.initialized = false;
-			javaisPasVu.root = null;
+			jaiPasVu.initialized = false;
+			jaiPasVu.root = null;
 
 			// Register hooks
-			javaisPasVu.on('beforeMount', beforeMount);
-			javaisPasVu.on('mounted', mounted);
+			jaiPasVu.on('beforeMount', beforeMount);
+			jaiPasVu.on('mounted', mounted);
 
 			// Initialize
 			newFactory.container = document.createElement('div');
 			document.body.appendChild(newFactory.container);
-			javaisPasVu.initialize(newFactory.container);
+			jaiPasVu.initialize(newFactory.container);
 
 			expect(beforeMount).toHaveBeenCalled();
 			expect(mounted).toHaveBeenCalled();
@@ -72,7 +72,7 @@ describe('JavaisPasVu', () => {
 			};
 
 			factory.registerMockPlugin('test-plugin', mockPlugin);
-			expect(mockPlugin.install).toHaveBeenCalledWith(factory.javaisPasVu, {});
+			expect(mockPlugin.install).toHaveBeenCalledWith(factory.jaiPasVu, {});
 		});
 
 		test('should prevent duplicate plugin registration', () => {
@@ -82,7 +82,7 @@ describe('JavaisPasVu', () => {
 			};
 
 			factory.registerMockPlugin('test-plugin', mockPlugin);
-			factory.javaisPasVu.use(mockPlugin);
+			factory.jaiPasVu.use(mockPlugin);
 
 			expect(global.consoleMocks.warn).toHaveBeenCalledWith('[WARN] Plugin test-plugin is already installed');
 		});
@@ -93,7 +93,7 @@ describe('JavaisPasVu', () => {
 				install: () => { throw new Error('Installation failed'); }
 			};
 
-			factory.javaisPasVu.use(mockPlugin);
+			factory.jaiPasVu.use(mockPlugin);
 			expect(global.consoleMocks.error).toHaveBeenCalledWith(
 				'[ERROR] Failed to install plugin error-plugin:',
 				expect.any(Error)
@@ -105,8 +105,8 @@ describe('JavaisPasVu', () => {
 			const beforeCompileCallback = () => sequence.push('beforeCompile');
 			const afterCompileCallback = () => sequence.push('afterCompile');
 
-			factory.javaisPasVu.on('beforeCompile', beforeCompileCallback);
-			factory.javaisPasVu.on('afterCompile', afterCompileCallback);
+			factory.jaiPasVu.on('beforeCompile', beforeCompileCallback);
+			factory.jaiPasVu.on('afterCompile', afterCompileCallback);
 
 			factory.loadTemplate('<div data-domain="test">Test</div>', 'test');
 			factory.registerData('test', { show: true });
@@ -123,7 +123,7 @@ describe('JavaisPasVu', () => {
 
 		test('should allow hook unsubscription', () => {
 			const callback = jest.fn();
-			const unsubscribe = factory.javaisPasVu.on('beforeCompile', callback);
+			const unsubscribe = factory.jaiPasVu.on('beforeCompile', callback);
 
 			unsubscribe();
 			factory.loadTemplate('<div>Test</div>', 'test');
@@ -338,7 +338,7 @@ describe('JavaisPasVu', () => {
 			};
 
 			factory.registerData('test', {});
-			javaisPasVu.registerComputed('test', computedProps);
+			jaiPasVu.registerComputed('test', computedProps);
 
 			expect(global.consoleMocks.error).toHaveBeenCalledWith(
 				'[ERROR] Computed property invalidComputed must be a function'
@@ -452,7 +452,7 @@ describe('JavaisPasVu', () => {
 				formatNumber: (num) => `Number: ${num}`
 			};
 
-			javaisPasVu.registerMethods('test', methods);
+			jaiPasVu.registerMethods('test', methods);
 			factory.registerData('test', {});
 
 			expect(factory.getTextContent('span')[0]).toBe('Hello from method!');
@@ -476,7 +476,7 @@ describe('JavaisPasVu', () => {
 			const increment = jest.fn();
 			const decrement = jest.fn();
 
-			javaisPasVu.registerMethods('test', { increment, decrement });
+			jaiPasVu.registerMethods('test', { increment, decrement });
 			factory.registerData('test', { count: 0 });
 
 			factory.query('#click-btn').click();
@@ -490,7 +490,7 @@ describe('JavaisPasVu', () => {
 			const updateValue = jest.fn();
 			const updateChecked = jest.fn();
 
-			javaisPasVu.registerMethods('test', { updateValue, updateChecked });
+			jaiPasVu.registerMethods('test', { updateValue, updateChecked });
 			factory.registerData('test', { value: '', checked: false });
 
 			const input = factory.query('#input-event');
@@ -509,7 +509,7 @@ describe('JavaisPasVu', () => {
 		});
 
 		test('should handle errors in event handlers gracefully', () => {
-			javaisPasVu.registerMethods('test', {
+			jaiPasVu.registerMethods('test', {
 				increment: () => { throw new Error('Test error'); }
 			});
 			factory.registerData('test', { count: 0 });
@@ -528,7 +528,7 @@ describe('JavaisPasVu', () => {
 			`, 'test');
 
 			const multiArg = jest.fn();
-			javaisPasVu.registerMethods('test', { multiArg });
+			jaiPasVu.registerMethods('test', { multiArg });
 			factory.registerData('test', {});
 
 			factory.query('#multi-arg-btn').click();
@@ -543,7 +543,7 @@ describe('JavaisPasVu', () => {
 			`, 'test');
 
 			const handleClick = jest.fn();
-			javaisPasVu.registerMethods('test', { handleClick });
+			jaiPasVu.registerMethods('test', { handleClick });
 			factory.registerData('test', {});
 
 			factory.query('#shorthand-method-btn').click();

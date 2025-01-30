@@ -1,4 +1,4 @@
-import { JavaisPasVuTestFactory } from '../../JavaisPasVuTestFactory.js';
+import { JaiPasVuTestFactory } from '../../JaiPasVuTestFactory.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -7,7 +7,7 @@ describe('Pong Room Templates', () => {
 	const TEMPLATES_DIR = path.resolve(process.cwd(), 'templates');
 
 	beforeEach(() => {
-		factory = new JavaisPasVuTestFactory();
+		factory = new JaiPasVuTestFactory();
 		factory.setup();
 
 		// Register all pong room related templates

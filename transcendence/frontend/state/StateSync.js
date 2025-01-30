@@ -1,6 +1,6 @@
 import Store, { actions } from './store.js';
 import logger from '../logger.js';
-import javaisPasVu from '../UI/JavaisPasVu.js';
+import jaiPasVu from '../UI/JaiPasVu.js';
 import { isDeepEqual } from '../utils.js';
 import RoomService from '../room/RoomService.js';
 import ChatApp from '../chat/ChatApp.js';
@@ -11,7 +11,7 @@ import { Dropdown, Toast, Offcanvas } from '../vendor.js';
  * StateSync - Coordinates state changes between different state management systems
  * 
  * Responsibilities:
- * - Syncs store state with JavaisPasVu UI framework
+ * - Syncs store state with JaiPasVu UI framework
  * - Manages state observers and updates
  * - Coordinates domain-specific state management
  */
@@ -35,40 +35,40 @@ class StateSync {
 		this.domainMethods = new Map();
 
 		// Set up HTMX state update handling
-		this.setupHTMXStateHandling();
+		// this.setupHTMXStateHandling();
 
 		StateSync.#instance = this;
 	}
 
 	/**
-	 * Set up HTMX state update handling through JavaisPasVu
+	 * Set up HTMX state update handling through JaiPasVu
 	 */
-	setupHTMXStateHandling() {
-		javaisPasVu.on('htmx:afterSettle', (event) => {
-			this.handleServerUpdate(event);
-		});
+	// setupHTMXStateHandling() {
+	// 	jaiPasVu.on('htmx:afterSettle', (event) => {
+	// 		this.handleServerUpdate(event);
+	// 	});
 
-		javaisPasVu.on('htmx:beforeSwap', (event) => {
-			// Preserve existing state before swap
-			const currentState = {
-				ui: this.store.getState('ui'),
-				room: this.store.getState('room')
-			};
-			event.detail.currentState = currentState;
-		});
+	// 	jaiPasVu.on('htmx:beforeSwap', (event) => {
+	// 		// Preserve existing state before swap
+	// 		const currentState = {
+	// 			ui: this.store.getState('ui'),
+	// 			room: this.store.getState('room')
+	// 		};
+	// 		event.detail.currentState = currentState;
+	// 	});
 
-		javaisPasVu.on('htmx:error', (event) => {
-			logger.error('HTMX error:', event.detail);
-			this.store.dispatch({
-				domain: 'ui',
-				type: 'SET_ERROR',
-				payload: {
-					message: 'Request failed',
-					details: event.detail
-				}
-			});
-		});
-	}
+	// 	jaiPasVu.on('htmx:error', (event) => {
+	// 		logger.error('HTMX error:', event.detail);
+	// 		this.store.dispatch({
+	// 			domain: 'ui',
+	// 			type: 'SET_ERROR',
+	// 			payload: {
+	// 				message: 'Request failed',
+	// 				details: event.detail
+	// 			}
+	// 		});
+	// 	});
+	// }
 
 	/**
 	 * Handle server state updates from HTMX responses
@@ -171,17 +171,17 @@ class StateSync {
 			}
 
 			// Update UI elements
-			if (javaisPasVu && javaisPasVu.initialized) {
+			if (jaiPasVu && jaiPasVu.initialized) {
 				// Update swapped region first
 				target.querySelectorAll('[data-domain]').forEach(el => {
 					const domain = el.getAttribute('data-domain');
-					javaisPasVu.updateElement(el, domain);
+					jaiPasVu.updateElement(el, domain);
 				});
 
 				// Update all UI elements for consistency
 				document.querySelectorAll('[data-domain="ui"]').forEach(el => {
 					if (!target.contains(el)) {
-						javaisPasVu.updateElement(el, 'ui');
+						jaiPasVu.updateElement(el, 'ui');
 					}
 				});
 			}
@@ -206,8 +206,8 @@ class StateSync {
 			payload: state
 		});
 
-		// Update JavaisPasVu
-		javaisPasVu.registerData(domain, state);
+		// Update JaiPasVu
+		jaiPasVu.registerData(domain, state);
 
 		// Notify observers
 		this.notifyStateObservers(domain, state);
@@ -215,7 +215,7 @@ class StateSync {
 
 	/**
 	 * Initialize StateSync and its dependencies
-	 * @param {HTMLElement} root - The root element for JavaisPasVu
+	 * @param {HTMLElement} root - The root element for JaiPasVu
 	 */
 	#initialize(root = document.body) {
 		try {
@@ -304,13 +304,13 @@ class StateSync {
 			const state = this.store.getState(domain);
 			if (state) {
 				logger.debug(`Initializing domain ${domain} with state:`, state);
-				javaisPasVu.registerData(domain, state);
+				jaiPasVu.registerData(domain, state);
 
 				// Special handling for user state
 				if (domain === 'user') {
-					javaisPasVu.updateData('user', state);
+					jaiPasVu.updateData('user', state);
 					document.querySelectorAll('[data-domain="user"]').forEach(el => {
-						javaisPasVu.updateElement(el, 'user');
+						jaiPasVu.updateElement(el, 'user');
 					});
 				}
 			}
@@ -461,8 +461,8 @@ class StateSync {
 	}
 
 	_initializeDomain(domain) {
-		if (!javaisPasVu) {
-			logger.error('JavaisPasVu not initialized');
+		if (!jaiPasVu) {
+			logger.error('JaiPasVu not initialized');
 			return;
 		}
 
@@ -475,12 +475,12 @@ class StateSync {
 				domainElements: document.querySelectorAll(`[data-domain="${domain}"]`)
 			});
 
-			// Register with JavaisPasVu
-			javaisPasVu.registerData(domain, state);
+			// Register with JaiPasVu
+			jaiPasVu.registerData(domain, state);
 
 			// Register domain methods if they exist
 			const methods = this.domainMethods.get(domain) || {};
-			javaisPasVu.registerMethods(domain, methods);
+			jaiPasVu.registerMethods(domain, methods);
 
 			// Special handling for room domain
 			if (domain === 'room') {
@@ -503,13 +503,13 @@ class StateSync {
 				this.handleStoreUpdate(domain, state);
 			});
 
-			// Subscribe to JavaisPasVu changes
-			javaisPasVu.subscribe(domain, (state) => {
-				logger.debug(`JavaisPasVu update for ${domain}:`, {
+			// Subscribe to JaiPasVu changes
+			jaiPasVu.subscribe(domain, (state) => {
+				logger.debug(`JaiPasVu update for ${domain}:`, {
 					state,
 					domainElements: document.querySelectorAll(`[data-domain="${domain}"]`)
 				});
-				this.handleJavaisPasVuUpdate(domain, state);
+				this.handleJaiPasVuUpdate(domain, state);
 			});
 		} catch (error) {
 			logger.error(`Failed to initialize domain ${domain}:`, error);
@@ -588,8 +588,8 @@ class StateSync {
 	 */
 	registerMethods(domain, methods) {
 		this.domainMethods.set(domain, methods);
-		if (javaisPasVu) {
-			javaisPasVu.registerMethods(domain, methods);
+		if (jaiPasVu) {
+			jaiPasVu.registerMethods(domain, methods);
 		}
 	}
 
@@ -597,21 +597,21 @@ class StateSync {
 		logger.debug(`Store update for ${domain}:`, { state, type: 'update', domainElements: document.querySelectorAll(`[data-domain="${domain}"]`) });
 
 		// Handle the store update
-		this.handleJavaisPasVuUpdate(domain, state);
+		this.handleJaiPasVuUpdate(domain, state);
 
 		// Special handling for user state updates
 		if (domain === 'user' && state) {
-			javaisPasVu.registerData('user', state);
+			jaiPasVu.registerData('user', state);
 			document.querySelectorAll('[data-domain="user"]').forEach(el => {
-				javaisPasVu.updateElement(el, 'user');
+				jaiPasVu.updateElement(el, 'user');
 			});
 		}
 
 		// Special handling for room state updates
 		if (domain === 'room' && state) {
-			javaisPasVu.registerData('room', state);
+			jaiPasVu.registerData('room', state);
 			document.querySelectorAll('[data-domain="room"]').forEach(el => {
-				javaisPasVu.updateElement(el, 'room');
+				jaiPasVu.updateElement(el, 'room');
 			});
 		}
 
@@ -619,7 +619,7 @@ class StateSync {
 		this.notifyStateObservers(domain, state);
 	}
 
-	handleJavaisPasVuUpdate(domain, state) {
+	handleJaiPasVuUpdate(domain, state) {
 		// Add update lock to prevent circular updates
 		if (this._isUpdating) {
 			logger.debug(`Skipping circular update for ${domain}`);
@@ -630,7 +630,7 @@ class StateSync {
 			this._isUpdating = true;
 			const currentState = this.store.getState(domain);
 
-			logger.debug(`Handling JavaisPasVu update for ${domain}:`, {
+			logger.debug(`Handling JaiPasVu update for ${domain}:`, {
 				currentState,
 				newState: state,
 				domainElements: document.querySelectorAll(`[data-domain="${domain}"]`)
@@ -644,12 +644,12 @@ class StateSync {
 					payload: state
 				});
 
-				// Update JavaisPasVu data
-				javaisPasVu.registerData(domain, state);
+				// Update JaiPasVu data
+				jaiPasVu.registerData(domain, state);
 
 				// Force update all domain elements
 				document.querySelectorAll(`[data-domain="${domain}"]`).forEach(el => {
-					javaisPasVu.updateElement(el, domain);
+					jaiPasVu.updateElement(el, domain);
 				});
 
 				// For UI domain, handle UI updates
@@ -674,7 +674,7 @@ class StateSync {
 
 				// Update all UI elements to reflect the new theme
 				document.querySelectorAll('[data-domain="ui"]').forEach(el => {
-					javaisPasVu.updateElement(el, 'ui');
+					jaiPasVu.updateElement(el, 'ui');
 				});
 			}
 
@@ -685,7 +685,7 @@ class StateSync {
 
 				// Update all UI elements to reflect the new font size
 				document.querySelectorAll('[data-domain="ui"]').forEach(el => {
-					javaisPasVu.updateElement(el, 'ui');
+					jaiPasVu.updateElement(el, 'ui');
 				});
 			}
 
@@ -699,9 +699,9 @@ class StateSync {
 					}
 
 					// Update UI elements in the swapped region
-					if (javaisPasVu && javaisPasVu.initialized) {
+					if (jaiPasVu && jaiPasVu.initialized) {
 						target.querySelectorAll('[data-domain="ui"]').forEach(el => {
-							javaisPasVu.updateElement(el, 'ui');
+							jaiPasVu.updateElement(el, 'ui');
 						});
 					}
 				}
@@ -709,7 +709,7 @@ class StateSync {
 
 			// Force update all UI elements to ensure consistency
 			document.querySelectorAll('[data-domain="ui"]').forEach(el => {
-				javaisPasVu.updateElement(el, 'ui');
+				jaiPasVu.updateElement(el, 'ui');
 			});
 		} catch (error) {
 			logger.error('Error in handleUIUpdate:', error);
@@ -803,8 +803,8 @@ class StateSync {
 		if (index > -1) {
 			this.domains.splice(index, 1);
 			this.domainMethods.delete(domain);
-			if (javaisPasVu)
-				javaisPasVu.unsubscribe(domain);
+			if (jaiPasVu)
+				jaiPasVu.unsubscribe(domain);
 			this.store.unsubscribe(domain);
 			this.stateObservers.delete(domain);
 		}

@@ -1,4 +1,4 @@
-import javaisPasVu from './JavaisPasVu.js';
+import jaiPasVu from './JaiPasVu.js';
 import logger from '../logger.js';
 import { jest } from '@jest/globals';
 
@@ -23,10 +23,10 @@ function cleanDjangoTemplate(template) {
 		.trim();
 }
 
-export class JavaisPasVuTestFactory {
+export class JaiPasVuTestFactory {
 	constructor() {
 		this.container = null;
-		this.javaisPasVu = null;
+		this.jaiPasVu = null;
 		this._templates = new Map();
 		this._mockPlugins = new Map();
 		this._mockHooks = new Map();
@@ -42,18 +42,18 @@ export class JavaisPasVuTestFactory {
 		document.body.appendChild(this.container);
 
 		// Reset singleton state
-		this.javaisPasVu = javaisPasVu;
-		this.javaisPasVu.initialized = false;
-		this.javaisPasVu.root = null;
-		this.javaisPasVu.domains = new Map();
-		this.javaisPasVu.updateQueue = new Set();
-		this.javaisPasVu.updateScheduled = false;
-		this.javaisPasVu.observers = new Map();
-		this.javaisPasVu.plugins = new Map();
-		Object.values(this.javaisPasVu.hooks).forEach(set => set.clear());
+		this.jaiPasVu = jaiPasVu;
+		this.jaiPasVu.initialized = false;
+		this.jaiPasVu.root = null;
+		this.jaiPasVu.domains = new Map();
+		this.jaiPasVu.updateQueue = new Set();
+		this.jaiPasVu.updateScheduled = false;
+		this.jaiPasVu.observers = new Map();
+		this.jaiPasVu.plugins = new Map();
+		Object.values(this.jaiPasVu.hooks).forEach(set => set.clear());
 
-		// Initialize JavaisPasVu
-		this.javaisPasVu.initialize(this.container);
+		// Initialize JaiPasVu
+		this.jaiPasVu.initialize(this.container);
 
 		// Setup spies for core methods
 		this._setupSpies();
@@ -69,17 +69,17 @@ export class JavaisPasVuTestFactory {
 		}
 
 		// Reset singleton state
-		if (this.javaisPasVu) {
-			this.javaisPasVu.initialized = false;
-			this.javaisPasVu.root = null;
+		if (this.jaiPasVu) {
+			this.jaiPasVu.initialized = false;
+			this.jaiPasVu.root = null;
 			// Remove event listeners
 			this._cleanupEventListeners();
 			// Clear state
-			this.javaisPasVu.domains.clear();
-			this.javaisPasVu.observers.clear();
-			this.javaisPasVu.plugins.clear();
+			this.jaiPasVu.domains.clear();
+			this.jaiPasVu.observers.clear();
+			this.jaiPasVu.plugins.clear();
 			// Reset hooks
-			Object.values(this.javaisPasVu.hooks).forEach(set => set.clear());
+			Object.values(this.jaiPasVu.hooks).forEach(set => set.clear());
 		}
 
 		// Restore spies
@@ -106,7 +106,7 @@ export class JavaisPasVuTestFactory {
 		];
 
 		methodsToSpy.forEach(method => {
-			this._spies.set(method, jest.spyOn(this.javaisPasVu, method));
+			this._spies.set(method, jest.spyOn(this.jaiPasVu, method));
 		});
 	}
 
@@ -146,7 +146,7 @@ export class JavaisPasVuTestFactory {
 			...mockImplementation
 		};
 		this._mockPlugins.set(name, plugin);
-		this.javaisPasVu.use(plugin);
+		this.jaiPasVu.use(plugin);
 	}
 
 	/**
@@ -157,7 +157,7 @@ export class JavaisPasVuTestFactory {
 	registerMockHook(hookName, callback) {
 		const mockCallback = jest.fn(callback);
 		this._mockHooks.set(hookName, mockCallback);
-		const unsubscribe = this.javaisPasVu.on(hookName, mockCallback);
+		const unsubscribe = this.jaiPasVu.on(hookName, mockCallback);
 		return unsubscribe;
 	}
 
@@ -212,12 +212,12 @@ export class JavaisPasVuTestFactory {
 		}
 
 		// If there's existing data for this domain, recompile the template
-		const domainData = this.javaisPasVu.domains.get(domain);
+		const domainData = this.jaiPasVu.domains.get(domain);
 		if (domainData) {
 			// Get the actual element from the container since templateElement is detached
 			const actualElement = this.container.querySelector(`[data-domain="${domain}"]`);
 			if (actualElement) {
-				this.javaisPasVu.compileElement(actualElement, domainData.state);
+				this.jaiPasVu.compileElement(actualElement, domainData.state);
 			}
 		}
 
@@ -300,14 +300,14 @@ export class JavaisPasVuTestFactory {
 	 * @param {Object} data - Data to register
 	 */
 	registerData(domain, data) {
-		this.javaisPasVu.registerData(domain, data);
+		this.jaiPasVu.registerData(domain, data);
 
 		// Find all elements with this domain and force recompile
 		const elements = this.container.querySelectorAll(`[data-domain="${domain}"]`);
 		if (elements.length > 0) {
-			const domainData = this.javaisPasVu.domains.get(domain);
+			const domainData = this.jaiPasVu.domains.get(domain);
 			elements.forEach(el => {
-				this.javaisPasVu.compileElement(el, domainData.state);
+				this.jaiPasVu.compileElement(el, domainData.state);
 			});
 		}
 	}
@@ -318,7 +318,7 @@ export class JavaisPasVuTestFactory {
 	 * @returns {Object} Domain data
 	 */
 	getData(domain) {
-		const domainData = this.javaisPasVu.domains.get(domain);
+		const domainData = this.jaiPasVu.domains.get(domain);
 		return domainData ? domainData.state : null;
 	}
 
@@ -329,7 +329,7 @@ export class JavaisPasVuTestFactory {
 	getDebugInfo() {
 		return {
 			html: this.container?.innerHTML || 'No container',
-			registeredData: Object.fromEntries(this.javaisPasVu?.domains || []),
+			registeredData: Object.fromEntries(this.jaiPasVu?.domains || []),
 			registeredPlugins: Array.from(this._mockPlugins.keys()),
 			registeredHooks: Array.from(this._mockHooks.keys()),
 			activeSpies: Array.from(this._spies.keys())
@@ -442,7 +442,7 @@ export class JavaisPasVuTestFactory {
 		elements.forEach(element => {
 			const domain = element.closest('[data-domain]')?.getAttribute('data-domain');
 			if (domain) {
-				this.javaisPasVu.updateElement(element, domain);
+				this.jaiPasVu.updateElement(element, domain);
 			}
 		});
 	}
