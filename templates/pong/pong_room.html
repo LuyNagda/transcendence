@@ -6,7 +6,7 @@
 
 {% block navbar %}{% include "navbar.html" %}{% endblock %}
 
-<div id="pong-room" class="container x-auto my-4">
+<div id="pong-room" class="container x-auto my-4" data-domain="room">
     <div class="row">
         <div class="col-md-4">
             <div id="room-state" class="mb-4">
@@ -38,6 +38,4 @@
     }
 </style>
 
-{{ room_id|json_script:"room-id" }}
-{{ current_user|json_script:"current-user-data" }}
 {% endblock %}
