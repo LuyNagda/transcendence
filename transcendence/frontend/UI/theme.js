@@ -1,7 +1,6 @@
 import Store, { actions } from '../state/store.js';
 import logger from '../logger.js';
 import { UI_THEME, UI_FONT_SIZE } from '../state/uiState.js';
-import jaiPasVu from './JaiPasVu.js';
 
 // Extracted updateTheme function for external use
 function updateTheme(theme) {
@@ -101,6 +100,7 @@ const UIPlugin = {
 	name: 'ui',
 	install(app) {
 		logger.info("Installing UI Plugin");
+
 		// Register UI domain with initial state
 		app.on('beforeMount', () => {
 			logger.debug('UI Plugin beforeMount:', {
@@ -156,8 +156,17 @@ const UIPlugin = {
 		app.on('updated', () => {
 			const uiState = app.getState('ui');
 			if (uiState) {
-				if (uiState.theme) applyThemeToDOM(uiState.theme);
-				if (uiState.fontSize) applyFontSizeToDOM(uiState.fontSize);
+				if (uiState.theme) this._applyThemeToDOM(uiState.theme);
+				if (uiState.fontSize) this._applyFontSizeToDOM(uiState.fontSize);
+			}
+		});
+
+		// Handle recompilation of elements
+		app.on('afterCompile', (el) => {
+			const uiState = app.getState('ui');
+			if (uiState) {
+				this._applyThemeToDOM(uiState.theme);
+				this._applyFontSizeToDOM(uiState.fontSize);
 			}
 		});
 
@@ -179,6 +188,8 @@ const UIPlugin = {
 		app.registerMethods('ui', {
 			updateTheme,
 			updateFontSize,
+			applyTheme: (theme) => this._applyThemeToDOM(theme),
+			applyFontSize: (fontSize) => this._applyFontSizeToDOM(fontSize),
 			showModal(options) {
 				Store.getInstance().dispatch({
 					domain: 'ui',
@@ -225,182 +236,148 @@ const UIPlugin = {
 				});
 			}
 		});
-	}
-};
+	},
 
-function applyThemeToDOM(theme) {
-	try {
-		if (!theme || typeof theme !== 'string') {
-			logger.error('Invalid theme value:', theme);
-			return;
+	// Private methods for DOM manipulation
+	_applyThemeToDOM(theme) {
+		try {
+			if (!theme || typeof theme !== 'string') {
+				logger.error('Invalid theme value:', theme);
+				return;
+			}
+
+			if (!Object.values(UI_THEME).includes(theme)) {
+				logger.error('Invalid theme value:', theme);
+				return;
+			}
+
+			logger.debug('Applying theme to DOM:', theme);
+
+			// Apply theme to document
+			document.documentElement.setAttribute('data-bs-theme', theme);
+			document.body.classList.remove('theme-light', 'theme-dark', 'theme-high-contrast');
+			document.body.classList.add(`theme-${theme}`);
+
+			// Update theme-specific styles
+			const root = document.documentElement;
+			switch (theme) {
+				case UI_THEME.DARK:
+					root.style.setProperty('--bs-body-bg', '#212529');
+					root.style.setProperty('--bs-body-color', '#f8f9fa');
+					break;
+				case UI_THEME.HIGH_CONTRAST:
+					root.style.setProperty('--bs-body-bg', '#000000');
+					root.style.setProperty('--bs-body-color', '#ffffff');
+					root.style.setProperty('--bs-primary', '#ffff00');
+					break;
+				default: // light
+					root.style.setProperty('--bs-body-bg', '#ffffff');
+					root.style.setProperty('--bs-body-color', '#212529');
+					break;
+			}
+
+			logger.debug('Theme applied to DOM:', {
+				theme,
+				documentTheme: document.documentElement.getAttribute('data-bs-theme'),
+				bodyClasses: document.body.classList.toString()
+			});
+		} catch (error) {
+			logger.error('Error applying theme to DOM:', error);
 		}
+	},
 
-		if (!Object.values(UI_THEME).includes(theme)) {
-			logger.error('Invalid theme value:', theme);
-			return;
-		}
+	_applyFontSizeToDOM(fontSize) {
+		try {
+			if (!fontSize || typeof fontSize !== 'string') {
+				logger.error('Invalid font size value:', fontSize);
+				return;
+			}
 
-		logger.debug('Applying theme to DOM:', theme);
+			if (!Object.values(UI_FONT_SIZE).includes(fontSize)) {
+				logger.error('Invalid font size value:', fontSize);
+				return;
+			}
 
-		// Apply theme to document
-		document.documentElement.setAttribute('data-bs-theme', theme);
-		document.body.classList.remove('theme-light', 'theme-dark', 'theme-high-contrast');
-		document.body.classList.add(`theme-${theme}`);
+			logger.debug('Applying font size to DOM:', fontSize);
 
-		// Update theme-specific styles
-		const root = document.documentElement;
-		switch (theme) {
-			case UI_THEME.DARK:
-				root.style.setProperty('--bs-body-bg', '#212529');
-				root.style.setProperty('--bs-body-color', '#f8f9fa');
-				break;
-			case UI_THEME.HIGH_CONTRAST:
-				root.style.setProperty('--bs-body-bg', '#000000');
-				root.style.setProperty('--bs-body-color', '#ffffff');
-				root.style.setProperty('--bs-primary', '#ffff00');
-				break;
-			default: // light
-				root.style.setProperty('--bs-body-bg', '#ffffff');
-				root.style.setProperty('--bs-body-color', '#212529');
-				break;
-		}
+			// Remove all font size classes
+			document.body.classList.remove(
+				`font-${UI_FONT_SIZE.SMALL}`,
+				`font-${UI_FONT_SIZE.MEDIUM}`,
+				`font-${UI_FONT_SIZE.LARGE}`
+			);
+			document.body.classList.add(`font-${fontSize}`);
 
-		logger.debug('Theme applied to DOM:', {
-			theme,
-			documentTheme: document.documentElement.getAttribute('data-bs-theme'),
-			bodyClasses: document.body.classList.toString()
-		});
-	} catch (error) {
-		logger.error('Error applying theme to DOM:', error);
-	}
-}
+			// Update body font size
+			const fontSizes = {
+				[UI_FONT_SIZE.SMALL]: '0.875rem',
+				[UI_FONT_SIZE.MEDIUM]: '1rem',
+				[UI_FONT_SIZE.LARGE]: '1.25rem'
+			};
+			document.body.style.fontSize = fontSizes[fontSize];
 
-function applyFontSizeToDOM(fontSize) {
-	try {
-		if (!fontSize || typeof fontSize !== 'string') {
-			logger.error('Invalid font size value:', fontSize);
-			return;
-		}
+			// Update navbar brand
+			const navbarBrand = document.querySelector('.navbar-brand');
+			if (navbarBrand) {
+				const brandSizes = {
+					[UI_FONT_SIZE.SMALL]: '1.1rem',
+					[UI_FONT_SIZE.MEDIUM]: '1.25rem',
+					[UI_FONT_SIZE.LARGE]: '1.5rem'
+				};
+				navbarBrand.style.fontSize = brandSizes[fontSize];
+			}
 
-		if (!Object.values(UI_FONT_SIZE).includes(fontSize)) {
-			logger.error('Invalid font size value:', fontSize);
-			return;
-		}
+			// Update buttons
+			const buttons = document.querySelectorAll('.btn');
+			buttons.forEach(btn => {
+				btn.style.fontSize = fontSizes[fontSize];
+			});
 
-		logger.debug('Applying font size to DOM:', fontSize);
+			// Update form controls
+			const formControls = document.querySelectorAll('.form-control');
+			formControls.forEach(control => {
+				control.style.fontSize = fontSizes[fontSize];
+				const paddings = {
+					[UI_FONT_SIZE.SMALL]: '0.25rem 0.5rem',
+					[UI_FONT_SIZE.MEDIUM]: '0.375rem 0.75rem',
+					[UI_FONT_SIZE.LARGE]: '0.5rem 1rem'
+				};
+				control.style.padding = paddings[fontSize];
+			});
 
-		// Remove all font size classes
-		document.body.classList.remove(
-			`font-${UI_FONT_SIZE.SMALL}`,
-			`font-${UI_FONT_SIZE.MEDIUM}`,
-			`font-${UI_FONT_SIZE.LARGE}`
-		);
-		document.body.classList.add(`font-${fontSize}`);
+			// Update headings
+			const h4Sizes = {
+				[UI_FONT_SIZE.SMALL]: '1.25rem',
+				[UI_FONT_SIZE.MEDIUM]: '1.5rem',
+				[UI_FONT_SIZE.LARGE]: '1.75rem'
+			};
+			document.querySelectorAll('h4').forEach(h4 => {
+				h4.style.fontSize = h4Sizes[fontSize];
+			});
 
-		// Update body font size
-		const fontSizes = {
-			[UI_FONT_SIZE.SMALL]: '0.875rem',
-			[UI_FONT_SIZE.MEDIUM]: '1rem',
-			[UI_FONT_SIZE.LARGE]: '1.25rem'
-		};
-		document.body.style.fontSize = fontSizes[fontSize];
-
-		// Update navbar brand
-		const navbarBrand = document.querySelector('.navbar-brand');
-		if (navbarBrand) {
-			const brandSizes = {
-				[UI_FONT_SIZE.SMALL]: '1.1rem',
+			const h5Sizes = {
+				[UI_FONT_SIZE.SMALL]: '1rem',
 				[UI_FONT_SIZE.MEDIUM]: '1.25rem',
 				[UI_FONT_SIZE.LARGE]: '1.5rem'
 			};
-			navbarBrand.style.fontSize = brandSizes[fontSize];
+			document.querySelectorAll('h5').forEach(h5 => {
+				h5.style.fontSize = h5Sizes[fontSize];
+			});
+
+			logger.debug('Font size applied to DOM:', {
+				fontSize,
+				bodyClasses: document.body.classList.toString()
+			});
+		} catch (error) {
+			logger.error('Error applying font size to DOM:', error);
 		}
-
-		// Update buttons
-		const buttons = document.querySelectorAll('.btn');
-		buttons.forEach(btn => {
-			btn.style.fontSize = fontSizes[fontSize];
-		});
-
-		// Update form controls
-		const formControls = document.querySelectorAll('.form-control');
-		formControls.forEach(control => {
-			control.style.fontSize = fontSizes[fontSize];
-			const paddings = {
-				[UI_FONT_SIZE.SMALL]: '0.25rem 0.5rem',
-				[UI_FONT_SIZE.MEDIUM]: '0.375rem 0.75rem',
-				[UI_FONT_SIZE.LARGE]: '0.5rem 1rem'
-			};
-			control.style.padding = paddings[fontSize];
-		});
-
-		// Update headings
-		const h4Sizes = {
-			[UI_FONT_SIZE.SMALL]: '1.25rem',
-			[UI_FONT_SIZE.MEDIUM]: '1.5rem',
-			[UI_FONT_SIZE.LARGE]: '1.75rem'
-		};
-		document.querySelectorAll('h4').forEach(h4 => {
-			h4.style.fontSize = h4Sizes[fontSize];
-		});
-
-		const h5Sizes = {
-			[UI_FONT_SIZE.SMALL]: '1rem',
-			[UI_FONT_SIZE.MEDIUM]: '1.25rem',
-			[UI_FONT_SIZE.LARGE]: '1.5rem'
-		};
-		document.querySelectorAll('h5').forEach(h5 => {
-			h5.style.fontSize = h5Sizes[fontSize];
-		});
-
-		logger.debug('Font size applied to DOM:', {
-			fontSize,
-			bodyClasses: document.body.classList.toString()
-		});
-	} catch (error) {
-		logger.error('Error applying font size to DOM:', error);
 	}
-}
-
-function initializeThemeAndFontSize() {
-	const store = Store.getInstance();
-
-	// Get initial values from localStorage or defaults
-	const theme = localStorage.getItem('themeLocal') || UI_THEME.LIGHT;
-	let fontSize = localStorage.getItem('sizeLocal') || UI_FONT_SIZE.SMALL;
-
-	// Ensure fontSize is valid
-	if (!Object.values(UI_FONT_SIZE).includes(fontSize) || fontSize instanceof Event) {
-		fontSize = UI_FONT_SIZE.SMALL;
-	}
-
-	// Initialize state with validated values
-	store.dispatch({
-		domain: 'ui',
-		type: actions.ui.INITIALIZE,
-		payload: {
-			theme,
-			fontSize,
-			modals: {},
-			toasts: [],
-			offcanvas: {}
-		}
-	});
-
-	logger.debug('Initializing theme and font size:', {
-		theme,
-		fontSize
-	});
-}
+};
 
 // Export plugin for manual installation
 export const plugin = UIPlugin;
 
-// Export other functions
 export {
-	initializeThemeAndFontSize,
-	applyThemeToDOM,
-	applyFontSizeToDOM,
 	updateTheme,
 	updateFontSize
 };

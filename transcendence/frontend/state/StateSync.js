@@ -4,7 +4,7 @@ import jaiPasVu from '../UI/JaiPasVu.js';
 import { isDeepEqual } from '../utils.js';
 import RoomService from '../room/RoomService.js';
 import ChatApp from '../chat/ChatApp.js';
-import { updateTheme, applyThemeToDOM, applyFontSizeToDOM } from '../UI/theme.js';
+import { applyThemeToDOM, applyFontSizeToDOM } from '../UI/theme.js';
 import { Dropdown, Toast, Offcanvas } from '../vendor.js';
 
 /**
@@ -318,22 +318,6 @@ class StateSync {
 	}
 
 	registerDefaultMethods() {
-		// Register UI domain methods
-		this.registerMethods('ui', {
-			updateTheme: (theme) => {
-				logger.debug('Theme update requested in StateSync:', theme);
-				updateTheme(theme);
-			},
-			updateFontSize: (size) => {
-				logger.debug('Font size update requested in StateSync:', size);
-				this.store.dispatch({
-					domain: 'ui',
-					type: actions.ui.UPDATE_FONT_SIZE,
-					payload: { fontSize: size }
-				});
-				localStorage.setItem('sizeLocal', size);
-			}
-		});
 
 		// Add UI state subscriptions
 		this.store.subscribe('ui', (state) => {
@@ -670,7 +654,7 @@ class StateSync {
 			// Apply theme changes
 			if (state.theme) {
 				logger.debug('Applying theme from state:', state.theme);
-				applyThemeToDOM(state.theme);
+				jaiPasVu.callMethod('ui', 'applyTheme', state.theme);
 
 				// Update all UI elements to reflect the new theme
 				document.querySelectorAll('[data-domain="ui"]').forEach(el => {
@@ -681,7 +665,7 @@ class StateSync {
 			// Apply font size changes
 			if (state.fontSize) {
 				logger.debug('Applying font size from state:', state.fontSize);
-				applyFontSizeToDOM(state.fontSize);
+				jaiPasVu.callMethod('ui', 'applyFontSize', state.fontSize);
 
 				// Update all UI elements to reflect the new font size
 				document.querySelectorAll('[data-domain="ui"]').forEach(el => {

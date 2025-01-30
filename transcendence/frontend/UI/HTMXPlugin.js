@@ -17,27 +17,15 @@ import { htmx } from '../vendor.js';
 // HTMX Plugin for JaiPasVu
 const HTMXPlugin = {
 	name: 'htmx',
+	app: null,
+
 	install(app) {
+		this.app = app;
+
 		// Configure HTMX defaults
 		htmx.config.defaultSwapStyle = "innerHTML";
 		htmx.config.defaultSettleDelay = 100;
 		htmx.config.historyCacheSize = 10;
-
-		// // Initialize UI state from localStorage
-		// const store = Store.getInstance();
-		// const savedState = localStorage.getItem('ui_state');
-		// if (savedState) {
-		// 	try {
-		// 		const uiState = JSON.parse(savedState);
-		// 		store.dispatch({
-		// 			domain: 'ui',
-		// 			type: 'INITIALIZE',
-		// 			payload: uiState
-		// 		});
-		// 	} catch (error) {
-		// 		logger.error('Error initializing UI state:', error);
-		// 	}
-		// }
 
 		// Register HTMX state
 		app.registerData('htmx', {
@@ -143,6 +131,30 @@ const HTMXPlugin = {
 
 		// Setup HTMX-specific directives
 		this.setupDirectives(app);
+
+		// Listen for app initialization
+		app.on('beforeMount', () => {
+			// Initialize if not a history restore
+			if (!document.documentElement.getAttribute('data-htmx-history-restore')) {
+				this._initializeHtmx();
+			}
+		});
+
+		// Handle HTMX after-swap event for partial page loads
+		document.addEventListener('htmx:afterSwap', (event) => {
+			// Reinitialize UI components after HTMX swaps
+			app.emit('htmx:reinitialize');
+		});
+	},
+
+	_initializeHtmx() {
+		// Process any existing HTMX elements
+		document.querySelectorAll('[hx-get], [hx-post]').forEach(el => {
+			this.app.compileElement(el);
+			htmx.process(el);
+		});
+
+		logger.debug('HTMX initialized');
 	},
 
 	setupEventHandlers(app) {
@@ -198,6 +210,11 @@ const HTMXPlugin = {
 
 				// Ensure any new HTMX elements are properly initialized
 				htmx.process(target);
+
+				// Force recompile all UI elements to ensure proper state
+				document.querySelectorAll('[data-domain]').forEach(el => {
+					app.compileElement(el);
+				});
 			}
 			app.emit('htmx:afterSwap', event);
 		});
@@ -236,9 +253,12 @@ const HTMXPlugin = {
 				}
 			});
 
-			if (el.hasAttribute('hx-get') || el.hasAttribute('hx-post')) {
-				el.setAttribute('hx-indicator', `[data-loading="global"]`);
-			}
+			// // Add loading indicator to HTMX elements
+			// if (el.hasAttribute('hx-get') || el.hasAttribute('hx-post')) {
+			// 	if (!el.hasAttribute('hx-indicator')) {
+			// 		el.setAttribute('hx-indicator', '[data-loading="global"]');
+			// 	}
+			// }
 		});
 	},
 

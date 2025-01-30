@@ -2,7 +2,6 @@ import logger from './logger.js';
 import jaiPasVu from './UI/JaiPasVu.js';
 import { plugin as htmxPlugin } from './UI/HTMXPlugin.js';
 import { plugin as uiPlugin } from './UI/theme.js';
-import { initializeThemeAndFontSize } from './UI/theme.js';
 import Store from './state/store.js';
 
 function _initializeErrorHandling() {
@@ -35,7 +34,6 @@ function initializeApp() {
 		jaiPasVu.use(uiPlugin);
 		jaiPasVu.use(htmxPlugin);
 		jaiPasVu.initialize();
-		initializeThemeAndFontSize();
 
 		logger.info('Application initialized successfully');
 	} catch (error) {
@@ -46,15 +44,5 @@ function initializeApp() {
 	}
 }
 
-// Initialize when DOM is ready, but only if not an HTMX request
-document.addEventListener('DOMContentLoaded', () => {
-	if (!document.documentElement.getAttribute('data-htmx-history-restore')) {
-		initializeApp();
-	}
-});
-
-// Handle HTMX after-swap event for partial page loads
-document.addEventListener('htmx:afterSwap', (event) => {
-	// Only reinitialize specific components that need it
-	initializeThemeAndFontSize();
-});
+// Initialize app when DOM is ready
+document.addEventListener('DOMContentLoaded', initializeApp);
