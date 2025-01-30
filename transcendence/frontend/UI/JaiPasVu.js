@@ -413,50 +413,147 @@ class JaiPasVu {
             context = state || parentData || {};
         }
 
-        logger.debug(`Compiling element with domain ${domain}:`, {
-            element: el.outerHTML,
-            context: context,
-            parentDomain: parentDomain
-        });
-
         // Process directives in order
         this.processVIf(el, context);
-        this.processVText(el, context);
-        this.processVFor(el, context);
-        this.processVModel(el, context);
-        this.processVBind(el, context);
-        this.processVOn(el, context);
-        this.processInterpolation(el, context);
+
+        const isVisible = el.style.display !== 'none';
+
+        // Check if any parent is hidden
+        let parent = el.parentElement;
+        let parentHidden = false;
+        while (parent) {
+            if (parent.style.display === 'none') {
+                parentHidden = true;
+                break;
+            }
+            parent = parent.parentElement;
+        }
+
+        // If parent is hidden or this element is hidden, hide this element
+        if (parentHidden || !isVisible)
+            el.style.display = 'none';
+
+        // Only process other directives if this element is visible
+        if (el.style.display !== 'none') {
+            this.processVText(el, context);
+            this.processVFor(el, context);
+            this.processVModel(el, context);
+            this.processVBind(el, context);
+            this.processVOn(el, context);
+            this.processInterpolation(el, context);
+        }
 
         this.emit('afterCompile', el, state);
 
-        // Process children recursively after parent is compiled
-        Array.from(el.children).forEach(child => {
-            const childDomain = child.getAttribute('data-domain');
-            if (childDomain) {
-                this.compileElement(child);
-            } else {
-                this.compileElement(child, context);
-            }
-        });
+        // Only process children if this element is visible
+        if (el.style.display !== 'none') {
+            // Process children recursively after parent is compiled
+            Array.from(el.children).forEach(child => {
+                const childDomain = child.getAttribute('data-domain');
+                if (childDomain)
+                    this.compileElement(child);
+                else
+                    this.compileElement(child, context);
+            });
+        }
     }
 
-    // Process v-if directive
     processVIf(el, context) {
         const vIf = el.getAttribute('v-if');
-        if (!vIf) return;
+        const vElseIf = el.getAttribute('v-else-if');
+        const vElse = el.hasAttribute('v-else');
 
+        if (!vIf && !vElseIf && !vElse) return;
+
+        // Create effect for this element
         const effect = () => {
             try {
                 ReactiveEffect.push(effect);
-                const result = this.evaluateExpression(vIf, context);
-                el.style.display = result ? '' : 'none';
+                let shouldShow = false;
+
+                // Check if any parent is hidden
+                let parent = el.parentElement;
+                let parentHidden = false;
+                while (parent) {
+                    if (parent.style.display === 'none') {
+                        parentHidden = true;
+                        break;
+                    }
+                    parent = parent.parentElement;
+                }
+
+                // If parent is hidden, hide this element
+                if (parentHidden) {
+                    shouldShow = false;
+                } else {
+                    if (vIf) {
+                        shouldShow = this.evaluateExpression(vIf, context);
+                    } else if (vElseIf) {
+                        // Only evaluate if no previous condition was true
+                        if (!this.findTruePreviousCondition(el, context)) {
+                            shouldShow = this.evaluateExpression(vElseIf, context);
+                        }
+                    } else if (vElse) {
+                        // Show if no previous condition was true
+                        shouldShow = !this.findTruePreviousCondition(el, context);
+                    }
+                }
+
+                // Store the current visibility state
+                const wasVisible = el.style.display !== 'none';
+                el.style.display = shouldShow ? '' : 'none';
+                const isVisible = el.style.display !== 'none';
+
+                // If visibility changed, update all child elements
+                if (wasVisible !== isVisible) {
+                    Array.from(el.children).forEach(child => {
+                        // Re-evaluate child v-if conditions
+                        const childVIf = child.getAttribute('v-if');
+                        const childVElseIf = child.getAttribute('v-else-if');
+                        const childVElse = child.hasAttribute('v-else');
+                        if (childVIf || childVElseIf || childVElse)
+                            this.processVIf(child, context);
+                        else // For non-conditional children, just inherit parent visibility
+                            child.style.display = isVisible ? '' : 'none';
+                    });
+                }
+
+                // If this element is hidden, hide all its v-else-if and v-else siblings
+                if (!shouldShow && vIf)
+                    this.hideConditionalSiblings(el);
             } finally {
                 ReactiveEffect.pop();
             }
         };
 
         effect();
+    }
+
+    findTruePreviousCondition(el, context) {
+        let previous = el.previousElementSibling;
+        while (previous) {
+            if (previous.hasAttribute('v-if')) {
+                return this.evaluateExpression(previous.getAttribute('v-if'), context);
+            }
+            if (previous.hasAttribute('v-else-if')) {
+                const result = this.evaluateExpression(previous.getAttribute('v-else-if'), context);
+                if (result) return true;
+            }
+            previous = previous.previousElementSibling;
+        }
+        return false;
+    }
+
+    hideConditionalSiblings(el) {
+        let sibling = el.nextElementSibling;
+        while (sibling) {
+            if (sibling.hasAttribute('v-else-if') || sibling.hasAttribute('v-else')) {
+                sibling.style.display = 'none';
+            } else {
+                break;
+            }
+            sibling = sibling.nextElementSibling;
+        }
     }
 
     processVText(el, context) {
@@ -480,8 +577,26 @@ class JaiPasVu {
         const vFor = el.getAttribute('v-for');
         if (!vFor) return;
 
-        // Parse iterator expression, handling both forms:
-        // "item in items" and "(item, index) in items"
+        // Check if any parent is hidden
+        let parentEl = el.parentElement;
+        let parentHidden = false;
+        while (parentEl) {
+            if (parentEl.style.display === 'none' || parentEl.hasAttribute('v-if')) {
+                const vIf = parentEl.getAttribute('v-if');
+                if (parentEl.style.display === 'none' || (vIf && !this.evaluateExpression(vIf, parentContext))) {
+                    parentHidden = true;
+                    break;
+                }
+            }
+            parentEl = parentEl.parentElement;
+        }
+
+        // If parent is hidden, hide this element and skip processing
+        if (parentHidden) {
+            el.style.display = 'none';
+            return;
+        }
+
         const [iteratorExp, arrayExp] = vFor.split(' in ').map(s => s.trim());
         const items = this.evaluateExpression(arrayExp, parentContext);
 
@@ -509,22 +624,16 @@ class JaiPasVu {
         const template = el.cloneNode(true);
         template.removeAttribute('v-for');
 
-        // Get the parent node and next sibling for proper insertion
-        const parent = el.parentNode;
-        let anchor = el.nextSibling;
+        // Get the parent node for proper insertion
+        const parentNode = el.parentNode;
 
-        // First, mark all existing v-for items for removal
-        const itemsToRemove = [];
-        while (anchor && anchor.__v_for_item) {
-            const next = anchor.nextSibling;
-            itemsToRemove.push(anchor);
-            anchor = next;
-        }
-
-        // Remove all old items first
-        itemsToRemove.forEach(item => {
-            if (item.parentNode === parent) {
-                parent.removeChild(item);
+        // Remove all existing v-for items
+        const oldItems = Array.from(parentNode.children).filter(node =>
+            node !== el && node.__v_for_template === el
+        );
+        oldItems.forEach(item => {
+            if (item.parentNode) {
+                item.parentNode.removeChild(item);
             }
         });
 
@@ -534,7 +643,9 @@ class JaiPasVu {
         // Create new items
         items.forEach((item, index) => {
             const clone = template.cloneNode(true);
-            clone.__v_for_item = true;
+            clone.__v_for_template = el;
+            clone.removeAttribute('v-for'); // Ensure v-for is removed
+            clone.style.display = ''; // Ensure clone is visible
 
             // Create item context by combining parent context with iterator variables
             const itemContext = Object.create(null);
@@ -552,7 +663,7 @@ class JaiPasVu {
         });
 
         // Insert all new items at once
-        parent.insertBefore(fragment, el.nextSibling);
+        parentNode.insertBefore(fragment, el.nextSibling);
 
         // Hide original template
         el.style.display = 'none';

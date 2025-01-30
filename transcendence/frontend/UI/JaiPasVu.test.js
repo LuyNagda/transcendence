@@ -297,44 +297,220 @@ describe('JaiPasVu', () => {
 				expect(factory.isVisible("div[v-if=\"theme === 'light'\"]")).toBe(true);
 				expect(factory.isVisible("div[v-if=\"theme !== 'dark'\"]")).toBe(true);
 			});
+
+			test('should handle v-if, v-else-if, and v-else chain correctly', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<div id="if-block" v-if="status === 'active'">Active</div>
+						<div id="else-if-block1" v-else-if="status === 'pending'">Pending</div>
+						<div id="else-if-block2" v-else-if="status === 'archived'">Archived</div>
+						<div id="else-block" v-else>Inactive</div>
+					</div>
+				`, 'test');
+
+				// Test active status
+				factory.registerData('test', { status: 'active' });
+				expect(factory.isVisible('#if-block')).toBe(true);
+				expect(factory.isVisible('#else-if-block1')).toBe(false);
+				expect(factory.isVisible('#else-if-block2')).toBe(false);
+				expect(factory.isVisible('#else-block')).toBe(false);
+
+				// Test pending status
+				factory.registerData('test', { status: 'pending' });
+				expect(factory.isVisible('#if-block')).toBe(false);
+				expect(factory.isVisible('#else-if-block1')).toBe(true);
+				expect(factory.isVisible('#else-if-block2')).toBe(false);
+				expect(factory.isVisible('#else-block')).toBe(false);
+
+				// Test archived status
+				factory.registerData('test', { status: 'archived' });
+				expect(factory.isVisible('#if-block')).toBe(false);
+				expect(factory.isVisible('#else-if-block1')).toBe(false);
+				expect(factory.isVisible('#else-if-block2')).toBe(true);
+				expect(factory.isVisible('#else-block')).toBe(false);
+
+				// Test unknown status (should trigger else)
+				factory.registerData('test', { status: 'unknown' });
+				expect(factory.isVisible('#if-block')).toBe(false);
+				expect(factory.isVisible('#else-if-block1')).toBe(false);
+				expect(factory.isVisible('#else-if-block2')).toBe(false);
+				expect(factory.isVisible('#else-block')).toBe(true);
+			});
+
+			test('should handle nested v-if conditions', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<div id="outer" v-if="outer">
+							Outer
+							<div id="inner1" v-if="inner === 1">Inner 1</div>
+							<div id="inner2" v-if="inner === 2">Inner 2</div>
+						</div>
+					</div>
+				`, 'test');
+
+				// Test when outer is false
+				factory.registerData('test', { outer: false, inner: 1 });
+				expect(factory.isVisible('#outer')).toBe(false);
+				expect(factory.exists('#inner1')).toBe(true); // Element exists but not visible
+				expect(factory.exists('#inner2')).toBe(true);
+				expect(factory.isVisible('#inner1')).toBe(false);
+				expect(factory.isVisible('#inner2')).toBe(false);
+
+				// Test when outer is true, inner is 1
+				factory.registerData('test', { outer: true, inner: 1 });
+				expect(factory.isVisible('#outer')).toBe(true);
+				expect(factory.isVisible('#inner1')).toBe(true);
+				expect(factory.isVisible('#inner2')).toBe(false);
+
+				// Test when outer is true, inner is 2
+				factory.registerData('test', { outer: true, inner: 2 });
+				expect(factory.isVisible('#outer')).toBe(true);
+				expect(factory.isVisible('#inner1')).toBe(false);
+				expect(factory.isVisible('#inner2')).toBe(true);
+			});
+
+			test('should handle complex boolean expressions in v-if', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<div id="and-condition" v-if="age >= 18 && hasPermission">Adult with permission</div>
+						<div id="or-condition" v-if="isAdmin || isModerator">Has access</div>
+						<div id="complex-condition" v-if="(isAdmin && !isLocked) || (isModerator && isApproved)">Complex rule</div>
+					</div>
+				`, 'test');
+
+				// Test AND condition
+				factory.registerData('test', { age: 20, hasPermission: true });
+				expect(factory.isVisible('#and-condition')).toBe(true);
+				factory.registerData('test', { age: 17, hasPermission: true });
+				expect(factory.isVisible('#and-condition')).toBe(false);
+				factory.registerData('test', { age: 20, hasPermission: false });
+				expect(factory.isVisible('#and-condition')).toBe(false);
+
+				// Test OR condition
+				factory.registerData('test', { isAdmin: true, isModerator: false });
+				expect(factory.isVisible('#or-condition')).toBe(true);
+				factory.registerData('test', { isAdmin: false, isModerator: true });
+				expect(factory.isVisible('#or-condition')).toBe(true);
+				factory.registerData('test', { isAdmin: false, isModerator: false });
+				expect(factory.isVisible('#or-condition')).toBe(false);
+
+				// Test complex condition
+				factory.registerData('test', {
+					isAdmin: true, isLocked: false,
+					isModerator: false, isApproved: true
+				});
+				expect(factory.isVisible('#complex-condition')).toBe(true);
+
+				factory.registerData('test', {
+					isAdmin: true, isLocked: true,
+					isModerator: true, isApproved: true
+				});
+				expect(factory.isVisible('#complex-condition')).toBe(true);
+
+				factory.registerData('test', {
+					isAdmin: true, isLocked: true,
+					isModerator: true, isApproved: false
+				});
+				expect(factory.isVisible('#complex-condition')).toBe(false);
+			});
+
+			test('should handle v-if with computed properties', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<div id="computed-if" v-if="isEligible">Eligible</div>
+					</div>
+				`, 'test');
+
+				const computedProps = {
+					isEligible: function () {
+						return this.score >= this.threshold && !this.isBlocked;
+					}
+				};
+
+				// Test eligible case
+				factory.registerData('test', {
+					score: 75,
+					threshold: 70,
+					isBlocked: false,
+					...computedProps
+				});
+				expect(factory.isVisible('#computed-if')).toBe(true);
+
+				// Test not eligible due to low score
+				factory.registerData('test', {
+					score: 65,
+					threshold: 70,
+					isBlocked: false,
+					...computedProps
+				});
+				expect(factory.isVisible('#computed-if')).toBe(false);
+
+				// Test not eligible due to being blocked
+				factory.registerData('test', {
+					score: 75,
+					threshold: 70,
+					isBlocked: true,
+					...computedProps
+				});
+				expect(factory.isVisible('#computed-if')).toBe(false);
+			});
 		});
 
-		// describe('v-for Directive', () => {
-		// 	beforeEach(() => {
-		// 		factory.loadTemplate(`
-		// 			<div>
-		// 				<ul>
-		// 					<li v-for="item in items">[[item]]</li>
-		// 				</ul>
-		// 				<div>
-		// 					<div v-for="(item, index) in items" class="indexed-item">
-		// 						[[index]]: [[item]]
-		// 					</div>
-		// 				</div>
-		// 			</div>
-		// 		`, 'test');
-		// 	});
+		describe('v-for Directive', () => {
+			test('should render basic v-for list correctly', () => {
+				factory.loadTemplate(`
+					<div data-domain="test">
+						<div v-for="item in items" class="list-item">[[item]]</div>
+					</div>
+				`, 'test');
 
-		// 	test('should render list items correctly', () => {
-		// 		factory.registerData('test', { items: ['apple', 'banana', 'orange'] });
-		// 		const listItems = factory.getTextContent('li');
-		// 		expect(listItems).toEqual(['apple', 'banana', 'orange']);
-		// 	});
+				factory.registerData('test', { items: [] });
+				expect(factory.queryAll('.list-item').length).toBe(0);
 
-		// 	test('should handle index in v-for', () => {
-		// 		factory.registerData('test', { items: ['apple', 'banana', 'orange'] });
-		// 		const indexedItems = factory.getTextContent('.indexed-item');
-		// 		expect(indexedItems).toEqual(['0: apple', '1: banana', '2: orange']);
-		// 	});
+				factory.registerData('test', { items: ['one'] });
+				expect(factory.queryAll('.list-item').length).toBe(1);
+				expect(factory.getTextContent('.list-item')).toEqual(['one']);
 
-		// 	test('should update list items incrementally', () => {
-		// 		factory.registerData('test', { items: ['apple'] });
-		// 		expect(factory.getTextContent('li')).toEqual(['apple']);
+				factory.registerData('test', { items: ['one', 'two', 'three'] });
+				expect(factory.queryAll('.list-item').length).toBe(3);
+				expect(factory.getTextContent('.list-item')).toEqual(['one', 'two', 'three']);
+			});
 
-		// 		factory.registerData('test', { items: ['apple', 'banana'] });
-		// 		expect(factory.getTextContent('li')).toEqual(['apple', 'banana']);
-		// 	});
-		// });
+			beforeEach(() => {
+				factory.loadTemplate(`
+					<div>
+						<ul>
+							<li v-for="item in items">[[item]]</li>
+						</ul>
+						<div>
+							<div v-for="(item, index) in items" class="indexed-item">
+								[[index]]: [[item]]
+							</div>
+						</div>
+					</div>
+				`, 'test');
+			});
+
+			test('should render list items correctly', () => {
+				factory.registerData('test', { items: ['apple', 'banana', 'orange'] });
+				const listItems = factory.getTextContent('li');
+				expect(listItems).toEqual(['apple', 'banana', 'orange']);
+			});
+
+			test('should handle index in v-for', () => {
+				factory.registerData('test', { items: ['apple', 'banana', 'orange'] });
+				const indexedItems = factory.getTextContent('.indexed-item');
+				expect(indexedItems).toEqual(['0: apple', '1: banana', '2: orange']);
+			});
+
+			test('should update list items incrementally', () => {
+				factory.registerData('test', { items: ['apple'] });
+				expect(factory.getTextContent('li')).toEqual(['apple']);
+
+				factory.registerData('test', { items: ['apple', 'banana'] });
+				expect(factory.getTextContent('li')).toEqual(['apple', 'banana']);
+			});
+		});
 
 		describe('v-bind Directive', () => {
 			test('should bind boolean attributes correctly', () => {
