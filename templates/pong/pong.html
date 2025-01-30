@@ -27,7 +27,8 @@
                 </ul>
             </section>
             <section id="cta" class="text-center my-5">
-                <button id="create-room-btn" class="btn btn-lg btn-success shadow-lg" data-action="create-room">
+                <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#cta" hx-swap="innerHTML"
+                    class="btn btn-primary">
                     Start a Game
                 </button>
             </section>

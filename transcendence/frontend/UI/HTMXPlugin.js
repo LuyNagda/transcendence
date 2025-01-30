@@ -23,7 +23,7 @@ const HTMXPlugin = {
 		htmx.config.defaultSettleDelay = 100;
 		htmx.config.historyCacheSize = 10;
 
-		// Initialize UI state from localStorage
+		// // Initialize UI state from localStorage
 		// const store = Store.getInstance();
 		// const savedState = localStorage.getItem('ui_state');
 		// if (savedState) {
@@ -237,7 +237,7 @@ const HTMXPlugin = {
 			});
 
 			if (el.hasAttribute('hx-get') || el.hasAttribute('hx-post')) {
-				el.setAttribute('hx-indicator', `[data-loading="${el.getAttribute('data-domain') || 'global'}"]`);
+				el.setAttribute('hx-indicator', `[data-loading="global"]`);
 			}
 		});
 	},

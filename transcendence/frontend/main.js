@@ -46,5 +46,15 @@ function initializeApp() {
 	}
 }
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', initializeApp);
+// Initialize when DOM is ready, but only if not an HTMX request
+document.addEventListener('DOMContentLoaded', () => {
+	if (!document.documentElement.getAttribute('data-htmx-history-restore')) {
+		initializeApp();
+	}
+});
+
+// Handle HTMX after-swap event for partial page loads
+document.addEventListener('htmx:afterSwap', (event) => {
+	// Only reinitialize specific components that need it
+	initializeThemeAndFontSize();
+});
