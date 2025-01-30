@@ -124,6 +124,10 @@ export class Room {
 		}
 	}
 
+	// async leaveGame() {
+		
+	// }
+
 	async updateSetting(setting, value) {
 		try {
 			this._store.dispatch({

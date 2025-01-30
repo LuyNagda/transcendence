@@ -337,12 +337,6 @@ const UIPlugin = {
 			const formControls = document.querySelectorAll('.form-control');
 			formControls.forEach(control => {
 				control.style.fontSize = fontSizes[fontSize];
-				const paddings = {
-					[UI_FONT_SIZE.SMALL]: '0.25rem 0.5rem',
-					[UI_FONT_SIZE.MEDIUM]: '0.375rem 0.75rem',
-					[UI_FONT_SIZE.LARGE]: '0.5rem 1rem'
-				};
-				control.style.padding = paddings[fontSize];
 			});
 
 			// Update headings
