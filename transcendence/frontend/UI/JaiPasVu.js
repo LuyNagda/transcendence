@@ -373,16 +373,50 @@ class JaiPasVu {
 
         this.emit('beforeCompile', el, state);
 
-        // Get domain from element or closest parent with data-domain
-        const domain = el.getAttribute('data-domain') || el.closest('[data-domain]')?.getAttribute('data-domain');
+        // Get domain from element
+        const domain = el.getAttribute('data-domain');
+
+        const parentDomainEl = domain ? el.closest(`[data-domain]:not([data-domain="${domain}"])`) : null;
+        const parentDomain = parentDomainEl?.getAttribute('data-domain');
+        const parentData = parentDomain ? this.domains.get(parentDomain)?.state : null;
+
         const domainData = domain ? this.domains.get(domain) : null;
 
-        // Use provided state, domain state, or empty object as context
-        const context = state || (domainData?.state || {});
+        // Create context by combining parent and current domain data
+        let context;
+        if (domain) {
+            // For domain elements, create a proxy that inherits from parent context
+            context = new Proxy(domainData?.state || {}, {
+                get(target, prop) {
+                    // First check current domain
+                    if (prop in target) {
+                        return target[prop];
+                    }
+                    // Then check parent domain
+                    if (parentData && prop in parentData) {
+                        return parentData[prop];
+                    }
+                    // Finally check provided state
+                    if (state && prop in state) {
+                        return state[prop];
+                    }
+                    return undefined;
+                },
+                has(target, prop) {
+                    return prop in target ||
+                        (parentData && prop in parentData) ||
+                        (state && prop in state);
+                }
+            });
+        } else {
+            // For non-domain elements, use provided state or parent domain state
+            context = state || parentData || {};
+        }
 
         logger.debug(`Compiling element with domain ${domain}:`, {
             element: el.outerHTML,
-            context: context
+            context: context,
+            parentDomain: parentDomain
         });
 
         // Process directives in order
@@ -645,7 +679,8 @@ class JaiPasVu {
                         args = '';
                     }
 
-                    const method = context[methodName];
+                    // Look for method in current context and parent contexts
+                    let method = context[methodName];
                     if (typeof method === 'function') {
                         const eventContext = { ...context, $event: e };
 

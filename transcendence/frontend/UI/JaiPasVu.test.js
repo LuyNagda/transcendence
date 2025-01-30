@@ -64,6 +64,131 @@ describe('JaiPasVu', () => {
 		});
 	});
 
+	describe('Nested Data Domains', () => {
+		test('should handle nested data domains independently', () => {
+			factory.loadTemplate(`
+				<div data-domain="parent">
+					<div v-text="parentValue"></div>
+					<div data-domain="child">
+						<div v-text="childValue"></div>
+						<div v-text="parentValue"></div>
+					</div>
+				</div>
+			`, 'parent');
+
+			factory.registerData('parent', { parentValue: 'parent data' });
+			factory.registerData('child', { childValue: 'child data' });
+
+			const elements = factory.container.querySelectorAll('div[v-text]');
+			expect(elements[0].textContent).toBe('parent data');
+			expect(elements[1].textContent).toBe('child data');
+			expect(elements[2].textContent).toBe('parent data'); // Child can access parent data
+		});
+
+		test('should handle updates in nested domains correctly', () => {
+			factory.loadTemplate(`
+				<div data-domain="parent">
+					<div id="parent-value" v-text="value"></div>
+					<div data-domain="child">
+						<div id="child-value" v-text="value"></div>
+					</div>
+				</div>
+			`, 'parent');
+
+			factory.registerData('parent', { value: 'initial parent' });
+			factory.registerData('child', { value: 'initial child' });
+
+			expect(factory.query('#parent-value').textContent).toBe('initial parent');
+			expect(factory.query('#child-value').textContent).toBe('initial child');
+
+			// Update parent data
+			factory.registerData('parent', { value: 'updated parent' });
+			expect(factory.query('#parent-value').textContent).toBe('updated parent');
+			expect(factory.query('#child-value').textContent).toBe('initial child');
+
+			// Update child data
+			factory.registerData('child', { value: 'updated child' });
+			expect(factory.query('#parent-value').textContent).toBe('updated parent');
+			expect(factory.query('#child-value').textContent).toBe('updated child');
+		});
+
+		test('should handle events in nested domains', () => {
+			const parentClick = jest.fn();
+			const childClick = jest.fn();
+
+			factory.loadTemplate(`
+				<div data-domain="parent">
+					<button id="parent-btn" v-on:click="parentClick()">Parent</button>
+					<div data-domain="child">
+						<button id="child-btn" v-on:click="childClick()">Child</button>
+					</div>
+				</div>
+			`, 'parent');
+
+			factory.registerData('parent', {});
+			jaiPasVu.registerMethods('parent', { parentClick });
+			factory.registerData('child', {});
+			jaiPasVu.registerMethods('child', { childClick });
+
+			factory.query('#parent-btn').click();
+			factory.query('#child-btn').click();
+
+			expect(parentClick).toHaveBeenCalledTimes(1);
+			expect(childClick).toHaveBeenCalledTimes(1);
+		});
+
+		test('should handle computed properties in nested domains', () => {
+			factory.loadTemplate(`
+				<div data-domain="parent">
+					<div id="parent-computed" v-text="doubleParentValue"></div>
+					<div data-domain="child">
+						<div id="child-computed" v-text="doubleChildValue"></div>
+						<div id="child-parent-computed" v-text="doubleParentValue"></div>
+					</div>
+				</div>
+			`, 'parent');
+
+			const parentComputed = {
+				doubleParentValue: function () { return this.value * 2; }
+			};
+
+			const childComputed = {
+				doubleChildValue: function () { return this.value * 2; }
+			};
+
+			factory.registerData('parent', { value: 5, ...parentComputed });
+			factory.registerData('child', { value: 3, ...childComputed });
+
+			expect(factory.query('#parent-computed').textContent).toBe('10');
+			expect(factory.query('#child-computed').textContent).toBe('6');
+			expect(factory.query('#child-parent-computed').textContent).toBe('10');
+		});
+
+		test('should handle v-if directives in nested domains', () => {
+			factory.loadTemplate(`
+				<div data-domain="parent">
+					<div id="parent-conditional" v-if="parentShow">Parent Content</div>
+					<div data-domain="child">
+						<div id="child-conditional" v-if="childShow">Child Content</div>
+						<div id="child-parent-conditional" v-if="parentShow">Parent Condition</div>
+					</div>
+				</div>
+			`, 'parent');
+
+			factory.registerData('parent', { parentShow: true });
+			factory.registerData('child', { childShow: true });
+
+			expect(factory.isVisible('#parent-conditional')).toBe(true);
+			expect(factory.isVisible('#child-conditional')).toBe(true);
+			expect(factory.isVisible('#child-parent-conditional')).toBe(true);
+
+			factory.registerData('parent', { parentShow: false });
+			expect(factory.isVisible('#parent-conditional')).toBe(false);
+			expect(factory.isVisible('#child-conditional')).toBe(true);
+			expect(factory.isVisible('#child-parent-conditional')).toBe(false);
+		});
+	});
+
 	describe('Plugin System', () => {
 		test('should register and initialize plugins', () => {
 			const mockPlugin = {
