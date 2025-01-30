@@ -29,7 +29,7 @@ class StateSync {
 
 		this.store = Store.getInstance();
 		this.stateObservers = new Map();
-		this.domains = ['user', 'chat', 'room', 'game'];
+		this.domains = ['chat', 'room', 'game'];
 		this.domainMethods = new Map();
 
 		StateSync.#instance = this;

@@ -29,16 +29,7 @@ export const uiPlugin = {
 
 			// Get initial values from localStorage or defaults
 			const theme = localStorage.getItem('themeLocal') || UI_THEME.LIGHT;
-			let fontSize = localStorage.getItem('sizeLocal') || UI_FONT_SIZE.SMALL;
-
-			// Ensure fontSize is valid
-			if (!Object.values(UI_FONT_SIZE).includes(fontSize) || fontSize instanceof Event) {
-				logger.warn('Invalid stored font size, using default:', {
-					stored: fontSize,
-					default: UI_FONT_SIZE.SMALL
-				});
-				fontSize = UI_FONT_SIZE.SMALL;
-			}
+			let fontSize = localStorage.getItem('sizeLocal') || UI_FONT_SIZE.MEDIUM;
 
 			logger.debug('Initializing UI state:', { theme, fontSize });
 
@@ -68,8 +59,9 @@ export const uiPlugin = {
 
 			logger.debug('UI state initialized:', app.getState('ui'));
 
-			// Initialize Bootstrap components
 			this._initializeBootstrap();
+			this._applyThemeToDOM(theme);
+			this._applyFontSizeToDOM(fontSize);
 		});
 
 		// Register UI state change handlers
@@ -78,15 +70,6 @@ export const uiPlugin = {
 			if (uiState) {
 				if (uiState.theme) this._applyThemeToDOM(uiState.theme);
 				if (uiState.fontSize) this._applyFontSizeToDOM(uiState.fontSize);
-			}
-		});
-
-		// Handle recompilation of elements
-		app.on('afterCompile', (el) => {
-			const uiState = app.getState('ui');
-			if (uiState) {
-				this._applyThemeToDOM(uiState.theme);
-				this._applyFontSizeToDOM(uiState.fontSize);
 			}
 		});
 
@@ -163,11 +146,9 @@ export const uiPlugin = {
 		const store = Store.getInstance();
 		store.subscribe('ui', (state) => {
 			if (state) {
-				app.registerData('ui', {
-					...state,
-					themes: Object.values(UI_THEME),
-					fontSizes: Object.values(UI_FONT_SIZE)
-				});
+				if (state.theme) this._applyThemeToDOM(state.theme);
+				if (state.fontSize) this._applyFontSizeToDOM(state.fontSize);
+				this.app.registerData('ui', state);
 			}
 		});
 
@@ -178,31 +159,14 @@ export const uiPlugin = {
 	},
 
 	_updateTheme(theme) {
-		// Ensure we're getting a string value, not an event
+		// Simplify event handling
 		if (theme instanceof Event) {
-			logger.debug('Theme update event received:', {
-				type: theme.type,
-				currentTarget: theme.currentTarget?.tagName,
-				target: theme.target?.tagName,
-				currentTargetDataset: theme.currentTarget?.dataset,
-				targetDataset: theme.target?.dataset
-			});
-
-			// Only prevent default if it's a theme switcher event
-			if (theme.currentTarget?.dataset?.theme) {
+			const target = theme.currentTarget || theme.target;
+			if (target?.dataset?.theme) {
 				theme.preventDefault();
-				theme = theme.currentTarget.dataset.theme;
-				logger.debug('Theme from currentTarget:', theme);
-			} else if (theme.target?.dataset?.theme) {
-				theme.preventDefault();
-				theme = theme.target.dataset.theme;
-				logger.debug('Theme from target:', theme);
+				theme = target.dataset.theme;
 			} else {
-				logger.warn('Event object passed without theme data attribute:', {
-					event: theme.type,
-					currentTarget: theme.currentTarget,
-					target: theme.target
-				});
+				logger.warn('Event object passed without theme data attribute');
 				return;
 			}
 		}
@@ -212,7 +176,6 @@ export const uiPlugin = {
 			return;
 		}
 
-		logger.debug('Dispatching theme update:', theme);
 		Store.getInstance().dispatch({
 			domain: 'ui',
 			type: actions.ui.UPDATE_THEME,
@@ -221,46 +184,23 @@ export const uiPlugin = {
 	},
 
 	_updateFontSize(fontSize) {
-		// Ensure we're getting a string value, not an event
 		if (fontSize instanceof Event) {
-			logger.debug('Font size update event received:', {
-				type: fontSize.type,
-				currentTarget: fontSize.currentTarget?.tagName,
-				target: fontSize.target?.tagName,
-				currentTargetDataset: fontSize.currentTarget?.dataset,
-				targetDataset: fontSize.target?.dataset
-			});
-
-			// Only prevent default if it's a font size switcher event
-			if (fontSize.currentTarget?.dataset?.size) {
+			const target = fontSize.currentTarget || fontSize.target;
+			if (target?.dataset?.size) {
 				fontSize.preventDefault();
-				fontSize = fontSize.currentTarget.dataset.size;
-				logger.debug('Font size from currentTarget:', fontSize);
-			} else if (fontSize.target?.dataset?.size) {
-				fontSize.preventDefault();
-				fontSize = fontSize.target.dataset.size;
-				logger.debug('Font size from target:', fontSize);
+				fontSize = target.dataset.size;
 			} else {
-				logger.warn('Event object passed without size data attribute:', {
-					event: fontSize.type,
-					currentTarget: fontSize.currentTarget,
-					target: fontSize.target
-				});
+				logger.warn('Event object passed without size data attribute');
 				return;
 			}
 		}
 
-		// Validate font size value
-		if (!fontSize || typeof fontSize !== 'string' || !Object.values(UI_FONT_SIZE).includes(fontSize)) {
+		if (!Object.values(UI_FONT_SIZE).includes(fontSize)) {
 			logger.error('Invalid font size value:', fontSize);
 			return;
 		}
 
-		logger.debug('Dispatching font size update:', fontSize);
-		// Save to localStorage first
 		localStorage.setItem('sizeLocal', fontSize);
-
-		// Then update state
 		Store.getInstance().dispatch({
 			domain: 'ui',
 			type: actions.ui.UPDATE_FONT_SIZE,
@@ -270,28 +210,14 @@ export const uiPlugin = {
 
 	_initializeBootstrap() {
 		try {
-			this._initDropdowns();
-			this._initToasts();
-			this._initOffcanvas();
+			['[data-bs-toggle="dropdown"]', '.toast', '.offcanvas'].forEach((selector, index) => {
+				const Constructor = [Dropdown, Toast, Offcanvas][index];
+				document.querySelectorAll(selector).forEach(el => new Constructor(el));
+			});
 			logger.debug('Bootstrap components initialized successfully');
 		} catch (error) {
 			logger.error('Error initializing Bootstrap components:', error);
 		}
-	},
-
-	_initDropdowns() {
-		const dropdownElList = document.querySelectorAll('[data-bs-toggle="dropdown"]');
-		[...dropdownElList].map(el => new Dropdown(el));
-	},
-
-	_initToasts() {
-		const toastElList = document.querySelectorAll('.toast');
-		[...toastElList].map(el => new Toast(el));
-	},
-
-	_initOffcanvas() {
-		const offcanvasElList = document.querySelectorAll('.offcanvas');
-		[...offcanvasElList].map(el => new Offcanvas(el));
 	},
 
 	_handleModalStateChange(modals) {
@@ -330,24 +256,10 @@ export const uiPlugin = {
 
 	_applyThemeToDOM(theme) {
 		try {
-			if (!theme || typeof theme !== 'string') {
-				logger.error('Invalid theme value:', theme);
-				return;
-			}
-
-			if (!Object.values(UI_THEME).includes(theme)) {
-				logger.error('Invalid theme value:', theme);
-				return;
-			}
-
-			logger.debug('Applying theme to DOM:', theme);
-
-			// Apply theme to document
 			document.documentElement.setAttribute('data-bs-theme', theme);
 			document.body.classList.remove('theme-light', 'theme-dark', 'theme-high-contrast');
 			document.body.classList.add(`theme-${theme}`);
 
-			// Update theme-specific styles
 			const root = document.documentElement;
 			switch (theme) {
 				case UI_THEME.DARK:
@@ -377,80 +289,29 @@ export const uiPlugin = {
 
 	_applyFontSizeToDOM(fontSize) {
 		try {
-			if (!fontSize || typeof fontSize !== 'string') {
-				logger.error('Invalid font size value:', fontSize);
-				return;
-			}
+			const fontSizeMap = {
+				base: {
+					[UI_FONT_SIZE.SMALL]: '0.75rem',
+					[UI_FONT_SIZE.MEDIUM]: '1rem',
+					[UI_FONT_SIZE.LARGE]: '1.25rem'
+				},
+				h: {
+					[UI_FONT_SIZE.SMALL]: '0.9rem',
+					[UI_FONT_SIZE.MEDIUM]: '1.1rem',
+					[UI_FONT_SIZE.LARGE]: '1.2rem'
+				}
+			};
 
-			if (!Object.values(UI_FONT_SIZE).includes(fontSize)) {
-				logger.error('Invalid font size value:', fontSize);
-				return;
-			}
-
-			logger.debug('Applying font size to DOM:', fontSize);
-
-			// Remove all font size classes
-			document.body.classList.remove(
-				`font-${UI_FONT_SIZE.SMALL}`,
-				`font-${UI_FONT_SIZE.MEDIUM}`,
-				`font-${UI_FONT_SIZE.LARGE}`
-			);
+			document.body.classList.remove(...Object.values(UI_FONT_SIZE).map(size => `font-${size}`));
 			document.body.classList.add(`font-${fontSize}`);
+			document.body.style.fontSize = fontSizeMap.base[fontSize];
 
-			// Update body font size
-			const fontSizes = {
-				[UI_FONT_SIZE.SMALL]: '0.875rem',
-				[UI_FONT_SIZE.MEDIUM]: '1rem',
-				[UI_FONT_SIZE.LARGE]: '1.25rem'
-			};
-			document.body.style.fontSize = fontSizes[fontSize];
+			document.querySelectorAll('.btn, .form-control').forEach(el =>
+				el.style.fontSize = fontSizeMap.base[fontSize]);
+			document.querySelectorAll('h2, h3, h4, h5').forEach(el =>
+				el.style.fontSize = fontSizeMap.h[fontSize]);
 
-			// Update navbar brand
-			const navbarBrand = document.querySelector('.navbar-brand');
-			if (navbarBrand) {
-				const brandSizes = {
-					[UI_FONT_SIZE.SMALL]: '1.1rem',
-					[UI_FONT_SIZE.MEDIUM]: '1.25rem',
-					[UI_FONT_SIZE.LARGE]: '1.5rem'
-				};
-				navbarBrand.style.fontSize = brandSizes[fontSize];
-			}
-
-			// Update buttons
-			const buttons = document.querySelectorAll('.btn');
-			buttons.forEach(btn => {
-				btn.style.fontSize = fontSizes[fontSize];
-			});
-
-			// Update form controls
-			const formControls = document.querySelectorAll('.form-control');
-			formControls.forEach(control => {
-				control.style.fontSize = fontSizes[fontSize];
-			});
-
-			// Update headings
-			const h4Sizes = {
-				[UI_FONT_SIZE.SMALL]: '1.25rem',
-				[UI_FONT_SIZE.MEDIUM]: '1.5rem',
-				[UI_FONT_SIZE.LARGE]: '1.75rem'
-			};
-			document.querySelectorAll('h4').forEach(h4 => {
-				h4.style.fontSize = h4Sizes[fontSize];
-			});
-
-			const h5Sizes = {
-				[UI_FONT_SIZE.SMALL]: '1rem',
-				[UI_FONT_SIZE.MEDIUM]: '1.25rem',
-				[UI_FONT_SIZE.LARGE]: '1.5rem'
-			};
-			document.querySelectorAll('h5').forEach(h5 => {
-				h5.style.fontSize = h5Sizes[fontSize];
-			});
-
-			logger.debug('Font size applied to DOM:', {
-				fontSize,
-				bodyClasses: document.body.classList.toString()
-			});
+			logger.debug('Font size applied to DOM:', { fontSize });
 		} catch (error) {
 			logger.error('Error applying font size to DOM:', error);
 		}
