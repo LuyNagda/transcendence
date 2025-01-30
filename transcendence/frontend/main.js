@@ -32,9 +32,9 @@ function initializeApp() {
 		// Initialize store
 		Store.getInstance();
 
-		jaiPasVu.initialize();
 		jaiPasVu.use(uiPlugin);
 		jaiPasVu.use(htmxPlugin);
+		jaiPasVu.initialize();
 		initializeThemeAndFontSize();
 
 		logger.info('Application initialized successfully');

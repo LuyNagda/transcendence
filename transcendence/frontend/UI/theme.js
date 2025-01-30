@@ -100,6 +100,7 @@ function updateFontSize(fontSize) {
 const UIPlugin = {
 	name: 'ui',
 	install(app) {
+		logger.info("Installing UI Plugin");
 		// Register UI domain with initial state
 		app.on('beforeMount', () => {
 			logger.debug('UI Plugin beforeMount:', {

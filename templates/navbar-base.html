@@ -1,7 +1,7 @@
 {% block navbar_styles %}{% endblock %}
 
 <nav class="navbar navbar-expand" style="background-color: var(--bs-dark-bg-subtle);">
-	<div class="container-xxl">
+	<div class="container-xxl" data-domain="ui">
 		<a class="navbar-brand" href="#" hx-get="{% url 'index' %}" hx-target="#content" hx-swap="outerHTML"
 			hx-push-url="true" aria-label="Home">42</a>
 		<ul class="navbar-nav" role="navigation">
