@@ -21,32 +21,57 @@ from rest_framework.permissions import AllowAny
 from django.contrib.auth import get_user_model
 import requests
 import logging
-import json
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.contrib.auth import login
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
 
+def already_logged_in(request):
+	access_token = request.COOKIES.get('access_token')
+	jwt_auth = JWTAuthentication()
+	validated_token = jwt_auth.get_validated_token(access_token)
+	user = jwt_auth.get_user(validated_token)
+	refresh_token = request.COOKIES.get('refresh_token')
+
+	users = User.objects.all()  
+	blocked_users = request.user.blocked_users.all() if hasattr(request.user, 'blocked_users') else []
+	login(request, User.objects.get(username=user))
+	context = {
+	'user': User.objects.get(username=user),
+	'access_token': access_token,
+	'refresh_token': refresh_token,
+	'users': users,
+	'blocked_users': blocked_users,
+	}
+	response = render(request, 'index.html', context)
+	return response
+
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def register(request):
-    if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            logger.info(f"New user registered: {user.username}", extra={'user_id': user.id})
-            messages.success(request, 'Registration successful. You can now log in.')
-            return redirect('login')
-        else:
-            logger.warning(f"Failed registration attempt: {form.errors}")
-            return render(request, 'register.html', {'form': form})
-    else:
-        form = CustomUserCreationForm()
-    response = render(request, 'register.html', {'form': form})
-    return response
+	if already_logged_in(request):
+		return already_logged_in(request)
+	if request.method == 'POST':
+		form = CustomUserCreationForm(request.POST)
+		if form.is_valid():
+			user = form.save()
+			logger.info(f"New user registered: {user.username}", extra={'user_id': user.id})
+			messages.success(request, 'Registration successful. You can now log in.')
+			return redirect('login')
+		else:
+			logger.warning(f"Failed registration attempt: {form.errors}")
+			return render(request, 'register.html', {'form': form})
+	else:
+		form = CustomUserCreationForm()
+	response = render(request, 'register.html', {'form': form})
+	return response
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def login_view(request):
+    if already_logged_in(request):
+        return already_logged_in(request)
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
