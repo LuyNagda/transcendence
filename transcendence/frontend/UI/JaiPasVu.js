@@ -1,14 +1,7 @@
 /**
  * JaiPasVu - A lightweight reactive UI framework
  * 
- * A standalone library providing Vue-like features:
- * - Reactive data binding
- * - Template directives
- * - Event handling
- * - Component lifecycle
- * - Plugin system
- * - Domain-based state management
- * - Interpolation with [[ ]] (not to confuse with Django SSR templating {{ }})
+ * A standalone library providing Vue-like features with a simplified API.
  * 
  * Supported directives:
  * - v-text: Text content binding
@@ -19,9 +12,62 @@
  * - v-on: Event handling
  * - /!\ Not yet fully tested: v-for: List rendering
  * - !\ Not yet implemented: v-bind:style: Style binding
+ * @class
+ * @singleton
+ * 
+ * @example
+ * // Initialize the framework
+ * const jaiPasVu = new JaiPasVu();
+ * jaiPasVu.initialize(document.body);
+ * 
+ * // Register domain data
+ * jaiPasVu.registerData('room', {
+ *   mode: 'CLASSIC',
+ *   players: [],
+ *   maxPlayers: 2,
+ *   isOwner: false,
+ *   error: null,
+ *   // Computed property example
+ *   mappedPlayers() {
+ *     return this.players.map(player => ({
+ *       ...player,
+ *       isOwner: player.id === this.ownerId,
+ *       isCurrentUser: player.id === this.currentUserId
+ *     }));
+ *   }
+ * });
+ * 
+ * // Register methods
+ * jaiPasVu.registerMethods('room', {
+ *   startGame() {
+ *     this.startGameInProgress = true;
+ *     // Game start logic
+ *   },
+ *   kickPlayer(playerId) {
+ *     // Player kick logic
+ *   },
+ *   leaveGame() {
+ *     // Leave game logic
+ *   }
+ * });
+ * 
+ * @features
+ * - Template interpolation using [[ ]] syntax (not to confuse with Django SSR templating {{ }})
+ * - Reactive data binding with automatic UI updates
+ * - Template directives (v-if, v-model, v-on, etc.)
+ * - Event handling with method binding
+ * - Component lifecycle hooks
+ * - Plugin system for extensibility
+ * - Domain-based state management
+ * - Computed properties
+ * - Two-way data binding
  */
 import logger from "../logger.js";
 
+/**
+ * ReactiveEffect - Internal tracking system for reactive dependencies
+ * @private
+ */
 const ReactiveEffect = {
     current: null,
     stack: [],
@@ -37,6 +83,12 @@ const ReactiveEffect = {
     }
 };
 
+/**
+ * Creates a reactive proxy around an object to track property access and changes
+ * @private
+ * @param {Object} obj - The object to make reactive
+ * @returns {Proxy} A reactive proxy of the object
+ */
 function reactive(obj) {
     const subscribers = new WeakMap();
 
@@ -71,11 +123,18 @@ function reactive(obj) {
     });
 }
 
+/**
+ * Main framework class implementing reactive UI functionality
+ * @public
+ */
 class JaiPasVu {
+    /**
+     * Creates or returns the singleton instance of JaiPasVu
+     * @returns {JaiPasVu} The singleton instance
+     */
     constructor() {
-        if (JaiPasVu.instance) {
+        if (JaiPasVu.instance)
             return JaiPasVu.instance;
-        }
 
         this.initialized = false;
         this.root = null;
@@ -98,7 +157,24 @@ class JaiPasVu {
         JaiPasVu.instance = this;
     }
 
-    // Plugin system
+    /**
+     * Installs a plugin into the framework
+     * @param {Object} plugin - The plugin object to install
+     * @param {string} plugin.name - Plugin name
+     * @param {Function} plugin.install - Plugin installation function
+     * @param {Object} [options={}] - Plugin configuration options
+     * @returns {JaiPasVu} The framework instance for chaining
+     * 
+     * @example
+     * const myPlugin = {
+     *   name: 'myPlugin',
+     *   install(jaiPasVu, options) {
+     *     // Add custom functionality
+     *     jaiPasVu.customMethod = () => {};
+     *   }
+     * };
+     * jaiPasVu.use(myPlugin, { debug: true });
+     */
     use(plugin, options = {}) {
         if (!plugin || typeof plugin !== 'object') {
             logger.error('Invalid plugin:', plugin);
@@ -123,7 +199,17 @@ class JaiPasVu {
         return this;
     }
 
-    // Hook system
+    /**
+     * Registers a lifecycle hook callback
+     * @param {string} hookName - Name of the hook ('beforeMount', 'mounted', etc.)
+     * @param {Function} callback - Function to call when hook triggers
+     * @returns {Function} Cleanup function to remove the hook
+     * 
+     * @example
+     * jaiPasVu.on('mounted', () => {
+     *   console.log('Framework mounted!');
+     * });
+     */
     on(hookName, callback) {
         if (this.hooks[hookName])
             this.hooks[hookName].add(callback);
@@ -147,6 +233,14 @@ class JaiPasVu {
         }
     }
 
+    /**
+     * Initializes the framework with a root element
+     * @param {HTMLElement} [root=document.body] - Root element for the framework
+     * @returns {JaiPasVu} The framework instance for chaining
+     * 
+     * @example
+     * jaiPasVu.initialize(document.querySelector('#app'));
+     */
     initialize(root = document.body) {
         if (this.initialized) {
             logger.warn("JaiPasVu is already initialized");
@@ -162,7 +256,27 @@ class JaiPasVu {
     }
 
     /**
-     * Register reactive data for a specific domain
+     * Registers reactive data for a specific domain
+     * @param {string} domain - Domain identifier
+     * @param {Object} data - Data object containing state and computed properties
+     * 
+     * @example
+     * // Register room state data
+     * jaiPasVu.registerData('room', {
+     *   mode: 'CLASSIC',
+     *   players: [],
+     *   maxPlayers: 2,
+     *   isOwner: false,
+     *   error: null,
+     *   // Computed property example
+     *   mappedPlayers() {
+     *     return this.players.map(player => ({
+     *       ...player,
+     *       isOwner: player.id === this.ownerId,
+     *       isCurrentUser: player.id === this.currentUserId
+     *     }));
+     *   }
+     * });
      */
     registerData(domain, data) {
         if (!this.domains.has(domain)) {
@@ -210,7 +324,23 @@ class JaiPasVu {
     }
 
     /**
-     * Register methods for a specific domain
+     * Registers methods for a specific domain
+     * @param {string} domain - Domain identifier
+     * @param {Object.<string, Function>} methods - Object containing method definitions
+     * 
+     * @example
+     * jaiPasVu.registerMethods('room', {
+     *   startGame() {
+     *     this.startGameInProgress = true;
+     *     // Game start logic
+     *   },
+     *   kickPlayer(playerId) {
+     *     // Player kick logic
+     *   },
+     *   leaveGame() {
+     *     // Leave game logic
+     *   }
+     * });
      */
     registerMethods(domain, methods) {
         if (!this.domains.has(domain)) {
@@ -292,7 +422,22 @@ class JaiPasVu {
     }
 
     /**
-     * Subscribe to data changes for a domain
+     * Subscribes to state changes in a specific domain
+     * @param {string} domain - Domain identifier
+     * @param {Function} callback - Callback function receiving updated state
+     * @returns {Function} Unsubscribe function
+     * 
+     * @example
+     * const unsubscribe = jaiPasVu.subscribe('room', (state) => {
+     *   console.log('Room state updated:', {
+     *     playerCount: state.mappedPlayers.length,
+     *     availableSlots: state.availableSlots,
+     *     mode: state.mode
+     *   });
+     * });
+     * 
+     * // Later: unsubscribe to clean up
+     * unsubscribe();
      */
     subscribe(domain, callback) {
         if (!this.observers.has(domain)) {
@@ -947,11 +1092,18 @@ class JaiPasVu {
         this.emit('destroyed', el);
     }
 
-    // Get domain state
+    /**
+     * Gets the current state of a domain
+     * @param {string} domain - Domain identifier
+     * @returns {Object|undefined} Domain state or undefined if domain doesn't exist
+     * 
+     * @example
+     * const userState = jaiPasVu.getState('userDomain');
+     * console.log(userState.name); // Access state properties
+     */
     getState(domain) {
         return this.domains.get(domain)?.state;
     }
 }
 
-// Export a singleton instance
 export default new JaiPasVu();

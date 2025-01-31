@@ -2,5 +2,12 @@
 
 ## High Priority (POC Focus)
 
+- [ ] **Fix v-for**
 - [ ] **Increase JaiPasVu test coverage**
-- [ ] **Fix Room to work with new state management**
+
+## Clean
+- [ ] **Clean store : remove out domain-specific logic**
+
+## Done
+
+- [x] **Fix Room to work with new state management**

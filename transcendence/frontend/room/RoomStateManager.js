@@ -10,46 +10,6 @@ export class RoomStateManager {
 	constructor(store, roomId) {
 		this._store = store || Store.getInstance();
 		this._roomId = roomId;
-		this._subscribers = new Set();
-	}
-
-
-	// Getters that read directly from store
-	get roomId() { return this._roomId; }
-
-	get state() {
-		const roomState = this._store.getState('room');
-		return roomState.state;
-	}
-
-	get mode() {
-		const roomState = this._store.getState('room');
-		return roomState.mode;
-	}
-
-	get settings() {
-		const roomState = this._store.getState('room');
-		return roomState.settings;
-	}
-
-	get players() {
-		const roomState = this._store.getState('room');
-		return roomState.players;
-	}
-
-	get pendingInvitations() {
-		const room = this._store.getState('room').rooms[this._roomId];
-		return room?.pendingInvitations || [];
-	}
-
-	get owner() {
-		const roomState = this._store.getState('room');
-		return roomState.createdBy;
-	}
-
-	get maxPlayers() {
-		const roomState = this._store.getState('room');
-		return roomState.settings.maxPlayers;
 	}
 
 	get availableSlots() {
@@ -154,7 +114,7 @@ export class RoomStateManager {
 	updateState(newState) {
 		if (!newState) return;
 
-		const oldState = this._store.getState('room').rooms[this._roomId];
+		const oldState = this._store.getState('room');
 		if (!oldState) return;
 
 		// Dispatch update to store
@@ -212,17 +172,6 @@ export class RoomStateManager {
 		}
 	}
 
-	// Subscription management
-	subscribe(callback) {
-		this._subscribers.add(callback);
-		return () => this._subscribers.delete(callback);
-	}
-
-	_notifyStateChange() {
-		const state = this._store.getState('room').rooms[this._roomId];
-		this._subscribers.forEach(callback => callback(state));
-	}
-
 	destroy() {
 		this._store.dispatch({
 			domain: 'room',
@@ -233,6 +182,22 @@ export class RoomStateManager {
 			}
 		});
 		this._subscribers.clear();
+	}
+
+	/**
+	 * Notifies subscribers of state changes
+	 * @private
+	 */
+	_notifyStateChange() {
+		if (this._subscribers) {
+			this._subscribers.forEach(callback => {
+				try {
+					callback(this._state);
+				} catch (error) {
+					logger.error('Error in state change subscriber:', error);
+				}
+			});
+		}
 	}
 }
 

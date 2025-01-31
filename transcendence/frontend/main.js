@@ -2,8 +2,10 @@ import logger from './logger.js';
 import jaiPasVu from './UI/JaiPasVu.js';
 import { htmxPlugin } from './UI/HTMXPlugin.js';
 import { uiPlugin } from './UI/UIPlugin.js';
+import { roomPlugin } from './room/RoomPlugin.js';
 import Store from './state/store.js';
 import StateSync from './state/StateSync.js';
+
 function _initializeErrorHandling() {
 	window.onerror = function (message, source, lineno, colno, error) {
 		logger.error('Global error:', { message, source, lineno, colno, error });
@@ -32,6 +34,7 @@ function initializeApp() {
 		Store.getInstance();
 
 		jaiPasVu.use(uiPlugin);
+		jaiPasVu.use(roomPlugin);
 		jaiPasVu.use(htmxPlugin);
 		jaiPasVu.initialize();
 

@@ -13,7 +13,8 @@ export const roomActions = {
 	UPDATE_ROOM_SETTINGS: 'UPDATE_ROOM_SETTINGS',
 	UPDATE_PLAYERS: 'UPDATE_PLAYERS',
 	UPDATE_ROOM_STATE: 'UPDATE_ROOM_STATE',
-	UPDATE_ROOM_MODE: 'UPDATE_ROOM_MODE'
+	UPDATE_ROOM_MODE: 'UPDATE_ROOM_MODE',
+	CLEAR_ROOM: 'CLEAR_ROOM'
 };
 
 export const RoomModes = {
@@ -326,5 +327,7 @@ export const roomReducers = {
 			} : state.settings,
 			lastUpdate: Date.now()
 		};
-	}
+	},
+
+	[roomActions.CLEAR_ROOM]: () => initialRoomState
 };

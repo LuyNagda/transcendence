@@ -93,7 +93,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 'user_id': self.user.id
             })
 
-            if action == 'get_state': # TODO: Probleme de loop car state a tout le monde ?
+            if action == 'get_state':
                 # Get current room state and send it back
                 room_state = await self.get_room_state()
                 response = {

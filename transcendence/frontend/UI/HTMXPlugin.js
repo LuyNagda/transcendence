@@ -11,19 +11,56 @@ import { htmx } from '../vendor.js';
  * - Event handling
  * - HTMX-specific directives
  * - State synchronization
+ * 
+ * Server-side Usage:
+ * 1. State Updates via Headers:
+ *    Send state updates through HX-Trigger response header:
+ *    ```python
+ *    response = HttpResponse()
+ *    response['HX-Trigger'] = json.dumps({
+ *        'stateUpdate': {
+ *            'domain': 'domain',
+ *            'state': state_dict
+ *        }
+ *    })
+ *    ```
+ * 
+ * 2. State Updates via Response Body:
+ *    Include state updates in your template:
+ *    ```html
+ *    <script type="application/json" data-state-update>
+ *        {
+ *            "domain": {
+ *                "key": "value"
+ *            }
+ *        }
+ *    </script>
+ *    ```
+ * 
+ * 3. Custom Triggers:
+ *    Send custom events through HX-Trigger:
+ *    ```python
+ *    response['HX-Trigger'] = json.dumps({
+ *        'custom_event': {'data': 'value'}
+ *    })
+ *    ```
  */
 
 export const htmxPlugin = {
 	name: 'htmx',
 	app: null,
 
+	/**
+	 * Installs the HTMX plugin into the application
+	 * @param {Object} app - The application instance
+	 */
 	install(app) {
 		this.app = app;
 
 		// Configure HTMX defaults
 		htmx.config.defaultSwapStyle = "innerHTML";
 		htmx.config.defaultSettleDelay = 100;
-		htmx.config.historyCacheSize = 10;
+		htmx.config.historyCacheSize = 50;
 
 		// Register HTMX state
 		app.registerData('htmx', {
@@ -56,17 +93,11 @@ export const htmxPlugin = {
 				return {
 					onComplete: () => {
 						if (state) {
-							// Remove processing state
 							state.isProcessing = false;
 							target.classList.remove(state.processingClass);
-
-							// Clean up request
 							state.requests.delete(requestId);
-
-							// Trigger UI update if needed
-							if (options.updateUI) {
+							if (options.updateUI)
 								app.emit('updated');
-							}
 						}
 					},
 					onError: (error) => {
@@ -101,16 +132,14 @@ export const htmxPlugin = {
 
 			setProcessingClass(className) {
 				const state = app.getState('htmx');
-				if (state) {
+				if (state)
 					state.processingClass = className;
-				}
 			},
 
 			setSwapStyle(style) {
 				const state = app.getState('htmx');
-				if (state) {
+				if (state)
 					state.swapStyle = style;
-				}
 			}
 		});
 
@@ -124,11 +153,8 @@ export const htmxPlugin = {
 			}
 		});
 
-		// Setup HTMX event handlers
-		this.setupEventHandlers(app);
-
-		// Setup HTMX-specific directives
-		this.setupDirectives(app);
+		this._setupEventHandlers(app);
+		this._setupDirectives(app);
 
 		// Listen for app initialization
 		app.on('beforeMount', () => {
@@ -145,29 +171,35 @@ export const htmxPlugin = {
 		});
 	},
 
+	/**
+	 * Initializes HTMX by processing existing HTMX elements
+	 * @private
+	 */
 	_initializeHtmx() {
-		// Process any existing HTMX elements
 		document.querySelectorAll('[hx-get], [hx-post]').forEach(el => {
 			this.app.compileElement(el);
 			htmx.process(el);
 		});
-
 		logger.debug('HTMX initialized');
 	},
 
-	setupEventHandlers(app) {
+	/**
+	 * Sets up HTMX event handlers for the application
+	 * @private
+	 */
+	_setupEventHandlers(app) {
 		const store = Store.getInstance();
 
 		document.body.addEventListener('htmx:beforeRequest', (event) => {
-			const target = event.detail.elt;
-			const domain = target.getAttribute('data-domain') || 'global';
+			// const target = event.detail.elt;
+			// const domain = target.getAttribute('data-domain') || 'global';
 
 			app.emit('htmx:beforeRequest', event);
 		});
 
 		document.body.addEventListener('htmx:afterRequest', (event) => {
-			const target = event.detail.elt;
-			const domain = target.getAttribute('data-domain') || 'global';
+			// const target = event.detail.elt;
+			// const domain = target.getAttribute('data-domain') || 'global';
 
 			app.emit('htmx:afterRequest', event);
 		});
@@ -201,7 +233,7 @@ export const htmxPlugin = {
 				}
 
 				// First process state updates from server
-				this.processStateUpdates(app, event.detail);
+				this._processStateUpdates(app, event.detail);
 
 				// Then recompile the swapped element and its children
 				app.compileElement(target);
@@ -209,7 +241,7 @@ export const htmxPlugin = {
 				// Ensure any new HTMX elements are properly initialized
 				htmx.process(target);
 
-				// Force recompile all UI elements to ensure proper state
+				// Recompile all reactive elements
 				document.querySelectorAll('[data-domain]').forEach(el => {
 					app.compileElement(el);
 				});
@@ -242,7 +274,11 @@ export const htmxPlugin = {
 		});
 	},
 
-	setupDirectives(app) {
+	/**
+	 * Sets up custom directives for HTMX integration
+	 * @private
+	 */
+	_setupDirectives(app) {
 		app.on('beforeCompile', (el) => {
 			Array.from(el.attributes || []).forEach(attr => {
 				if (attr.name.startsWith('v-hx-')) {
@@ -250,17 +286,14 @@ export const htmxPlugin = {
 					el.setAttribute(htmxAttr, attr.value);
 				}
 			});
-
-			// // Add loading indicator to HTMX elements
-			// if (el.hasAttribute('hx-get') || el.hasAttribute('hx-post')) {
-			// 	if (!el.hasAttribute('hx-indicator')) {
-			// 		el.setAttribute('hx-indicator', '[data-loading="global"]');
-			// 	}
-			// }
 		});
 	},
 
-	processStateUpdates(app, detail) {
+	/**
+	 * Processes state updates received from server responses
+	 * @private
+	 */
+	_processStateUpdates(app, detail) {
 		const store = Store.getInstance();
 
 		// Process HX-Trigger header

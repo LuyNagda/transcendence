@@ -4,7 +4,7 @@ import { RoomStates, RoomModes } from '../state/roomState.js';
 import Store from '../state/store.js';
 
 /**
- * Manages the UI state and interactions for a room
+ * Manages the UI state and interactions for a room using JaiPasVu's reactivity system
  */
 export class RoomUIManager {
 	constructor(store, roomId, currentUser) {
@@ -12,29 +12,21 @@ export class RoomUIManager {
 		this._roomId = roomId;
 		this._currentUser = currentUser;
 		this._eventHandlers = new Map();
-		this._uiState = {
-			isLoading: false,
-			error: null,
-			activeTab: 'game',
-			showInviteModal: false
-		};
 
 		if (!jaiPasVu.initialized)
 			jaiPasVu.initialize(document.body);
 
-		// Initialize room state and UI
-		this._initializeRoomState();
+		this._initializeReactiveState();
 
+		// Bind methods to preserve context
 		this.handleSettingChange = this.handleSettingChange.bind(this);
 		this.handleModeChange = this.handleModeChange.bind(this);
 	}
 
-	_initializeRoomState() {
-		// Get initial state
+	_initializeReactiveState() {
 		const roomState = this._store.getState('room');
 		const userState = this._store.getState('user');
-		logger.debug('Initializing room state with:', roomState);
-		logger.debug('Initializing user state with:', userState);
+		logger.debug('Initializing reactive state with:', { roomState, userState });
 
 		// Register methods that will be available in the template
 		const methods = {
@@ -50,22 +42,17 @@ export class RoomUIManager {
 				logger.debug('Start game called');
 				this._callHandler('startGame');
 			},
-			getCurrentUser: () => {
-				return this._currentUser || this._store.getState('user');
-			}
+			getCurrentUser: () => this._currentUser || this._store.getState('user'),
+			toggleInviteModal: () => this._toggleInviteModal(),
+			handleSettingChange: this.handleSettingChange,
+			handleModeChange: this.handleModeChange
 		};
 
-		// Process and update the room state
-		this._processRoomState(roomState, methods);
-
-		// Initialize store subscription for both room and user state
-		this._initializeStoreSubscription();
+		this._registerReactiveState(roomState, userState, methods);
+		// this._initializeStoreSubscription();
 	}
 
-	_processRoomState(roomState, methods = {}) {
-		// Get existing methods to preserve them
-		const existingMethods = jaiPasVu.methods.get('room') || {};
-
+	_registerReactiveState(roomState, userState, methods) {
 		// Ensure roomState is not null/undefined
 		const safeRoomState = roomState || {};
 
@@ -75,10 +62,6 @@ export class RoomUIManager {
 			settings: safeRoomState.settings || {},
 			players: safeRoomState.players || [],
 			state: safeRoomState.state || RoomStates.LOBBY,
-			isLoading: this._uiState.isLoading || false,
-			error: this._uiState.error || null,
-			activeTab: this._uiState.activeTab || 'game',
-			showInviteModal: this._uiState.showInviteModal || false,
 			currentUser: this._currentUser || {},
 			mode: (safeRoomState.settings && safeRoomState.settings.mode) || 'AI',
 			maxPlayers: (safeRoomState.settings && safeRoomState.settings.maxPlayers) || 2,
@@ -109,65 +92,42 @@ export class RoomUIManager {
 					isOwner: player.isOwner || false,
 					canBeKicked: !player.isOwner && this.isOwner
 				}));
+			},
+			gameContainerClass(state) {
+				return {
+					'game-container': true,
+					'loading': state.isLoading,
+					'error': state.error,
+					'lobby': state.state === RoomStates.LOBBY,
+					'playing': state.state === RoomStates.PLAYING
+				};
 			}
 		};
 
-		// Register data and computed properties with JaiPasVu
+		// Register with JaiPasVu
 		jaiPasVu.registerData('room', {
 			...baseState,
-			...methods,
-			...existingMethods
+			...methods
 		}, computedProps);
 
-		// Debug log the registered state
-		logger.debug('Processed room state:', {
+		// Register hooks for UI updates
+		jaiPasVu.on('beforeUpdate', () => {
+			logger.debug('Room UI updating...');
+		});
+
+		jaiPasVu.on('updated', () => {
+			logger.debug('Room UI updated');
+		});
+
+		logger.debug('Registered reactive state:', {
 			baseState,
 			computedProps: Object.keys(computedProps)
 		});
 	}
 
-	// UI State Management
-	_setActiveTab(tab) {
-		this._uiState.activeTab = tab;
-		jaiPasVu.setDataValue('room', 'activeTab', tab);
-	}
-
 	_toggleInviteModal() {
-		this._uiState.showInviteModal = !this._uiState.showInviteModal;
-		jaiPasVu.setDataValue('room', 'showInviteModal', this._uiState.showInviteModal);
-	}
-
-	// Game Container Management
-	_initializeGameContainer() {
-		const container = document.getElementById('game-container');
-		if (!container) {
-			logger.warn('Game container not found');
-			return;
-		}
-
-		const screen = container.querySelector('.game-screen');
-		if (!screen) {
-			logger.warn('Screen element not found in game container');
-			return;
-		}
-
-		const roomState = this._store.getState('room');
-		if (roomState.state === RoomStates.LOBBY) {
-			this._showLobbyMessage(screen);
-		}
-	}
-
-	_showLobbyMessage(screen) {
-		const messageDiv = document.createElement('div');
-		messageDiv.className = 'text-center p-4 game-message';
-		messageDiv.innerHTML = '<h4>Welcome to the Game Room!</h4><p>Click Start Game when ready.</p>';
-
-		const existingMessage = screen.querySelector('.game-message');
-		if (existingMessage) {
-			existingMessage.remove();
-		}
-
-		screen.appendChild(messageDiv);
+		const state = jaiPasVu.getState('room');
+		jaiPasVu.setValueByPath(state, 'showInviteModal', !state.showInviteModal);
 	}
 
 	// Event Handler Registration
@@ -206,37 +166,33 @@ export class RoomUIManager {
 		}
 	}
 
-	// Store Subscription
-	_initializeStoreSubscription() {
-		// Subscribe to room state changes
-		this._store.subscribe('room', (state, type) => {
-			logger.debug('Room state updated:', state);
-			this._processRoomState(state);
-		});
+	// _initializeStoreSubscription() {
+	// 	// Subscribe to room state changes
+	// 	this._store.subscribe('room', (state, type) => {
+	// 		logger.debug('Room state updated:', state);
+	// 		// Update JaiPasVu state
+	// 		const currentState = jaiPasVu.getState('room');
+	// 		Object.entries(state).forEach(([key, value]) => {
+	// 			if (currentState[key] !== value) {
+	// 				jaiPasVu.setValueByPath(currentState, key, value);
+	// 			}
+	// 		});
+	// 	});
 
-		// Subscribe to user state changes
-		this._store.subscribe('user', (state, type) => {
-			logger.debug('User state updated:', state);
-			this._currentUser = state;
-			jaiPasVu.registerData('user', state);
-
-			// Force update all user elements
-			document.querySelectorAll('[data-domain="user"]').forEach(el => {
-				jaiPasVu.updateElement(el, 'user');
-			});
-
-			// Re-process room state since it depends on user data
-			const roomState = this._store.getState('room');
-			if (roomState) {
-				this._processRoomState(roomState);
-			}
-		});
-	}
+	// 	// Subscribe to user state changes
+	// 	this._store.subscribe('user', (state, type) => {
+	// 		logger.debug('User state updated:', state);
+	// 		this._currentUser = state;
+	// 		// Update currentUser in room state
+	// 		const roomState = jaiPasVu.getState('room');
+	// 		jaiPasVu.setValueByPath(roomState, 'currentUser', state);
+	// 	});
+	// }
 
 	handleSettingChange(setting, value, parseAsInt = false) {
 		try {
-			logger.debug('Class handleSettingChange called:', { setting, value, parseAsInt });
-			const roomState = this._store.getState('room');
+			logger.debug('Handling setting change:', { setting, value, parseAsInt });
+			const roomState = jaiPasVu.getState('room');
 
 			if (roomState.state === RoomStates.PLAYING) {
 				logger.warn('Cannot change settings while game is in progress');
@@ -244,8 +200,7 @@ export class RoomUIManager {
 			}
 
 			const parsedValue = parseAsInt ? parseInt(value) : value;
-			logger.debug('Calling setting change handler with:', { setting, parsedValue });
-			this.onSettingChange && this.onSettingChange(setting, parsedValue);
+			this._callHandler('settingChange', setting, parsedValue);
 		} catch (error) {
 			logger.error('Error in handleSettingChange:', error);
 		}
@@ -254,23 +209,14 @@ export class RoomUIManager {
 	handleModeChange(event) {
 		try {
 			logger.debug('Handling mode change:', event.target.value);
-			if (this.onModeChange) {
-				this.onModeChange(event);
-			} else {
-				logger.warn('No mode change handler set');
-			}
+			this._callHandler('modeChange', event);
 		} catch (error) {
 			logger.error('Error in handleModeChange:', error);
 		}
 	}
 
 	destroy() {
-		const roomContainer = document.getElementById('pong-room');
-		if (roomContainer) {
-			roomContainer.removeEventListener('click', this._handleClick);
-			roomContainer.removeEventListener('change', this._handleChange);
-			roomContainer.removeEventListener('submit', this._handleSubmit);
-		}
+		jaiPasVu.cleanup(document.getElementById('pong-room'));
 		this._eventHandlers.clear();
 		this._store.unsubscribe('room');
 	}

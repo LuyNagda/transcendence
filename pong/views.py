@@ -398,24 +398,3 @@ def update_room_settings(request, room_id):
             'status': 'error',
             'message': 'Failed to update room settings'
         }, status=500)
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticatedWithCookie])
-def pong_room_partial_view(request, room_id):
-    try:
-        room = get_object_or_404(PongRoom, room_id=room_id)
-        logger.info(f"Accessing room partial with ID {room_id} by user {request.user.username}")
-        room_data = room.serialize()
-        room_data['currentUser'] = request.user.player_data
-        json_data = json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
-        return render(request, 'pong/pong_room_partial.html', {
-            'room_id': room_id,
-            'pongRoom': json_data,
-            'current_user': {
-                'id': request.user.id,
-                'username': request.user.username,
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error accessing room partial: {str(e)}")
-        return JsonResponse({'status': 'error'})
