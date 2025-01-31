@@ -1,17 +1,17 @@
 import jaiPasVu from '../UI/JaiPasVu.js';
 import logger from '../logger.js';
 import { RoomStates, RoomModes } from '../state/roomState.js';
-import Store from '../state/store.js';
+import { store, actions } from '../state/store.js';
 
 /**
  * Manages the UI state and interactions for a room using JaiPasVu's reactivity system
  */
 export class RoomUIManager {
-	constructor(store, roomId, currentUser) {
-		this._store = store || Store.getInstance();
+	constructor(roomId, currentUser) {
 		this._roomId = roomId;
 		this._currentUser = currentUser;
 		this._eventHandlers = new Map();
+		this._observers = [];
 
 		if (!jaiPasVu.initialized)
 			jaiPasVu.initialize(document.body);
@@ -24,12 +24,47 @@ export class RoomUIManager {
 	}
 
 	_initializeReactiveState() {
-		const roomState = this._store.getState('room');
-		const userState = this._store.getState('user');
+		const roomState = store.getState('room');
+		const userState = store.getState('user');
 		logger.debug('Initializing reactive state with:', { roomState, userState });
 
-		// Register methods that will be available in the template
-		const methods = {
+		// First register the computed properties
+		jaiPasVu.registerData('room', {}, this._getComputedProps());
+
+		// Then register the state and methods
+		jaiPasVu.registerData('room', {
+			...roomState,
+			...this._getMethods()
+		});
+
+		this._observers.push(
+			store.subscribe('room', this._handleRoomStateUpdate.bind(this)),
+			store.subscribe('user', this._handleUserStateUpdate.bind(this))
+		);
+	}
+
+	_handleRoomStateUpdate(state) {
+		logger.debug('Room state update from store:', state);
+		// Update the UI through JaiPasVu's reactivity
+		jaiPasVu.registerData('room', {
+			...state,
+			...this._getMethods()
+		});
+	}
+
+	_handleUserStateUpdate(state) {
+		logger.debug('User state update from store:', state);
+		this._currentUser = state;
+		// Update currentUser in room state through store
+		store.dispatch({
+			domain: 'room',
+			type: actions.room.UPDATE_ROOM,
+			payload: { currentUser: state }
+		});
+	}
+
+	_getMethods() {
+		return {
 			kickPlayer: (playerId) => {
 				logger.debug('Kick player called:', playerId);
 				this._callHandler('kickPlayer', playerId);
@@ -42,58 +77,45 @@ export class RoomUIManager {
 				logger.debug('Start game called');
 				this._callHandler('startGame');
 			},
-			getCurrentUser: () => this._currentUser || this._store.getState('user'),
+			leaveGame: () => {
+				logger.debug('Leave game called');
+				this._callHandler('leaveGame');
+			},
+			getCurrentUser: () => this._currentUser || store.getState('user'),
 			toggleInviteModal: () => this._toggleInviteModal(),
 			handleSettingChange: this.handleSettingChange,
 			handleModeChange: this.handleModeChange
 		};
-
-		this._registerReactiveState(roomState, userState, methods);
-		// this._initializeStoreSubscription();
 	}
 
-	_registerReactiveState(roomState, userState, methods) {
-		// Ensure roomState is not null/undefined
-		const safeRoomState = roomState || {};
-
-		// Initialize base state with default values
-		const baseState = {
-			id: safeRoomState.id || '',
-			settings: safeRoomState.settings || {},
-			players: safeRoomState.players || [],
-			state: safeRoomState.state || RoomStates.LOBBY,
-			currentUser: this._currentUser || {},
-			mode: (safeRoomState.settings && safeRoomState.settings.mode) || 'AI',
-			maxPlayers: (safeRoomState.settings && safeRoomState.settings.maxPlayers) || 2,
-			pendingInvitations: safeRoomState.pendingInvitations || []
-		};
-
-		// Define computed properties
-		const computedProps = {
-			availableSlots(state) {
-				return Math.max(0, state.maxPlayers - (state.players?.length || 0));
-			},
-			isOwner(state) {
-				return state.players?.some(p => p.id === state.currentUser?.id && p.isOwner) || false;
-			},
-			isLobbyState(state) {
-				return state.state === RoomStates.LOBBY;
-			},
-			buttonText(state) {
-				return state.state === RoomStates.LOBBY ? 'Start Game' : 'Game in Progress';
-			},
-			startGameInProgress(state) {
-				return state.state !== RoomStates.LOBBY;
-			},
-			mappedPlayers(state) {
-				return (state.players || []).map(player => ({
+	_getComputedProps() {
+		return {
+			mappedPlayers: function (state) {
+				const players = state.players || [];
+				const currentUserId = state.currentUser?.id;
+				return players.map(player => ({
 					...player,
-					isCurrentUser: player.id === state.currentUser?.id,
-					isOwner: player.isOwner || false,
-					canBeKicked: !player.isOwner && this.isOwner
+					isCurrentUser: player.id === currentUserId,
+					isOwner: player.id === state.owner?.id,
+					canBeKicked: player.id !== state.owner?.id && state.owner?.id === currentUserId
 				}));
 			},
-			gameContainerClass(state) {
+			availableSlots: function (state) {
+				return Math.max(0, state.maxPlayers - (state.players?.length || 0));
+			},
+			isOwner: function (state) {
+				return state.owner?.id === state.currentUser?.id;
+			},
+			isLobbyState: function (state) {
+				return state.state === RoomStates.LOBBY;
+			},
+			buttonText: function (state) {
+				return state.state === RoomStates.LOBBY ? 'Start Game' : 'Game in Progress';
+			},
+			startGameInProgress: function (state) {
+				return state.state !== RoomStates.LOBBY;
+			},
+			gameContainerClass: function (state) {
 				return {
 					'game-container': true,
 					'loading': state.isLoading,
@@ -103,31 +125,15 @@ export class RoomUIManager {
 				};
 			}
 		};
-
-		// Register with JaiPasVu
-		jaiPasVu.registerData('room', {
-			...baseState,
-			...methods
-		}, computedProps);
-
-		// Register hooks for UI updates
-		jaiPasVu.on('beforeUpdate', () => {
-			logger.debug('Room UI updating...');
-		});
-
-		jaiPasVu.on('updated', () => {
-			logger.debug('Room UI updated');
-		});
-
-		logger.debug('Registered reactive state:', {
-			baseState,
-			computedProps: Object.keys(computedProps)
-		});
 	}
 
 	_toggleInviteModal() {
-		const state = jaiPasVu.getState('room');
-		jaiPasVu.setValueByPath(state, 'showInviteModal', !state.showInviteModal);
+		const roomState = store.getState('room');
+		store.dispatch({
+			domain: 'room',
+			type: actions.room.UPDATE_ROOM,
+			payload: { showInviteModal: !roomState.showInviteModal }
+		});
 	}
 
 	// Event Handler Registration
@@ -166,33 +172,10 @@ export class RoomUIManager {
 		}
 	}
 
-	// _initializeStoreSubscription() {
-	// 	// Subscribe to room state changes
-	// 	this._store.subscribe('room', (state, type) => {
-	// 		logger.debug('Room state updated:', state);
-	// 		// Update JaiPasVu state
-	// 		const currentState = jaiPasVu.getState('room');
-	// 		Object.entries(state).forEach(([key, value]) => {
-	// 			if (currentState[key] !== value) {
-	// 				jaiPasVu.setValueByPath(currentState, key, value);
-	// 			}
-	// 		});
-	// 	});
-
-	// 	// Subscribe to user state changes
-	// 	this._store.subscribe('user', (state, type) => {
-	// 		logger.debug('User state updated:', state);
-	// 		this._currentUser = state;
-	// 		// Update currentUser in room state
-	// 		const roomState = jaiPasVu.getState('room');
-	// 		jaiPasVu.setValueByPath(roomState, 'currentUser', state);
-	// 	});
-	// }
-
 	handleSettingChange(setting, value, parseAsInt = false) {
 		try {
 			logger.debug('Handling setting change:', { setting, value, parseAsInt });
-			const roomState = jaiPasVu.getState('room');
+			const roomState = store.getState('room');
 
 			if (roomState.state === RoomStates.PLAYING) {
 				logger.warn('Cannot change settings while game is in progress');
@@ -216,13 +199,15 @@ export class RoomUIManager {
 	}
 
 	destroy() {
+		logger.debug('[RoomUIManager] Destroying, cleanup #pong-room');
 		jaiPasVu.cleanup(document.getElementById('pong-room'));
 		this._eventHandlers.clear();
-		this._store.unsubscribe('room');
+		// Call each unsubscribe function
+		this._observers.forEach(unsubscribe => unsubscribe());
 	}
 }
 
 // Factory function to create RoomUIManager instance
-export const createRoomUIManager = (store, roomId, currentUser) => {
-	return new RoomUIManager(store, roomId, currentUser);
+export const createRoomUIManager = (roomId, currentUser) => {
+	return new RoomUIManager(roomId, currentUser);
 };

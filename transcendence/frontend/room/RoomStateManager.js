@@ -1,4 +1,4 @@
-import Store from '../state/store.js';
+import { store } from '../state/store.js';
 import { RoomModes, getMaxPlayersForMode, getDefaultSettingsForMode, roomActions, RoomStates } from '../state/roomState.js';
 import logger from '../logger.js';
 import { GameRules } from '../pong/core/GameRules.js';
@@ -7,35 +7,59 @@ import { GameRules } from '../pong/core/GameRules.js';
  * Single source of truth for room state management
  */
 export class RoomStateManager {
-	constructor(store, roomId) {
-		this._store = store || Store.getInstance();
+	constructor(roomId) {
 		this._roomId = roomId;
+		this._subscribers = new Set();
 	}
 
 	get availableSlots() {
-		const roomState = this._store.getState('room');
+		const roomState = store.getState('room');
+		if (!roomState || !roomState.settings) {
+			return 0;
+		}
 		return roomState.settings.maxPlayers - roomState.players.length;
 	}
 
 	// Helper methods for common state checks
 	canStartGame() {
-		const roomState = this._store.getState('room');
+		const roomState = store.getState('room');
+		if (!roomState) {
+			return false;
+		}
 		return roomState.players.length >= 2 && roomState.state === RoomStates.LOBBY;
 	}
 
 	isOwner(userId) {
-		const roomState = this._store.getState('room');
+		const roomState = store.getState('room');
+		if (!roomState) {
+			return false;
+		}
 		return roomState.createdBy === userId;
 	}
 
 	hasPlayer(userId) {
-		const roomState = this._store.getState('room');
+		const roomState = store.getState('room');
+		if (!roomState) {
+			return false;
+		}
 		return roomState.players.includes(userId);
 	}
 
 	hasPendingInvitation(userId) {
-		const room = this._store.getState('room');
-		return room?.pendingInvitations.length > 0;
+		const room = store.getState('room');
+		if (!room || !room.pendingInvitations) {
+			return false;
+		}
+		return room.pendingInvitations.length > 0;
+	}
+
+	getMode() {
+		const roomState = store.getState('room');
+		if (!roomState || !roomState.settings) {
+			logger.debug('Room state or settings not initialized, using default mode');
+			return RoomModes.CLASSIC;
+		}
+		return roomState.settings.mode || RoomModes.CLASSIC;
 	}
 
 	// Player management methods
@@ -114,11 +138,11 @@ export class RoomStateManager {
 	updateState(newState) {
 		if (!newState) return;
 
-		const oldState = this._store.getState('room');
+		const oldState = store.getState('room');
 		if (!oldState) return;
 
 		// Dispatch update to store
-		this._store.dispatch({
+		store.dispatch({
 			domain: 'room',
 			type: roomActions.UPDATE_ROOM,
 			payload: {
@@ -139,7 +163,7 @@ export class RoomStateManager {
 			...settings
 		});
 
-		this._store.dispatch({
+		store.dispatch({
 			domain: 'room',
 			type: roomActions.UPDATE_ROOM_SETTINGS,
 			payload: {
@@ -173,15 +197,16 @@ export class RoomStateManager {
 	}
 
 	destroy() {
-		this._store.dispatch({
+		store.dispatch({
 			domain: 'room',
 			type: roomActions.LEAVE_ROOM,
 			payload: {
 				roomId: this._roomId,
-				userId: this._store.getState('user').id
+				userId: store.getState('user').id
 			}
 		});
-		this._subscribers.clear();
+		if (this._subscribers)
+			this._subscribers.clear();
 	}
 
 	/**
@@ -202,6 +227,6 @@ export class RoomStateManager {
 }
 
 // Factory function to create RoomStateManager instance
-export const createRoomStateManager = (store, roomId) => {
-	return new RoomStateManager(store, roomId);
+export const createRoomStateManager = (roomId) => {
+	return new RoomStateManager(roomId);
 } 

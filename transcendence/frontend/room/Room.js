@@ -1,10 +1,10 @@
 import logger from '../logger.js';
-import Store from '../state/store.js';
+import { store } from '../state/store.js';
 import { RoomModes, RoomStates } from '../state/roomState.js';
 import { createRoomStateManager } from './RoomStateManager.js';
 import { createRoomUIManager } from './RoomUIManager.js';
 import { createRoomGameManager } from './RoomGameManager.js';
-import { createRoomNetworkManager } from './RoomNetworkManager.js';
+import { createRoomConnectionManager } from './RoomConnectionManager.js';
 
 /**
  * Main Room class that coordinates between different managers
@@ -14,10 +14,9 @@ export default class Room {
 		if (!roomId)
 			throw new Error('Room ID is required');
 
-		this._store = Store.getInstance();
 		this._roomId = roomId;
 
-		const userState = this._store.getState('user');
+		const userState = store.getState('user');
 		this._currentUser = {
 			id: userState.id,
 			username: userState.username
@@ -34,29 +33,55 @@ export default class Room {
 
 	_initializeManagers() {
 		// Initialize state manager first
-		this._stateManager = createRoomStateManager(this._store, this._roomId);
+		this._stateManager = createRoomStateManager(this._roomId);
 
-		// Initialize network manager based on mode
-		this._networkManager = createRoomNetworkManager(
-			this._store,
-			this._roomId,
-			this._stateManager.mode === RoomModes.AI ? null : undefined
-		);
+		// Initialize connection manager with appropriate configuration based on room mode
+		const mode = this._stateManager.getMode();
+		const connectionConfig = this._createConnectionConfig(mode);
+		this._connectionManager = createRoomConnectionManager(this._roomId, connectionConfig);
 
 		// Initialize UI manager
 		this._uiManager = createRoomUIManager(
-			this._store,
 			this._roomId,
 			this._currentUser
 		);
 
-		// Initialize game manager
+		// Initialize game manager with the game connection if available
+		const gameConnection = this._connectionManager.getGameConnection();
 		this._gameManager = createRoomGameManager(
-			this._store,
 			this._roomId,
 			this._currentUser,
-			this._networkManager
+			gameConnection
 		);
+	}
+
+	/**
+	 * Creates connection configuration based on room mode
+	 * @private
+	 */
+	_createConnectionConfig(mode) {
+		const config = {
+			enableGameConnection: mode !== RoomModes.AI,
+			wsConfig: {
+				maxReconnectAttempts: 5,
+				reconnectInterval: 1000,
+				connectionTimeout: 10000
+			}
+		};
+
+		// Add WebRTC configuration if needed
+		if (config.enableGameConnection) {
+			config.rtcConfig = {
+				iceServers: [
+					{ urls: 'stun:stun.l.google.com:19302' }
+				],
+				// Add any additional WebRTC configuration here
+				iceTransportPolicy: 'all',
+				bundlePolicy: 'balanced'
+			};
+		}
+
+		return config;
 	}
 
 	_setupEventHandlers() {
@@ -74,19 +99,24 @@ export default class Room {
 			this._stateManager.transitionToLobby();
 		});
 
-		// Set up network event handlers
-		this._networkManager.on('disconnected', () => {
+		// Set up connection event handlers
+		const mainConnection = this._connectionManager.getMainConnection();
+		if (!mainConnection) {
+			throw new Error('Main connection not available');
+		}
+
+		mainConnection.on('disconnected', () => {
 			logger.warn('[Room] Network connection lost');
 			this._stateManager.transitionToLobby();
 		});
 
-		this._networkManager.on('max_reconnect_attempts', () => {
+		mainConnection.on('max_reconnect_attempts', () => {
 			logger.error('[Room] Failed to reconnect to server');
 			this._stateManager.transitionToLobby();
 		});
 
 		// Handle room update events
-		this._networkManager.on('room_update', (data) => {
+		mainConnection.on('room_update', (data) => {
 			logger.debug('[Room] Received room update:', data);
 			if (data.room_state) {
 				this._stateManager.updateState(data.room_state);
@@ -94,7 +124,7 @@ export default class Room {
 		});
 
 		// Handle settings update events
-		this._networkManager.on('settings_update', (data) => {
+		mainConnection.on('settings_update', (data) => {
 			logger.debug('[Room] Received settings update:', data);
 			if (data.setting && data.value) {
 				this._stateManager.updateSettings({
@@ -104,29 +134,51 @@ export default class Room {
 		});
 
 		// Handle mode change events
-		this._networkManager.on('mode_change', (data) => {
+		mainConnection.on('mode_change', async (data) => {
 			logger.debug('[Room] Received mode change:', data);
 			if (data.mode) {
-				this._stateManager.updateMode(data.mode);
+				await this._handleModeChangeEvent(data.mode);
 			}
 		});
 
 		// Handle game started event
-		this._networkManager.on('game_started', (data) => {
+		mainConnection.on('game_started', (data) => {
 			this._stateManager.handleGameStarted(data);
 		});
 	}
 
 	/**
-	 * Connect to the room's WebSocket
+	 * Handles mode change event and reinitializes connections if needed
+	 * @private
+	 */
+	async _handleModeChangeEvent(newMode) {
+		const currentMode = this._stateManager.getMode();
+		this._stateManager.updateMode(newMode);
+
+		// Check if we need to reinitialize connections
+		const needsReconnection = (currentMode === RoomModes.AI) !== (newMode === RoomModes.AI);
+		if (needsReconnection) {
+			logger.info('[Room] Mode change requires connection reinitialization');
+
+			// Clean up existing connections
+			this._connectionManager.destroy();
+
+			// Create new connection configuration
+			const connectionConfig = this._createConnectionConfig(newMode);
+			this._connectionManager = createRoomConnectionManager(this._roomId, connectionConfig);
+
+			// Reconnect and update game manager
+			await this._connectionManager.connect();
+			this._gameManager.updateConnection(this._connectionManager.getGameConnection());
+		}
+	}
+
+	/**
+	 * Connect to the room's connections
 	 */
 	async connect() {
 		try {
-			await this._networkManager.connect();
-
-			// Get initial state after connection
-			const roomState = await this._networkManager.getCurrentState();
-			this._stateManager.updateState(roomState);
+			await this._connectionManager.connect();
 		} catch (error) {
 			logger.error('[Room] Failed to connect to room:', error);
 			throw error;
@@ -138,7 +190,7 @@ export default class Room {
 	 */
 	async getInitialState() {
 		try {
-			const roomState = await this._networkManager.getCurrentState();
+			const roomState = await this._connectionManager.getCurrentState();
 			this._stateManager.updateState(roomState);
 			logger.info('Received initial room state');
 		} catch (error) {
@@ -149,7 +201,7 @@ export default class Room {
 
 	async startGame() {
 		try {
-			await this._networkManager.startGame();
+			await this._connectionManager.startGame();
 		} catch (error) {
 			logger.error('[Room] Failed to start game:', error);
 			throw error;
@@ -158,12 +210,12 @@ export default class Room {
 
 	async leaveGame() {
 		logger.info('[Room] Leaving game');
-		await this._networkManager.leaveGame();
+		await this._connectionManager.leaveGame();
 	}
 
 	async updateSetting(setting, value) {
 		try {
-			await this._networkManager.updateSetting(setting, value);
+			await this._connectionManager.updateSetting(setting, value);
 		} catch (error) {
 			logger.error('[Room] Failed to update setting:', error);
 			throw error;
@@ -173,7 +225,7 @@ export default class Room {
 	async handleModeChange(event) {
 		const newMode = event.target.value;
 		try {
-			await this._networkManager.updateMode(newMode);
+			await this._connectionManager.updateMode(newMode);
 		} catch (error) {
 			logger.error('[Room] Failed to change mode:', error);
 		}
@@ -182,7 +234,7 @@ export default class Room {
 	// Player management methods
 	async kickPlayer(playerId) {
 		try {
-			await this._networkManager.kickPlayer(playerId);
+			await this._connectionManager.kickPlayer(playerId);
 		} catch (error) {
 			logger.error('[Room] Failed to kick player:', error);
 			throw error;
@@ -196,7 +248,7 @@ export default class Room {
 		}
 
 		try {
-			await this._networkManager.inviteFriend(friendId);
+			await this._connectionManager.inviteFriend(friendId);
 		} catch (error) {
 			logger.error('[Room] Failed to invite friend:', error);
 		}
@@ -209,7 +261,7 @@ export default class Room {
 		}
 
 		try {
-			await this._networkManager.cancelInvitation(invitationId);
+			await this._connectionManager.cancelInvitation(invitationId);
 			this._stateManager.removeInvitation(invitationId);
 		} catch (error) {
 			logger.error('[Room] Failed to cancel invitation:', error);
@@ -217,12 +269,12 @@ export default class Room {
 	}
 
 	destroy() {
-		this._networkManager.destroy();
+		this._connectionManager.destroy();
 		this._gameManager.destroy();
 		this._uiManager.destroy();
 		this._stateManager.destroy();
 
-		this._store.dispatch({
+		store.dispatch({
 			domain: 'room',
 			type: 'LEAVE_ROOM',
 			payload: {

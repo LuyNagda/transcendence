@@ -1,4 +1,4 @@
-import Store, { actions } from '../state/store.js';
+import { store, actions } from '../state/store.js';
 import logger from '../logger.js';
 import { UI_THEME, UI_FONT_SIZE } from '../state/uiState.js';
 import { Modal, Dropdown, Toast, Offcanvas } from '../vendor.js';
@@ -24,8 +24,6 @@ export const uiPlugin = {
 				storedTheme: localStorage.getItem('themeLocal'),
 				storedFontSize: localStorage.getItem('sizeLocal')
 			});
-
-			const store = Store.getInstance();
 
 			// Get initial values from localStorage or defaults
 			const theme = localStorage.getItem('themeLocal') || UI_THEME.LIGHT;
@@ -95,7 +93,7 @@ export const uiPlugin = {
 			applyFontSize: (fontSize) => this._applyFontSizeToDOM(fontSize),
 			showModal(options) {
 				const modalId = `modal-${Date.now()}`;
-				Store.getInstance().dispatch({
+				store.dispatch({
 					domain: 'ui',
 					type: actions.ui.SHOW_MODAL,
 					payload: {
@@ -108,14 +106,14 @@ export const uiPlugin = {
 				};
 			},
 			hideModal(modalId) {
-				Store.getInstance().dispatch({
+				store.dispatch({
 					domain: 'ui',
 					type: actions.ui.HIDE_MODAL,
 					payload: { id: modalId }
 				});
 			},
 			showToast(options) {
-				Store.getInstance().dispatch({
+				store.dispatch({
 					domain: 'ui',
 					type: actions.ui.SHOW_TOAST,
 					payload: {
@@ -125,7 +123,7 @@ export const uiPlugin = {
 				});
 			},
 			hideToast(toastId) {
-				Store.getInstance().dispatch({
+				store.dispatch({
 					domain: 'ui',
 					type: actions.ui.HIDE_TOAST,
 					payload: { id: toastId }
@@ -142,8 +140,6 @@ export const uiPlugin = {
 			}
 		});
 
-		// Subscribe to store changes
-		const store = Store.getInstance();
 		store.subscribe('ui', (state) => {
 			if (state) {
 				if (state.theme) this._applyThemeToDOM(state.theme);
@@ -176,7 +172,7 @@ export const uiPlugin = {
 			return;
 		}
 
-		Store.getInstance().dispatch({
+		store.dispatch({
 			domain: 'ui',
 			type: actions.ui.UPDATE_THEME,
 			payload: { theme }
@@ -201,7 +197,7 @@ export const uiPlugin = {
 		}
 
 		localStorage.setItem('sizeLocal', fontSize);
-		Store.getInstance().dispatch({
+		store.dispatch({
 			domain: 'ui',
 			type: actions.ui.UPDATE_FONT_SIZE,
 			payload: { fontSize }

@@ -1,14 +1,12 @@
 import logger from '../logger.js';
-import Store from '../state/store.js';
-import { RoomModes, RoomStates } from '../state/roomState.js';
+import { RoomModes } from '../state/roomState.js';
 import { GameRules } from '../pong/core/GameRules.js';
 
 /**
  * Manages game-specific logic for a room
  */
 export class RoomGameManager {
-	constructor(store, roomId, currentUser, networkManager) {
-		this._store = store || Store.getInstance();
+	constructor(roomId, currentUser, networkManager) {
 		this._roomId = roomId;
 		this._currentUser = currentUser;
 		this._networkManager = networkManager;
@@ -208,6 +206,6 @@ export class RoomGameManager {
 }
 
 // Factory function to create RoomGameManager instance
-export const createRoomGameManager = (store, roomId, currentUser, networkManager) => {
-	return new RoomGameManager(store, roomId, currentUser, networkManager);
+export const createRoomGameManager = (roomId, currentUser, networkManager) => {
+	return new RoomGameManager(roomId, currentUser, networkManager);
 }; 

@@ -1,4 +1,4 @@
-import Store, { actions } from './store.js';
+import { store, actions } from './store.js';
 import logger from '../logger.js';
 import jaiPasVu from '../UI/JaiPasVu.js';
 import { isDeepEqual } from '../utils.js';
@@ -25,7 +25,6 @@ class StateSync {
 			return StateSync.#instance;
 		}
 
-		this.store = Store.getInstance();
 		this.stateObservers = new Map();
 		this.domains = ['chat', 'user'];
 		this.domainMethods = new Map();
@@ -44,9 +43,9 @@ class StateSync {
 		}
 
 		// Update store
-		this.store.dispatch({
+		store.dispatch({
 			domain,
-			type: 'UPDATE_FROM_SERVER',
+			type: "UPDATE_FROM_SERVER",
 			payload: state
 		});
 
@@ -85,9 +84,9 @@ class StateSync {
 	}
 
 	_initializeWithConfig(config) {
-		this.store.dispatch({
+		store.dispatch({
 			domain: 'config',
-			type: 'INITIALIZE',
+			type: actions.config.INITIALIZE,
 			payload: config
 		});
 
@@ -96,9 +95,9 @@ class StateSync {
 		if (userInfoElement) {
 			try {
 				const userData = JSON.parse(userInfoElement.dataset.userInfo);
-				this.store.dispatch({
+				store.dispatch({
 					domain: 'user',
-					type: 'SET_USER',
+					type: actions.user.SET_USER,
 					payload: userData
 				});
 			} catch (error) {
@@ -110,7 +109,7 @@ class StateSync {
 	_initializeDefaultState() {
 		// Initialize each domain's state
 		this.domains.forEach(domain => {
-			const state = this.store.getState(domain);
+			const state = store.getState(domain);
 			if (state) {
 				logger.debug(`Initializing domain ${domain} with state:`, state);
 				jaiPasVu.registerData(domain, state);
@@ -126,7 +125,7 @@ class StateSync {
 
 		try {
 			// Get initial state from store
-			const state = this.store.getState(domain);
+			const state = store.getState(domain);
 			logger.debug(`Initializing domain ${domain}:`, {
 				initialState: state,
 				methods: this.domainMethods.get(domain)
@@ -140,7 +139,7 @@ class StateSync {
 			jaiPasVu.registerMethods(domain, methods);
 
 			// Subscribe to store changes
-			this.store.subscribe(domain, (state, type) => {
+			store.subscribe(domain, (state, type) => {
 				this.handleStoreUpdate(domain, state);
 			});
 
@@ -175,13 +174,13 @@ class StateSync {
 
 		try {
 			this._isUpdating = true;
-			const currentState = this.store.getState(domain);
+			const currentState = store.getState(domain);
 
 			if (!isDeepEqual(currentState, state)) {
 				// Update store state
-				this.store.dispatch({
+				store.dispatch({
 					domain,
-					type: 'UPDATE',
+					type: "UPDATE",
 					payload: state
 				});
 
@@ -242,7 +241,7 @@ class StateSync {
 	 * Validate incoming state against schema
 	 */
 	validateState(domain, state) {
-		const validator = this.store.getValidator(domain);
+		const validator = store.getValidator(domain);
 		if (validator) {
 			return validator(state);
 		}
@@ -271,7 +270,7 @@ class StateSync {
 			if (jaiPasVu) {
 				jaiPasVu.unsubscribe(domain);
 			}
-			this.store.unsubscribe(domain);
+			store.unsubscribe(domain);
 			this.stateObservers.delete(domain);
 		}
 	}

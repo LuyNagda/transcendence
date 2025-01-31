@@ -1,11 +1,10 @@
-import Store from '../state/store.js';
+import { store } from '../state/store.js';
 import { Offcanvas } from '../vendor.js';
 import logger from '../logger.js';
 
 export default class UIHandler {
 	constructor(chatApp) {
 		this.chatApp = chatApp;
-		this._store = Store.getInstance();
 		this._initializeUIElements();
 		this._initializeCanvas();
 		this._attachEventListeners();
@@ -86,8 +85,8 @@ export default class UIHandler {
 	updateUserList(users) {
 		if (!this.userList) return;
 
-		const chatState = this._store.getState('chat');
-		const currentUserId = this._store.getState('user').id;
+		const chatState = store.getState('chat');
+		const currentUserId = store.getState('user').id;
 
 		this.userList.innerHTML = users.map(user => {
 			const isBlocked = user.blocked || false;
@@ -142,7 +141,7 @@ export default class UIHandler {
 
 		this.messageHistory.innerHTML = '';
 		messages.forEach(message => {
-			const currentUserId = this._store.getState('user').id;
+			const currentUserId = store.getState('user').id;
 			const isSent = Number(message.sender) === currentUserId;
 			this.addMessageToUI(message, isSent);
 		});
@@ -173,7 +172,7 @@ export default class UIHandler {
 
 	getUserName(userId) {
 		userId = Number(userId);
-		if (userId === this._store.getState('user').id) {
+		if (userId === store.getState('user').id) {
 			return 'You';
 		}
 		const userElement = document.querySelector(`.user-chat[data-user-id="${userId}"]`);

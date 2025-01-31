@@ -1,6 +1,6 @@
 import logger from '../logger.js';
 import jaiPasVu from '../UI/JaiPasVu.js';
-import Store, { actions } from '../state/store.js';
+import { store, actions } from '../state/store.js';
 
 import { GameEngine } from './core/GameEngine';
 import { PongPhysics } from './core/PongPhysics';
@@ -29,7 +29,6 @@ class BasePongGameController {
 		this._initialized = false;
 		this._isAIMode = this._settings.isAIMode;
 		this._aiController = null;
-		this._store = Store.getInstance();
 		this._handlers = { ...contextHandlers };
 		this._stateResetInProgress = false;
 		this._gameStatus = 'waiting';
@@ -65,7 +64,7 @@ class BasePongGameController {
 						from: oldState.gameStatus,
 						to: newState.gameStatus
 					});
-					this._store.dispatch({
+					store.dispatch({
 						domain: 'game',
 						type: actions.game.UPDATE_STATUS,
 						payload: newState.gameStatus
@@ -79,7 +78,7 @@ class BasePongGameController {
 					newState.scores.right !== oldState.scores.right
 				)) {
 					logger.debug('Scores updated:', newState.scores);
-					this._store.dispatch({
+					store.dispatch({
 						domain: 'game',
 						type: actions.game.UPDATE_SCORE,
 						payload: {
@@ -466,7 +465,7 @@ class BasePongGameController {
 			}
 
 			// Update store with final scores
-			this._store.dispatch({
+			store.dispatch({
 				domain: 'game',
 				type: actions.game.UPDATE_SCORES,
 				payload: {

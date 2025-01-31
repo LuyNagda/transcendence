@@ -1,5 +1,5 @@
 import logger from '../logger.js';
-import Store from '../state/store.js';
+import { store } from '../state/store.js';
 import { BaseNetworkManager } from '../networking/NetworkingCore.js';
 
 /**
@@ -22,7 +22,7 @@ export class PongNetworkManager extends BaseNetworkManager {
 		this.isDataChannelOpen = false;
 		this.isSubscriptionEnabled = false;
 
-		const config = Store.getInstance().getState('config');
+		const config = store.getState('config');
 		this.rtcConfig = {
 			iceServers: [
 				{

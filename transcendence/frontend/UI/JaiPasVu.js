@@ -427,17 +427,7 @@ class JaiPasVu {
      * @param {Function} callback - Callback function receiving updated state
      * @returns {Function} Unsubscribe function
      * 
-     * @example
-     * const unsubscribe = jaiPasVu.subscribe('room', (state) => {
-     *   console.log('Room state updated:', {
-     *     playerCount: state.mappedPlayers.length,
-     *     availableSlots: state.availableSlots,
-     *     mode: state.mode
-     *   });
-     * });
-     * 
-     * // Later: unsubscribe to clean up
-     * unsubscribe();
+     * @deprecated Use store.subscribe instead
      */
     subscribe(domain, callback) {
         if (!this.observers.has(domain)) {

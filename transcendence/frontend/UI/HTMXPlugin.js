@@ -1,5 +1,5 @@
 import logger from '../logger.js';
-import Store from '../state/store.js';
+import { store, actions } from '../state/store.js';
 import { htmx } from '../vendor.js';
 
 /**
@@ -188,8 +188,6 @@ export const htmxPlugin = {
 	 * @private
 	 */
 	_setupEventHandlers(app) {
-		const store = Store.getInstance();
-
 		document.body.addEventListener('htmx:beforeRequest', (event) => {
 			// const target = event.detail.elt;
 			// const domain = target.getAttribute('data-domain') || 'global';
@@ -226,7 +224,7 @@ export const htmxPlugin = {
 					const uiState = JSON.parse(savedUiState);
 					store.dispatch({
 						domain: 'ui',
-						type: 'INITIALIZE',
+						type: actions.ui.INITIALIZE,
 						payload: uiState
 					});
 					sessionStorage.removeItem('ui_state');
@@ -294,8 +292,6 @@ export const htmxPlugin = {
 	 * @private
 	 */
 	_processStateUpdates(app, detail) {
-		const store = Store.getInstance();
-
 		// Process HX-Trigger header
 		const triggerHeader = detail.headers?.['HX-Trigger'];
 		if (triggerHeader) {

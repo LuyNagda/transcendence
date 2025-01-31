@@ -1,10 +1,7 @@
-import Store from '../state/store.js';
-
 export default class MessageService {
 	constructor(uiHandler, userService) {
 		this.uiHandler = uiHandler;
 		this.userService = userService;
-		this._store = Store.getInstance();
 	}
 
 	validateMessage(message) {

@@ -14,11 +14,101 @@ export const StateChangeTypes = {
 	BATCH_UPDATE: 'batch_update'
 };
 
+/**
+ * @typedef {Object} StateChangeEvent
+ * @property {string} domain - The state domain that changed (e.g., 'room', 'user')
+ * @property {string} type - The type of change (update, reset, batch_update)
+ * @property {*} payload - The data associated with the change
+ */
+
+/**
+ * @typedef {Object} Action
+ * @property {string} domain - Target state domain (e.g., 'room')
+ * @property {string} type - Action type (e.g., 'CREATE_ROOM')
+ * @property {*} payload - Action data
+ */
+
+/**
+ * Central state management store that implements a unidirectional data flow pattern.
+ * Works in conjunction with JaiPasVu reactive framework to manage application state.
+ * 
+ * Key concepts:
+ * - Domains: Separate concerns of state (room, user, chat, etc.)
+ * - Actions: Messages describing state changes
+ * - Reducers: Pure functions that compute new state
+ * - Validators: Functions that ensure state integrity
+ * - Subscribers: Callbacks notified of state changes
+ * 
+ * @example
+ * // Create/get store instance
+ * const store = Store.getInstance();
+ * 
+ * // Subscribe to room state changes
+ * store.subscribe('room', (roomState) => {
+ *   logger.log('Room updated:', roomState);
+ * });
+ * 
+ * // Subscribe to specific path
+ * store.subscribe('room.settings.mode', (mode) => {
+ *   logger.log('Room mode changed:', mode);
+ * });
+ * 
+ * // Dispatch single action
+ * store.dispatch({
+ *   domain: 'room',
+ *   type: 'CREATE_ROOM',
+ *   payload: { id: 'room1', createdBy: { id: 1, username: 'player1' } }
+ * });
+ * 
+ * // Dispatch batch actions
+ * store.dispatch([
+ *   {
+ *     domain: 'room',
+ *     type: 'UPDATE_ROOM_SETTINGS',
+ *     payload: { settings: { maxPlayers: 4 } }
+ *   },
+ *   {
+ *     domain: 'room',
+ *     type: 'UPDATE_ROOM_STATE',
+ *     payload: { state: 'PLAYING' }
+ *   }
+ * ]);
+ * 
+ * @integration JaiPasVu
+ * The store integrates with JaiPasVu by:
+ * 1. Providing reactive state management through subscriptions
+ * 2. Supporting component binding via JaiPasVu's reactive system
+ * 3. Enabling automatic UI updates when state changes
+ * 
+ * @example
+ * // JaiPasVu component integration
+ * class RoomComponent extends Component {
+ *   constructor() {
+ *     super();
+ *     // Subscribe to room state
+ *     Store.getInstance().subscribe('room', (roomState) => {
+ *       this.setState({ room: roomState });
+ *     });
+ *   }
+ *   
+ *   // Component will automatically re-render when state changes
+ *   render() {
+ *     const { room } = this.state;
+ *     return `<div>Room: ${room.id}</div>`;
+ *   }
+ * }
+ */
 class Store {
+	/**
+	 * Creates a new Store instance or returns existing singleton instance.
+	 * Initializes state domains, reducers, validators, and loads persisted state.
+	 * 
+	 * @private
+	 * @throws {Error} If initialization fails
+	 */
 	constructor() {
-		if (Store.instance) {
+		if (Store.instance)
 			return Store.instance;
-		}
 		Store.instance = this;
 
 		// Initialize reducer and validator maps
@@ -51,35 +141,76 @@ class Store {
 
 		// Initialize unified subscribers
 		this.subscribers = new Map();
-
-		// Load persisted state
-		this.loadPersistedState();
-
-		// Bind methods
-		this.dispatch = this.dispatch.bind(this);
-		this.subscribe = this.subscribe.bind(this);
-		this.getState = this.getState.bind(this);
 	}
 
-	// Get store instance (Singleton)
+	/**
+	 * Gets the singleton instance of the Store.
+	 * Creates a new instance if one doesn't exist.
+	 * 
+	 * @returns {Store} The singleton Store instance
+	 * @static
+	 * 
+	 * @example
+	 * const store = Store.getInstance();
+	 */
 	static getInstance() {
-		if (!Store.instance) {
+		if (!Store.instance)
 			Store.instance = new Store();
-		}
 		return Store.instance;
 	}
 
-	// Get current state
+	/**
+	 * Gets current state for a specific domain or entire state object.
+	 * 
+	 * @param {string} [domain] - Optional domain to get state for (e.g., 'room', 'user')
+	 * @returns {Object} Current state for domain or entire state object
+	 * 
+	 * @example
+	 * const roomState = store.getState('room');
+	 * logger.log(roomState.players); // Access room players
+	 * 
+	 * const entireState = store.getState();
+	 * logger.log(entireState.room, entireState.user); // Access multiple domains
+	 */
 	getState(domain) {
 		return domain ? this.state[domain] : this.state;
 	}
 
-	// Get value at specific path
+	/**
+	 * Gets value at a specific path in the state tree.
+	 * 
+	 * @param {string} path - Dot-notation path (e.g., 'room.settings.mode')
+	 * @returns {*} Value at specified path or undefined if path doesn't exist
+	 * 
+	 * @example
+	 * const roomMode = store.getValueAtPath('room.settings.mode');
+	 * const playerCount = store.getValueAtPath('room.players.length');
+	 */
 	getValueAtPath(path) {
 		return path.split('.').reduce((obj, key) => obj && obj[key], this.state);
 	}
 
-	// Subscribe to state changes with optional path
+	/**
+	 * Subscribes to state changes at a specific path or domain.
+	 * 
+	 * @param {string} path - Path or domain to subscribe to (e.g., 'room' or 'room.settings.mode')
+	 * @param {Function} callback - Function to call when state changes
+	 * @returns {Function} Unsubscribe function
+	 * 
+	 * @example
+	 * // Subscribe to entire room domain
+	 * const unsubscribeRoomState = store.subscribe('room', (roomState) => {
+	 *   logger.log('Room state changed:', roomState);
+	 * });
+	 * 
+	 * // Subscribe to specific path
+	 * store.subscribe('room.settings.mode', (mode) => {
+	 *   logger.log('Room mode changed to:', mode);
+	 * });
+	 * 
+	 * // Unsubscribe when needed (function returned by subscribe)
+	 * unsubscribeRoomState();
+	 */
 	subscribe(path, callback) {
 		if (!this.subscribers.has(path)) {
 			this.subscribers.set(path, new Set());
@@ -98,8 +229,103 @@ class Store {
 		};
 	}
 
-	// Notify subscribers of state changes
-	notifySubscribers(domain, type = StateChangeTypes.UPDATE) {
+	/**
+	 * Dispatches an action or array of actions to update state.
+	 * 
+	 * @param {Action|Action[]} action - Single action or array of actions
+	 * @throws {Error} If action processing fails
+	 * 
+	 * @example
+	 * // Single action
+	 * store.dispatch({
+	 *   domain: 'room',
+	 *   type: 'CREATE_ROOM',
+	 *   payload: {
+	 *     id: 'room1',
+	 *     createdBy: { id: 1, username: 'player1' }
+	 *   }
+	 * });
+	 * 
+	 * // Multiple actions
+	 * store.dispatch([
+	 *   {
+	 *     domain: 'room',
+	 *     type: 'UPDATE_ROOM_SETTINGS',
+	 *     payload: { settings: { maxPlayers: 4 } }
+	 *   },
+	 *   {
+	 *     domain: 'room',
+	 *     type: 'UPDATE_PLAYERS',
+	 *     payload: { players: [] }  // Example player data array
+	 *   }
+	 * ]);
+	 */
+	dispatch(action) {
+		try {
+			const actions = Array.isArray(action) ? action : [action];
+			const updatedDomains = new Set();
+
+			actions.forEach(({ domain, type, payload }) => {
+				logger.debug('Processing action:', { domain, type, payload });
+
+				const currentState = this.getState(domain);
+				const reducers = this.reducers[domain];
+
+				if (!reducers || !reducers[type]) {
+					logger.warn(`No reducer found for action: ${domain}.${type}`);
+					return;
+				}
+
+				const newState = reducers[type](currentState, payload);
+				logger.debug('State after reducer:', { domain, newState });
+
+				// Skip if state hasn't changed
+				if (isDeepEqual(currentState, newState)) {
+					logger.debug('State unchanged, skipping update');
+					return;
+				}
+
+				// Validate state change
+				if (!this._validateStateChange(domain, newState)) {
+					logger.error(`Invalid state transition for ${domain}:`, {
+						currentState,
+						newState,
+						action: { type, payload }
+					});
+					return;
+				}
+
+				// Update state
+				this.state = {
+					...this.state,
+					[domain]: newState
+				};
+
+				updatedDomains.add(domain);
+				logger.debug(`State updated for ${domain}:`, newState);
+			});
+
+			// Notify subscribers and persist state if any domains were updated
+			if (updatedDomains.size > 0) {
+				updatedDomains.forEach(domain => {
+					logger.debug(`Notifying subscribers for ${domain}`);
+					this._notifySubscribers(domain, actions.length > 1 ? StateChangeTypes.BATCH_UPDATE : StateChangeTypes.UPDATE);
+				});
+				this._persistState();
+			}
+		} catch (error) {
+			logger.error('Error updating state:', error);
+		}
+	}
+
+	/**
+	 * Notifies subscribers of state changes.
+	 * 
+	 * @private
+	 * @param {string} domain - Domain that changed
+	 * @param {string} [type=StateChangeTypes.UPDATE] - Type of change
+	 */
+	_notifySubscribers(domain, type = StateChangeTypes.UPDATE) {
 		this.subscribers.forEach((subscribers, path) => {
 			// If path is a domain name, treat it as a domain subscription
 			if (path === domain) {
@@ -125,7 +351,25 @@ class Store {
 		});
 	}
 
-	// Batch update multiple state changes
+	/**
+	 * Updates multiple state domains in a single batch operation.
+	 * 
+	 * @param {Action[]} updates - Array of actions to process
+	 * 
+	 * @example
+	 * store.batchUpdate([
+	 *   {
+	 *     domain: 'room',
+	 *     type: 'UPDATE_ROOM_SETTINGS',
+	 *     payload: { maxPlayers: 4 }
+	 *   },
+	 *   {
+	 *     domain: 'room',
+	 *     type: 'UPDATE_ROOM_STATE',
+	 *     payload: { state: 'PLAYING' }
+	 *   }
+	 * ]);
+	 */
 	batchUpdate(updates) {
 		const domains = new Set();
 
@@ -141,7 +385,7 @@ class Store {
 				const domainState = this.state[domain];
 				const newDomainState = reducers[type](domainState, payload);
 
-				if (!this.validateStateChange(domain, newDomainState)) {
+				if (!this._validateStateChange(domain, newDomainState)) {
 					throw new Error(`Invalid state transition for ${domain}`);
 				}
 
@@ -158,15 +402,22 @@ class Store {
 
 		// Notify subscribers for all updated domains
 		domains.forEach(domain => {
-			this.notifySubscribers(domain, StateChangeTypes.BATCH_UPDATE);
+			this._notifySubscribers(domain, StateChangeTypes.BATCH_UPDATE);
 		});
 
 		// Persist state
-		this.persistState();
+		this._persistState();
 	}
 
-	// Validate state changes
-	validateStateChange(domain, newState) {
+	/**
+	 * Validates state changes for a domain.
+	 * 
+	 * @private
+	 * @param {string} domain - Domain to validate
+	 * @param {Object} newState - New state to validate
+	 * @returns {boolean} Whether state is valid
+	 */
+	_validateStateChange(domain, newState) {
 		// Skip validation for game state
 		if (domain === 'game') return true;
 
@@ -200,67 +451,13 @@ class Store {
 		});
 	}
 
-	// Update state with single action or batch of actions
-	dispatch(action) {
-		try {
-			const actions = Array.isArray(action) ? action : [action];
-			const updatedDomains = new Set();
-
-			actions.forEach(({ domain, type, payload }) => {
-				logger.debug('Processing action:', { domain, type, payload });
-
-				const currentState = this.getState(domain);
-				const reducers = this.reducers[domain];
-
-				if (!reducers || !reducers[type]) {
-					logger.warn(`No reducer found for action: ${domain}.${type}`);
-					return;
-				}
-
-				const newState = reducers[type](currentState, payload);
-				logger.debug('State after reducer:', { domain, newState });
-
-				// Skip if state hasn't changed
-				if (isDeepEqual(currentState, newState)) {
-					logger.debug('State unchanged, skipping update');
-					return;
-				}
-
-				// Validate state change
-				if (!this.validateStateChange(domain, newState)) {
-					logger.error(`Invalid state transition for ${domain}:`, {
-						currentState,
-						newState,
-						action: { type, payload }
-					});
-					return;
-				}
-
-				// Update state
-				this.state = {
-					...this.state,
-					[domain]: newState
-				};
-
-				updatedDomains.add(domain);
-				logger.debug(`State updated for ${domain}:`, newState);
-			});
-
-			// Notify subscribers and persist state if any domains were updated
-			if (updatedDomains.size > 0) {
-				updatedDomains.forEach(domain => {
-					logger.debug(`Notifying subscribers for ${domain}`);
-					this.notifySubscribers(domain, actions.length > 1 ? StateChangeTypes.BATCH_UPDATE : StateChangeTypes.UPDATE);
-				});
-				this.persistState();
-			}
-		} catch (error) {
-			logger.error('Error updating state:', error);
-		}
-	}
-
-	// Persist UI state separately
-	persistUIState(uiState) {
+	/**
+	 * Persists UI state to localStorage.
+	 * 
+	 * @private
+	 * @param {Object} uiState - UI state to persist
+	 */
+	_persistUIState(uiState) {
 		if (!uiState) return;
 
 		// Validate theme before persisting
@@ -275,15 +472,19 @@ class Store {
 		}
 	}
 
-	// Persist state to localStorage
-	persistState() {
+	/**
+	 * Persists entire state to localStorage.
+	 * 
+	 * @private
+	 */
+	_persistState() {
 		try {
 			// Convert Sets to arrays and exclude game state
 			const stateToStore = Object.entries(this.state).reduce((acc, [domain, state]) => {
 				// Skip game state and handle special cases
 				if (domain === 'game') return acc;
 				if (domain === 'ui') {
-					this.persistUIState(state);
+					this._persistUIState(state);
 				}
 
 				// Handle Set conversions
@@ -297,7 +498,14 @@ class Store {
 		}
 	}
 
-	// Process state for storage
+	/**
+	 * Processes state for storage, converting Sets to arrays.
+	 * 
+	 * @private
+	 * @param {string} domain - Domain being processed
+	 * @param {Object} state - State to process
+	 * @returns {Object} Processed state
+	 */
 	_processStateForStorage(domain, state) {
 		if (domain === 'user' && state.blockedUsers instanceof Set) {
 			return {
@@ -308,8 +516,12 @@ class Store {
 		return state;
 	}
 
-	// Load persisted state from localStorage
-	loadPersistedState() {
+	/**
+	 * Loads persisted state from localStorage.
+	 * 
+	 * @private
+	 */
+	_loadPersistedState() {
 		try {
 			const persistedState = localStorage.getItem('app_state');
 			if (!persistedState) return;
@@ -334,7 +546,14 @@ class Store {
 		}
 	}
 
-	// Process loaded state
+	/**
+	 * Processes loaded state, converting arrays back to Sets.
+	 * 
+	 * @private
+	 * @param {string} domain - Domain being processed
+	 * @param {Object} state - State to process
+	 * @returns {Object} Processed state
+	 */
 	_processLoadedState(domain, state) {
 		if (domain === 'user' && state.blockedUsers) {
 			return {
@@ -345,7 +564,12 @@ class Store {
 		return state;
 	}
 
-	// Load UI state from localStorage
+	/**
+	 * Loads UI state from localStorage.
+	 * 
+	 * @private
+	 * @returns {Object} UI state
+	 */
 	_loadUIState() {
 		const theme = localStorage.getItem('themeLocal');
 		const fontSize = localStorage.getItem('sizeLocal');
@@ -356,7 +580,14 @@ class Store {
 		};
 	}
 
-	// Reset store to initial state
+	/**
+	 * Resets store to initial state.
+	 * Clears localStorage and notifies all subscribers.
+	 * 
+	 * @example
+	 * // Reset entire store
+	 * store.reset();
+	 */
 	reset() {
 		// Clear all state
 		this.state = {
@@ -373,10 +604,22 @@ class Store {
 
 		// Notify all subscribers
 		Object.keys(this.state).forEach(domain => {
-			this.notifySubscribers(domain);
+			this._notifySubscribers(domain);
 		});
 
-		logger.debug('Store reset to initial state');
+		logger.debug('[Store] reset to initial state');
+	}
+
+	initialize() {
+		// Operations that: Could fail, depend on DOM/window or need other services
+		this._loadPersistedState();
+
+		// Method bindings
+		this.dispatch = this.dispatch.bind(this);
+		this.subscribe = this.subscribe.bind(this);
+		this.getState = this.getState.bind(this);
+
+		logger.debug('[Store] initialized');
 	}
 }
 
@@ -390,4 +633,4 @@ export const actions = {
 	ui: uiActions
 };
 
-export default Store;
+export const store = new Store();

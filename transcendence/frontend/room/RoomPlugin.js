@@ -1,6 +1,6 @@
 import logger from '../logger.js';
 import { roomActions } from '../state/roomState.js';
-import Store from '../state/store.js';
+import { store } from '../state/store.js';
 import Room from './Room.js';
 
 /**
@@ -9,7 +9,6 @@ import Room from './Room.js';
 export const roomPlugin = {
 	name: 'room',
 	app: null,
-	store: null,
 	htmxPlugin: null,
 	currentRoom: null,
 
@@ -20,11 +19,6 @@ export const roomPlugin = {
 		}
 
 		this.app = app;
-		this.store = Store.getInstance();
-
-		logger.debug('RoomPlugin dependencies initialized:', {
-			hasStore: !!this.store,
-		});
 
 		// Register with HTMXPlugin after it's loaded
 		app.on('plugin:installed', (plugin) => {
@@ -93,7 +87,7 @@ export const roomPlugin = {
 		try {
 			this.cleanupCurrentRoom();
 
-			const userState = this.store.getState('user');
+			const userState = store.getState('user');
 			if (!userState) {
 				logger.error('[RoomPlugin] Cannot initialize room: user state not found');
 				return;
@@ -123,7 +117,7 @@ export const roomPlugin = {
 			this.app.emit('room:beforeCleanup', this.currentRoom);
 			this.currentRoom.destroy();
 			this.currentRoom = null;
-			this.store.dispatch({
+			store.dispatch({
 				domain: 'room',
 				type: roomActions.CLEAR_ROOM
 			});

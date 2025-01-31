@@ -1,6 +1,5 @@
 import logger from '../logger.js';
 import CookieService from './CookieService.js';
-import { ConnectionManager } from './ConnectionManager.js';
 
 /**
  * Connection states using a state pattern.
@@ -43,7 +42,7 @@ export const ConnectionState = {
  * Base connection class providing common functionality for network connections.
  * Implements event handling, message queueing, and state management.
  */
-export class BaseConnection {
+class BaseConnection {
 	constructor(name) {
 		this._name = name;
 		this._state = ConnectionState.DISCONNECTED;
@@ -130,6 +129,8 @@ export class WebSocketConnection extends BaseConnection {
 		this._ws = null;
 		this._reconnectAttempts = 0;
 		this._maxReconnectAttempts = options.maxReconnectAttempts || 5;
+		this._pendingRequests = new Map();
+		this._messageIdCounter = 0;
 	}
 
 	/**
@@ -184,21 +185,18 @@ export class WebSocketConnection extends BaseConnection {
 		// onopen is handled in connect() method
 
 		this._ws.onmessage = (event) => {
-			try {
-				const data = JSON.parse(event.data);
-				this.emit('message', data);
-			} catch (error) {
-				logger.error(`Error parsing WebSocket message:`, error);
-			}
+			this._handleMessage(event);
 		};
 
 		this._ws.onclose = (event) => {
+			logger.debug(`[WebSocket] Connection closed:`, event);
 			this.state = ConnectionState.DISCONNECTED;
 			this.emit('close', event);
 			this._handleClose(event);
 		};
 
 		this._ws.onerror = (error) => {
+			logger.error(`[WebSocket] Connection error:`, error);
 			this._handleError(error);
 		};
 	}
@@ -209,13 +207,14 @@ export class WebSocketConnection extends BaseConnection {
 	 */
 	send(data) {
 		if (!this._state.canSend) {
+			logger.debug('[WebSocket] Cannot send, queueing message:', data);
 			this.queueMessage(data);
 			return;
 		}
 
 		// Check WebSocket readiness
 		if (!this._ws || this._ws.readyState !== WebSocket.OPEN) {
-			logger.warn('WebSocket not ready, queueing message');
+			logger.warn('[WebSocket] Not ready, queueing message:', data);
 			this.queueMessage(data);
 			return;
 		}
@@ -223,9 +222,10 @@ export class WebSocketConnection extends BaseConnection {
 		try {
 			// Ensure data is properly stringified only once
 			const message = typeof data === 'string' ? data : JSON.stringify(data);
+			logger.debug(`[WebSocket] Sending message:`, data);
 			this._ws.send(message);
 		} catch (error) {
-			logger.error('Error sending WebSocket message:', error);
+			logger.error('[WebSocket] Error sending message:', error);
 			this.queueMessage(data);
 			this._handleError(error);
 		}
@@ -271,6 +271,81 @@ export class WebSocketConnection extends BaseConnection {
 		logger.error(`WebSocket error for ${this._name}:`, error);
 		this.state = ConnectionState.ERROR;
 		this.emit('error', error);
+	}
+
+	/**
+	 * Sends a request and waits for response
+	 * @param {string} type - Request type
+	 * @param {Object} data - Request data
+	 * @returns {Promise} Promise that resolves with response
+	 */
+	async sendRequest(type, data = {}) {
+		const messageId = data.id ? `${data.id}_${type}_${++this._messageIdCounter}` : `${type}_${++this._messageIdCounter}`;
+		const request = {
+			action: type,
+			message_id: messageId,
+			...data
+		};
+
+		logger.debug(`[WebSocket] Sending request:`, request);
+
+		return new Promise((resolve, reject) => {
+			const timeoutId = setTimeout(() => {
+				if (this._pendingRequests.has(messageId)) {
+					logger.error(`[WebSocket] Request timed out:`, { messageId, request });
+					this._pendingRequests.delete(messageId);
+					reject(new Error(`Request timeout after 10000ms`));
+				}
+			}, 10000);
+
+			this._pendingRequests.set(messageId, { resolve, reject, timeoutId });
+			this.send(request);
+		});
+	}
+
+	/**
+	 * Handles incoming WebSocket messages
+	 * @private
+	 */
+	_handleMessage(event) {
+		try {
+			const data = JSON.parse(event.data);
+			logger.debug(`[WebSocket] Received message:`, data);
+
+			// Handle responses to pending requests
+			if (data.status === 'success' && data.id) {
+				const pendingRequestId = Array.from(this._pendingRequests.keys())
+					.find(id => id.startsWith(data.id));
+
+				if (pendingRequestId) {
+					logger.debug(`[WebSocket] Found pending request for message:`, data);
+					const { resolve, reject, timeoutId } = this._pendingRequests.get(pendingRequestId);
+					clearTimeout(timeoutId);
+					this._pendingRequests.delete(pendingRequestId);
+					resolve(data);
+					return;
+				}
+			}
+
+			// Handle error responses
+			if (data.status === 'error' && data.id) {
+				const pendingRequestId = Array.from(this._pendingRequests.keys())
+					.find(id => id.startsWith(data.id));
+
+				if (pendingRequestId) {
+					const { reject, timeoutId } = this._pendingRequests.get(pendingRequestId);
+					clearTimeout(timeoutId);
+					this._pendingRequests.delete(pendingRequestId);
+					reject(new Error(data.message || 'Request failed'));
+					return;
+				}
+			}
+
+			// Emit regular messages
+			this.emit('message', data);
+		} catch (error) {
+			logger.error(`[WebSocket] Error parsing message:`, error, event.data);
+		}
 	}
 }
 

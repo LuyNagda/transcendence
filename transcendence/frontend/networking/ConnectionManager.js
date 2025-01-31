@@ -10,13 +10,34 @@ const ConnectionFactory = {
 };
 
 /**
- * Manages creation and lifecycle of network connections
- * Provides a facade for working with WebSocket and WebRTC connections
+ * Singleton manager for all network connections in the application
  */
-export class ConnectionManager {
+class ConnectionManager {
 	constructor() {
-		this._connections = new Map(); // Individual connections
-		this._connectionGroups = new Map(); // Groups of related connections
+		if (ConnectionManager.instance) {
+			return ConnectionManager.instance;
+		}
+		ConnectionManager.instance = this;
+
+		this._connections = new Map();
+		this._connectionGroups = new Map();
+		this._initialized = false;
+		this._config = null;
+	}
+
+	/**
+	 * Initializes the connection manager with default configurations
+	 * @param {Object} config Optional configuration object
+	 */
+	initialize(config = {}) {
+		if (this._initialized) {
+			logger.warn('[ConnectionManager] already initialized');
+			return;
+		}
+
+		this._config = config;
+		this._initialized = true;
+		logger.info('ConnectionManager initialized');
 	}
 
 	/**
@@ -27,6 +48,8 @@ export class ConnectionManager {
 	 * @returns {BaseConnection} The created connection instance
 	 */
 	createConnection(type, name, config) {
+		this._checkInitialized();
+
 		if (this._connections.has(name)) {
 			logger.warn(`Connection ${name} already exists`);
 			return this._connections.get(name);
@@ -150,10 +173,25 @@ export class ConnectionManager {
 		logger.debug(`ConnectionManager event: ${event}`, data);
 	}
 
-	/** TODO : Remove duplicate
-	 * Destroys all connections and cleans up resources
+	/**
+	 * Ensures the manager is initialized before use
+	 * @private
+	 */
+	_checkInitialized() {
+		if (!this._initialized) {
+			throw new Error('ConnectionManager must be initialized before use');
+		}
+	}
+
+	/**
+	 * Cleans up all connections and resets the manager
 	 */
 	destroy() {
 		this.disconnectAll();
+		this._initialized = false;
+		this._config = null;
 	}
 }
+
+// Export singleton instance
+export const connectionManager = new ConnectionManager();

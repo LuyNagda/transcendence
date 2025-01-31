@@ -1,11 +1,10 @@
 import logger from '../logger.js';
-import Store from '../state/store.js';
+import { store } from '../state/store.js';
 import { chatActions } from '../state/chatState.js';
 
 export default class UserService {
 	constructor(chatApp) {
 		this.chatApp = chatApp;
-		this._store = Store.getInstance();
 		this.refreshUserList(); // Initial user list load
 	}
 
@@ -25,7 +24,7 @@ export default class UserService {
 			const users = await response.json();
 
 			// Update users in chat state
-			this._store.dispatch({
+			store.dispatch({
 				domain: 'chat',
 				type: chatActions.UPDATE_USERS,
 				payload: users.map(user => ({

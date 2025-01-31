@@ -3,8 +3,9 @@ import jaiPasVu from './UI/JaiPasVu.js';
 import { htmxPlugin } from './UI/HTMXPlugin.js';
 import { uiPlugin } from './UI/UIPlugin.js';
 import { roomPlugin } from './room/RoomPlugin.js';
-import Store from './state/store.js';
+import { store } from './state/store.js';
 import StateSync from './state/StateSync.js';
+import { connectionManager } from './networking/ConnectionManager.js';
 
 function _initializeErrorHandling() {
 	window.onerror = function (message, source, lineno, colno, error) {
@@ -30,8 +31,8 @@ function initializeApp() {
 
 		_initializeErrorHandling();
 
-		// Initialize store
-		Store.getInstance();
+		store.initialize();
+		connectionManager.initialize();
 
 		jaiPasVu.use(uiPlugin);
 		jaiPasVu.use(roomPlugin);

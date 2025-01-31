@@ -3,7 +3,7 @@ import UserService from './UserService.js';
 import MessageService from './MessageService.js';
 import UIHandler from './UIHandler.js';
 import { ChatNetworkManager } from './ChatNetworkManager.js';
-import Store, { actions } from '../state/store.js';
+import { store, actions } from '../state/store.js';
 
 export default class ChatApp {
 	static instance = null;
@@ -14,8 +14,6 @@ export default class ChatApp {
 			return ChatApp.instance;
 		}
 
-		this._store = Store.getInstance();
-		this._store.DEBUG = true;
 		this.networkManager = new ChatNetworkManager();
 		this.userService = new UserService(this);
 		this.uiHandler = new UIHandler(this);
@@ -46,8 +44,8 @@ export default class ChatApp {
 
 	async initializeNetwork() {
 		try {
-			const chatState = this._store.getState('chat');
-			const userState = this._store.getState('user');
+			const chatState = store.getState('chat');
+			const userState = store.getState('user');
 
 			// Ensure chat state is initialized
 			if (!chatState || !chatState.users) {
@@ -76,7 +74,7 @@ export default class ChatApp {
 	}
 
 	_initializeStoreSubscription() {
-		this._store.subscribe('chat', (chatState) => {
+		store.subscribe('chat', (chatState) => {
 			// Calculate total unread count across all rooms
 			const totalUnread = Object.values(chatState.unreadCounts).reduce((sum, count) => sum + count, 0);
 			this.uiHandler.updateUnreadCount(totalUnread);
@@ -109,7 +107,7 @@ export default class ChatApp {
 		}
 
 		const recipientId = Number(activeUser.dataset.userId);
-		const currentUserId = this._store.getState('user').id;
+		const currentUserId = store.getState('user').id;
 		if (!currentUserId) {
 			alert("Unable to send message. User ID not found.");
 			return;
@@ -126,7 +124,7 @@ export default class ChatApp {
 			id: messageId
 		});
 
-		this._store.dispatch({
+		store.dispatch({
 			domain: 'chat',
 			type: 'ADD_MESSAGE',
 			payload: {
@@ -146,7 +144,7 @@ export default class ChatApp {
 
 	handleUserClick(event) {
 		const button = event.currentTarget;
-		const userState = this._store.getState('user');
+		const userState = store.getState('user');
 		const userId = userState.id;
 		const userName = userState.username;
 		const isBlocked = button.classList.contains('blocked');
@@ -181,18 +179,18 @@ export default class ChatApp {
 		}
 
 		// Clear unread count for this specific user
-		const chatState = this._store.getState('chat');
+		const chatState = store.getState('chat');
 		if (chatState.unreadCounts[userId]) {
 			const newUnreadCounts = { ...chatState.unreadCounts };
 			delete newUnreadCounts[userId];
-			this._store.dispatch({
+			store.dispatch({
 				domain: 'chat',
 				type: actions.chat.SET_ACTIVE_ROOM,
 				payload: userId,
 				unreadCounts: newUnreadCounts
 			});
 		} else {
-			this._store.dispatch({
+			store.dispatch({
 				domain: 'chat',
 				type: actions.chat.SET_ACTIVE_ROOM,
 				payload: userId
@@ -226,14 +224,14 @@ export default class ChatApp {
 				});
 
 				// Clear existing history
-				this._store.dispatch({
+				store.dispatch({
 					domain: 'chat',
 					type: actions.chat.CLEAR_HISTORY,
 					payload: { roomId: userId }
 				});
 
 				// Add all messages at once
-				this._store.dispatch({
+				store.dispatch({
 					domain: 'chat',
 					type: actions.chat.ADD_MESSAGES,
 					payload: {
@@ -327,7 +325,7 @@ export default class ChatApp {
 
 		if (isOpen) {
 			// Clear all unread counts when opening chat
-			this._store.dispatch({
+			store.dispatch({
 				domain: 'chat',
 				type: actions.chat.CLEAR_ALL_UNREAD
 			});
@@ -339,7 +337,7 @@ export default class ChatApp {
 	}
 
 	async selectLastActiveChat() {
-		const chatState = this._store.getState('chat');
+		const chatState = store.getState('chat');
 		if (!chatState) return;
 
 		// Find the room with the most recent message
