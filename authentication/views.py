@@ -28,11 +28,14 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 def already_logged_in(request):
-	access_token = request.COOKIES.get('access_token')
-	jwt_auth = JWTAuthentication()
-	validated_token = jwt_auth.get_validated_token(access_token)
-	user = jwt_auth.get_user(validated_token)
-	refresh_token = request.COOKIES.get('refresh_token')
+	try:
+		access_token = request.COOKIES.get('access_token')
+		refresh_token = request.COOKIES.get('refresh_token')
+		jwt_auth = JWTAuthentication()
+		validated_token = jwt_auth.get_validated_token(access_token)
+		user = jwt_auth.get_user(validated_token)
+	except:
+		return None
 
 	users = User.objects.all()  
 	blocked_users = request.user.blocked_users.all() if hasattr(request.user, 'blocked_users') else []
