@@ -25,19 +25,6 @@ export const RoomModes = {
 };
 
 export const SettingsSchema = {
-	mode: {
-		type: 'string',
-		enum: Object.values(RoomModes),
-		default: RoomModes.AI,
-		required: true
-	},
-	maxPlayers: {
-		type: 'number',
-		min: 1,
-		max: 8,
-		default: 2,
-		required: true
-	},
 	ballSpeed: {
 		type: 'number',
 		min: 1,
@@ -106,8 +93,6 @@ export const getDefaultSettingsForMode = (mode) => {
 	});
 
 	// Override mode-specific settings
-	settings.mode = mode;
-	settings.maxPlayers = getMaxPlayersForMode(mode);
 
 	return settings;
 };
@@ -133,7 +118,6 @@ export const initialRoomState = {
  */
 export const validateSettings = (settings) => {
 	const errors = [];
-	const mode = settings.mode;
 
 	Object.entries(SettingsSchema).forEach(([key, schema]) => {
 		// Skip validation if the field has a condition that isn't met
@@ -198,8 +182,6 @@ export const roomValidators = {
 	settings: (value) => {
 		return (
 			typeof value === 'object' &&
-			typeof value.mode === 'string' &&
-			typeof value.maxPlayers === 'number' &&
 			validateSettings(value).isValid
 		);
 	},

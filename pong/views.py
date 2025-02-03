@@ -160,7 +160,7 @@ def create_pong_room(request):
         room = PongRoom.objects.create(
             room_id=room_id,
             owner=request.user,
-            mode=PongRoom.Mode.CLASSIC
+            mode=PongRoom.Mode.AI
         )
         room.players.add(request.user)
         logger.info(f"Room created with ID {room_id} by user {request.user.username}")
