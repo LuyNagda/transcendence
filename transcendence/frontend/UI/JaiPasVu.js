@@ -709,9 +709,6 @@ class JaiPasVu {
     }
 
     processVFor(el, parentContext) {
-        const vFor = el.getAttribute('v-for');
-        if (!vFor) return;
-
         // Check if any parent is hidden
         let parentEl = el.parentElement;
         let parentHidden = false;
@@ -732,75 +729,69 @@ class JaiPasVu {
             return;
         }
 
-        const [iteratorExp, arrayExp] = vFor.split(' in ').map(s => s.trim());
-        const items = this.evaluateExpression(arrayExp, parentContext);
+		const vFor = el.getAttribute('v-for');
+        if (!vFor) return;
 
-        // Handle different iterable types
-        let iterable;
-        if (Array.isArray(items)) {
-            iterable = items;
-        } else if (typeof items === 'string') {
-            if (items.length > 0) {
-                iterable = items.split(''); 
-            } else {
-                iterable = []; // Retourne un tableau vide pour les chaînes vides
-            }
-        } else if (items instanceof Set || items instanceof Map) {
-            iterable = Array.from(items);
-        } else if (typeof items === 'object' && items !== null) {
-            iterable = Object.entries(items);
-        } else {
-            logger.warn(`v-for nécessite un itérable (reçu ${typeof items} pour "${arrayExp}") :`, items);
+        // Parse v-for expression (e.g., "item in items" or "(item, index) in items")
+        const forMatch = vFor.match(/^\s*(?:\(?\s*(\w+)(?:\s*,\s*(\w+))?\s*\)?)\s+in\s+(\S+)\s*$/);
+        if (!forMatch) {
+            logger.error('Invalid v-for syntax:', vFor);
             return;
         }
 
-        // Create template if not exists
+        const [, itemName, indexName, arrayPath] = forMatch;
+
+        // Create template from element
         const template = el.cloneNode(true);
         template.removeAttribute('v-for');
+        const parent = el.parentNode;
+        const anchor = document.createComment(`v-for: ${vFor}`);
+        parent.replaceChild(anchor, el);
 
-        // Get the parent node for proper insertion
-        const parentNode = el.parentNode;
+        const effect = () => {
+            try {
+                ReactiveEffect.push(effect);
+                const array = this.evaluateExpression(arrayPath, parentContext);
+                
+                // Remove old elements
+                let node = anchor.nextSibling;
+                while (node && node._vForMarker === vFor) {
+                    const next = node.nextSibling;
+                    parent.removeChild(node);
+                    node = next;
+                }
 
-        // Remove all existing v-for items
-        const oldItems = Array.from(parentNode.children).filter(node =>
-            node !== el && node.__v_for_template === el
-        );
-        oldItems.forEach(item => {
-            if (item.parentNode) {
-                item.parentNode.removeChild(item);
+                // Create new elements
+                if (Array.isArray(array)) {
+                    array.forEach((item, index) => {
+                        const clone = template.cloneNode(true);
+                        clone._vForMarker = vFor;
+
+                        // Create local scope for v-for item
+                        const itemContext = new Proxy({}, {
+                            get: (target, prop) => {
+                                if (prop === itemName) return item;
+                                if (indexName && prop === indexName) return index;
+                                return Reflect.get(parentContext, prop);
+                            },
+                            has: (target, prop) => {
+                                if (prop === itemName) return true;
+                                if (indexName && prop === indexName) return true;
+                                return Reflect.has(parentContext, prop);
+                            }
+                        });
+
+                        // Process other directives on cloned element
+                        this.compileElement(clone, itemContext);
+                        parent.insertBefore(clone, node);
+                    });
+                }
+            } finally {
+                ReactiveEffect.pop();
             }
-        });
+        };
 
-        // Create fragment to hold new items
-        const fragment = document.createDocumentFragment();
-
-        // Create new items
-        iterable.forEach((item, index) => {
-            const clone = template.cloneNode(true);
-            clone.__v_for_template = el;
-            clone.removeAttribute('v-for'); // Ensure v-for is removed
-            clone.style.display = ''; // Ensure clone is visible
-
-            // Create item context by combining parent context with iterator variables
-            const itemContext = Object.create(null);
-            Object.setPrototypeOf(itemContext, parentContext);
-            itemContext[iteratorExp] = item;
-            if (index !== undefined) {
-                itemContext[indexExp] = index;
-            }
-
-            // Process clone with item context
-            this.compileElement(clone, itemContext);
-
-            // Add to fragment
-            fragment.appendChild(clone);
-        });
-
-        // Insert all new items at once
-        parentNode.insertBefore(fragment, el.nextSibling);
-
-        // Hide original template
-        el.style.display = 'none';
+        effect();
     }
 
     processVModel(el, context) {
