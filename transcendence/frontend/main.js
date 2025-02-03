@@ -4,7 +4,6 @@ import { htmxPlugin } from './UI/HTMXPlugin.js';
 import { uiPlugin } from './UI/UIPlugin.js';
 import { roomPlugin } from './room/RoomPlugin.js';
 import { store } from './state/store.js';
-import StateSync from './state/StateSync.js';
 import { connectionManager } from './networking/ConnectionManager.js';
 
 function _initializeErrorHandling() {
@@ -38,8 +37,6 @@ function initializeApp() {
 		jaiPasVu.use(roomPlugin);
 		jaiPasVu.use(htmxPlugin);
 		jaiPasVu.initialize();
-
-		StateSync.initialize();
 
 		logger.info(`[Main] Application initialized successfully`);
 	} catch (error) {
