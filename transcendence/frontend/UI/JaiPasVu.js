@@ -177,23 +177,23 @@ class JaiPasVu {
      */
     use(plugin, options = {}) {
         if (!plugin || typeof plugin !== 'object') {
-            logger.error('Invalid plugin:', plugin);
+            logger.error('[JaiPasVu] Invalid plugin:', plugin);
             return this;
         }
 
         const pluginName = plugin.name || 'anonymous';
 
         if (this.plugins.has(pluginName)) {
-            logger.warn(`Plugin ${pluginName} is already installed`);
+            logger.warn(`[JaiPasVu] Plugin ${pluginName} is already installed`);
             return this;
         }
 
         try {
             plugin.install(this, options);
             this.plugins.set(pluginName, plugin);
-            logger.info(`Plugin ${pluginName} installed successfully`);
+            logger.info(`[JaiPasVu] Plugin ${pluginName} installed successfully`);
         } catch (error) {
-            logger.error(`Failed to install plugin ${pluginName}:`, error);
+            logger.error(`[JaiPasVu] Failed to install plugin ${pluginName}:`, error);
         }
 
         return this;
@@ -227,7 +227,7 @@ class JaiPasVu {
                 try {
                     callback(...args);
                 } catch (error) {
-                    logger.error(`Error in ${hookName} hook:`, error);
+                    logger.error(`[JaiPasVu] Error in ${hookName} hook:`, error);
                 }
             });
         }
@@ -243,7 +243,7 @@ class JaiPasVu {
      */
     initialize(root = document.body) {
         if (this.initialized) {
-            logger.warn("JaiPasVu is already initialized");
+            logger.warn("[JaiPasVu] JaiPasVu is already initialized");
             return this;
         }
 
@@ -309,17 +309,17 @@ class JaiPasVu {
             this.registerComputed(domain, computedProps);
         }
 
-        logger.debug(`Registered data for domain ${domain}:`, data);
+        logger.debug(`[JaiPasVu] Registered data for domain ${domain}:`, data);
 
         // Find all elements with this domain and compile them once
         const elements = document.querySelectorAll(`[data-domain="${domain}"]`);
         if (elements.length > 0) {
-            logger.debug(`Found ${elements.length} elements for domain ${domain}`);
+            logger.debug(`[JaiPasVu] Found ${elements.length} elements for domain ${domain}`);
             // Only compile the root element to avoid duplicate compilation
             const rootElement = elements[0];
             this.compileElement(rootElement, domainData.state);
         } else {
-            logger.warn(`No elements found for domain ${domain}`);
+            logger.warn(`[JaiPasVu] No elements found for domain ${domain}`);
         }
     }
 
@@ -379,7 +379,7 @@ class JaiPasVu {
 
         Object.entries(computedProps).forEach(([key, getter]) => {
             if (typeof getter !== 'function') {
-                logger.error(`Computed property ${key} must be a function`);
+                logger.error(`[JaiPasVu] Computed property ${key} must be a function`);
                 return;
             }
 
@@ -390,7 +390,7 @@ class JaiPasVu {
                     const result = getter.call(domainData.state);
                     return result === undefined ? '' : result;
                 } catch (error) {
-                    logger.error(`Error in computed property ${key}:`, error);
+                    logger.error(`[JaiPasVu] Error in computed property ${key}:`, error);
                     return '';
                 } finally {
                     ReactiveEffect.pop();
@@ -411,7 +411,7 @@ class JaiPasVu {
                     try {
                         return effect();
                     } catch (error) {
-                        logger.error(`Error getting computed property ${key}:`, error);
+                        logger.error(`[JaiPasVu] Error getting computed property ${key}:`, error);
                         return '';
                     }
                 },
@@ -484,7 +484,7 @@ class JaiPasVu {
                 try {
                     observer(state);
                 } catch (error) {
-                    logger.error(`Error in observer for domain ${domain}:`, error);
+                    logger.error(`[JaiPasVu] Error in observer for domain ${domain}:`, error);
                 }
             });
         }
@@ -494,7 +494,7 @@ class JaiPasVu {
     updateElement(el, domain) {
         const domainData = this.domains.get(domain);
         if (!domainData) {
-            logger.warn(`No data found for domain: ${domain}`);
+            logger.warn(`[JaiPasVu] No data found for domain: ${domain}`);
             return;
         }
 
@@ -729,13 +729,13 @@ class JaiPasVu {
             return;
         }
 
-		const vFor = el.getAttribute('v-for');
+        const vFor = el.getAttribute('v-for');
         if (!vFor) return;
 
         // Parse v-for expression (e.g., "item in items" or "(item, index) in items")
         const forMatch = vFor.match(/^\s*(?:\(?\s*(\w+)(?:\s*,\s*(\w+))?\s*\)?)\s+in\s+(\S+)\s*$/);
         if (!forMatch) {
-            logger.error('Invalid v-for syntax:', vFor);
+            logger.error('[JaiPasVu] Invalid v-for syntax:', vFor);
             return;
         }
 
@@ -752,7 +752,7 @@ class JaiPasVu {
             try {
                 ReactiveEffect.push(effect);
                 const array = this.evaluateExpression(arrayPath, parentContext);
-                
+
                 // Remove old elements
                 let node = anchor.nextSibling;
                 while (node && node._vForMarker === vFor) {
@@ -799,7 +799,7 @@ class JaiPasVu {
         if (!vModel) return;
 
         try {
-            logger.debug(`Processing v-model for ${el.outerHTML}:`, {
+            logger.debug(`[JaiPasVu] Processing v-model for ${el.outerHTML}:`, {
                 model: vModel,
                 context: context
             });
@@ -809,7 +809,7 @@ class JaiPasVu {
                 try {
                     ReactiveEffect.push(effect);
                     const value = this.evaluateExpression(vModel, context);
-                    logger.debug(`v-model effect evaluation:`, {
+                    logger.debug(`[JaiPasVu] v-model effect evaluation:`, {
                         model: vModel,
                         value: value,
                         elementType: el.type
@@ -821,7 +821,7 @@ class JaiPasVu {
                         el.value = value === undefined || value === null ? '' : String(value);
                     }
                 } catch (error) {
-                    logger.error('Error in v-model effect:', error);
+                    logger.error('[JaiPasVu] Error in v-model effect:', error);
                 } finally {
                     ReactiveEffect.pop();
                 }
@@ -835,14 +835,14 @@ class JaiPasVu {
             const handler = (event) => {
                 try {
                     const newValue = el.type === 'checkbox' ? event.target.checked : event.target.value;
-                    logger.debug(`v-model update from DOM:`, {
+                    logger.debug(`[JaiPasVu] v-model update from DOM:`, {
                         model: vModel,
                         newValue: newValue,
                         elementType: el.type
                     });
                     this.setValueByPath(context, vModel, newValue);
                 } catch (error) {
-                    logger.error('Error in v-model handler:', error);
+                    logger.error('[JaiPasVu] Error in v-model handler:', error);
                 }
             };
 
@@ -854,7 +854,7 @@ class JaiPasVu {
             el.__v_model_handler = handler;
             el.addEventListener(eventType, handler);
         } catch (error) {
-            logger.error('Error in v-model processing:', error);
+            logger.error('[JaiPasVu] Error in v-model processing:', error);
         }
     }
 
@@ -943,7 +943,7 @@ class JaiPasVu {
                         method.apply(context, evaluatedArgs);
                     }
                 } catch (error) {
-                    logger.error('Error in v-on handler:', error);
+                    logger.error('[JaiPasVu] Error in v-on handler:', error);
                 }
             };
 
@@ -996,7 +996,7 @@ class JaiPasVu {
                                     const result = value.call(target);
                                     return result === undefined ? '' : result;
                                 } catch (error) {
-                                    logger.error('Error evaluating computed property:', error);
+                                    logger.error('[JaiPasVu] Error evaluating computed property:', error);
                                     return '';
                                 }
                             }
@@ -1005,7 +1005,7 @@ class JaiPasVu {
                         // If property doesn't exist, return undefined instead of throwing
                         return undefined;
                     } catch (error) {
-                        logger.error('Error accessing property:', error);
+                        logger.error('[JaiPasVu] Error accessing property:', error);
                         return '';
                     }
                 },
@@ -1027,7 +1027,7 @@ class JaiPasVu {
             const fn = new Function('ctx', `with(ctx) { ${wrappedExpression} }`);
             const result = fn(proxy);
 
-            logger.debug(`Expression evaluation:`, {
+            logger.debug(`[JaiPasVu] Expression evaluation:`, {
                 expression: expression,
                 context: context,
                 result: result
@@ -1035,7 +1035,7 @@ class JaiPasVu {
 
             return result === undefined ? '' : result;
         } catch (error) {
-            logger.error('Expression evaluation error:', error);
+            logger.error('[JaiPasVu] Expression evaluation error:', error);
             return '';
         }
     }

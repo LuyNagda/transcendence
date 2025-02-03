@@ -266,28 +266,28 @@ class Store {
 			const updatedDomains = new Set();
 
 			actions.forEach(({ domain, type, payload }) => {
-				logger.debug('Processing action:', { domain, type, payload });
+				logger.debug(`[Store] Processing action:`, { domain, type, payload });
 
 				const currentState = this.getState(domain);
 				const reducers = this.reducers[domain];
 
 				if (!reducers || !reducers[type]) {
-					logger.warn(`No reducer found for action: ${domain}.${type}`);
+					logger.warn(`[Store] No reducer found for action: ${domain}.${type}`);
 					return;
 				}
 
 				const newState = reducers[type](currentState, payload);
-				logger.debug('State after reducer:', { domain, newState });
+				logger.debug(`[Store] State after reducer:`, { domain, newState });
 
 				// Skip if state hasn't changed
 				if (isDeepEqual(currentState, newState)) {
-					logger.debug('State unchanged, skipping update');
+					logger.debug(`[Store] State unchanged, skipping update`);
 					return;
 				}
 
 				// Validate state change
 				if (!this._validateStateChange(domain, newState)) {
-					logger.error(`Invalid state transition for ${domain}:`, {
+					logger.error(`[Store] Invalid state transition for ${domain}:`, {
 						currentState,
 						newState,
 						action: { type, payload }
@@ -302,19 +302,19 @@ class Store {
 				};
 
 				updatedDomains.add(domain);
-				logger.debug(`State updated for ${domain}:`, newState);
+				logger.debug(`[Store] State updated for ${domain}:`, newState);
 			});
 
 			// Notify subscribers and persist state if any domains were updated
 			if (updatedDomains.size > 0) {
 				updatedDomains.forEach(domain => {
-					logger.debug(`Notifying subscribers for ${domain}`);
+					logger.debug(`[Store] Notifying subscribers for ${domain}`);
 					this._notifySubscribers(domain, actions.length > 1 ? StateChangeTypes.BATCH_UPDATE : StateChangeTypes.UPDATE);
 				});
 				this._persistState();
 			}
 		} catch (error) {
-			logger.error('Error updating state:', error);
+			logger.error(`[Store] Error updating state:`, error);
 		}
 	}
 
@@ -333,7 +333,7 @@ class Store {
 					try {
 						callback(this.state[domain], type);
 					} catch (error) {
-						logger.error('Error in subscriber callback:', error);
+						logger.error(`[Store] Error in subscriber callback:`, error);
 					}
 				});
 			}
@@ -344,7 +344,7 @@ class Store {
 					try {
 						callback(value, type);
 					} catch (error) {
-						logger.error('Error in path subscriber callback:', error);
+						logger.error(`[Store] Error in path subscriber callback:`, error);
 					}
 				});
 			}
@@ -377,7 +377,7 @@ class Store {
 			const reducers = this.reducers[domain];
 
 			if (!reducers || !reducers[type]) {
-				logger.error(`No reducer found for action: ${domain}.${type}`);
+				logger.error(`[Store] No reducer found for action: ${domain}.${type}`);
 				return;
 			}
 
@@ -386,7 +386,7 @@ class Store {
 				const newDomainState = reducers[type](domainState, payload);
 
 				if (!this._validateStateChange(domain, newDomainState)) {
-					throw new Error(`Invalid state transition for ${domain}`);
+					throw new Error(`[Store] Invalid state transition for ${domain}`);
 				}
 
 				this.state = {
@@ -396,7 +396,7 @@ class Store {
 
 				domains.add(domain);
 			} catch (error) {
-				logger.error('State update failed:', error);
+				logger.error(`[Store] State update failed:`, error);
 			}
 		});
 
@@ -423,25 +423,25 @@ class Store {
 
 		const validators = this.validators[domain];
 		if (!validators) {
-			logger.error(`No validators found for domain: ${domain}`);
+			logger.error(`[Store] No validators found for domain: ${domain}`);
 			return false;
 		}
 
 		// For partial state updates, merge with existing state
 		const fullState = { ...this.state[domain], ...newState };
-		logger.debug(`Validating state for ${domain}:`, fullState);
+		logger.debug(`[Store] Validating state for ${domain}:`, fullState);
 
 		// Validate each field with its corresponding validator
 		return Object.entries(fullState).every(([key, value]) => {
 			const validator = validators[key];
 			if (!validator) {
-				logger.debug(`No validator for ${domain}.${key}, skipping`);
+				logger.debug(`[Store] No validator for ${domain}.${key}, skipping`);
 				return true;
 			}
 
 			const isValid = validator(value);
 			if (!isValid) {
-				logger.error(`Validation failed for ${domain}.${key}:`, {
+				logger.error(`[Store] Validation failed for ${domain}.${key}:`, {
 					value,
 					valueType: typeof value,
 					validator: validator.toString()
@@ -494,7 +494,7 @@ class Store {
 
 			localStorage.setItem('app_state', JSON.stringify(stateToStore));
 		} catch (error) {
-			logger.error('Failed to persist state:', error);
+			logger.error(`[Store] Failed to persist state:`, error);
 		}
 	}
 
@@ -542,7 +542,7 @@ class Store {
 				ui: { ...processedState.ui, ...this._loadUIState() } // Merge UI state
 			};
 		} catch (error) {
-			logger.error('Failed to load persisted state:', error);
+			logger.error(`[Store] Failed to load persisted state:`, error);
 		}
 	}
 

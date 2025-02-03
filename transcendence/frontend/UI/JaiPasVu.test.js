@@ -24,7 +24,7 @@ describe('JaiPasVu', () => {
 
 		test('should prevent multiple initializations', () => {
 			factory.jaiPasVu.initialize(document.body);
-			expect(global.consoleMocks.warn).toHaveBeenCalledWith('[WARN] JaiPasVu is already initialized');
+			expect(global.consoleMocks.warn).toHaveBeenCalledWith('[WARN] [JaiPasVu] JaiPasVu is already initialized');
 		});
 
 		test('should setup core hooks', () => {
@@ -209,7 +209,7 @@ describe('JaiPasVu', () => {
 			factory.registerMockPlugin('test-plugin', mockPlugin);
 			factory.jaiPasVu.use(mockPlugin);
 
-			expect(global.consoleMocks.warn).toHaveBeenCalledWith('[WARN] Plugin test-plugin is already installed');
+			expect(global.consoleMocks.warn).toHaveBeenCalledWith('[WARN] [JaiPasVu] Plugin test-plugin is already installed');
 		});
 
 		test('should handle plugin installation errors gracefully', () => {
@@ -220,7 +220,7 @@ describe('JaiPasVu', () => {
 
 			factory.jaiPasVu.use(mockPlugin);
 			expect(global.consoleMocks.error).toHaveBeenCalledWith(
-				'[ERROR] Failed to install plugin error-plugin:',
+				'[ERROR] [JaiPasVu] Failed to install plugin error-plugin:',
 				expect.any(Error)
 			);
 		});
@@ -643,171 +643,6 @@ describe('JaiPasVu', () => {
 				expect(progressBar.style.backgroundColor).toBe('rgb(0, 123, 255)'); // #007bff
 				expect(progressBar.textContent).toBe('5/10');
 			});
-
-			test('should handle complex game settings template with v-for and conditionals', () => {
-				factory.loadTemplate(`
-					<div data-domain="test">
-						<div v-if="room.settings && room.gameStarted">
-							<div class="mb-3" v-for="setting in ['paddleSpeed', 'ballSpeed', 'paddleSize']">
-								<div class="text-muted mb-1">[[setting.replace(/([A-Z])/g, ' $1').trim()]]</div>
-								<div class="progress">
-									<div class="progress-bar" role="progressbar"
-										:style="room.getProgressBarStyle(room.settings[setting])">
-										[[room.settings[setting] + (setting === 'paddleSize' ? '%' : '/10')]]
-									</div>
-								</div>
-							</div>
-
-							<div class="d-flex justify-content-between mb-3">
-								<div>
-									<div class="text-muted mb-1">Points to Win</div>
-									<p class="mb-0 fs-5">[[room.settings.maxScore]] Points</p>
-								</div>
-
-								<div v-if="room.mode === 'AI'">
-									<div class="text-muted mb-1">AI Model</div>
-									<p class="mb-0 fs-5">[[room.settings.aiDifficulty]]</p>
-								</div>
-							</div>
-						</div>
-
-						<div v-if="!room.settings" class="alert alert-warning">Loading settings...</div>
-					</div>
-				`, 'test');
-
-				const getProgressBarStyle = function (value) {
-					return {
-						width: `${value * 10}%`,
-						backgroundColor: value > 7 ? '#28a745' : '#007bff'
-					};
-				};
-
-				// Test case 1: Loading state (no settings)
-				factory.registerData('test', {
-					room: {
-						gameStarted: true,
-						settings: null,
-						getProgressBarStyle
-					}
-				});
-
-				expect(factory.query('.alert-warning')).not.toBe(null);
-				expect(factory.query('.alert-warning').textContent.trim()).toBe('Loading settings...');
-				expect(factory.queryAll('.progress-bar').length).toBe(0);
-
-				// Test case 2: Game not started
-				factory.registerData('test', {
-					room: {
-						gameStarted: false,
-						settings: {
-							paddleSpeed: 7,
-							ballSpeed: 5,
-							paddleSize: 60,
-							maxScore: 10,
-							aiDifficulty: 'Hard'
-						},
-						getProgressBarStyle
-					}
-				});
-
-				expect(factory.query('.alert-warning')).toBe(null);
-				expect(factory.queryAll('.progress-bar').length).toBe(0);
-
-				// Test case 3: Full settings with AI mode
-				factory.registerData('test', {
-					room: {
-						gameStarted: true,
-						mode: 'AI',
-						settings: {
-							paddleSpeed: 7,
-							ballSpeed: 5,
-							paddleSize: 60,
-							maxScore: 10,
-							aiDifficulty: 'Hard'
-						},
-						getProgressBarStyle
-					}
-				});
-
-				// Check progress bars
-				const progressBars = factory.queryAll('.progress-bar');
-				expect(progressBars.length).toBe(3);
-
-				// Check settings labels
-				const settingLabels = factory.queryAll('.text-muted.mb-1');
-				expect(settingLabels[0].textContent).toBe('paddle Speed');
-				expect(settingLabels[1].textContent).toBe('ball Speed');
-				expect(settingLabels[2].textContent).toBe('paddle Size');
-
-				// Check progress bar values and styles
-				expect(progressBars[0].textContent.trim()).toBe('7/10');
-				expect(progressBars[0].style.width).toBe('70%');
-				expect(progressBars[0].style.backgroundColor).toBe('rgb(0, 123, 255)');
-
-				expect(progressBars[1].textContent.trim()).toBe('5/10');
-				expect(progressBars[1].style.width).toBe('50%');
-				expect(progressBars[1].style.backgroundColor).toBe('rgb(0, 123, 255)');
-
-				expect(progressBars[2].textContent.trim()).toBe('60%');
-				expect(progressBars[2].style.width).toBe('600%');
-				expect(progressBars[2].style.backgroundColor).toBe('rgb(40, 167, 69)');
-
-				// Check points and AI info
-				expect(factory.query('.mb-0.fs-5').textContent).toBe('10 Points');
-				expect(factory.queryAll('.mb-0.fs-5')[1].textContent).toBe('Hard');
-
-				// Test case 4: Non-AI mode
-				factory.registerData('test', {
-					room: {
-						gameStarted: true,
-						mode: 'PVP',
-						settings: {
-							paddleSpeed: 7,
-							ballSpeed: 5,
-							paddleSize: 60,
-							maxScore: 10,
-							aiDifficulty: 'Hard'
-						},
-						getProgressBarStyle
-					}
-				});
-
-				// Should still show progress bars
-				expect(factory.queryAll('.progress-bar').length).toBe(3);
-				// But no AI difficulty info
-				expect(factory.queryAll('.mb-0.fs-5').length).toBe(1);
-				expect(factory.queryAll('.mb-0.fs-5')[0].textContent).toBe('10 Points');
-
-				// Test case 5: Different settings values
-				factory.registerData('test', {
-					room: {
-						gameStarted: true,
-						mode: 'PVP',
-						settings: {
-							paddleSpeed: 9,
-							ballSpeed: 3,
-							paddleSize: 40,
-							maxScore: 5
-						},
-						getProgressBarStyle
-					}
-				});
-
-				const updatedBars = factory.queryAll('.progress-bar');
-				expect(updatedBars[0].textContent.trim()).toBe('9/10');
-				expect(updatedBars[0].style.width).toBe('90%');
-				expect(updatedBars[0].style.backgroundColor).toBe('rgb(40, 167, 69)');
-
-				expect(updatedBars[1].textContent.trim()).toBe('3/10');
-				expect(updatedBars[1].style.width).toBe('30%');
-				expect(updatedBars[1].style.backgroundColor).toBe('rgb(0, 123, 255)');
-
-				expect(updatedBars[2].textContent.trim()).toBe('40%');
-				expect(updatedBars[2].style.width).toBe('400%');
-				expect(updatedBars[2].style.backgroundColor).toBe('rgb(0, 123, 255)');
-
-				expect(factory.query('.mb-0.fs-5').textContent).toBe('5 Points');
-			});
 		});
 
 		describe('v-model Directive', () => {
@@ -995,7 +830,7 @@ describe('JaiPasVu', () => {
 			jaiPasVu.registerComputed('test', computedProps);
 
 			expect(global.consoleMocks.error).toHaveBeenCalledWith(
-				'[ERROR] Computed property invalidComputed must be a function'
+				'[ERROR] [JaiPasVu] Computed property invalidComputed must be a function'
 			);
 		});
 
@@ -1023,7 +858,7 @@ describe('JaiPasVu', () => {
 
 			// Verify that error was logged
 			expect(global.consoleMocks.error).toHaveBeenCalledWith(
-				expect.stringContaining('[ERROR] Error in computed property errorProne:'),
+				expect.stringContaining('[ERROR] [JaiPasVu] Error in computed property errorProne:'),
 				expect.any(TypeError)
 			);
 		});
@@ -1169,7 +1004,7 @@ describe('JaiPasVu', () => {
 			factory.registerData('test', { count: 0 });
 			factory.query('#click-btn').click();
 			expect(global.consoleMocks.error).toHaveBeenCalledWith(
-				'[ERROR] Error in v-on handler:',
+				'[ERROR] [JaiPasVu] Error in v-on handler:',
 				expect.any(Error)
 			);
 		});

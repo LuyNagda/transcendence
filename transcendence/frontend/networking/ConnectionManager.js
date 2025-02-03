@@ -37,7 +37,7 @@ class ConnectionManager {
 
 		this._config = config;
 		this._initialized = true;
-		logger.info('ConnectionManager initialized');
+		logger.info('[ConnectionManager] initialized');
 	}
 
 	/**
@@ -51,7 +51,7 @@ class ConnectionManager {
 		this._checkInitialized();
 
 		if (this._connections.has(name)) {
-			logger.warn(`Connection ${name} already exists`);
+			logger.warn(`[ConnectionManager] Connection ${name} already exists`);
 			return this._connections.get(name);
 		}
 
@@ -61,7 +61,7 @@ class ConnectionManager {
 		const connection = factory(name, config);
 		this._connections.set(name, connection);
 		connection.on('stateChange', (state) => {
-			logger.debug(`Connection ${name} state changed to ${state.name}`);
+			logger.debug(`[ConnectionManager] Connection ${name} state changed to ${state.name}`);
 			this._handleStateChange(name, state);
 		});
 
@@ -136,7 +136,7 @@ class ConnectionManager {
 			await Promise.all(Array.from(group.values()).map(conn => conn.connect()));
 			return true;
 		} catch (error) {
-			logger.error(`Error connecting group ${groupName}:`, error);
+			logger.error(`[ConnectionManager] Error connecting group ${groupName}:`, error);
 			return false;
 		}
 	}
@@ -161,7 +161,7 @@ class ConnectionManager {
 	_handleStateChange(name, state) {
 		this.emit('connectionStateChange', { name, state });
 		if (state === ConnectionState.ERROR) {
-			logger.error(`Connection ${name} entered error state`);
+			logger.error(`[ConnectionManager] Connection ${name} entered error state`);
 		}
 	}
 
@@ -170,7 +170,7 @@ class ConnectionManager {
 	 * @private
 	 */
 	emit(event, data) {
-		logger.debug(`ConnectionManager event: ${event}`, data);
+		logger.debug(`[ConnectionManager] event: ${event}`, data);
 	}
 
 	/**

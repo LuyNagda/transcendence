@@ -9,12 +9,12 @@ import { connectionManager } from './networking/ConnectionManager.js';
 
 function _initializeErrorHandling() {
 	window.onerror = function (message, source, lineno, colno, error) {
-		logger.error('Global error:', { message, source, lineno, colno, error });
+		logger.error(`[Global error]`, { message, source, lineno, colno, error });
 		return false;
 	};
 
 	window.addEventListener('unhandledrejection', function (event) {
-		logger.error('Unhandled promise rejection:', event.reason);
+		logger.error(`[Global error] Unhandled promise rejection:`, event.reason);
 	});
 }
 
@@ -22,12 +22,12 @@ function initializeApp() {
 	try {
 		const configElement = document.getElementById('app-config');
 		if (!configElement) {
-			console.error('App config element not found');
+			logger.error(`[Main] App config element not found`);
 			return;
 		}
 		const config = JSON.parse(configElement.textContent);
 		logger.initialize(config);
-		logger.info('Starting application initialization');
+		logger.info(`[Main] Starting application initialization`);
 
 		_initializeErrorHandling();
 
@@ -41,12 +41,9 @@ function initializeApp() {
 
 		StateSync.initialize();
 
-		logger.info('Application initialized successfully');
+		logger.info(`[Main] Application initialized successfully`);
 	} catch (error) {
-		console.error('Error initializing application:', error);
-		if (logger.error) {
-			logger.error('Error initializing application:', error);
-		}
+		logger.error(`[Main] Error initializing application:`, error);
 	}
 }
 
