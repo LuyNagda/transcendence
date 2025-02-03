@@ -1,0 +1,6 @@
+<script>
+    htmx.ajax('GET', '{{ target_url }}', { 
+        target: 'body',
+        swap: 'outerHTML'
+    })
+</script> 

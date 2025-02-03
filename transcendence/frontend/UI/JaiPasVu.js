@@ -735,24 +735,23 @@ class JaiPasVu {
         const [iteratorExp, arrayExp] = vFor.split(' in ').map(s => s.trim());
         const items = this.evaluateExpression(arrayExp, parentContext);
 
-        if (!Array.isArray(items)) {
-            logger.warn('v-for requires array:', arrayExp);
-            return;
-        }
-
-        // Parse iterator variables
-        let itemVar, indexVar;
-        if (iteratorExp.includes('(')) {
-            // Handle (item, index) form
-            const match = iteratorExp.match(/\(\s*(\w+)\s*,\s*(\w+)\s*\)/);
-            if (!match) {
-                logger.error('Invalid v-for iterator expression:', iteratorExp);
-                return;
+        // Handle different iterable types
+        let iterable;
+        if (Array.isArray(items)) {
+            iterable = items;
+        } else if (typeof items === 'string') {
+            if (items.length > 0) {
+                iterable = items.split(''); 
+            } else {
+                iterable = []; // Retourne un tableau vide pour les chaînes vides
             }
-            [, itemVar, indexVar] = match;
+        } else if (items instanceof Set || items instanceof Map) {
+            iterable = Array.from(items);
+        } else if (typeof items === 'object' && items !== null) {
+            iterable = Object.entries(items);
         } else {
-            // Handle simple item form
-            itemVar = iteratorExp;
+            logger.warn(`v-for nécessite un itérable (reçu ${typeof items} pour "${arrayExp}") :`, items);
+            return;
         }
 
         // Create template if not exists
@@ -776,7 +775,7 @@ class JaiPasVu {
         const fragment = document.createDocumentFragment();
 
         // Create new items
-        items.forEach((item, index) => {
+        iterable.forEach((item, index) => {
             const clone = template.cloneNode(true);
             clone.__v_for_template = el;
             clone.removeAttribute('v-for'); // Ensure v-for is removed
@@ -785,9 +784,9 @@ class JaiPasVu {
             // Create item context by combining parent context with iterator variables
             const itemContext = Object.create(null);
             Object.setPrototypeOf(itemContext, parentContext);
-            itemContext[itemVar] = item;
-            if (indexVar) {
-                itemContext[indexVar] = index;
+            itemContext[iteratorExp] = item;
+            if (index !== undefined) {
+                itemContext[indexExp] = index;
             }
 
             // Process clone with item context
