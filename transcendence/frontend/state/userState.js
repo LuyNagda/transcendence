@@ -8,6 +8,7 @@ export const USER_STATUS = {
 export const userActions = {
 	SET_USER: 'SET_USER',
 	UPDATE: 'UPDATE',
+	UPDATE_FROM_SERVER: 'UPDATE_FROM_SERVER',
 	LOGOUT: 'LOGOUT'
 };
 
@@ -115,6 +116,14 @@ export const userReducers = {
 		}
 
 		return state;
+	},
+
+	[userActions.UPDATE_FROM_SERVER]: (state, payload) => {
+		return {
+			...state,
+			...payload,
+			status: payload.isAuthenticated ? USER_STATUS.ONLINE : USER_STATUS.OFFLINE
+		};
 	},
 
 	[userActions.LOGOUT]: () => {

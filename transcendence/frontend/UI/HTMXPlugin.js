@@ -216,6 +216,7 @@ export const htmxPlugin = {
 		});
 
 		document.body.addEventListener('htmx:afterSwap', (event) => {
+			logger.info('[HTMXPlugin] afterSwap event:', event);
 			const target = event.detail.target;
 			if (target) {
 				// Restore UI state after swap
@@ -292,20 +293,24 @@ export const htmxPlugin = {
 	 * @private
 	 */
 	_processStateUpdates(app, detail) {
-		// Process HX-Trigger header
-		const triggerHeader = detail.headers?.['HX-Trigger'];
+		// Process HX-Trigger header from response
+		const triggerHeader = detail.headers?.['HX-Trigger'] ||
+			detail.requestConfig?.headers?.['HX-Trigger'] ||
+			detail.xhr?.getResponseHeader('HX-Trigger');
+
 		if (triggerHeader) {
 			try {
+				logger.info('[HTMXPlugin] triggerHeader:', triggerHeader);
 				const triggers = JSON.parse(triggerHeader);
 				Object.entries(triggers).forEach(([key, value]) => {
 					if (key === 'stateUpdate') {
 						const { domain, state } = value;
+						logger.info('[HTMXPlugin] stateUpdate from server:', domain, state);
 						store.dispatch({
 							domain,
 							type: 'UPDATE_FROM_SERVER',
 							payload: state
 						});
-						app.registerData(domain, state);
 					} else {
 						// Handle other custom triggers
 						app.emit(`htmx:trigger:${key}`, value);
@@ -313,24 +318,6 @@ export const htmxPlugin = {
 				});
 			} catch (error) {
 				logger.error('Error processing HX-Trigger header:', error);
-			}
-		}
-
-		// Process state updates in response body
-		const stateData = detail.target?.querySelector('[data-state-update]');
-		if (stateData) {
-			try {
-				const updates = JSON.parse(stateData.textContent);
-				Object.entries(updates).forEach(([domain, state]) => {
-					store.dispatch({
-						domain,
-						type: 'UPDATE_FROM_SERVER',
-						payload: state
-					});
-					app.registerData(domain, state);
-				});
-			} catch (error) {
-				logger.error('Error processing state updates:', error);
 			}
 		}
 	}
