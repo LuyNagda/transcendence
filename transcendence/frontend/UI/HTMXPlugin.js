@@ -188,6 +188,10 @@ export const htmxPlugin = {
 	 * @private
 	 */
 	_setupEventHandlers(app) {
+        document.addEventListener("htmx:pushedIntoHistory", function (event) {
+            console.log("URL changed to:", window.location.href);
+        });
+
 		document.body.addEventListener('htmx:beforeRequest', (event) => {
 			// const target = event.detail.elt;
 			// const domain = target.getAttribute('data-domain') || 'global';
