@@ -95,6 +95,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def broadcast_status(self, status):
         user_ids = await self.get_allowed_user_ids()
         for recipient_id in user_ids:
+            if recipient_id == self.user.id:
+                continue
             await self.channel_layer.group_send(
                 f"chat_{recipient_id}",
                 {

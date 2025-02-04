@@ -5,6 +5,7 @@ import { uiPlugin } from './UI/UIPlugin.js';
 import { store } from './state/store.js';
 import { connectionManager } from './networking/ConnectionManager.js';
 import Room from './room/Room.js';
+import ChatApp from './chat/ChatApp.js';
 
 function _initializeErrorHandling() {
 	window.onerror = function (message, source, lineno, colno, error) {
@@ -17,7 +18,7 @@ function _initializeErrorHandling() {
 	});
 }
 
-function initializeApp() {
+async function initializeApp() {
 	try {
 		const configElement = document.getElementById('app-config');
 		if (!configElement) {
@@ -36,6 +37,8 @@ function initializeApp() {
 		jaiPasVu.use(uiPlugin);
 		jaiPasVu.use(htmxPlugin);
 		jaiPasVu.initialize();
+
+		await ChatApp.initialize();
 
 		Room.initialize();
 

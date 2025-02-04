@@ -23,6 +23,55 @@ function cleanDjangoTemplate(template) {
 		.trim();
 }
 
+// Function to prettify HTML to see a tree structure
+// from <div><p><span>Hello</span></p></div>
+// to
+// <div>
+//   <p>
+//     <span>Hello</span>
+//   </p>
+// </div>
+function prettifyHtml(html) {
+	let indentLevel = 0;
+	let result = '';
+	const tagStack = [];
+	let i = 0;
+
+	while (i < html.length) {
+		if (html[i] === '<') {
+			// Handle closing tags
+			if (html[i + 1] === '/') {
+				indentLevel--;
+				result += '\n' + '  '.repeat(indentLevel) + html.slice(i, html.indexOf('>', i) + 1);
+				i = html.indexOf('>', i) + 1;
+				tagStack.pop();
+				continue;
+			}
+
+			// Handle opening tags
+			result += '\n' + '  '.repeat(indentLevel) + html.slice(i, html.indexOf('>', i) + 1);
+			i = html.indexOf('>', i) + 1;
+
+			// Check if it's a self-closing tag
+			if (!html[i - 2].endsWith('/')) {
+				indentLevel++;
+				tagStack.push(true);
+			}
+		} else {
+			// Handle text content
+			const textEnd = html.indexOf('<', i);
+			if (textEnd === -1) break;
+			const text = html.slice(i, textEnd).trim();
+			if (text) {
+				result += '\n' + '  '.repeat(indentLevel) + text;
+			}
+			i = textEnd;
+		}
+	}
+
+	return result.trim();
+}
+
 export class JaiPasVuTestFactory {
 	constructor() {
 		this.container = null;
@@ -167,7 +216,9 @@ export class JaiPasVuTestFactory {
 	 * @param {string} template - Template content
 	 */
 	registerTemplate(name, template) {
-		this._templates.set(name, cleanDjangoTemplate(template));
+		const cleanedTemplate = cleanDjangoTemplate(template);
+		const prettifiedTemplate = prettifyHtml(cleanedTemplate);
+		this._templates.set(name, cleanedTemplate);
 	}
 
 	/**
@@ -202,7 +253,8 @@ export class JaiPasVuTestFactory {
 		}
 
 		const templateElement = document.createElement('div');
-		templateElement.setAttribute('data-domain', domain);
+		if (!templateContent.includes('data-domain'))
+			templateElement.setAttribute('data-domain', domain);
 		templateElement.innerHTML = templateContent;
 
 		if (appendMode) {
@@ -216,9 +268,8 @@ export class JaiPasVuTestFactory {
 		if (domainData) {
 			// Get the actual element from the container since templateElement is detached
 			const actualElement = this.container.querySelector(`[data-domain="${domain}"]`);
-			if (actualElement) {
+			if (actualElement)
 				this.jaiPasVu.compileElement(actualElement, domainData.state);
-			}
 		}
 
 		// Return the actual element from the container, not the detached templateElement

@@ -1125,6 +1125,23 @@ describe('JaiPasVu', () => {
 			expect(multiArg).toHaveBeenCalledWith(1, 'test', true);
 		});
 
+		test('should handle method invocation with multiple arguments', () => {
+			factory.loadTemplate(`
+				<div>
+					<ul>
+						<li v-on:click="multiArg(1, 'test', true)" id="multi-arg-btn">Click</li>
+					</ul>
+				</div>
+			`, 'test');
+
+			const multiArg = jest.fn();
+			jaiPasVu.registerMethods('test', { multiArg });
+			factory.registerData('test', {});
+
+			factory.query('#multi-arg-btn').click();
+			expect(multiArg).toHaveBeenCalledWith(1, 'test', true);
+		});
+
 		test('should handle shorthand method invocation without parentheses', () => {
 			factory.loadTemplate(`
 				<div>

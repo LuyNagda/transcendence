@@ -1,5 +1,5 @@
 import logger from '../logger.js';
-import { WebSocketConnection, WebRTCConnection, ConnectionState } from './NetworkingCore.js';
+import { WebSocketConnection, WebRTCConnection } from './NetworkingCore.js';
 
 /**
  * Factory object for creating different types of network connections
@@ -61,8 +61,7 @@ class ConnectionManager {
 		const connection = factory(name, config);
 		this._connections.set(name, connection);
 		connection.on('stateChange', (state) => {
-			logger.debug(`[ConnectionManager] Connection ${name} state changed to ${state.name}`);
-			this._handleStateChange(name, state);
+			logger.info(`[ConnectionManager] Connection ${name} state changed to ${state.name}`);
 		});
 
 		return connection;
@@ -152,25 +151,6 @@ class ConnectionManager {
 		this._connectionGroups.forEach(group => group.forEach(connection => connection.disconnect()));
 		this._connections.clear();
 		this._connectionGroups.clear();
-	}
-
-	/**
-	 * Handles connection state changes and emits events
-	 * @private
-	 */
-	_handleStateChange(name, state) {
-		this.emit('connectionStateChange', { name, state });
-		if (state === ConnectionState.ERROR) {
-			logger.error(`[ConnectionManager] Connection ${name} entered error state`);
-		}
-	}
-
-	/**
-	 * Emits events for external monitoring
-	 * @private
-	 */
-	emit(event, data) {
-		logger.debug(`[ConnectionManager] event: ${event}`, data);
 	}
 
 	/**

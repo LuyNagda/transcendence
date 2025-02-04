@@ -1,5 +1,4 @@
 import logger from '../logger.js';
-import CookieService from './CookieService.js';
 
 /**
  * Connection states using a state pattern.
@@ -633,241 +632,241 @@ export class WebRTCConnection extends BaseConnection {
 	}
 }
 
-/**
- * Base network manager class providing common functionality for network managers.
- * Implements connection management, message handling, and state tracking.
- */
-export class BaseNetworkManager {
-	constructor() {
-		this._connectionManager = new ConnectionManager();
-		this._messageHandlers = new Map();
-		this._pendingRequests = new Map();
-		this._messageIdCounter = 0;
-		this._isConnected = false;
-	}
+// /**
+//  * Base network manager class providing common functionality for network managers.
+//  * Implements connection management, message handling, and state tracking.
+//  */
+// export class BaseNetworkManager {
+// 	constructor() {
+// 		this._connectionManager = new ConnectionManager();
+// 		this._messageHandlers = new Map();
+// 		this._pendingRequests = new Map();
+// 		this._messageIdCounter = 0;
+// 		this._isConnected = false;
+// 	}
 
-	/**
-	 * Gets CSRF token from cookies
-	 * @returns {string|null} CSRF token if found, null otherwise
-	 */
-	getCSRFToken() {
-		return CookieService.getCookie('csrftoken');
-	}
+// 	/**
+// 	 * Gets CSRF token from cookies
+// 	 * @returns {string|null} CSRF token if found, null otherwise
+// 	 */
+// 	getCSRFToken() {
+// 		return CookieService.getCookie('csrftoken');
+// 	}
 
-	/**
-	 * Registers a message handler
-	 * @param {string} type - Message type to handle
-	 * @param {Function} handler - Handler callback
-	 */
-	on(type, handler) {
-		this._messageHandlers.set(type, handler);
-	}
+// 	/**
+// 	 * Registers a message handler
+// 	 * @param {string} type - Message type to handle
+// 	 * @param {Function} handler - Handler callback
+// 	 */
+// 	on(type, handler) {
+// 		this._messageHandlers.set(type, handler);
+// 	}
 
-	/**
-	 * Removes a message handler
-	 * @param {string} type - Message type to remove handler for
-	 */
-	off(type) {
-		this._messageHandlers.delete(type);
-	}
+// 	/**
+// 	 * Removes a message handler
+// 	 * @param {string} type - Message type to remove handler for
+// 	 */
+// 	off(type) {
+// 		this._messageHandlers.delete(type);
+// 	}
 
-	/**
-	 * Checks if connected
-	 * @returns {boolean} Connection status
-	 */
-	isConnected() {
-		const connection = this._getMainConnection();
-		return connection && connection.state.name === 'connected';
-	}
+// 	/**
+// 	 * Checks if connected
+// 	 * @returns {boolean} Connection status
+// 	 */
+// 	isConnected() {
+// 		const connection = this._getMainConnection();
+// 		return connection && connection.state.name === 'connected';
+// 	}
 
-	/**
-	 * Handles incoming messages and routes to registered handlers
-	 * @protected
-	 */
-	_handleMessage(data) {
-		try {
-			logger.debug("Received data:", data);
+// 	/**
+// 	 * Handles incoming messages and routes to registered handlers
+// 	 * @protected
+// 	 */
+// 	_handleMessage(data) {
+// 		try {
+// 			logger.debug("Received data:", data);
 
-			const messageType = data.type || data.action;
-			const messageId = data.message_id || data.id;
+// 			const messageType = data.type || data.action;
+// 			const messageId = data.message_id || data.id;
 
-			// Handle responses to pending requests
-			if (messageId && this._pendingRequests.has(messageId)) {
-				const { resolve, reject, timeout } = this._pendingRequests.get(messageId);
-				clearTimeout(timeout);
-				this._pendingRequests.delete(messageId);
+// 			// Handle responses to pending requests
+// 			if (messageId && this._pendingRequests.has(messageId)) {
+// 				const { resolve, reject, timeout } = this._pendingRequests.get(messageId);
+// 				clearTimeout(timeout);
+// 				this._pendingRequests.delete(messageId);
 
-				if (data.status === 'error') {
-					reject(new Error(data.message || 'Request failed'));
-					return;
-				}
-				resolve(data);
-				return; // Don't process as an event if it's a response
-			}
+// 				if (data.status === 'error') {
+// 					reject(new Error(data.message || 'Request failed'));
+// 					return;
+// 				}
+// 				resolve(data);
+// 				return; // Don't process as an event if it's a response
+// 			}
 
-			// Handle regular message handlers
-			if (messageType) {
-				const handler = this._messageHandlers.get(messageType);
-				if (handler) {
-					handler(data);
-				} else {
-					logger.debug(`No handler found for message type: ${messageType}`);
-				}
-			}
-		} catch (error) {
-			logger.error('Error handling message:', error);
-		}
-	}
+// 			// Handle regular message handlers
+// 			if (messageType) {
+// 				const handler = this._messageHandlers.get(messageType);
+// 				if (handler) {
+// 					handler(data);
+// 				} else {
+// 					logger.debug(`No handler found for message type: ${messageType}`);
+// 				}
+// 			}
+// 		} catch (error) {
+// 			logger.error('Error handling message:', error);
+// 		}
+// 	}
 
-	/**
-	 * Sends a message and waits for response
-	 * @param {string} type - Message type
-	 * @param {Object} data - Message payload
-	 * @param {Object} options - Additional options (timeout, etc)
-	 * @returns {Promise} Promise that resolves with the response
-	 */
-	async sendRequest(type, data = {}, options = {}) {
-		const messageId = this._generateMessageId();
-		const timeout = options.timeout || (
-			type === 'start_game' || type === 'update_property' ? 15000 : 10000
-		);
+// 	/**
+// 	 * Sends a message and waits for response
+// 	 * @param {string} type - Message type
+// 	 * @param {Object} data - Message payload
+// 	 * @param {Object} options - Additional options (timeout, etc)
+// 	 * @returns {Promise} Promise that resolves with the response
+// 	 */
+// 	async sendRequest(type, data = {}, options = {}) {
+// 		const messageId = this._generateMessageId();
+// 		const timeout = options.timeout || (
+// 			type === 'start_game' || type === 'update_property' ? 15000 : 10000
+// 		);
 
-		logger.debug(`[NetworkCore] Sending request ${type} with ID ${messageId}, timeout ${timeout}ms`);
+// 		logger.debug(`[NetworkCore] Sending request ${type} with ID ${messageId}, timeout ${timeout}ms`);
 
-		return new Promise((resolve, reject) => {
-			const timeoutHandler = setTimeout(() => {
-				if (this._pendingRequests.has(messageId)) {
-					logger.error(`[NetworkCore] Request ${type} (ID: ${messageId}) timed out after ${timeout}ms`);
-					logger.debug(`[NetworkCore] Current pending requests: ${Array.from(this._pendingRequests.keys()).join(', ')}`);
-					this._pendingRequests.delete(messageId);
-					reject(new Error(`Request timeout after ${timeout}ms`));
-				}
-			}, timeout);
+// 		return new Promise((resolve, reject) => {
+// 			const timeoutHandler = setTimeout(() => {
+// 				if (this._pendingRequests.has(messageId)) {
+// 					logger.error(`[NetworkCore] Request ${type} (ID: ${messageId}) timed out after ${timeout}ms`);
+// 					logger.debug(`[NetworkCore] Current pending requests: ${Array.from(this._pendingRequests.keys()).join(', ')}`);
+// 					this._pendingRequests.delete(messageId);
+// 					reject(new Error(`Request timeout after ${timeout}ms`));
+// 				}
+// 			}, timeout);
 
-			// Store the promise handlers and metadata
-			this._pendingRequests.set(messageId, {
-				resolve,
-				reject,
-				timeoutHandler,
-				timestamp: Date.now(),
-				type
-			});
+// 			// Store the promise handlers and metadata
+// 			this._pendingRequests.set(messageId, {
+// 				resolve,
+// 				reject,
+// 				timeoutHandler,
+// 				timestamp: Date.now(),
+// 				type
+// 			});
 
-			// Send the actual message
-			try {
-				const mainConnection = this._getMainConnection();
-				if (!mainConnection || mainConnection.state.name !== 'connected') {
-					logger.error(`[NetworkCore] Cannot send ${type} - No active connection (state: ${mainConnection?.state?.name || 'none'})`);
-					clearTimeout(timeoutHandler);
-					this._pendingRequests.delete(messageId);
-					reject(new Error('No active connection'));
-					return;
-				}
+// 			// Send the actual message
+// 			try {
+// 				const mainConnection = this._getMainConnection();
+// 				if (!mainConnection || mainConnection.state.name !== 'connected') {
+// 					logger.error(`[NetworkCore] Cannot send ${type} - No active connection (state: ${mainConnection?.state?.name || 'none'})`);
+// 					clearTimeout(timeoutHandler);
+// 					this._pendingRequests.delete(messageId);
+// 					reject(new Error('No active connection'));
+// 					return;
+// 				}
 
-				const message = {
-					action: type,
-					message_id: messageId,
-					...data
-				};
+// 				const message = {
+// 					action: type,
+// 					message_id: messageId,
+// 					...data
+// 				};
 
-				logger.debug(`[NetworkCore] Sending message for ${type} through connection`);
-				mainConnection.send(message);
-			} catch (error) {
-				logger.error(`[NetworkCore] Error sending ${type}: ${error.message}`);
-				clearTimeout(timeoutHandler);
-				this._pendingRequests.delete(messageId);
-				reject(error);
-			}
-		});
-	}
+// 				logger.debug(`[NetworkCore] Sending message for ${type} through connection`);
+// 				mainConnection.send(message);
+// 			} catch (error) {
+// 				logger.error(`[NetworkCore] Error sending ${type}: ${error.message}`);
+// 				clearTimeout(timeoutHandler);
+// 				this._pendingRequests.delete(messageId);
+// 				reject(error);
+// 			}
+// 		});
+// 	}
 
-	/**
-	 * Waits for a specific event to occur
-	 * @param {string} eventType - Event type to wait for
-	 * @param {Function} predicate - Optional function to validate the event data
-	 * @param {number} timeout - Timeout in milliseconds
-	 * @returns {Promise} Promise that resolves with the event data
-	 */
-	waitForEvent(eventType, predicate = null, timeout = 5000) {
-		return new Promise((resolve, reject) => {
-			const timeoutId = setTimeout(() => {
-				this.off(eventType, eventHandler);
-				reject(new Error(`Event ${eventType} timeout after ${timeout}ms`));
-			}, timeout);
+// 	/**
+// 	 * Waits for a specific event to occur
+// 	 * @param {string} eventType - Event type to wait for
+// 	 * @param {Function} predicate - Optional function to validate the event data
+// 	 * @param {number} timeout - Timeout in milliseconds
+// 	 * @returns {Promise} Promise that resolves with the event data
+// 	 */
+// 	waitForEvent(eventType, predicate = null, timeout = 5000) {
+// 		return new Promise((resolve, reject) => {
+// 			const timeoutId = setTimeout(() => {
+// 				this.off(eventType, eventHandler);
+// 				reject(new Error(`Event ${eventType} timeout after ${timeout}ms`));
+// 			}, timeout);
 
-			const eventHandler = (data) => {
-				if (!predicate || predicate(data)) {
-					clearTimeout(timeoutId);
-					this.off(eventType, eventHandler);
-					resolve(data);
-				}
-			};
+// 			const eventHandler = (data) => {
+// 				if (!predicate || predicate(data)) {
+// 					clearTimeout(timeoutId);
+// 					this.off(eventType, eventHandler);
+// 					resolve(data);
+// 				}
+// 			};
 
-			this.on(eventType, eventHandler);
-		});
-	}
+// 			this.on(eventType, eventHandler);
+// 		});
+// 	}
 
-	_generateMessageId() {
-		return `${Date.now()}-${this._messageIdCounter++}`;
-	}
+// 	_generateMessageId() {
+// 		return `${Date.now()}-${this._messageIdCounter++}`;
+// 	}
 
-	destroy() {
-		// Clear all pending requests
-		this._pendingRequests.forEach(({ timeout }) => clearTimeout(timeout));
-		this._pendingRequests.clear();
+// 	destroy() {
+// 		// Clear all pending requests
+// 		this._pendingRequests.forEach(({ timeout }) => clearTimeout(timeout));
+// 		this._pendingRequests.clear();
 
-		// Clear message handlers
-		this._messageHandlers.clear();
+// 		// Clear message handlers
+// 		this._messageHandlers.clear();
 
-		// Destroy connection manager
-		if (this._connectionManager) {
-			this._connectionManager.destroy();
-			this._connectionManager = null;
-		}
+// 		// Destroy connection manager
+// 		if (this._connectionManager) {
+// 			this._connectionManager.destroy();
+// 			this._connectionManager = null;
+// 		}
 
-		this._isConnected = false;
-	}
+// 		this._isConnected = false;
+// 	}
 
-	/**
-	 * Handles connection closure
-	 * @protected
-	 */
-	_handleClose(event) {
-		const code = event?.code;
-		const reason = event?.reason || 'No reason provided';
+// 	/**
+// 	 * Handles connection closure
+// 	 * @protected
+// 	 */
+// 	_handleClose(event) {
+// 		const code = event?.code;
+// 		const reason = event?.reason || 'No reason provided';
 
-		if (code === 1000) {
-			// Normal closure
-			logger.debug(`Connection closed normally (code: ${code}, reason: ${reason})`);
-		} else if (code === 1001) {
-			// Going away (e.g., page navigation)
-			logger.debug(`Connection closed due to navigation (code: ${code}, reason: ${reason})`);
-		} else if (code === undefined) {
-			// No code provided (likely internal closure)
-			logger.debug('Connection closed internally');
-		} else {
-			// Abnormal closure
-			logger.warn(`Connection closed abnormally (code: ${code}, reason: ${reason})`);
-		}
-		this._isConnected = false;
-	}
+// 		if (code === 1000) {
+// 			// Normal closure
+// 			logger.debug(`Connection closed normally (code: ${code}, reason: ${reason})`);
+// 		} else if (code === 1001) {
+// 			// Going away (e.g., page navigation)
+// 			logger.debug(`Connection closed due to navigation (code: ${code}, reason: ${reason})`);
+// 		} else if (code === undefined) {
+// 			// No code provided (likely internal closure)
+// 			logger.debug('Connection closed internally');
+// 		} else {
+// 			// Abnormal closure
+// 			logger.warn(`Connection closed abnormally (code: ${code}, reason: ${reason})`);
+// 		}
+// 		this._isConnected = false;
+// 	}
 
-	/**
-	 * Handles connection errors
-	 * @protected
-	 */
-	_handleError(error) {
-		logger.error('Connection error:', error);
-		// Pass an error event to _handleClose to ensure proper logging
-		this._handleClose({ code: error?.code || -1 });
-	}
+// 	/**
+// 	 * Handles connection errors
+// 	 * @protected
+// 	 */
+// 	_handleError(error) {
+// 		logger.error('Connection error:', error);
+// 		// Pass an error event to _handleClose to ensure proper logging
+// 		this._handleClose({ code: error?.code || -1 });
+// 	}
 
-	/**
-	 * Gets the main connection for this manager
-	 * @protected
-	 * @abstract
-	 */
-	_getMainConnection() {
-		throw new Error('Must implement _getMainConnection()');
-	}
-}
+// 	/**
+// 	 * Gets the main connection for this manager
+// 	 * @protected
+// 	 * @abstract
+// 	 */
+// 	_getMainConnection() {
+// 		throw new Error('Must implement _getMainConnection()');
+// 	}
+// }

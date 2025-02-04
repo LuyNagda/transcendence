@@ -1,136 +1,224 @@
 import logger from '../logger.js';
-import UserService from './UserService.js';
-import MessageService from './MessageService.js';
-import UIHandler from './UIHandler.js';
-import { ChatNetworkManager } from './ChatNetworkManager.js';
+import { connectionManager } from '../networking/ConnectionManager.js';
 import { store, actions } from '../state/store.js';
+import jaiPasVu from '../UI/JaiPasVu.js';
+import { chatActions } from '../state/chatState.js';
+import { USER_STATUS } from '../state/userState.js';
+import CookieService from '../networking/CookieService.js';
 
 export default class ChatApp {
-	static instance = null;
+	static #instance = null;
 
-	constructor() {
-		if (ChatApp.instance) {
-			logger.debug('ChatApp instance already exists');
-			return ChatApp.instance;
+	static async initialize() {
+		if (store.getState('user').status === USER_STATUS.ONLINE) {
+			ChatApp.#instance = new ChatApp();
+			await ChatApp.#instance._setupConnection();
 		}
-
-		this.networkManager = new ChatNetworkManager();
-		this.userService = new UserService(this);
-		this.uiHandler = new UIHandler(this);
-		this.messageService = new MessageService(this.uiHandler, this.userService);
-		this._lastMessageId = 0;
-		this._isChatOpen = false;
-		this.initializeNetwork();
-		this._initializeStoreSubscription();
-		this.selectLastActiveChat();
-
-		ChatApp.instance = this;
-	}
-
-	static getInstance() {
-		if (!ChatApp.instance) {
-			ChatApp.instance = new ChatApp();
-		}
-		return ChatApp.instance;
-	}
-
-	static hasInstance() {
-		return !!ChatApp.instance;
-	}
-
-	static resetInstance() {
-		ChatApp.instance = null;
-	}
-
-	async initializeNetwork() {
-		try {
-			const chatState = store.getState('chat');
-			const userState = store.getState('user');
-
-			// Ensure chat state is initialized
-			if (!chatState || !chatState.users) {
-				logger.debug('Chat state not initialized yet, waiting...');
-				setTimeout(() => this.initializeNetwork(), 100);
-				return;
-			}
-
-			// Rest of the initialization code...
-			const currentUser = userState.id;
-			const blockedUsers = userState.blockedUsers;
-
-			// Filter out blocked users
-			const allowedUsers = Object.values(chatState.users).filter(user =>
-				user.id !== currentUser && !blockedUsers.has(user.id)
-			);
-
-			// Initialize network manager
-			this._networkManager = new ChatNetworkManager(this);
-			this._networkManager.connect();
-
-			logger.debug('Chat network initialized successfully');
-		} catch (error) {
-			logger.error('Error initializing chat network:', error);
-		}
-	}
-
-	_initializeStoreSubscription() {
-		store.subscribe('chat', (chatState) => {
-			// Calculate total unread count across all rooms
-			const totalUnread = Object.values(chatState.unreadCounts).reduce((sum, count) => sum + count, 0);
-			this.uiHandler.updateUnreadCount(totalUnread);
-
-			// Update messages for active room
-			if (chatState.activeRoom) {
-				const messages = chatState.messages[chatState.activeRoom] || [];
-				this.uiHandler.updateMessages(messages);
+		store.subscribe('user', async (state) => {
+			if (state.status === USER_STATUS.OFFLINE) {
+				if (ChatApp.#instance) {
+					ChatApp.#instance.destroy();
+					ChatApp.#instance = null;
+				}
+			} else if (state.status === USER_STATUS.ONLINE) {
+				if (!ChatApp.#instance) {
+					ChatApp.#instance = new ChatApp();
+					await ChatApp.#instance._setupConnection();
+				}
 			}
 		});
+	}
+
+	constructor() {
+		this._connection = null;
+		this._isChatOpen = false;
+		this._lastMessageId = 0;
+		this._initializeState();
+
+		logger.info('[ChatApp] ChatApp initialized');
+	}
+
+	_initializeState() {
+		// Initialize chat state
+		store.dispatch({
+			domain: 'chat',
+			type: chatActions.INITIALIZE
+		});
+
+		this.refreshUserList();
+
+		// Register computed properties and methods with JaiPasVu
+		this._setupJaiPasVu();
+
+		// Subscribe to chat state changes
+		store.subscribe('chat', (state) => {
+			// Update the view data without modifying computed properties
+			const viewData = {
+				...state,
+				currentUserId: store.getState('user').id,
+				unreadCount: this._computeUnreadCount(state),
+				messages: this._computeMessages(state),
+				users: this._computeUsers(state),
+				selectedUser: state.selectedUser
+			};
+			jaiPasVu.registerData('chat', viewData);
+		});
+	}
+
+	_setupJaiPasVu() {
+		// Initial state with computed values
+		const initialState = store.getState('chat');
+		const viewData = {
+			...initialState,
+			currentUserId: store.getState('user').id,
+			unreadCount: this._computeUnreadCount(initialState),
+			messages: this._computeMessages(initialState),
+			users: this._computeUsers(initialState),
+			selectedUser: initialState.selectedUser
+		};
+
+		// Register view data
+		jaiPasVu.registerData('chat', viewData);
+
+		// Register methods
+		jaiPasVu.registerMethods('chat', {
+			handleFormSubmit: this.handleFormSubmit.bind(this),
+			selectUser: this.selectUser.bind(this),
+			blockUser: this.blockUser.bind(this),
+			unblockUser: this.unblockUser.bind(this),
+			inviteToGame: this.inviteToGame.bind(this),
+			viewProfile: this.viewProfile.bind(this),
+			formatTimestamp: (timestamp) => new Date(timestamp).toLocaleTimeString(),
+			getUserName: (userId) => {
+				const user = store.getState('chat').users.find(u => u.id === userId);
+				return user ? user.username : 'Unknown User';
+			}
+		});
+	}
+
+	_computeUnreadCount(state) {
+		return Object.values(state.unreadCounts).reduce((sum, count) => sum + count, 0);
+	}
+
+	_computeMessages(state) {
+		const selectedUser = state.selectedUser;
+		return selectedUser ? (state.messages[selectedUser.id] || []) : [];
+	}
+
+	_computeUsers(state) {
+		return state.users.map(user => ({
+			...user,
+			statusIcon: this._getUserStatusIcon(user)
+		}));
+	}
+
+	_getUserStatusIcon(user) {
+		if (user.blocked) return '🔴'; // Blocked
+		return user.status === 'online' ? '🟢' : '⚪'; // Online/Offline
+	}
+
+	async _setupConnection() {
+		try {
+			this._connection = connectionManager.createConnectionGroup('chat', {
+				main: {
+					type: 'websocket',
+					config: {
+						endpoint: '/ws/chat/',
+						options: {
+							maxReconnectAttempts: 5,
+							reconnectInterval: 1000,
+							connectionTimeout: 10000
+						}
+					}
+				}
+			}).get('main');
+
+			this._setupMessageHandlers();
+			await connectionManager.connectGroup('chat');
+		} catch (error) {
+			logger.error('[ChatApp] Connection setup failed:', error);
+			setTimeout(() => this._setupConnection(), 5000);
+		}
+	}
+
+	_setupMessageHandlers() {
+		if (!this._connection) return;
+
+		this._connection.on('message', this._handleIncomingMessage.bind(this));
+		this._connection.on('close', () => logger.info('[ChatApp] Connection closed'));
+		this._connection.on('error', (error) => logger.error('[ChatApp] Connection error:', error));
+	}
+
+	_handleIncomingMessage(data) {
+		logger.debug('[ChatApp] Received message from server:', data);
+		const handlers = {
+			chat_message: () => this._handleChatMessage(data),
+			game_invitation: () => this._handleGameInvitation(data),
+			tournament_warning: () => this._handleTournamentWarning(data)
+		};
+
+		const handler = handlers[data.type || data.action];
+		if (handler) {
+			handler();
+		} else {
+			logger.debug(`[ChatApp] Unhandled from server message type:`, data.type || data.action);
+		}
+	}
+
+	// SERVER MESSAGES HANDLERS
+
+	_handleChatMessage(data) {
+		if (!data?.sender_id || !data?.content) return;
+
+		store.dispatch({
+			domain: 'chat',
+			type: chatActions.ADD_MESSAGE,
+			payload: {
+				friendId: data.sender_id,
+				message: {
+					id: data.id || ++this._lastMessageId,
+					sender: data.sender_id,
+					content: data.content,
+					timestamp: data.timestamp || Date.now(),
+					type: data.type || 'text'
+				}
+			}
+		});
+
+		if (!this._isChatOpen) {
+			store.dispatch({
+				domain: 'chat',
+				type: chatActions.INCREMENT_UNREAD,
+				payload: { friendId: data.sender_id }
+			});
+		}
 	}
 
 	handleFormSubmit(e) {
 		e.preventDefault();
 		const messageInput = document.querySelector('#chat-message');
 		const message = messageInput.value.trim();
-		if (!message) return;
+		const selectedUser = store.getState('chat').selectedUser;
 
-		const activeUser = document.querySelector('.user-chat.active');
-		if (!activeUser) {
-			alert("Please select a user to chat with.");
-			return;
-		}
+		if (!message || !selectedUser || selectedUser.blocked) return;
 
-		// TODO: condition en trop ? Server blocke deja
-		if (activeUser.classList.contains('blocked')) {
-			alert("This user has blocked you. You cannot send them messages.");
-			messageInput.value = '';
-			return;
-		}
-
-		const recipientId = Number(activeUser.dataset.userId);
 		const currentUserId = store.getState('user').id;
-		if (!currentUserId) {
-			alert("Unable to send message. User ID not found.");
-			return;
-		}
+		if (!currentUserId) return;
 
-		this._lastMessageId++;
-		const messageId = this._lastMessageId;
-
-		logger.info(`Sending message to user ${recipientId}: ${message}`);
-		this.networkManager.sendMessage({
+		this._sendMessage({
 			type: 'chat_message',
-			message: message,
-			recipient_id: recipientId,
-			id: messageId
+			message,
+			recipient_id: selectedUser.id,
+			id: ++this._lastMessageId
 		});
 
 		store.dispatch({
 			domain: 'chat',
-			type: 'ADD_MESSAGE',
+			type: chatActions.ADD_MESSAGE,
 			payload: {
-				roomId: recipientId,
+				friendId: selectedUser.id,
 				message: {
-					id: messageId,
+					id: this._lastMessageId,
 					sender: currentUserId,
 					content: message,
 					timestamp: Date.now(),
@@ -142,69 +230,72 @@ export default class ChatApp {
 		messageInput.value = '';
 	}
 
-	handleUserClick(event) {
-		const button = event.currentTarget;
-		const userState = store.getState('user');
-		const userId = userState.id;
-		const userName = userState.username;
-		const isBlocked = button.classList.contains('blocked');
-
-		document.querySelectorAll('.user-chat').forEach(btn => {
-			btn.classList.remove('active');
-		});
-		button.classList.add('active');
-
-		// Update chat header with user name
-		const chatHeading = document.getElementById('chatHeading');
-		if (chatHeading)
-			chatHeading.textContent = userName;
-
-		// Show chat form and update input state
-		const chatFormDiv = document.getElementById('chat-form-div');
-		if (chatFormDiv) {
-			chatFormDiv.style.display = 'block';
-			const chatInput = document.querySelector('#chat-message');
-			const sendButton = document.querySelector('#button-addon2');
-			if (chatInput && sendButton) {
-				if (isBlocked) {
-					chatInput.disabled = true;
-					chatInput.placeholder = "This user has blocked you";
-					sendButton.disabled = true;
-				} else {
-					chatInput.disabled = false;
-					chatInput.placeholder = "Type your message...";
-					sendButton.disabled = false;
-				}
-			}
+	_sendMessage(message) {
+		if (!this._connection?.state?.canSend) {
+			logger.warn('[ChatApp] Cannot send message - connection not ready');
+			return;
 		}
 
-		// Clear unread count for this specific user
-		const chatState = store.getState('chat');
-		if (chatState.unreadCounts[userId]) {
-			const newUnreadCounts = { ...chatState.unreadCounts };
-			delete newUnreadCounts[userId];
-			store.dispatch({
-				domain: 'chat',
-				type: actions.chat.SET_ACTIVE_ROOM,
-				payload: userId,
-				unreadCounts: newUnreadCounts
-			});
-		} else {
-			store.dispatch({
-				domain: 'chat',
-				type: actions.chat.SET_ACTIVE_ROOM,
-				payload: userId
-			});
+		try {
+			this._connection.send(message);
+		} catch (error) {
+			logger.error('[ChatApp] Error sending message:', error);
 		}
+	}
 
-		this.loadMessageHistory(userId);
+	// handleUserClick(event) {
+	// 	const userElement = event.currentTarget?.hasAttribute('data-user-id')
+	// 		? event.currentTarget
+	// 		: event.target?.closest('[data-user-id]');
+
+	// 	if (!userElement) return;
+
+	// 	const user = {
+	// 		id: Number(userElement.dataset.userId),
+	// 		username: userElement.dataset.userName || '',
+	// 		name: userElement.dataset.userName || '',
+	// 		blocked: userElement.dataset.userBlocked === 'true',
+	// 		status: userElement.dataset.userStatus || '',
+	// 		profile_picture: userElement.dataset.userPicture || '',
+	// 		online: userElement.dataset.userStatus === 'online'
+	// 	};
+
+	// 	if (!user.id || !user.username) return;
+
+	// 	store.dispatch({
+	// 		domain: 'chat',
+	// 		type: chatActions.SET_SELECTED_USER,
+	// 		payload: user
+	// 	});
+
+	// 	this.loadMessageHistory(user.id);
+	// }
+
+	async refreshUserList() {
+		try {
+			const response = await fetch('/chat/users/', {
+				method: 'GET',
+				headers: { 'Content-Type': 'application/json' }
+			});
+
+			if (!response.ok) throw new Error('Failed to fetch users');
+
+			const users = await response.json();
+			store.dispatch({
+				domain: 'chat',
+				type: chatActions.UPDATE_USERS,
+				payload: users
+			});
+		} catch (error) {
+			logger.error('[ChatApp] Error refreshing user list:', error);
+		}
 	}
 
 	loadMessageHistory(userId) {
 		fetch(`/chat/history/${userId}/`, {
 			method: 'GET',
 			headers: {
-				'X-CSRFToken': this.networkManager.getCSRFToken(),
+				'X-CSRFToken': CookieService.getCookie('csrftoken'),
 				'Content-Type': 'application/json'
 			}
 		})
@@ -227,7 +318,7 @@ export default class ChatApp {
 				store.dispatch({
 					domain: 'chat',
 					type: actions.chat.CLEAR_HISTORY,
-					payload: { roomId: userId }
+					payload: { friendId: userId }
 				});
 
 				// Add all messages at once
@@ -235,13 +326,13 @@ export default class ChatApp {
 					domain: 'chat',
 					type: actions.chat.ADD_MESSAGES,
 					payload: {
-						roomId: userId,
+						friendId: userId,
 						messages
 					}
 				});
 			})
 			.catch(error => {
-				logger.error('Error loading message history:', error);
+				logger.error(`[ChatApp] Error loading message history:`, error);
 			});
 	}
 
@@ -253,14 +344,14 @@ export default class ChatApp {
 		const isUnblock = e.currentTarget.classList.contains('unblock-user');
 
 		if (isInvitePong) {
-			this.networkManager.sendMessage({
+			this._sendMessage({
 				type: 'game_invitation',
 				recipient_id: userId,
 				game_id: 'pong' // TODO: send actual game id
 			});
 			alert('Game invitation sent!');
 		} else if (isViewProfile) {
-			this.networkManager.sendMessage({
+			this._sendMessage({
 				type: 'get_profile',
 				user_id: userId
 			});
@@ -276,7 +367,7 @@ export default class ChatApp {
 		fetch(`/chat/${action}/${userId}/`, {
 			method: method,
 			headers: {
-				'X-CSRFToken': this.networkManager.getCSRFToken(),
+				'X-CSRFToken': CookieService.getCookie('csrftoken'),
 				'Content-Type': 'application/json'
 			}
 		})
@@ -292,14 +383,29 @@ export default class ChatApp {
 			})
 			.then(data => {
 				if (data.success) {
+					// Update local state
+					const chatState = store.getState('chat');
+					const users = chatState.users.map(user => {
+						if (user.id === userId) {
+							return { ...user, blocked: isBlock };
+						}
+						return user;
+					});
+
+					store.dispatch({
+						domain: 'chat',
+						type: chatActions.UPDATE_USERS,
+						payload: users
+					});
+
 					// Refresh the user list to update statuses and buttons
-					this.userService.refreshUserList();
+					this.refreshUserList();
 				} else {
 					throw new Error('Server returned unsuccessful response');
 				}
 			})
 			.catch(error => {
-				logger.error('Error handling block action:', error);
+				logger.error(`[ChatApp] Error handling block action:`, error);
 				alert(`Failed to ${action} user. Please try again.`);
 			});
 	}
@@ -307,7 +413,7 @@ export default class ChatApp {
 	handleGameInvitation(gameId, senderId, roomId) {
 		if (confirm(`You've been invited to play ${gameId}. Do you want to accept?`)) {
 			// Accept invitation and join room
-			this.networkManager.sendMessage({
+			this._sendMessage({
 				type: 'accept_game_invitation',
 				sender_id: senderId,
 				game_id: gameId,
@@ -327,13 +433,14 @@ export default class ChatApp {
 			// Clear all unread counts when opening chat
 			store.dispatch({
 				domain: 'chat',
-				type: actions.chat.CLEAR_ALL_UNREAD
+				type: chatActions.CLEAR_UNREAD
 			});
 		}
 	}
 
 	destroy() {
-		this.networkManager.destroy();
+		connectionManager.removeConnectionGroup('chat');
+		this._connection = null;
 	}
 
 	async selectLastActiveChat() {
@@ -344,12 +451,12 @@ export default class ChatApp {
 		let lastActiveRoom = null;
 		let lastMessageTime = 0;
 
-		Object.entries(chatState.messages).forEach(([roomId, messages]) => {
+		Object.entries(chatState.messages).forEach(([friendId, messages]) => {
 			if (messages && messages.length > 0) {
 				const lastMessage = messages[messages.length - 1];
 				if (lastMessage.timestamp > lastMessageTime) {
 					lastMessageTime = lastMessage.timestamp;
-					lastActiveRoom = Number(roomId);
+					lastActiveRoom = Number(friendId);
 				}
 			}
 		});
@@ -360,5 +467,54 @@ export default class ChatApp {
 				userButton.click();
 			}
 		}
+	}
+
+	// Vue template handlers
+	selectUser(user) {
+		logger.debug('[ChatApp] Selecting user:', user);
+		if (!user || !user.id) return;
+
+		store.dispatch({
+			domain: 'chat',
+			type: chatActions.SET_SELECTED_USER,
+			payload: {
+				id: user.id,
+				username: user.username,
+				name: user.username,
+				blocked: user.blocked || false,
+				status: user.status || 'offline',
+				profile_picture: user.profile_picture || '',
+				online: user.status === 'online'
+			}
+		});
+		this.loadMessageHistory(user.id);
+	}
+
+	blockUser(userId) {
+		this.handleBlockAction(userId, true);
+	}
+
+	unblockUser(userId) {
+		this.handleBlockAction(userId, false);
+	}
+
+	inviteToGame(userId) {
+		this._sendMessage({
+			type: 'game_invitation',
+			recipient_id: userId,
+			game_id: 'pong'
+		});
+		alert('Game invitation sent!');
+	}
+
+	viewProfile(userId) {
+		this._sendMessage({
+			type: 'get_profile',
+			user_id: userId
+		});
+	}
+
+	formatTimestamp(timestamp) {
+		return new Date(timestamp).toLocaleTimeString();
 	}
 }
