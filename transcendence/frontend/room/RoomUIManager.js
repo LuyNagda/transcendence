@@ -29,13 +29,13 @@ export class RoomUIManager {
 		logger.debug('Initializing reactive state with:', { roomState, userState });
 
 		// First register the computed properties
-		jaiPasVu.registerData('room', {}, this._getComputedProps());
+		// jaiPasVu.registerData('room', {}, this._getComputedProps());
 
-		// Then register the state and methods
-		jaiPasVu.registerData('room', {
-			...roomState,
-			...this._getMethods()
-		});
+		// // Then register the state and methods
+		// jaiPasVu.registerData('room', {
+		// 	...roomState,
+		// 	...this._getMethods()
+		// });
 
 		this._observers.push(
 			store.subscribe('room', this._handleRoomStateUpdate.bind(this)),
@@ -46,10 +46,10 @@ export class RoomUIManager {
 	_handleRoomStateUpdate(state) {
 		logger.debug('Room state update from store:', state);
 		// Update the UI through JaiPasVu's reactivity
-		jaiPasVu.registerData('room', {
-			...state,
-			...this._getMethods()
-		});
+		// jaiPasVu.registerData('room', {
+		// 	...state,
+		// 	...this._getMethods()
+		// });
 	}
 
 	_handleUserStateUpdate(state) {

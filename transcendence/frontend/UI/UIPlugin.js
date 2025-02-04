@@ -45,15 +45,15 @@ export const uiPlugin = {
 			});
 
 			// Register initial state with JaiPasVu
-			app.registerData('ui', {
-				theme,
-				fontSize,
-				modals: {},
-				toasts: [],
-				offcanvas: {},
-				themes: Object.values(UI_THEME),
-				fontSizes: Object.values(UI_FONT_SIZE)
-			});
+			// app.registerData('ui', {
+			// 	theme,
+			// 	fontSize,
+			// 	modals: {},
+			// 	toasts: [],
+			// 	offcanvas: {},
+			// 	themes: Object.values(UI_THEME),
+			// 	fontSizes: Object.values(UI_FONT_SIZE)
+			// });
 
 			logger.debug('UI state initialized:', app.getState('ui'));
 
@@ -140,18 +140,18 @@ export const uiPlugin = {
 			}
 		});
 
-		store.subscribe('ui', (state) => {
-			if (state) {
-				if (state.theme) this._applyThemeToDOM(state.theme);
-				if (state.fontSize) this._applyFontSizeToDOM(state.fontSize);
-				this.app.registerData('ui', state);
-			}
-		});
+		// store.subscribe('ui', (state) => {
+		// 	if (state) {
+		// 		if (state.theme) this._applyThemeToDOM(state.theme);
+		// 		if (state.fontSize) this._applyFontSizeToDOM(state.fontSize);
+		// 		this.app.registerData('ui', state);
+		// 	}
+		// });
 
-		// Subscribe to specific UI state changes
-		store.subscribe('ui.modals', this._handleModalStateChange.bind(this));
-		store.subscribe('ui.toasts', this._handleToastStateChange.bind(this));
-		store.subscribe('ui.offcanvas', this._handleOffcanvasStateChange.bind(this));
+		// // Subscribe to specific UI state changes
+		// store.subscribe('ui.modals', this._handleModalStateChange.bind(this));
+		// store.subscribe('ui.toasts', this._handleToastStateChange.bind(this));
+		// store.subscribe('ui.offcanvas', this._handleOffcanvasStateChange.bind(this));
 	},
 
 	_updateTheme(theme) {

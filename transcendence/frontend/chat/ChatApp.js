@@ -51,18 +51,18 @@ export default class ChatApp {
 		this._setupJaiPasVu();
 
 		// Subscribe to chat state changes
-		store.subscribe('chat', (state) => {
-			// Update the view data without modifying computed properties
-			const viewData = {
-				...state,
-				currentUserId: store.getState('user').id,
-				unreadCount: this._computeUnreadCount(state),
-				messages: this._computeMessages(state),
-				users: this._computeUsers(state),
-				selectedUser: state.selectedUser
-			};
-			jaiPasVu.registerData('chat', viewData);
-		});
+		// store.subscribe('chat', (state) => {
+		// 	// Update the view data without modifying computed properties
+		// 	const viewData = {
+		// 		...state,
+		// 		currentUserId: store.getState('user').id,
+		// 		unreadCount: this._computeUnreadCount(state),
+		// 		messages: this._computeMessages(state),
+		// 		users: this._computeUsers(state),
+		// 		selectedUser: state.selectedUser
+		// 	};
+		// 	jaiPasVu.registerData('chat', viewData);
+		// });
 	}
 
 	_setupJaiPasVu() {
@@ -78,7 +78,7 @@ export default class ChatApp {
 		};
 
 		// Register view data
-		jaiPasVu.registerData('chat', viewData);
+		// jaiPasVu.registerData('chat', viewData);
 
 		// Register methods
 		jaiPasVu.registerMethods('chat', {
@@ -93,6 +93,12 @@ export default class ChatApp {
 				const user = store.getState('chat').users.find(u => u.id === userId);
 				return user ? user.username : 'Unknown User';
 			}
+		});
+
+		store.dispatch({
+			domain: 'chat',
+			type: chatActions.UPDATE_CHAT,
+			payload: viewData
 		});
 	}
 

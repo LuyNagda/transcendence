@@ -63,6 +63,7 @@
  * - Two-way data binding
  */
 import logger from "../logger.js";
+import { store } from "../state/store.js";
 
 /**
  * ReactiveEffect - Internal tracking system for reactive dependencies
@@ -124,6 +125,215 @@ function reactive(obj) {
 }
 
 /**
+ * ObserverManager - Manages observers and batches notifications for better performance
+ * @private
+ */
+class ObserverManager {
+    constructor() {
+        this.observers = new Map();
+        this.batch = new Set();
+        this.isBatching = false;
+        this.pendingFlush = null;
+        this.pathObservers = new Map(); // For path-based observations
+        this.storeSync = null; // Store synchronization handler
+    }
+
+    /**
+     * Configure store synchronization
+     * @param {Object} store - Global state store instance
+     */
+    configureStoreSync(store) {
+        if (!store) return;
+
+        this.storeSync = {
+            store,
+            unsubscribers: new Map()
+        };
+
+        const domains = ['room', 'user', 'chat', 'game', 'ui'];
+        domains.forEach(domain => {
+            const unsubscribe = store.subscribe(domain, (state) => {
+                logger.debug(`[ObserverManager] Store update for domain ${domain}:`, state);
+                this.notify(domain, state);
+                if (JaiPasVu.instance)
+                    JaiPasVu.instance.scheduleUpdate(domain);
+            });
+            this.storeSync.unsubscribers.set(domain, unsubscribe);
+        });
+    }
+
+    /**
+     * Add an observer for a specific domain
+     * @param {string} domain - Domain to observe
+     * @param {Function} callback - Callback to execute on state change
+     * @returns {Function} Unsubscribe function
+     */
+    subscribe(domain, callback) {
+        if (!this.observers.has(domain)) {
+            this.observers.set(domain, new Set());
+
+            if (this.storeSync) {
+                const unsubscribe = this.storeSync.store.subscribe(domain, (state) => {
+                    this.notify(domain, state);
+                });
+                this.storeSync.unsubscribers.set(domain, unsubscribe);
+            }
+        }
+        this.observers.get(domain).add(callback);
+        return () => this.unsubscribe(domain, callback);
+    }
+
+    /**
+     * Subscribe to a specific path in the state
+     * @param {string} path - Dot notation path (e.g., 'room.settings.mode')
+     * @param {Function} callback - Callback to execute on state change
+     * @returns {Function} Unsubscribe function
+     */
+    subscribePath(path, callback) {
+        if (!this.pathObservers.has(path)) {
+            this.pathObservers.set(path, new Set());
+
+            // If store sync is configured, set up store path subscription
+            if (this.storeSync) {
+                const unsubscribe = this.storeSync.store.subscribe(path, (value) => {
+                    this.notifyPath(path, value);
+                });
+                this.storeSync.unsubscribers.set(path, unsubscribe);
+            }
+        }
+        this.pathObservers.get(path).add(callback);
+        return () => this.unsubscribePath(path, callback);
+    }
+
+    /**
+     * Remove an observer for a specific path
+     * @param {string} path - Path to unsubscribe from
+     * @param {Function} callback - Callback to remove
+     */
+    unsubscribePath(path, callback) {
+        const observers = this.pathObservers.get(path);
+        if (observers) {
+            observers.delete(callback);
+            if (observers.size === 0) {
+                this.pathObservers.delete(path);
+                if (this.storeSync?.unsubscribers.has(path)) {
+                    this.storeSync.unsubscribers.get(path)();
+                    this.storeSync.unsubscribers.delete(path);
+                }
+            }
+        }
+    }
+
+    /**
+     * Remove an observer for a specific domain
+     * @param {string} domain - Domain to unsubscribe from
+     * @param {Function} callback - Callback to remove
+     */
+    unsubscribe(domain, callback) {
+        const observers = this.observers.get(domain);
+        if (observers) {
+            observers.delete(callback);
+            if (observers.size === 0) {
+                this.observers.delete(domain);
+                if (this.storeSync?.unsubscribers.has(domain)) {
+                    this.storeSync.unsubscribers.get(domain)();
+                    this.storeSync.unsubscribers.delete(domain);
+                }
+            }
+        }
+    }
+
+    /**
+     * Notify observers of state changes, batching notifications for better performance
+     * @param {string} domain - Domain that changed
+     * @param {Object} state - New state
+     */
+    notify(domain, state) {
+        if (!this.observers.has(domain)) return;
+        this.batch.add({ domain, state });
+        if (JaiPasVu.instance)
+            JaiPasVu.instance.scheduleUpdate(domain);
+        if (this.pendingFlush)
+            return;
+
+        this.pendingFlush = Promise.resolve().then(() => {
+            this.flush();
+            this.pendingFlush = null;
+        });
+    }
+
+    /**
+     * Notify path observers of state changes
+     * @param {string} path - Path that changed
+     * @param {*} value - New value
+     */
+    notifyPath(path, value) {
+        const observers = this.pathObservers.get(path);
+        if (!observers) return;
+        this.batch.add({ path, value });
+        if (this.pendingFlush)
+            return;
+
+        this.pendingFlush = Promise.resolve().then(() => {
+            this.flush();
+            this.pendingFlush = null;
+        });
+    }
+
+    /**
+     * Process all batched notifications
+     * @private
+     */
+    flush() {
+        if (this.batch.size === 0) return;
+
+        this.batch.forEach((update) => {
+            if ('domain' in update) {
+                const observers = this.observers.get(update.domain);
+                if (observers) {
+                    observers.forEach(observer => {
+                        try {
+                            observer(update.state);
+                        } catch (error) {
+                            logger.error(`[ObserverManager] Error in observer callback for domain ${update.domain}:`, error);
+                        }
+                    });
+                }
+            } else if ('path' in update) {
+                const observers = this.pathObservers.get(update.path);
+                if (observers) {
+                    observers.forEach(observer => {
+                        try {
+                            observer(update.value);
+                        } catch (error) {
+                            logger.error(`[ObserverManager] Error in observer callback for path ${update.path}:`, error);
+                        }
+                    });
+                }
+            }
+        });
+
+        this.batch.clear();
+    }
+
+    /**
+     * Clear all observers and store subscriptions
+     */
+    clear() {
+        // Clear all store subscriptions
+        if (this.storeSync) {
+            this.storeSync.unsubscribers.forEach(unsubscribe => unsubscribe());
+            this.storeSync.unsubscribers.clear();
+        }
+
+        this.observers.clear();
+        this.pathObservers.clear();
+        this.batch.clear();
+        this.pendingFlush = null;
+    }
+}
+
+/**
  * Main framework class implementing reactive UI functionality
  * @public
  */
@@ -141,7 +351,7 @@ class JaiPasVu {
         this.domains = new Map();
         this.updateQueue = new Set();
         this.updateScheduled = false;
-        this.observers = new Map();
+        this.observerManager = new ObserverManager();
         this.plugins = new Map();
         this.hooks = {
             beforeMount: new Set(),
@@ -156,6 +366,11 @@ class JaiPasVu {
 
         // Add support for custom events
         this.customEvents = new Map();
+
+        if (typeof store !== 'undefined') {
+            logger.info('[JaiPasVu] Configuring store sync');
+            this.observerManager.configureStoreSync(store);
+        }
 
         JaiPasVu.instance = this;
     }
@@ -443,28 +658,23 @@ class JaiPasVu {
     }
 
     /**
-     * Subscribes to state changes in a specific domain
-     * @param {string} domain - Domain identifier
-     * @param {Function} callback - Callback function receiving updated state
-     * @returns {Function} Unsubscribe function
-     * 
-     * @deprecated Use store.subscribe instead
+     * @deprecated Use observerManager.subscribe instead
      */
     subscribe(domain, callback) {
-        if (!this.observers.has(domain)) {
-            this.observers.set(domain, new Set());
-        }
-        this.observers.get(domain).add(callback);
-
-        // Return unsubscribe function
-        return () => this.unsubscribe(domain, callback);
+        return this.observerManager.subscribe(domain, callback);
     }
 
-    // Unsubscribe from domain changes
+    /**
+     * @deprecated Use observerManager.unsubscribe instead
+     */
     unsubscribe(domain, callback) {
-        const observers = this.observers.get(domain);
-        if (observers) {
-            observers.delete(callback);
+        this.observerManager.unsubscribe(domain, callback);
+    }
+
+    notifyObservers(domain) {
+        const state = this.domains.get(domain)?.state;
+        if (state) {
+            this.observerManager.notify(domain, state);
         }
     }
 
@@ -483,31 +693,32 @@ class JaiPasVu {
         try {
             this.emit('beforeUpdate');
             this.updateQueue.forEach(domain => {
+                logger.debug(`[JaiPasVu] Processing updates for domain: ${domain}`);
                 const elements = document.querySelectorAll(`[data-domain="${domain}"]`);
-                elements.forEach(el => this.updateElement(el, domain));
+
+                if (elements.length === 0) {
+                    logger.debug(`[JaiPasVu] No elements found with data-domain="${domain}"`);
+                    return;
+                }
+
+                logger.debug(`[JaiPasVu] Found ${elements.length} elements to update for domain ${domain}`);
+
+                elements.forEach(el => {
+                    try {
+                        this.updateElement(el, domain);
+                    } catch (error) {
+                        logger.error(`[JaiPasVu] Error updating element for domain ${domain}:`, error);
+                    }
+                });
+
                 this.notifyObservers(domain);
             });
             this.emit('updated');
+        } catch (error) {
+            logger.error('[JaiPasVu] Error in processUpdates:', error);
         } finally {
             this.updateQueue.clear();
             this.updateScheduled = false;
-        }
-    }
-
-    /**
-     * Notify observers of data changes for a domain
-     */
-    notifyObservers(domain) {
-        const observers = this.observers.get(domain);
-        if (observers) {
-            const state = this.domains.get(domain)?.state;
-            observers.forEach(observer => {
-                try {
-                    observer(state);
-                } catch (error) {
-                    logger.error(`[JaiPasVu] Error in observer for domain ${domain}:`, error);
-                }
-            });
         }
     }
 
@@ -515,11 +726,17 @@ class JaiPasVu {
     updateElement(el, domain) {
         const domainData = this.domains.get(domain);
         if (!domainData) {
-            logger.warn(`[JaiPasVu] No data found for domain: ${domain}`);
+            const storeState = this.observerManager.storeSync?.store.getState(domain);
+            if (storeState) {
+                logger.debug(`[JaiPasVu] Using store state for domain ${domain}:`, storeState);
+                this.compileElement(el, storeState);
+            } else {
+                logger.warn(`[JaiPasVu] No data found for domain: ${domain}`);
+            }
             return;
         }
 
-        // Force compilation since state has changed
+        logger.debug(`[JaiPasVu] Updating element with domain ${domain}:`, domainData.state);
         this.compileElement(el, domainData.state);
     }
 

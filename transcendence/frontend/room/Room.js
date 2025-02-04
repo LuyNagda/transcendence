@@ -1,5 +1,5 @@
 import logger from '../logger.js';
-import { store } from '../state/store.js';
+import { store, actions } from '../state/store.js';
 import jaiPasVu from '../UI/JaiPasVu.js';
 import { RoomModes, RoomStates } from '../state/roomState.js';
 import { createRoomStateManager } from './RoomStateManager.js';
@@ -56,7 +56,7 @@ export default class Room {
 
 		this.connect();
 
-		jaiPasVu.registerData('room', store.getState('room'));
+		// jaiPasVu.registerData('room', store.getState('room'));
 
 		logger.info('[Room] Room initialized successfully:', {
 			roomId: this._roomId,
@@ -137,6 +137,17 @@ export default class Room {
 		if (!mainConnection) {
 			throw new Error('Main connection not available');
 		}
+
+		mainConnection.on('message', (data) => {
+			logger.debug('[Room] Received message:', data);
+			if (data.type === 'room_update' && data.room_state) {
+				store.dispatch({
+					domain: 'room',
+					type: actions.room.UPDATE_ROOM,
+					payload: data.room_state
+				});
+			}
+		});
 
 		mainConnection.on('disconnected', () => {
 			logger.warn('[Room] Network connection lost');
