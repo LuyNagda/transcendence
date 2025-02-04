@@ -3,7 +3,7 @@ import { store, actions } from '../state/store.js';
 import { htmx } from '../vendor.js';
 
 /**
- * HTMXService - Integrates HTMX with JaiPasVu and StateSync
+ * HTMXPlugin - Integrates HTMX with JaiPasVu
  * 
  * Features:
  * - Request processing and tracking
@@ -62,112 +62,13 @@ export const htmxPlugin = {
 		htmx.config.defaultSettleDelay = 100;
 		htmx.config.historyCacheSize = 50;
 
-		// Register HTMX state
-		app.registerData('htmx', {
-			isProcessing: false,
-			processingClass: 'htmx-processing',
-			swapStyle: 'innerHTML',
-			requests: new Map()
-		});
-
-		// Register HTMX methods
-		app.registerMethods('htmx', {
-			processRequest(target, options = {}) {
-				const state = app.getState('htmx');
-				if (!state) return null;
-
-				const requestId = Date.now().toString();
-
-				// Add processing state
-				state.isProcessing = true;
-				target.classList.add(state.processingClass);
-
-				// Track request
-				state.requests.set(requestId, {
-					target,
-					options,
-					timestamp: Date.now()
-				});
-
-				// Return request handlers
-				return {
-					onComplete: () => {
-						if (state) {
-							state.isProcessing = false;
-							target.classList.remove(state.processingClass);
-							state.requests.delete(requestId);
-							if (options.updateUI)
-								app.emit('updated');
-						}
-					},
-					onError: (error) => {
-						logger.error('HTMX request failed:', error);
-						if (state) {
-							state.isProcessing = false;
-							target.classList.remove(state.processingClass);
-							state.requests.delete(requestId);
-						}
-					}
-				};
-			},
-
-			getActiveRequests() {
-				const state = app.getState('htmx');
-				return state ? Array.from(state.requests.values()) : [];
-			},
-
-			cancelRequest(target) {
-				const state = app.getState('htmx');
-				if (!state) return;
-
-				// Find and remove request for target
-				for (const [id, request] of state.requests) {
-					if (request.target === target) {
-						state.requests.delete(id);
-						target.classList.remove(state.processingClass);
-						break;
-					}
-				}
-			},
-
-			setProcessingClass(className) {
-				const state = app.getState('htmx');
-				if (state)
-					state.processingClass = className;
-			},
-
-			setSwapStyle(style) {
-				const state = app.getState('htmx');
-				if (state)
-					state.swapStyle = style;
-			}
-		});
-
-		// Register computed properties
-		app.registerComputed('htmx', {
-			hasActiveRequests: function () {
-				return this.requests.size > 0;
-			},
-			activeRequestCount: function () {
-				return this.requests.size;
-			}
-		});
-
 		this._setupEventHandlers(app);
-		this._setupDirectives(app);
 
-		// Listen for app initialization
 		app.on('beforeMount', () => {
 			// Initialize if not a history restore
 			if (!document.documentElement.getAttribute('data-htmx-history-restore')) {
 				this._initializeHtmx();
 			}
-		});
-
-		// Handle HTMX after-swap event for partial page loads
-		document.addEventListener('htmx:afterSwap', (event) => {
-			// Reinitialize UI components after HTMX swaps
-			app.emit('htmx:reinitialize');
 		});
 	},
 
@@ -188,9 +89,10 @@ export const htmxPlugin = {
 	 * @private
 	 */
 	_setupEventHandlers(app) {
-        document.addEventListener("htmx:pushedIntoHistory", function (event) {
-            console.log("URL changed to:", window.location.href);
-        });
+		document.addEventListener("htmx:pushedIntoHistory", function (event) {
+			logger.info('[HTMXPlugin] pushedIntoHistory event:', event);
+			app.emit('htmx:pushedIntoHistory', event.detail.path);
+		});
 
 		document.body.addEventListener('htmx:beforeRequest', (event) => {
 			// const target = event.detail.elt;
@@ -274,21 +176,6 @@ export const htmxPlugin = {
 		document.body.addEventListener('htmx:responseError', (event) => {
 			logger.error('HTMX response error:', event.detail);
 			app.emit('htmx:error', event);
-		});
-	},
-
-	/**
-	 * Sets up custom directives for HTMX integration
-	 * @private
-	 */
-	_setupDirectives(app) {
-		app.on('beforeCompile', (el) => {
-			Array.from(el.attributes || []).forEach(attr => {
-				if (attr.name.startsWith('v-hx-')) {
-					const htmxAttr = attr.name.replace('v-hx-', 'hx-');
-					el.setAttribute(htmxAttr, attr.value);
-				}
-			});
 		});
 	},
 

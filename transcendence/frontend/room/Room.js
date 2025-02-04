@@ -1,5 +1,6 @@
 import logger from '../logger.js';
 import { store } from '../state/store.js';
+import jaiPasVu from '../UI/JaiPasVu.js';
 import { RoomModes, RoomStates } from '../state/roomState.js';
 import { createRoomStateManager } from './RoomStateManager.js';
 import { createRoomUIManager } from './RoomUIManager.js';
@@ -10,12 +11,40 @@ import { createRoomConnectionManager } from './RoomConnectionManager.js';
  * Main Room class that coordinates between different managers
  */
 export default class Room {
+	static _instance = null;
+	static initialize() {
+		// First init when loading a room from the path
+		if (window.location.pathname.includes('/pong/room/')) {
+			logger.info('[Room] Static initialize: Initializing room from path:', window.location.pathname);
+			const roomId = window.location.pathname.replace('/pong/room/', '').replace('/', '');
+			logger.info('[Room] Static initialize: Initializing room:', roomId);
+			Room._instance = new Room(roomId);
+			Room._instance._initializeRoomApp();
+		}
+
+		// Then init when page transition to /pong/room/id and destroy when transitioning away
+		jaiPasVu.on('htmx:pushedIntoHistory', (path) => {
+			logger.info('[Room] Static initialize: htmx:pushedIntoHistory :', path);
+			if (path.includes('/pong/room/')) {
+				const roomId = path.replace('/pong/room/', '').replace('/', '');
+				Room._instance = new Room(roomId);
+				Room._instance._initializeRoomApp();
+			} else {
+				if (Room._instance) {
+					Room._instance.destroy();
+					Room._instance = null;
+				}
+			}
+		});
+	}
+
 	constructor(roomId) {
 		if (!roomId)
 			throw new Error('Room ID is required');
-
 		this._roomId = roomId;
+	}
 
+	_initializeRoomApp() {
 		const userState = store.getState('user');
 		this._currentUser = {
 			id: userState.id,
@@ -24,6 +53,10 @@ export default class Room {
 
 		this._initializeManagers();
 		this._setupEventHandlers();
+
+		this.connect();
+
+		jaiPasVu.registerData('room', store.getState('room'));
 
 		logger.info('[Room] Room initialized successfully:', {
 			roomId: this._roomId,
@@ -276,10 +309,12 @@ export default class Room {
 
 		store.dispatch({
 			domain: 'room',
-			type: 'LEAVE_ROOM',
+			type: 'CLEAR_ROOM',
 			payload: {
 				userId: this._currentUser.id
 			}
 		});
+
+		logger.info('[Room] Destroyed');
 	}
 }

@@ -154,6 +154,9 @@ class JaiPasVu {
             afterCompile: new Set()
         };
 
+        // Add support for custom events
+        this.customEvents = new Map();
+
         JaiPasVu.instance = this;
     }
 
@@ -200,34 +203,52 @@ class JaiPasVu {
     }
 
     /**
-     * Registers a lifecycle hook callback
-     * @param {string} hookName - Name of the hook ('beforeMount', 'mounted', etc.)
-     * @param {Function} callback - Function to call when hook triggers
-     * @returns {Function} Cleanup function to remove the hook
-     * 
-     * @example
-     * jaiPasVu.on('mounted', () => {
-     *   console.log('Framework mounted!');
-     * });
+     * Registers a lifecycle hook or custom event callback
+     * @param {string} hookName - Name of the hook or custom event
+     * @param {Function} callback - Function to call when hook/event triggers
+     * @returns {Function} Cleanup function to remove the hook/event listener
      */
     on(hookName, callback) {
-        if (this.hooks[hookName])
+        // Check if it's a lifecycle hook
+        if (this.hooks[hookName]) {
             this.hooks[hookName].add(callback);
+        } else {
+            if (!this.customEvents.has(hookName))
+                this.customEvents.set(hookName, new Set());
+            this.customEvents.get(hookName).add(callback);
+        }
         return () => this.off(hookName, callback);
     }
 
     off(hookName, callback) {
-        if (this.hooks[hookName])
+        if (this.hooks[hookName]) {
             this.hooks[hookName].delete(callback);
+        } else if (this.customEvents.has(hookName)) {
+            this.customEvents.get(hookName).delete(callback);
+            if (this.customEvents.get(hookName).size === 0)
+                this.customEvents.delete(hookName);
+        }
     }
 
     emit(hookName, ...args) {
+        // Check if it's a lifecycle hook
         if (this.hooks[hookName]) {
             this.hooks[hookName].forEach(callback => {
                 try {
                     callback(...args);
                 } catch (error) {
                     logger.error(`[JaiPasVu] Error in ${hookName} hook:`, error);
+                }
+            });
+        }
+
+        // Check for custom event listeners
+        if (this.customEvents.has(hookName)) {
+            this.customEvents.get(hookName).forEach(callback => {
+                try {
+                    callback(...args);
+                } catch (error) {
+                    logger.error(`[JaiPasVu] Error in ${hookName} event handler:`, error);
                 }
             });
         }

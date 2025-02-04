@@ -225,6 +225,107 @@ describe('JaiPasVu', () => {
 			);
 		});
 
+		// Add new tests for custom plugin hooks
+		describe('Custom Plugin Events', () => {
+			test('should handle custom plugin events', () => {
+				const customEventCallback = jest.fn();
+				const customEvent = { detail: { data: 'test' } };
+
+				factory.jaiPasVu.on('plugin:customEvent', customEventCallback);
+				factory.jaiPasVu.emit('plugin:customEvent', customEvent);
+
+				expect(customEventCallback).toHaveBeenCalledWith(customEvent);
+			});
+
+			test('should handle multiple custom event listeners', () => {
+				const callback1 = jest.fn();
+				const callback2 = jest.fn();
+				const eventData = { value: 'test' };
+
+				factory.jaiPasVu.on('plugin:event', callback1);
+				factory.jaiPasVu.on('plugin:event', callback2);
+				factory.jaiPasVu.emit('plugin:event', eventData);
+
+				expect(callback1).toHaveBeenCalledWith(eventData);
+				expect(callback2).toHaveBeenCalledWith(eventData);
+			});
+
+			test('should properly remove custom event listeners', () => {
+				const callback = jest.fn();
+				const eventData = { value: 'test' };
+
+				const unsubscribe = factory.jaiPasVu.on('plugin:event', callback);
+				factory.jaiPasVu.emit('plugin:event', eventData);
+				expect(callback).toHaveBeenCalledTimes(1);
+
+				unsubscribe();
+				factory.jaiPasVu.emit('plugin:event', eventData);
+				expect(callback).toHaveBeenCalledTimes(1); // Should not be called again
+			});
+
+			test('should handle errors in custom event handlers gracefully', () => {
+				const errorCallback = () => { throw new Error('Custom event error'); };
+				factory.jaiPasVu.on('plugin:errorEvent', errorCallback);
+
+				factory.jaiPasVu.emit('plugin:errorEvent', {});
+
+				expect(global.consoleMocks.error).toHaveBeenCalledWith(
+					'[ERROR] [JaiPasVu] Error in plugin:errorEvent event handler:',
+					expect.any(Error)
+				);
+			});
+
+			test('should handle plugin lifecycle and custom events together', () => {
+				const lifecycleCallback = jest.fn();
+				const customCallback = jest.fn();
+				const eventData = { value: 'test' };
+
+				// Register both lifecycle and custom event handlers
+				factory.jaiPasVu.on('beforeMount', lifecycleCallback);
+				factory.jaiPasVu.on('plugin:custom', customCallback);
+
+				// Trigger both types of events
+				factory.jaiPasVu.emit('beforeMount');
+				factory.jaiPasVu.emit('plugin:custom', eventData);
+
+				expect(lifecycleCallback).toHaveBeenCalled();
+				expect(customCallback).toHaveBeenCalledWith(eventData);
+			});
+
+			test('should maintain separate event handler sets for lifecycle and custom events', () => {
+				const customCallback = jest.fn();
+
+				// Try to register custom callback for lifecycle event
+				factory.jaiPasVu.on('beforeMount', customCallback);
+				factory.jaiPasVu.emit('beforeMount');
+
+				// Should be in lifecycle hooks
+				expect(factory.jaiPasVu.hooks.beforeMount.has(customCallback)).toBe(true);
+				expect(factory.jaiPasVu.customEvents.has('beforeMount')).toBe(false);
+
+				// Try custom event
+				const customEventCallback = jest.fn();
+				factory.jaiPasVu.on('plugin:custom', customEventCallback);
+				factory.jaiPasVu.emit('plugin:custom');
+
+				// Should be in custom events
+				expect(factory.jaiPasVu.customEvents.has('plugin:custom')).toBe(true);
+				expect(factory.jaiPasVu.hooks['plugin:custom']).toBeUndefined();
+			});
+
+			test('should clean up empty custom event sets', () => {
+				const callback = jest.fn();
+				const eventName = 'plugin:cleanup';
+
+				// Add and then remove the only listener
+				const unsubscribe = factory.jaiPasVu.on(eventName, callback);
+				expect(factory.jaiPasVu.customEvents.has(eventName)).toBe(true);
+
+				unsubscribe();
+				expect(factory.jaiPasVu.customEvents.has(eventName)).toBe(false);
+			});
+		});
+
 		test('should handle plugin hooks in correct order', () => {
 			const sequence = [];
 			const beforeCompileCallback = () => sequence.push('beforeCompile');

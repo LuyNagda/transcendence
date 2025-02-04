@@ -2,9 +2,9 @@ import logger from './logger.js';
 import jaiPasVu from './UI/JaiPasVu.js';
 import { htmxPlugin } from './UI/HTMXPlugin.js';
 import { uiPlugin } from './UI/UIPlugin.js';
-import { roomPlugin } from './room/RoomPlugin.js';
 import { store } from './state/store.js';
 import { connectionManager } from './networking/ConnectionManager.js';
+import Room from './room/Room.js';
 
 function _initializeErrorHandling() {
 	window.onerror = function (message, source, lineno, colno, error) {
@@ -34,9 +34,10 @@ function initializeApp() {
 		connectionManager.initialize();
 
 		jaiPasVu.use(uiPlugin);
-		jaiPasVu.use(roomPlugin);
 		jaiPasVu.use(htmxPlugin);
 		jaiPasVu.initialize();
+
+		Room.initialize();
 
 		logger.info(`[Main] Application initialized successfully`);
 	} catch (error) {
