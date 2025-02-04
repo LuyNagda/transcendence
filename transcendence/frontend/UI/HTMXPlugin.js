@@ -295,7 +295,6 @@ export const htmxPlugin = {
 	_processStateUpdates(app, detail) {
 		// Process HX-Trigger header from response
 		const triggerHeader = detail.headers?.['HX-Trigger'] ||
-			detail.requestConfig?.headers?.['HX-Trigger'] ||
 			detail.xhr?.getResponseHeader('HX-Trigger');
 
 		if (triggerHeader) {
