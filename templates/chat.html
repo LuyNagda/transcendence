@@ -9,12 +9,12 @@
                 :style="{ display: unreadCount > 0 ? 'inline' : 'none' }" aria-live="polite">
                 [[ unreadCount ]]
                 <span class="visually-hidden">Unread messages</span>
-                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
             </span>
+			<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
         </div>
-        <div class="row">
+        <div class="row offcanvas-body">
             <div class="col-4 user-list" role="navigation" aria-labelledby="userListHeading">
-                <ul class="rounded bg-dark-subtle m-0 p-3" style="list-style-type: none;">
+                <ul class="rounded bg-dark-subtle m-0 p-2" style="list-style-type: none;">
                     <li v-for="user in users">
                         <div class="d-flex align-items-center p-2" v-on:click="selectUser(user)">
                             <img :src="user.profile_picture" class="rounded-circle me-2" style="max-width: 25px;"
