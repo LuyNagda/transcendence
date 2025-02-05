@@ -44,7 +44,7 @@ export default class Room {
 		this._roomId = roomId;
 	}
 
-	_initializeRoomApp() {
+	async _initializeRoomApp() {
 		const userState = store.getState('user');
 		this._currentUser = {
 			id: userState.id,
@@ -54,9 +54,13 @@ export default class Room {
 		this._initializeManagers();
 		this._setupEventHandlers();
 
-		this.connect();
+		await this.connect();
 
-		jaiPasVu.registerData('room', store.getState('room'));
+        const state = store.getState('room');
+
+        logger.info('[Room] state: ', state);
+
+        this._uiManager._handleRoomStateUpdate(state);
 
 		logger.info('[Room] Room initialized successfully:', {
 			roomId: this._roomId,
@@ -211,7 +215,11 @@ export default class Room {
 	 */
 	async connect() {
 		try {
-			await this._connectionManager.connect();
+			const connection = await this._connectionManager.connect();
+            if (connection) {
+                this.setupInitialState();
+                logger.info('[Room] Connected to room', this.setupInitialState());
+            }
 		} catch (error) {
 			logger.error('[Room] Failed to connect to room:', error);
 			throw error;
@@ -221,10 +229,16 @@ export default class Room {
 	/**
 	 * Get initial room state through WebSocket
 	 */
-	async getInitialState() {
+	async setupInitialState() {
 		try {
 			const roomState = await this._connectionManager.getCurrentState();
-			this._stateManager.updateState(roomState);
+			logger.info('`[Room] Initial room state`:', roomState);
+            this._stateManager.updateState(roomState);
+            store.dispatch({
+                domain: 'room', 
+                type: 'UPDATE_ROOM',
+                payload: roomState
+            });
 			logger.info('Received initial room state');
 		} catch (error) {
 			logger.error('[Room] Failed to get initial room state:', error);
