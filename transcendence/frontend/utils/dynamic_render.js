@@ -66,8 +66,8 @@ class DynamicRender {
             return;
         }
         this.bindText();
-        this.bindIf();
         this.bindFor();
+        this.bindIf();
         this.bindModel();
         this.bindOn();
     }
@@ -83,7 +83,7 @@ class DynamicRender {
     bindIf() {
         this.root.querySelectorAll("[v-if]").forEach((el) => {
             if (!el.closest("[v-for]")) {
-                // Ne traite pas les v-if à l'intérieur des v-for ici
+                logger.info(`Binding v-if for ${el.getAttribute("v-if")}`);
                 const condition = el.getAttribute("v-if");
                 el.style.setProperty('display', this.evaluateExpression(condition) ? '' : 'none', 'important');
             }
@@ -98,9 +98,10 @@ class DynamicRender {
             
             console.log(`Binding v-for for ${items}:`, itemsArray); // Log pour le débogage
 
-            // Vérifier si itemsArray est un Proxy et le dé-proxifier si nécessaire
-            if (itemsArray && typeof itemsArray === 'object' && itemsArray.constructor.name === 'Proxy') {
-                itemsArray = Array.from(itemsArray);
+            // Assurez-vous que itemsArray est un tableau
+            if (!Array.isArray(itemsArray)) {
+                console.warn(`v-for data is not an array: ${items}. Using empty array instead.`);
+                itemsArray = [];
             }
 
             if (!Array.isArray(itemsArray)) {
@@ -123,20 +124,19 @@ class DynamicRender {
             itemsArray.forEach((itemData, index) => {
                 const clone = el.cloneNode(true);
                 clone.removeAttribute("v-for");
-                // Réinitialiser le style display du clone
                 clone.style.removeProperty('display');
-                this.replaceTemplateStrings(clone, {
+
+                const localContext = {
                     [item]: itemData,
                     [`${item}Index`]: index,
-                });
-                this.bindIfForElement(clone, {
-                    [item]: itemData,
                     pongRoom: this.observedObjects.get('pongRoom'),
-                });
-                this.bindTextForElement(clone, {
-                    [item]: itemData,
-                    pongRoom: this.observedObjects.get('pongRoom'),
-                });
+                };
+
+                this.replaceTemplateStrings(clone, localContext);
+                this.bindIfForElement(clone, localContext);
+                this.bindTextForElement(clone, localContext);
+                this.bindOnForElement(clone, localContext);
+
                 container.appendChild(clone);
             });
 
@@ -148,7 +148,8 @@ class DynamicRender {
     bindIfForElement(element, localContext) {
         element.querySelectorAll("[v-if]").forEach((el) => {
             const condition = el.getAttribute("v-if");
-            el.style.setProperty('display', this.evaluateExpression(condition, localContext) ? '' : 'none', 'important');
+            const isVisible = this.evaluateExpression(condition, localContext);
+            el.style.setProperty('display', isVisible ? '' : 'none', 'important');
         });
     }
 
@@ -158,12 +159,22 @@ class DynamicRender {
             const value = this.getPropValue(prop);
             
             if (el.tagName === 'SELECT') {
-                el.value = value;
+                if (value !== undefined) {
+                    el.value = value;
+                } else {
+                    // Si la valeur est undefined, sélectionnez la première option ou laissez vide
+                    el.selectedIndex = el.options.length > 0 ? 0 : -1;
+                }
                 el.addEventListener("change", (e) => {
                     this.setPropValue(prop, e.target.value);
                 });
+            } else if (el.type === 'checkbox') {
+                el.checked = !!value;
+                el.addEventListener("change", (e) => {
+                    this.setPropValue(prop, e.target.checked);
+                });
             } else {
-                el.value = value;
+                el.value = value !== undefined ? value : '';
                 el.addEventListener("input", (e) => {
                     this.setPropValue(prop, e.target.value);
                 });
@@ -187,7 +198,9 @@ class DynamicRender {
     getPropValue(prop) {
         const [objKey, ...path] = prop.split(".");
         const obj = this.observedObjects.get(objKey);
-        return path.reduce((value, key) => value && value[key], obj);
+        if (!obj) return [];
+        const value = path.reduce((value, key) => (value && value.hasOwnProperty(key)) ? value[key] : undefined, obj);
+        return Array.isArray(value) ? value : [];
     }
 
     setPropValue(prop, value) {
@@ -236,6 +249,19 @@ class DynamicRender {
         element.querySelectorAll("[v-text]").forEach((el) => {
             const prop = el.getAttribute("v-text");
             el.textContent = this.evaluateExpression(prop, localContext);
+        });
+    }
+
+    bindOnForElement(element, localContext) {
+        element.querySelectorAll("[v-on\\:click], [v-on\\:change]").forEach((el) => {
+            if (el.hasAttribute("v-on:click")) {
+                const method = el.getAttribute("v-on:click");
+                el.onclick = (event) => this.callMethod(method, event);
+            }
+            if (el.hasAttribute("v-on:change")) {
+                const method = el.getAttribute("v-on:change");
+                el.onchange = (event) => this.callMethod(method, event);
+            }
         });
     }
 }

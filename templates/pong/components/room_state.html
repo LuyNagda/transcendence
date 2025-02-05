@@ -3,9 +3,10 @@
         <h3 class="card-title">Room Information</h3>
     </div>
     <div class="card-body">
-        <h5 class="card-subtitle mb-2">Mode: <span v-text="pongRoom.mode"></span></h5>
-        <p class="card-text">Owner: <span v-text="pongRoom.owner.username"></span></p>
-        
+        <h5 class="card-subtitle mb-2 d-flex flex-row justify-content-start align-items-center">
+            <span class="me-2">Mode:</span>
+            {% include "pong/components/mode_selection.html" %}
+        </h5>        
         <h6 class="mt-4">Players (<span v-text="pongRoom.players.length"></span> / <span v-text="pongRoom.maxPlayers"></span>)</h6>
         <ul class="list-group mb-3">
             <li v-for="player in pongRoom.players" class="list-group-item d-flex justify-content-between align-items-center">
@@ -18,7 +19,13 @@
             </li>
             <li v-if="pongRoom.players.length === 0" class="list-group-item">No players in the room yet.</li>
         </ul>
-
+        <button 
+            v-if="pongRoom.players.length < pongRoom.maxPlayers && pongRoom.owner.username === pongRoom.currentUser.username"
+            class="btn btn-primary mt-3"
+            v-on:click="pongRoom.showInviteForm()"
+        >
+            Invite Players
+        </button>
         <div v-if="pongRoom.pendingInvitations.length > 0">
             <h6>Pending Invitations</h6>
             <ul class="list-group mb-3">
@@ -31,11 +38,19 @@
                 </li>
             </ul>
         </div>
-
-        <p v-if="pongRoom.availableSlots > 0" class="card-text">Available slots: <span v-text="pongRoom.availableSlots"></span> / <span v-text="pongRoom.maxPlayers"></span></p>
-        <p v-else class="card-text">Room is full (<span v-text="pongRoom.players.length"></span> / <span v-text="pongRoom.maxPlayers"></span>)</p>
+        <p v-if="pongRoom.availableSlots === 0" class="card-text">Room is full (<span v-text="pongRoom.players.length"></span> / <span v-text="pongRoom.maxPlayers"></span>)</p>
+        {% include "pong/components/game_settings.html" %}
     </div>
     <div class="card-footer" v-if="pongRoom.owner.username === pongRoom.currentUser.username">
-        <button class="btn btn-success" v-on:click="pongRoom.startGame()">Start Game</button>
+        <button 
+            class="btn btn-success" 
+            v-on:click="pongRoom.startGame()"
+            v-bind:disabled="pongRoom.players.length !== pongRoom.maxPlayers || pongRoom.state !== 'LOBBY'"
+        >
+            Start Game
+        </button>
+        <small v-if="!pongRoom.allPlayersPresent" class="text-muted d-block mt-2">
+            Waiting for all players to join...
+        </small>
     </div>
 </div>

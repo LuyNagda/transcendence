@@ -3,7 +3,7 @@ let leftScore, rightScore;
 let paddleSpeed, ballSpeed;
 let bufferCanvas, bufferContext;
 
-function initializeGame() {
+export function initializeGame() {
 	setupCanvas();
 	setupGameObjects();
 	setupEventListeners();

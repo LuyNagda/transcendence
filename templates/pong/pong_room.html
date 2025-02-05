@@ -13,16 +13,8 @@
             </div>
         </div>
         <div class="flex-grow-1" style="flex-basis: 600px;">
-            <div id="dynamic-content">
-                <div v-if="pongRoom.state === 'LOBBY'">
-                    <div id="mode-selection-container" class="mb-4">
-                        {% include "pong/components/mode_selection.html" %}
-                    </div>
-                    <p>Waiting for the game to start...</p>
-                </div>
-                <div v-if="pongRoom.state === 'PLAYING'">
-                    {% include "pong/components/game.html" %}
-                </div>
+            <div v-if="pongRoom.state === 'PLAYING'">
+                {% include "pong/components/game.html" %}
             </div>
         </div>
     </main>

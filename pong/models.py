@@ -61,6 +61,8 @@ class PongRoom(models.Model):
     def max_players(self):
         if self.mode == self.Mode.TOURNAMENT:
             return 8
+        elif self.mode == self.Mode.AI:
+            return 1
         else:
             return 2
 

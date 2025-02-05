@@ -22,7 +22,7 @@ function hex2vector(hex) {
 	return vec3.fromValues(r / 255, g / 255, b / 255);
 }
 
-function initializeWebGL() {
+export function initializeWebGL() {
 	setupCanvas();
 	setupREGL();
 	createSpriteTexture();
