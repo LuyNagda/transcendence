@@ -104,7 +104,6 @@ describe('Chat Template', () => {
 
 	describe('Initial Rendering', () => {
 		test('renders chat offcanvas with unread count', () => {
-			console.log(factory.getDebugInfo());
 			const chatCanvas = factory.query('#chatCanvas');
 			const unreadBadge = factory.query('#unreadBadge');
 			expect(chatCanvas).toBeTruthy();
@@ -240,8 +239,8 @@ describe('Chat Template', () => {
 			expect(messages.length).toBeGreaterThanOrEqual(2);
 
 			// Test message styling
-			expect(messages[0].classList.contains('received')).toBe(true);
-			expect(messages[1].classList.contains('sent')).toBe(true);
+			expect(messages.item(0).getAttribute('class').includes('received')).toBe(true);
+			expect(messages.item(1).getAttribute('class').includes('sent')).toBe(true);
 		});
 
 		test('displays correct sender names', () => {

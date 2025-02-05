@@ -154,7 +154,8 @@ export default class ChatApp {
 		const handlers = {
 			chat_message: () => this._handleChatMessage(data),
 			game_invitation: () => this._handleGameInvitation(data),
-			tournament_warning: () => this._handleTournamentWarning(data)
+			tournament_warning: () => this._handleTournamentWarning(data),
+			user_profile: () => this._handleUserProfile(data)
 		};
 
 		const handler = handlers[data.type || data.action];
@@ -194,9 +195,19 @@ export default class ChatApp {
 		}
 	}
 
+	_handleUserProfile(data) {
+		if (!data?.profile.id) return;
+		alert("Show Modal ID: " + data.profile.id);
+		store.dispatch({
+			domain: 'ui',
+			type: actions.ui.SHOW_MODAL,
+			payload: { id: data.profile.id }
+		});
+	}
+
 	handleFormSubmit(e) {
 		e.preventDefault();
-		const messageInput = document.querySelector('#chat-message');
+		const messageInput = document.querySelector('#chat-message-input');
 		const message = messageInput.value.trim();
 		const selectedUser = store.getState('chat').selectedUser;
 
@@ -470,9 +481,14 @@ export default class ChatApp {
 	}
 
 	// Vue template handlers
-	selectUser(user) {
-		logger.debug('[ChatApp] Selecting user:', user);
-		if (!user || !user.id) return;
+	selectUser(userId) {
+		logger.debug('[ChatApp] Selecting user with ID:', userId);
+		const user = store.getState('chat').users.find(u => u.id === userId);
+		
+		if (!user) {
+			logger.error('[ChatApp] User not found with ID:', userId);
+			return;
+		}
 
 		store.dispatch({
 			domain: 'chat',

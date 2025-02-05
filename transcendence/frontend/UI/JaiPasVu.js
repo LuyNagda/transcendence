@@ -895,6 +895,8 @@ class JaiPasVu {
                 const prop = attr.name.split(':')[1];
                 const expression = attr.value;
 
+				logger.debug(`[JaiPasVu] Processing v-bind: ${prop} with value: ${expression}`);
+
                 const effect = () => {
                     try {
                         ReactiveEffect.push(effect);
@@ -903,10 +905,14 @@ class JaiPasVu {
                         if (typeof value === 'boolean' && (propertyName in el || prop in el)) {
                             // Use the mapped property name if it exists on the element, or fall back to the original prop name
                             const targetProp = (propertyName in el) ? propertyName : prop;
+							el.removeAttribute(':' + prop);
                             el[targetProp] = value;
                         } else if (prop === 'style' && typeof value === 'object') {
+							el.removeAttribute(':style');
                             Object.assign(el.style, value);
                         } else {
+							logger.debug(`[JaiPasVu] Setting attribute: ${prop} with value: ${value}`);
+							el.removeAttribute(':' + prop);
                             el.setAttribute(prop, value);
                         }
                     } finally {
@@ -978,6 +984,7 @@ class JaiPasVu {
 
     // Process text interpolation
     processInterpolation(el, context) {
+        // Traitement des text nodes existant
         const textNodes = Array.from(el.childNodes).filter(node =>
             node.nodeType === Node.TEXT_NODE &&
             node.textContent.includes('[[')
@@ -996,8 +1003,26 @@ class JaiPasVu {
                     ReactiveEffect.pop();
                 }
             };
-
             effect();
+        });
+
+        // Nouveau code pour traiter les attributs HTML
+        Array.from(el.attributes).forEach(attr => {
+            if (attr.value.includes('[[')) {
+                const effect = () => {
+                    try {
+                        ReactiveEffect.push(effect);
+						logger.debug(`[JaiPasVu] Processing attribute: ${attr.name} with value: ${attr.value}`);
+                        const newValue = attr.value.replace(/\[\[(.*?)\]\]/g, (_, exp) => {
+                            return this.evaluateExpression(exp.trim(), context);
+                        });
+                        el.setAttribute(attr.name, newValue);
+                    } finally {
+                        ReactiveEffect.pop();
+                    }
+                };
+                effect();
+            }
         });
     }
 
