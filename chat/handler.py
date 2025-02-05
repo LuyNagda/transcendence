@@ -109,10 +109,12 @@ class ChatHandler:
             await self.consumer.broadcast_status(status)
 
     async def handle_game_invitation(self, data):
-        if 'recipient_id' not in data or 'game_id' not in data:
-            raise KeyError('Missing required keys: recipient_id or game_id')
+        if 'recipient_id' not in data or 'game_id' not in data or 'room_id' not in data:
+            raise KeyError('Missing required keys: recipient_id, game_id, or room_id')
+        
         recipient_id = data['recipient_id']
         game_id = data['game_id']
+        room_id = data['room_id']
 
         if await self.is_blocked(recipient_id):
             await self.consumer.send(text_data=json.dumps({
@@ -121,12 +123,19 @@ class ChatHandler:
             return
 
         try:
-            # Create a new room for the invitation
-            room_response = await self.create_pong_room()
-            if not room_response.get('status') == 'success':
-                raise Exception('Failed to create pong room')
+            # Verify room exists and user is owner
+            room = await self.get_pong_room(room_id)
+            if not room:
+                await self.consumer.send(text_data=json.dumps({
+                    'error': 'Room not found'
+                }))
+                return
             
-            room_id = room_response.get('room_id')
+            if room.owner.id != self.consumer.user.id:
+                await self.consumer.send(text_data=json.dumps({
+                    'error': 'Only room owner can send invitations'
+                }))
+                return
             
             # Add recipient to pending invitations
             success = await self.add_to_pending_invitations(room_id, recipient_id)
@@ -149,29 +158,19 @@ class ChatHandler:
             }))
             return
         except Exception as e:
+            log.error(f"Error handling game invitation: {str(e)}", extra={
+                'user_id': self.consumer.user.id,
+                'recipient_id': recipient_id,
+                'room_id': room_id
+            })
             raise e
 
     @database_sync_to_async
-    def create_pong_room(self):
+    def get_pong_room(self, room_id):
         try:
-            room_id = str(uuid.uuid4())[:8]
-            room = PongRoom.objects.create(
-                room_id=room_id,
-                owner=self.consumer.user,
-                mode='CLASSIC'
-            )
-            room.players.add(self.consumer.user)
-            return {
-                'status': 'success',
-                'room_id': room_id,
-                'room_data': room.serialize()
-            }
-        except Exception as e:
-            log.error(f"Error creating pong room: {str(e)}")
-            return {
-                'status': 'error',
-                'message': 'Failed to create room'
-            }
+            return PongRoom.objects.get(room_id=room_id)
+        except PongRoom.DoesNotExist:
+            return None
 
     @database_sync_to_async
     def add_to_pending_invitations(self, room_id, recipient_id):

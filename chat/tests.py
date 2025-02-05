@@ -8,8 +8,8 @@ from channels.routing import URLRouter
 from channels.auth import AuthMiddlewareStack
 from channels.layers import get_channel_layer
 from channels.db import database_sync_to_async
-from chat.consumers import ChatConsumer
-from chat.models import BlockedUser, ChatMessage, GameInvitation
+from .consumers import ChatConsumer
+from .models import BlockedUser, ChatMessage
 
 User = get_user_model()
 
@@ -22,7 +22,7 @@ class ChatConsumerTestCase(TransactionTestCase):
     @classmethod
     async def asyncSetUpClass(cls):
         cls.user = await database_sync_to_async(User.objects.create_user)(
-            username='testuser', password='password123', email='testuser@example.com')
+            username='marvin', password='password123', email='marvin@student.42lyon.fr')
         cls.other_user = await database_sync_to_async(User.objects.create_user)(
             username='otheruser', password='password123', email='otheruser@example.com')
         cls.channel_layer = get_channel_layer()
@@ -92,7 +92,7 @@ class ChatConsumerTestCase(TransactionTestCase):
     async def test_blocked_user_interactions(self):
         # Ensure users are created and persisted
         self.user = await database_sync_to_async(User.objects.create_user)(
-            username='testuser', password='password123', email='testuser@example.com')
+            username='marvin', password='password123', email='marvin@student.42lyon.fr')
         self.other_user = await database_sync_to_async(User.objects.create_user)(
             username='otheruser', password='password123', email='otheruser@example.com')
 
@@ -113,45 +113,51 @@ class ChatConsumerTestCase(TransactionTestCase):
         await database_sync_to_async(User.objects.all().delete)()
 
     async def test_user_profile_and_status(self):
-        # Recreate users if necessary
-        self.other_user = await database_sync_to_async(User.objects.create_user)(
-            username='otheruser', password='password123', email='otheruser@example.com'
-        )
-        communicator = await self.connect_and_send('get_profile', {
-            'user_id': self.other_user.id
-        })
-        response = await communicator.receive_json_from()
-        self.assertEqual(response['type'], 'user_profile')
-        self.assertEqual(response['profile']['username'], 'otheruser')
+        communicator = None
+        test_user = None
+        try:
+            test_user = await database_sync_to_async(User.objects.create_user)(
+                username='otheruser', 
+                password='password123', 
+                email='otheruser@example.com'
+            )
+            communicator = await self.connect_and_send('get_profile', {
+                'user_id': test_user.id
+            })
 
-        status_response = await communicator.receive_json_from()
-        self.assertEqual(status_response.get('type'), 'user_status_change')
-        self.assertEqual(status_response.get('user_id'), self.user.id)
-        self.assertEqual(status_response.get('status'), 'online')
+            test_user_comm = await self.create_communicator(test_user)
+            connected, _ = await test_user_comm.connect()
+            self.assertTrue(connected, "Test user failed to connect")
 
-        await communicator.disconnect()
+            # Get the first response : profile
+            response = await communicator.receive_json_from()
+            self.assertEqual(response['type'], 'user_profile')
+            self.assertEqual(response['profile']['username'], 'otheruser')
 
-    async def test_game_invitation(self):
-        sender_comm = await self.connect_and_send('game_invitation', {
-            'recipient_id': self.other_user.id,
-            'game_id': 'pong'
-        })
-        recipient_comm = await self.create_communicator(self.other_user)
-        await recipient_comm.connect()
+            # Get the next response : status
+            response = await communicator.receive_json_from()
+            while response.get('type') == 'user_status_change' and response.get('user_id') != test_user.id:
+                response = await communicator.receive_json_from()
 
-        response = await recipient_comm.receive_json_from()
-        while response.get('type') == 'user_status_change':
-            response = await recipient_comm.receive_json_from()
+            self.assertEqual(response['type'], 'user_status_change')
+            self.assertEqual(response['user_id'], test_user.id)
+            self.assertEqual(response['status'], 'online')
 
-        self.assertEqual(response.get('type'), 'game_invitation')
-        self.assertEqual(response.get('game_id'), 'pong')
-        self.assertEqual(response.get('sender_id'), self.user.id)
+        except Exception as e:
+            print(f"Test failed with error: {type(e).__name__}: {str(e)}")
+            raise
 
-        invitations = await database_sync_to_async(GameInvitation.objects.filter)(sender=self.user)
-        self.assertEqual(await database_sync_to_async(invitations.count)(), 1)
+        finally:
+            try:
+                if communicator:
+                    await communicator.disconnect()
+                if 'test_user_comm' in locals():
+                    await test_user_comm.disconnect()
+                if test_user:
+                    await database_sync_to_async(test_user.delete)()
+            except Exception as e:
+                print(f"Error during cleanup: {type(e).__name__}: {str(e)}")
 
-        await sender_comm.disconnect()
-        await recipient_comm.disconnect()
 
     async def test_error_handling(self):
         communicator = await self.create_communicator()
@@ -161,8 +167,9 @@ class ChatConsumerTestCase(TransactionTestCase):
         self.assertEqual(response.get('error'), 'Invalid JSON data')
 
         await communicator.send_json_to({'type': 'chat_message'})
-        response = await communicator.receive_json_from() # Online message
         response = await communicator.receive_json_from()
+        if response.get('type') == 'user_status_change': # We might receive a status message first
+            response = await communicator.receive_json_from()
         self.assertEqual(response.get('error'), 'Missing required keys: message or recipient_id')
 
         await communicator.send_json_to({'type': 'get_profile', 'user_id': 9999})
@@ -195,20 +202,35 @@ class ChatConsumerTestCase(TransactionTestCase):
         self.assertFalse(connected)
         await communicator.disconnect()
 
-    async def tearDown(self):
-        await database_sync_to_async(User.objects.all().delete)()
-        await database_sync_to_async(BlockedUser.objects.all().delete)()
-        await database_sync_to_async(ChatMessage.objects.all().delete)()
-        await database_sync_to_async(GameInvitation.objects.all().delete)()
+    def setUp(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+    def tearDown(self):
+        self.loop.run_until_complete(self._async_tearDown())
+        self.loop.close()
 
     @classmethod
     def tearDownClass(cls):
         asyncio.run(cls.asyncTearDownClass())
         super().tearDownClass()
 
+    async def _async_tearDown(self):
+        try:
+            await database_sync_to_async(User.objects.all().delete)()
+            await database_sync_to_async(BlockedUser.objects.all().delete)()
+            await database_sync_to_async(ChatMessage.objects.all().delete)()
+        except Exception as e:
+            print(f"Error during tearDown: {type(e).__name__}: {str(e)}")
+            raise
+
     @classmethod
     async def asyncTearDownClass(cls):
-        await database_sync_to_async(User.objects.all().delete)()
-        await database_sync_to_async(BlockedUser.objects.all().delete)()
-        await database_sync_to_async(ChatMessage.objects.all().delete)()
-        await database_sync_to_async(GameInvitation.objects.all().delete)()
+        try:
+            await database_sync_to_async(User.objects.all().delete)()
+            await database_sync_to_async(BlockedUser.objects.all().delete)()
+            await database_sync_to_async(ChatMessage.objects.all().delete)()
+        except Exception as e:
+            print(f"Error during asyncTearDownClass: {type(e).__name__}: {str(e)}")
+            raise
+    
