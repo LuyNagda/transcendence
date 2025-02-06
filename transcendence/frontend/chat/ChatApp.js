@@ -515,10 +515,15 @@ export default class ChatApp {
 	}
 
 	inviteToGame(userId) {
+		let roomState = store.getState('room');
+		if (!roomState.id) {
+			alert('No room found');
+			return;
+		}
 		this._sendMessage({
 			type: 'game_invitation',
 			recipient_id: userId,
-			game_id: 'pong'
+			room_id: roomState.id
 		});
 		alert('Game invitation sent!');
 	}
