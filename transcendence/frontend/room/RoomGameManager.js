@@ -21,8 +21,13 @@ export class RoomGameManager {
 	_initializeNetworkHandlers() {
 		if (!this._networkManager) return;
 
-		this._networkManager.on('game_started', this._handleGameStarted.bind(this));
-		this._networkManager.on('game_ended', this._handleGameEnded.bind(this));
+		this._networkManager.on('message', (data) => {
+			if (data.type === 'game_started') {
+				this._handleGameStarted(data);
+			} else if (data.type === 'game_ended') {
+				this._handleGameEnded(data);
+			}
+		});
 	}
 
 	async _handleGameStarted(data) {

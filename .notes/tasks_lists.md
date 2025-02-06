@@ -4,6 +4,7 @@
 
 - [ ] **Fix v-for**
 - [ ] **Increase JaiPasVu test coverage**
+- [ ] **Fix Game handling (_handleGameStarted)**
 
 ## Clean
 - [ ] **Clean store : remove out domain-specific logic**

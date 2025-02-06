@@ -179,8 +179,12 @@ export default class Room {
 		});
 
 		// Handle game started event
-		mainConnection.on('game_started', (data) => {
-			this._stateManager.handleGameStarted(data);
+		mainConnection.on('message', (data) => {
+			if (data.type === 'game_started') {
+				this._gameManager._handleGameStarted(data);
+			} else if (data.type === 'game_ended') {
+				this._gameManager._handleGameEnded(data);
+			}s
 		});
 	}
 
