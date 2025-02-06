@@ -25,13 +25,72 @@ export class RoomUIManager {
 
 	_initializeReactiveState() {
         logger.info('[RoomUIManager] Initializing reactive state');
+
+		logger.debug('Room state:', store.getState('room'));
 		// First register the computed properties
-        //jaiPasVu.registerData('room', {
-        //    ...store.getState('room'),
-        //})
+        jaiPasVu.registerData('room', {
+			...store.getState('room'),
+			mappedPlayers: function (state) {
+				const players = state.players || [];
+				const currentUserId = state.currentUser?.id;
+				return players.map(player => ({
+					...player,
+					isCurrentUser: player.id === currentUserId,
+					isOwner: player.id === state.owner?.id,
+					canBeKicked: player.id !== state.owner?.id && state.owner?.id === currentUserId
+				}));
+			},
+			availableSlots: function (state) {
+				return Math.max(0, state.maxPlayers - (state.players?.length || 0));
+			},
+			isOwner: function (state) {
+				return state.owner?.id === state.currentUser?.id;
+			},
+			isLobbyState: function (state) {
+				return state.state === RoomStates.LOBBY;
+			},
+			buttonText: function (state) {
+				return state.state === RoomStates.LOBBY ? 'Start Game' : 'Game in Progress';
+			},
+			startGameInProgress: function (state) {
+				return state.state !== RoomStates.LOBBY;
+			},
+			gameContainerClass: function (state) {
+				return {
+					'game-container': true,
+					'loading': state.isLoading,
+					'error': state.error,
+					'lobby': state.state === RoomStates.LOBBY,
+					'playing': state.state === RoomStates.PLAYING
+				};
+			}
+        })
 
 		// Then register the state and methods
-		//jaiPasVu.registerMethods('room', this._getMethods());
+		// jaiPasVu.registerMethods('room', this._getMethods());
+
+		jaiPasVu.registerMethods('room', {
+			kickPlayer: (playerId) => {
+				logger.debug('Kick player called:', playerId);
+				this._callHandler('kickPlayer', playerId);
+			},
+			cancelInvitation: (invitationId) => {
+				logger.debug('Cancel invitation called:', invitationId);
+				this._callHandler('cancelInvitation', invitationId);
+			},
+			startGame: () => {
+				logger.debug('Start game called');
+				this._callHandler('startGame');
+			},
+			leaveGame: () => {
+				logger.debug('Leave game called');
+				this._callHandler('leaveGame');
+			},
+			getCurrentUser: () => this._currentUser || store.getState('user'),
+			toggleInviteModal: () => this._toggleInviteModal(),
+			handleSettingChange: this.handleSettingChange,
+			handleModeChange: this.handleModeChange
+		});
 
 		this._observers.push(
 			store.subscribe('room', this._handleRoomStateUpdate.bind(this)),
@@ -43,67 +102,8 @@ export class RoomUIManager {
 		logger.debug('Room state update from store:', state);
 		// Update the UI through JaiPasVu's reactivity
 		jaiPasVu.registerData('room', {
-            ...state,
+            ...state,	
         });
-        //jaiPasVu.registerMethods('room', {
-        //    kickPlayer: (playerId) => {
-		//		logger.debug('Kick player called:', playerId);
-		//		this._callHandler('kickPlayer', playerId);
-		//	},
-		//	cancelInvitation: (invitationId) => {
-		//		logger.debug('Cancel invitation called:', invitationId);
-		//		this._callHandler('cancelInvitation', invitationId);
-		//	},
-		//	startGame: () => {
-		//		logger.debug('Start game called');
-		//		this._callHandler('startGame');
-		//	},
-		//	leaveGame: () => {
-		//		logger.debug('Leave game called');
-		//		this._callHandler('leaveGame');
-		//	},
-		//	getCurrentUser: () => this._currentUser || store.getState('user'),
-		//	toggleInviteModal: () => this._toggleInviteModal(),
-		//	handleSettingChange: this.handleSettingChange,
-		//	handleModeChange: this.handleModeChange
-        //});
-        //jaiPasVu.registerComputed('room', {
-        //    mappedPlayers: function (state) {
-		//		const players = state.players || [];
-		//		const currentUserId = state.currentUser?.id;
-		//		return players.map(player => ({
-		//			...player,
-		//			isCurrentUser: player.id === currentUserId,
-		//			isOwner: player.id === state.owner?.id,
-		//			canBeKicked: player.id !== state.owner?.id && state.owner?.id === currentUserId
-		//		}));
-		//	},
-		//	availableSlots: function (state) {
-		//		return Math.max(0, state.maxPlayers - (state.players?.length || 0));
-		//	},
-		//	isOwner: function (state) {
-		//		return state.owner?.id === state.currentUser?.id;
-		//	},
-		//	isLobbyState: function (state) {
-		//		return state.state === RoomStates.LOBBY;
-		//	},
-		//	buttonText: function (state) {
-		//		return state.state === RoomStates.LOBBY ? 'Start Game' : 'Game in Progress';
-		//	},
-		//	startGameInProgress: function (state) {
-		//		return state.state !== RoomStates.LOBBY;
-		//	},
-		//	gameContainerClass: function (state) {
-		//		return {
-		//			'game-container': true,
-		//			'loading': state.isLoading,
-		//			'error': state.error,
-		//			'lobby': state.state === RoomStates.LOBBY,
-		//			'playing': state.state === RoomStates.PLAYING
-		//		};
-		//	}
-        //}
-        //);
 	}
 
 	_handleUserStateUpdate(state) {

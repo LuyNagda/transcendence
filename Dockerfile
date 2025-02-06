@@ -1,6 +1,6 @@
 FROM python:3.10-alpine AS builder
 
-RUN apk add --no-cache postgresql-dev python3-dev nodejs npm gcc musl-dev linux-headers && \
+RUN apk add --no-cache postgresql-dev sqlite-dev python3-dev nodejs npm gcc musl-dev linux-headers && \
 	npm install -g pnpm
 
 WORKDIR /app
@@ -31,7 +31,7 @@ ENV DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
 ENV DEBUG=${DEBUG}
 ENV DOMAIN=${DOMAIN}
 
-RUN apk add --no-cache curl make git postgresql-dev openssl nodejs npm bash && \
+RUN apk add --no-cache curl sqlite-dev make git postgresql-dev openssl nodejs npm bash && \
 	npm install -g pnpm
 
 SHELL ["/bin/bash", "-c"]

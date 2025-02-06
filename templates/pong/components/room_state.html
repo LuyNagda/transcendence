@@ -63,9 +63,9 @@
         </div>
     </div>
 
-    <div class="card-footer d-flex justify-content-between" v-if="isOwner && isLobbyState">
-        <button id="startGameBtn" type="button" class="btn btn-primary" aria-label="Start the game"
-            v-bind:disabled="startGameInProgress" v-text="buttonText" v-on:click="startGame">
+    <div class="card-footer d-flex justify-content-between">
+        <button id="startGameBtn" v-on:click="startGame" type="button" class="btn btn-primary" aria-label="Start the game">
+			Start
         </button>
         <button id="leaveGameBtn" type="button" class="btn btn-danger" aria-label="Leave the game"
             v-on:click="leaveGame">

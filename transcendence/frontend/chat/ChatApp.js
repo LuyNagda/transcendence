@@ -421,7 +421,7 @@ export default class ChatApp {
 			});
 	}
 
-	handleGameInvitation(gameId, senderId, roomId) {
+	_handleGameInvitation(gameId, senderId, roomId) {
 		if (confirm(`You've been invited to play ${gameId}. Do you want to accept?`)) {
 			// Accept invitation and join room
 			this._sendMessage({
