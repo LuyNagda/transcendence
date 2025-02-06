@@ -4,6 +4,7 @@ import { htmxPlugin } from './UI/HTMXPlugin.js';
 import { uiPlugin } from './UI/UIPlugin.js';
 import { store } from './state/store.js';
 import { connectionManager } from './networking/ConnectionManager.js';
+import { initializeAiManager } from './pong/AiManager.js';
 import Room from './room/Room.js';
 import ChatApp from './chat/ChatApp.js';
 
@@ -33,6 +34,7 @@ async function initializeApp() {
 
 		store.initialize();
 		connectionManager.initialize();
+		// initializeAiManager();	
 
 		jaiPasVu.use(uiPlugin);
 		jaiPasVu.use(htmxPlugin);

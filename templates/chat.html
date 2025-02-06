@@ -77,18 +77,6 @@
     </div>
 </div>
 
-<button class="btn btn-link position-relative chat-icon" data-bs-toggle="offcanvas" data-bs-target="#chatCanvas"
-    aria-controls="chatCanvas" aria-label="Open chat">
-    <i class="bi bi-chat-dots fs-4" :style="{ fill: unreadCount > 0 ? 'var(--bs-primary)' : 'currentColor' }"
-        aria-hidden="true"></i>
-    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger chat-badge"
-        v-if="unreadCount > 0" aria-live="assertive">
-        [[ unreadCount > 99 ? '99+' : unreadCount ]]
-        <span class="visually-hidden">Unread messages</span>
-    </span>
-</button>
-</div>
-
 <style>
     .chat-bubble-container {
         display: flex;

@@ -109,11 +109,10 @@ class ChatHandler:
             await self.consumer.broadcast_status(status)
 
     async def handle_game_invitation(self, data):
-        if 'recipient_id' not in data or 'game_id' not in data or 'room_id' not in data:
-            raise KeyError('Missing required keys: recipient_id, game_id, or room_id')
+        if 'recipient_id' not in data or 'room_id' not in data:
+            raise KeyError('Missing required keys: recipient_id, or room_id')
         
         recipient_id = data['recipient_id']
-        game_id = data['game_id']
         room_id = data['room_id']
 
         if await self.is_blocked(recipient_id):
@@ -131,7 +130,8 @@ class ChatHandler:
                 }))
                 return
             
-            if room.owner.id != self.consumer.user.id:
+            owner_id = await self.get_room_owner_id(room)
+            if owner_id != self.consumer.user.id:
                 await self.consumer.send(text_data=json.dumps({
                     'error': 'Only room owner can send invitations'
                 }))
@@ -147,7 +147,6 @@ class ChatHandler:
                 f"chat_{recipient_id}",
                 {
                     'type': 'game_invitation',
-                    'game_id': game_id,
                     'sender_id': self.consumer.user.id,
                     'room_id': room_id
                 }
@@ -305,3 +304,7 @@ class ChatHandler:
                 'user_id': self.consumer.user.id
             })
             raise e
+
+    @database_sync_to_async
+    def get_room_owner_id(self, room):
+        return room.owner.id
