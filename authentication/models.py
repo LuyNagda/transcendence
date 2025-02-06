@@ -22,5 +22,13 @@ class User(AbstractUser):
             'id': self.id,
             'username': self.username,
         }
-
-# TODO: Remove fields already present in AbstractUser
+    
+    @property
+    def chat_user(self):
+        """Returns a dictionary with user information for chat"""
+        return {
+            'id': self.id,
+            'username': self.username,
+            'online': self.online,
+            'profile_picture': self.profile_picture.url,
+        }

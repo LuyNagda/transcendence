@@ -58,6 +58,14 @@ class PongRoom(models.Model):
         return self.games.filter(status=PongGame.Status.FINISHED)
 
     @property
+    def player_count(self):
+        return self.players.count()
+
+    @property
+    def is_full(self):
+        return self.player_count >= self.max_players
+
+    @property
     def max_players(self):
         if self.mode == self.Mode.AI:
             return 1

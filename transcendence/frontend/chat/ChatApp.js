@@ -114,7 +114,7 @@ export default class ChatApp {
 
 	_getUserStatusIcon(user) {
 		if (user.blocked) return '🔴'; // Blocked
-		return user.status === 'online' ? '🟢' : '⚪'; // Online/Offline
+		return user.online ? '🟢' : '⚪'; // Online/Offline
 	}
 
 	async _setupConnection() {
@@ -152,57 +152,105 @@ export default class ChatApp {
 	_handleIncomingMessage(data) {
 		logger.debug('[ChatApp] Received message from server:', data);
 		const handlers = {
-			chat_message: () => this._handleChatMessage(data),
-			game_invitation: () => this._handleGameInvitation(data),
-			tournament_warning: () => this._handleTournamentWarning(data),
-			user_profile: () => this._handleUserProfile(data)
+			chat_message: (data) => {
+				if (!data?.sender_id || !data?.message?.content) return;
+
+				store.dispatch({
+					domain: 'chat',
+					type: chatActions.ADD_MESSAGE,
+					payload: {
+						friendId: data.sender_id,
+						message: {
+							id: data.message.id || ++this._lastMessageId,
+							sender: data.sender_id,
+							content: data.message.content,
+							timestamp: data.message.timestamp || Date.now(),
+							type: data.message.type || 'text'
+						}
+					}
+				});
+
+				if (!this._isChatOpen) {
+					store.dispatch({
+						domain: 'chat',
+						type: chatActions.INCREMENT_UNREAD,
+						payload: { friendId: data.sender_id }
+					});
+				}
+			},
+
+			game_invitation: (data) => {
+				if (!data?.sender_id || !data?.room_id) return;
+
+				if (confirm(`You've been invited to play. Do you want to accept?`)) {
+					this._sendMessage({
+						type: 'accept_game_invitation',
+						sender_id: data.sender_id,
+						room_id: data.room_id
+					});
+				}
+			},
+
+			accept_game_invitation: (data) => {
+				if (data.success) {
+					jaiPasVu.navigate(`/pong/room/${data.data.room_id}/`);
+				} else {
+					alert(data.error || 'Failed to join game. Room might be full.');
+				}
+			},
+
+			user_profile: (data) => {
+				if (!data?.profile?.id) return;
+
+				store.dispatch({
+					domain: 'ui',
+					type: actions.ui.SHOW_MODAL,
+					payload: { id: data.profile.id }
+				});
+			},
+
+			status_update: (data) => {
+				if (!data?.user) return;
+
+				store.dispatch({
+					domain: 'chat',
+					type: chatActions.UPDATE_USER,
+					payload: data.user
+				});
+			},
+
+			error: (data) => {
+				logger.error('[ChatApp] Server error:', data.message);
+				alert(data.message || 'An error occurred');
+			}
 		};
 
-		const handler = handlers[data.type || data.action];
+		const handler = handlers[data.type];
 		if (handler) {
-			handler();
+			handler(data);
 		} else {
-			logger.debug(`[ChatApp] Unhandled from server message type:`, data.type || data.action);
+			logger.debug(`[ChatApp] Unhandled message type:`, data.type);
 		}
 	}
 
-	// SERVER MESSAGES HANDLERS
-
-	_handleChatMessage(data) {
-		if (!data?.sender_id || !data?.content) return;
-
-		store.dispatch({
-			domain: 'chat',
-			type: chatActions.ADD_MESSAGE,
-			payload: {
-				friendId: data.sender_id,
-				message: {
-					id: data.id || ++this._lastMessageId,
-					sender: data.sender_id,
-					content: data.content,
-					timestamp: data.timestamp || Date.now(),
-					type: data.type || 'text'
-				}
-			}
-		});
-
-		if (!this._isChatOpen) {
-			store.dispatch({
-				domain: 'chat',
-				type: chatActions.INCREMENT_UNREAD,
-				payload: { friendId: data.sender_id }
-			});
+	_sendMessage(message) {
+		if (!this._connection?.state?.canSend) {
+			logger.warn('[ChatApp] Cannot send message - connection not ready');
+			return;
 		}
-	}
 
-	_handleUserProfile(data) {
-		if (!data?.profile.id) return;
-		alert("Show Modal ID: " + data.profile.id);
-		store.dispatch({
-			domain: 'ui',
-			type: actions.ui.SHOW_MODAL,
-			payload: { id: data.profile.id }
-		});
+		// Standardize outgoing message format
+		const standardizedMessage = {
+			type: message.type,
+			...message,
+			timestamp: message.timestamp || Date.now()
+		};
+
+		try {
+			this._connection.send(standardizedMessage);
+		} catch (error) {
+			logger.error('[ChatApp] Error sending message:', error);
+		}
 	}
 
 	handleFormSubmit(e) {
@@ -216,23 +264,32 @@ export default class ChatApp {
 		const currentUserId = store.getState('user').id;
 		if (!currentUserId) return;
 
+		const messageId = ++this._lastMessageId;
+		const timestamp = Date.now();
+
+		// Send standardized message object to backend
 		this._sendMessage({
 			type: 'chat_message',
-			message,
 			recipient_id: selectedUser.id,
-			id: ++this._lastMessageId
+			message: {
+				id: messageId,
+				content: message,
+				timestamp: timestamp,
+				type: 'text'
+			}
 		});
 
+		// Update local state
 		store.dispatch({
 			domain: 'chat',
 			type: chatActions.ADD_MESSAGE,
 			payload: {
 				friendId: selectedUser.id,
 				message: {
-					id: this._lastMessageId,
+					id: messageId,
 					sender: currentUserId,
 					content: message,
-					timestamp: Date.now(),
+					timestamp: timestamp,
 					type: 'text'
 				}
 			}
@@ -241,46 +298,33 @@ export default class ChatApp {
 		messageInput.value = '';
 	}
 
-	_sendMessage(message) {
-		if (!this._connection?.state?.canSend) {
-			logger.warn('[ChatApp] Cannot send message - connection not ready');
-			return;
-		}
+	handleUserClick(event) {
+		const userElement = event.currentTarget?.hasAttribute('data-user-id')
+			? event.currentTarget
+			: event.target?.closest('[data-user-id]');
 
-		try {
-			this._connection.send(message);
-		} catch (error) {
-			logger.error('[ChatApp] Error sending message:', error);
-		}
+		if (!userElement) return;
+
+		const user = {
+			id: Number(userElement.dataset.userId),
+			username: userElement.dataset.userName || '',
+			name: userElement.dataset.userName || '',
+			blocked: userElement.dataset.userBlocked === 'true',
+			status: userElement.dataset.userStatus || '',
+			profile_picture: userElement.dataset.userPicture || '',
+			online: userElement.dataset.userStatus === 'online'
+		};
+
+		if (!user.id || !user.username) return;
+
+		store.dispatch({
+			domain: 'chat',
+			type: chatActions.SET_SELECTED_USER,
+			payload: user
+		});
+
+		this.loadMessageHistory(user.id);
 	}
-
-	// handleUserClick(event) {
-	// 	const userElement = event.currentTarget?.hasAttribute('data-user-id')
-	// 		? event.currentTarget
-	// 		: event.target?.closest('[data-user-id]');
-
-	// 	if (!userElement) return;
-
-	// 	const user = {
-	// 		id: Number(userElement.dataset.userId),
-	// 		username: userElement.dataset.userName || '',
-	// 		name: userElement.dataset.userName || '',
-	// 		blocked: userElement.dataset.userBlocked === 'true',
-	// 		status: userElement.dataset.userStatus || '',
-	// 		profile_picture: userElement.dataset.userPicture || '',
-	// 		online: userElement.dataset.userStatus === 'online'
-	// 	};
-
-	// 	if (!user.id || !user.username) return;
-
-	// 	store.dispatch({
-	// 		domain: 'chat',
-	// 		type: chatActions.SET_SELECTED_USER,
-	// 		payload: user
-	// 	});
-
-	// 	this.loadMessageHistory(user.id);
-	// }
 
 	async refreshUserList() {
 		try {
@@ -421,22 +465,6 @@ export default class ChatApp {
 			});
 	}
 
-	_handleGameInvitation(gameId, senderId, roomId) {
-		if (confirm(`You've been invited to play ${gameId}. Do you want to accept?`)) {
-			// Accept invitation and join room
-			this._sendMessage({
-				type: 'accept_game_invitation',
-				sender_id: senderId,
-				game_id: gameId,
-				room_id: roomId
-			});
-		}
-	}
-
-	handleTournamentWarning(tournamentId, matchTime) {
-		alert(`Your next match in tournament ${tournamentId} is scheduled for ${matchTime}`);
-	}
-
 	setChatModalOpen(isOpen) {
 		this._isChatOpen = isOpen;
 
@@ -484,7 +512,7 @@ export default class ChatApp {
 	selectUser(userId) {
 		logger.debug('[ChatApp] Selecting user with ID:', userId);
 		const user = store.getState('chat').users.find(u => u.id === userId);
-		
+
 		if (!user) {
 			logger.error('[ChatApp] User not found with ID:', userId);
 			return;

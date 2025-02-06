@@ -1,4 +1,5 @@
 import logging
+import json
 
 class ColoredOptionalUserFormatter(logging.Formatter):
     COLORS = {
@@ -15,6 +16,12 @@ class ColoredOptionalUserFormatter(logging.Formatter):
             record.user_id_str = f" [user {record.user_id}]"
         else:
             record.user_id_str = ""
+
+        if hasattr(record, 'data'):
+            try:
+                record.data = json.loads(record.data)
+            except json.JSONDecodeError:
+                record.data = {}
         
         levelname = record.levelname
         if levelname in self.COLORS:

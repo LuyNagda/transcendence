@@ -541,24 +541,37 @@ class JaiPasVu {
         // Create context by combining parent and current domain data
         let context;
         if (domain) {
-            // For domain elements, create a proxy that inherits from parent context
+            /**
+             * Creates a hierarchical context proxy for domain elements that combines:
+             * 1. Current domain's reactive state
+             * 2. Parent domain state (closest ancestor with different data-domain)
+             * 3. Explicitly provided state from parent components
+             * 
+             * @typedef {Proxy} DomainContextProxy
+             * @property {Function} get - Property lookup handler with fallthrough:
+             *   1. Current domain state properties
+             *   2. Parent domain state (if exists)
+             *   3. Explicitly passed state from parent component
+             * @property {Function} has - Existence check following same hierarchy
+             */
             context = new Proxy(domainData?.state || {}, {
                 get(target, prop) {
-                    // First check current domain
+                    // 1. Check current domain's reactive state first
                     if (prop in target) {
                         return target[prop];
                     }
-                    // Then check parent domain
+                    // 2. Fall back to parent domain state (closest ancestor with different data-domain)
                     if (parentData && prop in parentData) {
                         return parentData[prop];
                     }
-                    // Finally check provided state
+                    // 3. Finally check explicitly provided state from parent component
                     if (state && prop in state) {
                         return state[prop];
                     }
                     return undefined;
                 },
                 has(target, prop) {
+                    // Combined existence check across all available state layers
                     return prop in target ||
                         (parentData && prop in parentData) ||
                         (state && prop in state);
@@ -861,7 +874,7 @@ class JaiPasVu {
                         newValue: newValue,
                         elementType: el.type
                     });
-                    this.setValueByPath(context, vModel, newValue);
+                    this._setValueByPath(context, vModel, newValue);
                 } catch (error) {
                     logger.error('[JaiPasVu] Error in v-model handler:', error);
                 }
@@ -1086,7 +1099,7 @@ class JaiPasVu {
         }
     }
 
-    setValueByPath(obj, path, value) {
+    _setValueByPath(obj, path, value) {
         const parts = path.split('.');
         const last = parts.pop();
         const target = parts.reduce((obj, key) => obj[key], obj);

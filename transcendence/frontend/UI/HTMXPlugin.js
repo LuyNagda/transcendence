@@ -70,6 +70,24 @@ export const htmxPlugin = {
 				this._initializeHtmx();
 			}
 		});
+
+		app.navigate = (path, options = {}) => {
+			const defaultOptions = {
+				target: '#content',
+				swap: 'innerHTML',
+				pushUrl: true
+			};
+			const finalOptions = { ...defaultOptions, ...options };
+
+			if (finalOptions.pushUrl) {
+				app.emit('htmx:pushedIntoHistory', path);
+			}
+
+			htmx.ajax('GET', path, {
+				target: finalOptions.target,
+				swap: finalOptions.swap
+			});
+		};
 	},
 
 	/**

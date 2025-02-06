@@ -6,6 +6,7 @@ export const chatActions = {
 	ADD_MESSAGE: 'ADD_MESSAGE',
 	ADD_MESSAGES: 'ADD_MESSAGES',
 	CLEAR_HISTORY: 'CLEAR_HISTORY',
+	UPDATE_USER: 'UPDATE_USER',
 	UPDATE_USERS: 'UPDATE_USERS',
 	INCREMENT_UNREAD: 'INCREMENT_UNREAD',
 	CLEAR_UNREAD: 'CLEAR_UNREAD'
@@ -35,7 +36,8 @@ const validateUser = user => (
 	typeof user.id === 'number' &&
 	typeof user.username === 'string' &&
 	typeof user.online === 'boolean' &&
-	typeof user.blocked === 'boolean'
+	typeof user.blocked === 'boolean' &&
+	typeof user.profile_picture === 'string'
 );
 
 // Exported validators for store
@@ -122,6 +124,11 @@ export const chatReducers = {
 		...state,
 		users: Array.isArray(users) && users.every(validateUser) ? users : state.users,
 		lastUpdate: Date.now()
+	}),
+
+	[chatActions.UPDATE_USER]: (state, user) => ({
+		...state,
+		users: state.users.map(u => (u.id === user.id ? { ...u, ...user } : u))
 	}),
 
 	[chatActions.INCREMENT_UNREAD]: (state, { friendId }) => ({
