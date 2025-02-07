@@ -40,7 +40,14 @@ export const uiPlugin = {
 					fontSize,
 					modals: {},
 					toasts: [],
-					offcanvas: {}
+					offcanvas: {},
+					profile: {
+						username: '',
+						profile_picture: '',
+						totalGames: 0,
+						wins: 0,
+						winRate: 0
+					}
 				}
 			});
 
@@ -52,7 +59,14 @@ export const uiPlugin = {
 				toasts: [],
 				offcanvas: {},
 				themes: Object.values(UI_THEME),
-				fontSizes: Object.values(UI_FONT_SIZE)
+				fontSizes: Object.values(UI_FONT_SIZE),
+				profile: {
+					username: '',
+					profile_picture: '',
+					totalGames: 0,
+					wins: 0,
+					winRate: 0
+				}
 			});
 
 			logger.debug('UI state initialized:', app.getState('ui'));
@@ -93,6 +107,7 @@ export const uiPlugin = {
 			applyFontSize: (fontSize) => this._applyFontSizeToDOM(fontSize),
 			showModal(options) {
 				const modalId = `modal-${Date.now()}`;
+				
 				store.dispatch({
 					domain: 'ui',
 					type: actions.ui.SHOW_MODAL,
