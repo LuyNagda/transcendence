@@ -1,7 +1,8 @@
 import random
 from typing import List, Tuple, Union
 from authentication.models import User
-from pong.models import Tournament, Match
+from pong.models import Tournament, Match, PongGame
+from django.db.models import F
 
 def randomize_and_pair_players(players: List[User]) -> List[Union[Tuple[User, User], Tuple[User, None]]]:
     """
@@ -46,3 +47,18 @@ def calculate_rankings(tournament: Tournament) -> List[Tuple[User, dict]]:
         # Sort players by points, then by wins
         sorted_rankings = sorted(rankings.items(), key=lambda item: (item[1]['points'], item[1]['wins']), reverse=True)
         return sorted_rankings
+    
+def total_games_played(player):
+    return PongGame.objects.filter(player1=player).count() + Match.objects.filter(player2=player).count()
+
+def total_wins(player):
+    return PongGame.objects.filter(player1=player, player1_score__gt=F('player2_score')).count() + PongGame.objects.filter(player2=player, player2_score__gt=F('player1_score')).count()
+
+def total_losses(player):
+    return PongGame.objects.filter(player1=player, player1_score__lt=F('player2_score')).count() + PongGame.objects.filter(player2=player, player2_score__lt=F('player1_score')).count()
+
+def winrate(player):
+    total = total_games_played(player)
+    if total == 0:
+        return 0
+    return total_wins(player) / total
