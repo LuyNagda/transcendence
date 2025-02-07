@@ -78,7 +78,8 @@ export class RoomGameManager {
 			canvas.height = GameRules.CANVAS_HEIGHT;
 
 			// Initialize game instance
-			const gameMode = store.mode || RoomModes.CLASSIC;
+            const state = store.getState('room');
+			const gameMode = state.mode || RoomModes.CLASSIC;
 			const GameClass = await this._loadGameClass(gameMode);
 
 			this._gameInstance = new GameClass(
