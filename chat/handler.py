@@ -41,6 +41,7 @@ class ChatHandler:
     async def handle_message(self, message_type: str, data: Dict[str, Any]) -> None:
         actions: Dict[str, Callable[[Dict[str, Any]], Awaitable[None]]] = {
             'chat_message': self.handle_chat_message,
+            'add_friend': self.handle_add_friend,
             'user_status_change': self.handle_user_status_change,
             'get_profile': self.handle_get_profile,
             'game_invitation': self.handle_game_invitation,
@@ -99,6 +100,34 @@ class ChatHandler:
                 'error': str(e)
             })
             return False
+
+    async def handle_add_friend(self, data: Dict[str, Any]) -> None:
+        if 'friend_username' not in data:
+            raise KeyError('friend_username')
+        
+        friend_username = data['friend_username']
+
+        try:
+            friend = User.objects.get(username=friend_username)
+            if not friend:
+                await self.send_response('add_friend', success=False, error='Error sending friend request')
+                return
+            
+            # Check if friend is already in the user's friends list
+            if friend in self.consumer.user.friends.all():
+                await self.send_response('add_friend', success=False, error='User is already in your friends list')
+                return
+            
+            # Add friend to user's friends list 
+            await self.consumer.user.friends.add(friend)
+            await self.send_response('add_friend', success=True, data={'friend': friend})
+
+        except Exception as e:
+            log.error(f'Error getting user by username {friend_username}: {str(e)}', extra={
+                'user_id': self.consumer.user.id
+            })
+            raise
+        
 
     async def handle_chat_message(self, data: Dict[str, Any]) -> None:
         if 'message' not in data or 'recipient_id' not in data:

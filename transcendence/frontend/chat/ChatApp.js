@@ -83,6 +83,7 @@ export default class ChatApp {
 		// Register methods
 		jaiPasVu.registerMethods('chat', {
 			handleFormSubmit: this.handleFormSubmit.bind(this),
+			handleFormSubmitFriend: this.handleFormSubmitFriend.bind(this),
 			selectUser: this.selectUser.bind(this),
 			blockUser: this.blockUser.bind(this),
 			unblockUser: this.unblockUser.bind(this),
@@ -296,6 +297,37 @@ export default class ChatApp {
 		});
 
 		messageInput.value = '';
+	}
+
+	handleFormSubmitFriend(e) {
+		e.preventDefault();
+		const friendInput = document.querySelector('#friend-input');
+		const friendUsername = friendInput.value.trim();
+
+		if (!friendUsername) return;
+
+		const currentUserId = store.getState('user').id;
+		if (!currentUserId) return;
+
+		logger.debug('[ChatApp] Adding friend:', friendUsername);
+
+		// Send standardized message object to backend
+		this._sendMessage({
+			type: 'add_friend',
+			user_id: currentUserId,
+			friend_username: friendUsername
+		});
+
+		// Update local state
+		store.dispatch({
+			domain: 'chat',
+			type: chatActions.ADD_FRIEND,
+			payload: {
+				friend_username: friendUsername
+			}
+		});
+
+		friendInput.value = '';
 	}
 
 	handleUserClick(event) {
