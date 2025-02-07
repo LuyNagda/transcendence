@@ -89,10 +89,6 @@ export const uiReducers = {
 			...state.modals,
 			[payload.id]: payload
 		},
-		profile: payload.profile ? { 
-			...state.profile, 
-			...payload.profile 
-		} : state.profile
 	}),
 
 	[uiActions.HIDE_MODAL]: (state, payload) => {

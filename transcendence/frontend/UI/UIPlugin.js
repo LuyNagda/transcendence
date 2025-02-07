@@ -41,13 +41,6 @@ export const uiPlugin = {
 					modals: {},
 					toasts: [],
 					offcanvas: {},
-					profile: {
-						username: '',
-						profile_picture: '',
-						totalGames: 0,
-						wins: 0,
-						winRate: 0
-					}
 				}
 			});
 
@@ -60,13 +53,6 @@ export const uiPlugin = {
 				offcanvas: {},
 				themes: Object.values(UI_THEME),
 				fontSizes: Object.values(UI_FONT_SIZE),
-				profile: {
-					username: '',
-					profile_picture: '',
-					totalGames: 0,
-					wins: 0,
-					winRate: 0
-				}
 			});
 
 			logger.debug('UI state initialized:', app.getState('ui'));
