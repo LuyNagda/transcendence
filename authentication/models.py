@@ -15,6 +15,7 @@ class User(AbstractUser):
     otp = models.CharField(max_length=8, blank=True, null=True, default=None)
     online = models.BooleanField(default=False)
     friends = models.ManyToManyField('self', blank=True, null= True, default=None)
+    friendrequests = models.ManyToManyField('self', blank=True, null= True, default=None)
 
     @property
     def player_data(self):
@@ -33,3 +34,16 @@ class User(AbstractUser):
             'online': self.online,
             'profile_picture': self.profile_picture.url,
         }
+
+    def accept_friend_request(self, friend):
+        """Add the user to the friends list"""
+        user = User.objects.get(username=self.username)
+        try:
+            friend = User.objects.get(id=friend)
+            user.friends.add(friend)
+            friend.friends.add(user)
+            friend.save()
+            user.save()
+            return True
+        except:
+            return False
