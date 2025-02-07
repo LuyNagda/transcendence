@@ -7,6 +7,7 @@ from django.contrib.auth import login
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 from pong.pong_functions import total_games_played, total_wins, total_losses, winrate
+from django.http import JsonResponse
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -71,3 +72,15 @@ def games_history(request):
         'winrate': wr
     }
     return render(request, 'games-history.html', context)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedWithCookie])
+def add_friend(request, username):
+    try:
+        user = User.objects.get(username=request.user.username)
+        friend = User.objects.get(username=username)
+        user.friends.add(friend)
+        user.save()
+        return JsonResponse({'message': 'Friend added successfully.'})
+    except:
+        return JsonResponse({'message': 'Error adding friend.'})
