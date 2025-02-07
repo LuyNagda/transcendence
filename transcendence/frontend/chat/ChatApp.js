@@ -205,10 +205,7 @@ export default class ChatApp {
 				store.dispatch({
 					domain: 'ui',
 					type: actions.ui.SHOW_MODAL,
-					payload: { 
-						id: object?.data?.profile?.id,
-						profile: object?.data?.profile
-					}
+					payload: object?.data?.profile
 				});
 			},
 

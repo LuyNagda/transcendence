@@ -8,54 +8,54 @@
 <style>
     
 </style>
-<div id="demo">
+<div id="demo" class="container x-auto my-4">
     &nbsp; &nbsp;
-    <h1>Games History for {{ request.user.username }} | Total Games Played: {{ total_games }}</h1>
-    <h2>Total Wins: {{ wins }} | Total Losses: {{ losses }} | Winrate: {{ winrate }}</h2>
+    <h1>Games History</h1>
+	<h3>Played: {{ total_games }} | Wins: {{ wins }} | Losses: {{ losses }} | Winrate: {{ winrate }}</h3>
     
-    <div class="">
-    <table id="table" class="table">
-        <thead>
-          <tr>
-            <th>V/S</th>
-            <th>Your Score</th>
-            <th>Opponent Score</th>
-            <th>Created At</th>
-            <th>Finished At</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for games in games_history %}
-          <tr>
-            <td>
-                {% if not games.player1 or not games.player2 %}
-                    AI
-                {% elif games.player1 != request.user %}
-                    {{ games.player1.username }}
-                {% else %}
-                    {{ games.player2.username }}
-                {% endif %}
-            </td>
-            <td>
-                {% if games.player1 != request.user %}
-                    games.player2_score
-                {% else %}
-                    games.player1_score
-                {% endif %}
-            </td>
-            <td>
-                {% if games.player1 != request.user %}
-                    games.player1_score
-                {% else %}
-                    games.player2_score
-                {% endif %}
-            </td>
-            <td>{{ games.created_at }}</td>
-            <td>{{ games.finished_at }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div>
+		<table id="table" class="table">
+			<thead>
+			<tr>
+				<th>V/S</th>
+				<th>Your Score</th>
+				<th>Opponent Score</th>
+				<th>Created At</th>
+				<th>Finished At</th>
+			</tr>
+			</thead>
+			<tbody>
+			{% for games in games_history %}
+			<tr>
+				<td>
+					{% if not games.player1 or not games.player2 %}
+						AI
+					{% elif games.player1 != request.user %}
+						{{ games.player1.username }}
+					{% else %}
+						{{ games.player2.username }}
+					{% endif %}
+				</td>
+				<td>
+					{% if games.player1 != request.user %}
+						games.player2_score
+					{% else %}
+						games.player1_score
+					{% endif %}
+				</td>
+				<td>
+					{% if games.player1 != request.user %}
+						games.player1_score
+					{% else %}
+						games.player2_score
+					{% endif %}
+				</td>
+				<td>{{ games.created_at }}</td>
+				<td>{{ games.finished_at }}</td>
+			</tr>
+			{% endfor %}
+			</tbody>
+		</table>
     </div>
 
 {% endblock %}

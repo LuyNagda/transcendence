@@ -2,7 +2,7 @@
 	<div class="modal-dialog">
 		<div class="modal-content">
 			<div class="modal-header">
-				<button type="button" v-on:click="hideModal(2)" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+				<button type="button" v-on:click="hideModal([[ id ]])" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
 			</div>
 			<div class="modal-body">
 				<div class="row align-items-center">
@@ -12,22 +12,22 @@
 							alt="Photo de profil"
 							style="max-width: 100px;">
 						<div class="d-block">
-							<h6 class="mb-0" v-text="profile.username">userName</h6>
+							<h6 class="mb-0" v-text="modals[id].username">userName</h6>
 						</div>
 					</div>
 					<div class="col-8">
 						<ul class="list-group">
 							<li class="list-group-item d-flex justify-content-between align-items-center">
 								Played games
-								<span class="badge bg-secondary" v-text="profile.totalGames">totalGame</span>
+								<span class="badge bg-secondary" v-text="modals[id].totalGames">totalGame</span>
 							</li>
 							<li class="list-group-item d-flex justify-content-between align-items-center">
 								Wins
-								<span class="badge bg-success" v-text="profile.wins">wins</span>
+								<span class="badge bg-success" v-text="modals[id].wins">wins</span>
 							</li>
 							<li class="list-group-item d-flex justify-content-between align-items-center">
 								Winrate
-								<span class="badge bg-info" v-text="profile.winRate">winRate</span>
+								<span class="badge bg-info" v-text="modals[id].winRate">winRate</span>
 							</li>
 						</ul>
 					</div>
