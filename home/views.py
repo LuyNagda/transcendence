@@ -80,6 +80,8 @@ def add_friend(request, username):
         user = User.objects.get(username=request.user.username)
         friend = User.objects.get(username=username)
         user.friends.add(friend)
+        friend.friends.add(user)
+        friend.save()
         user.save()
         return JsonResponse({'message': 'Friend added successfully.'})
     except:
