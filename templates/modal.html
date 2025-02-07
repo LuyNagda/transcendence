@@ -1,0 +1,42 @@
+<div id="modal" class="modal fade" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+	<div class="modal-dialog">
+		<div class="modal-content">
+			<div class="modal-header">
+				<button type="button" v-on:click="hideModal(2)" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+			</div>
+			<div class="modal-body">
+				<div class="row align-items-center">
+					<div class="col-4 text-center">
+						<img :src="selectedUser.profile_picture" 
+							class="rounded-circle img-fluid mb-3" 
+							alt="Photo de profil"
+							style="max-width: 100px;">
+						<div class="d-block">
+							<h6 class="mb-0">userName</h6>
+						</div>
+					</div>
+					<div class="col-8">
+						<ul class="list-group">
+							<li class="list-group-item d-flex justify-content-between align-items-center">
+								Parties jouées
+								<span class="badge bg-secondary">totalGame</span>
+							</li>
+							<li class="list-group-item d-flex justify-content-between align-items-center">
+								Victoires
+								<span class="badge bg-success">wins</span>
+							</li>
+							<li class="list-group-item d-flex justify-content-between align-items-center">
+								Taux de victoire
+								<span class="badge bg-info">winRate</span>
+							</li>
+						</ul>
+					</div>
+				</div>
+				<div class="mt-3" v-if="selectedUser.bio">
+					<h6>Bio :</h6>
+					<p class="text-muted">bio</p>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>

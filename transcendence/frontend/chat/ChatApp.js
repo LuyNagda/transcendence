@@ -199,13 +199,16 @@ export default class ChatApp {
 				}
 			},
 
-			user_profile: (data) => {
-				if (!data?.profile?.id) return;
+			user_profile: (object) => {
+				if (!object?.data?.profile?.id) return;
 
 				store.dispatch({
 					domain: 'ui',
 					type: actions.ui.SHOW_MODAL,
-					payload: { id: data.profile.id }
+					payload: { 
+						id: object?.data?.profile?.id,
+						profile: object?.data?.profile
+					}
 				});
 			},
 

@@ -218,7 +218,7 @@ export const uiPlugin = {
 
 	_handleModalStateChange(modals) {
 		Object.entries(modals || {}).forEach(([id, modalData]) => {
-			const modalElement = document.getElementById(id);
+			const modalElement = document.getElementById('modal');
 			if (modalElement) {
 				const modal = Modal.getInstance(modalElement) || new Modal(modalElement);
 				modal.show();
