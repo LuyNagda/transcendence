@@ -184,7 +184,7 @@ export default class Room {
 				this._gameManager._handleGameStarted(data);
 			} else if (data.type === 'game_ended') {
 				this._gameManager._handleGameEnded(data);
-			}s
+			}
 		});
 	}
 

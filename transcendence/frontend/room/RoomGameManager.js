@@ -1,6 +1,7 @@
 import logger from '../logger.js';
 import { RoomModes } from '../state/roomState.js';
 import { GameRules } from '../pong/core/GameRules.js';
+import { store } from '../state/store.js';
 
 /**
  * Manages game-specific logic for a room
@@ -77,7 +78,7 @@ export class RoomGameManager {
 			canvas.height = GameRules.CANVAS_HEIGHT;
 
 			// Initialize game instance
-			const gameMode = settings.mode || RoomModes.CLASSIC;
+			const gameMode = store.mode || RoomModes.CLASSIC;
 			const GameClass = await this._loadGameClass(gameMode);
 
 			this._gameInstance = new GameClass(
