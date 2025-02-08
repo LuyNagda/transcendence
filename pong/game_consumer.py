@@ -3,7 +3,6 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.utils import timezone
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from asgiref.sync import async_to_sync
 from contextlib import asynccontextmanager
 from django.contrib.auth import get_user_model
 from .models import PongGame
@@ -203,6 +202,13 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         'from_user': self.user.id
                     }
                 )
+
+            elif message_type == 'update_scores':
+                scores = data.get('scores', {})
+                player1_score = scores.get('player1', 0)
+                player2_score = scores.get('player2', 0)
+                await self.update_game_state(player1_score, player2_score, 'ongoing')
+
             elif message_type == 'game_complete':
                 if not self.is_host:
                     logger.warning(f"Non-host player tried to complete game", extra={
@@ -228,16 +234,17 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 # Notify room about game completion and trigger room state update
                 if self.game.room:
                     room_group_name = f'pong_room_{self.game.room.room_id}'
+                    # Send room state update first
                     await self.channel_layer.group_send(
                         room_group_name,
                         {
-                            'type': 'update_property',
-                            'property': 'state',
-                            'value': 'LOBBY'
+                            'type': 'send_room_update',
+                            'room_state': {
+                                'state': 'LOBBY'
+                            }
                         }
                     )
-                    # Also send game finished notification
-                    # TODO: Save en db les scores ?
+                    # Then send game finished notification
                     await self.channel_layer.group_send(
                         room_group_name,
                         {

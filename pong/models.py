@@ -64,6 +64,10 @@ class PongRoom(models.Model):
     @property
     def is_full(self):
         return self.player_count >= self.max_players
+    
+    @property
+    def is_ai(self):
+        return self.mode == self.Mode.AI
 
     @property
     def max_players(self):

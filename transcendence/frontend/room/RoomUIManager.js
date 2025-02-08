@@ -1,15 +1,14 @@
 import jaiPasVu from '../UI/JaiPasVu.js';
 import logger from '../logger.js';
-import { RoomStates, RoomModes } from '../state/roomState.js';
+import { RoomStates } from '../state/roomState.js';
 import { store, actions } from '../state/store.js';
 
 /**
  * Manages the UI state and interactions for a room using JaiPasVu's reactivity system
  */
 export class RoomUIManager {
-	constructor(roomId, currentUser) {
+	constructor(roomId) {
 		this._roomId = roomId;
-		this._currentUser = currentUser;
 		this._eventHandlers = new Map();
 		this._observers = [];
 
@@ -24,7 +23,7 @@ export class RoomUIManager {
 	}
 
 	_initializeReactiveState() {
-        logger.info('[RoomUIManager] Initializing reactive state');
+		logger.info('[RoomUIManager] Initializing reactive state');
 
 		logger.debug('Room state:', store.getState('room'));
 
@@ -45,7 +44,7 @@ export class RoomUIManager {
 				logger.debug('Leave game called');
 				this._callHandler('leaveGame');
 			},
-			getCurrentUser: () => this._currentUser || store.getState('user'),
+			getCurrentUser: () => store.getState('user'),
 			toggleInviteModal: () => this._toggleInviteModal(),
 			handleSettingChange: this.handleSettingChange,
 			handleModeChange: this.handleModeChange
@@ -53,7 +52,6 @@ export class RoomUIManager {
 
 		this._observers.push(
 			store.subscribe('room', this._handleRoomStateUpdate.bind(this)),
-			store.subscribe('user', this._handleUserStateUpdate.bind(this))
 		);
 	}
 
@@ -61,8 +59,8 @@ export class RoomUIManager {
 		logger.debug('Room state update from store:', state);
 		// Update the UI through JaiPasVu's reactivity
 		jaiPasVu.registerData('room', {
-            ...state,
-            mappedPlayers: function () {
+			...state,
+			mappedPlayers: function () {
 				const players = state.players || [];
 				const currentUserId = state.currentUser?.id;
 				return players.map(player => ({
@@ -76,8 +74,6 @@ export class RoomUIManager {
 				return Math.max(0, state.maxPlayers - (state.players?.length || 0));
 			},
 			isOwner: function () {
-                console.log("isowner");
-                console.log("shit works: ", state.owner?.id === state.currentUser?.id);
 				return state.owner?.id === state.currentUser?.id;
 			},
 			isLobbyState: function () {
@@ -97,18 +93,18 @@ export class RoomUIManager {
 					'lobby': state.state === RoomStates.LOBBY,
 					'playing': state.state === RoomStates.PLAYING
 				};
+			},
+			hasError: function () {
+				return !!state.error;
+			},
+			errorMessage: function () {
+				return state.error?.message || '';
+			},
+			formatErrorTime: function () {
+				if (!state.error?.timestamp) return '';
+				const date = new Date(state.error.timestamp);
+				return date.toLocaleTimeString();
 			}
-        });
-	}
-
-	_handleUserStateUpdate(state) {
-		logger.debug('User state update from store:', state);
-		this._currentUser = state;
-		// Update currentUser in room state through store
-		store.dispatch({
-			domain: 'room',
-			type: actions.room.UPDATE_ROOM,
-			payload: { currentUser: state }
 		});
 	}
 
@@ -130,7 +126,7 @@ export class RoomUIManager {
 				logger.debug('Leave game called');
 				this._callHandler('leaveGame');
 			},
-			getCurrentUser: () => this._currentUser || store.getState('user'),
+			getCurrentUser: () => store.getState('user'),
 			toggleInviteModal: () => this._toggleInviteModal(),
 			handleSettingChange: this.handleSettingChange,
 			handleModeChange: this.handleModeChange
@@ -177,8 +173,8 @@ export class RoomUIManager {
 	}
 
 	_toggleInviteModal() {
-        const roomState = store.getState('room');
-        logger.info('[RoomUIManager] Toggling invite modal', roomState);
+		const roomState = store.getState('room');
+		logger.info('[RoomUIManager] Toggling invite modal', roomState);
 		store.dispatch({
 			domain: 'room',
 			type: actions.room.UPDATE_ROOM,
@@ -258,6 +254,6 @@ export class RoomUIManager {
 }
 
 // Factory function to create RoomUIManager instance
-export const createRoomUIManager = (roomId, currentUser) => {
-	return new RoomUIManager(roomId, currentUser);
+export const createRoomUIManager = (roomId) => {
+	return new RoomUIManager(roomId);
 };

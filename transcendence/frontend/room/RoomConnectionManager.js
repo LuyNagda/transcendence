@@ -2,6 +2,7 @@ import logger from '../logger.js';
 import { store, actions } from '../state/store.js';
 import { RoomStates } from '../state/roomState.js';
 import { connectionManager } from '../networking/ConnectionManager.js';
+import { ConnectionState } from '../networking/NetworkingCore.js';
 
 /**
  * Custom error types for room-specific errors
@@ -17,8 +18,12 @@ class RoomError extends Error {
 export const RoomErrorCodes = {
 	// Non-retryable errors
 	INVALID_STATE: 'INVALID_STATE',
-	UNAUTHORIZED: 'UNAUTHORIZED',
-	ROOM_NOT_FOUND: 'ROOM_NOT_FOUND',
+	UNAUTHORIZED: 4001,
+	ROOM_NOT_FOUND: 4004,
+	ROOM_FULL: 4003,
+	AI_MODE_RESTRICTED: 4005,
+	GAME_IN_PROGRESS: 4006,
+	PRIVATE_ROOM_NO_INVITE: 4007,
 	VALIDATION_ERROR: 'VALIDATION_ERROR',
 	ALREADY_PLAYING: 'ALREADY_PLAYING',
 	PLAYER_COUNT_ERROR: 'PLAYER_COUNT_ERROR',
@@ -40,8 +45,9 @@ export class RoomConnectionManager {
 		this._roomId = roomId;
 		this._config = config;
 		this._groupName = `room:${roomId}`;
+		this._hasError = false;
+		this._isInitialized = false;
 		this._setupConnections();
-		this._setupMessageHandlers();
 	}
 
 	/**
@@ -56,7 +62,7 @@ export class RoomConnectionManager {
 				config: {
 					endpoint: `/ws/pong_room/${this._roomId}/`,
 					options: {
-						maxReconnectAttempts: 5,
+						maxReconnectAttempts: 3,
 						reconnectInterval: 1000,
 						connectionTimeout: 10000
 					}
@@ -64,66 +70,185 @@ export class RoomConnectionManager {
 			}
 		};
 
-		// Add game connection if specified in config
-		if (this._config.enableGameConnection) {
-			connections.game = {
-				type: 'webrtc',
-				config: this._config.rtcConfig || {}
-			};
-		}
-
 		this._connections = connectionManager.createConnectionGroup(this._groupName, connections);
 		this._mainConnection = this._connections.get('main');
+
+		this._setupEventHandlers();
 	}
 
 	/**
-	 * Sets up message handlers for the room
+	 * Sets up event handlers for all connections
 	 * @private
 	 */
-	_setupMessageHandlers() {
-		logger.debug('[RoomConnectionManager] Setting up message handlers');
+	_setupEventHandlers() {
+		if (!this._mainConnection) return;
 
-		// Handle room state updates
-		this._mainConnection.on('room_update', (data) => {
-			logger.debug('[RoomConnectionManager] Received room update:', data);
-			if (data.room_state) {
+		this._mainConnection.on('stateChange', (state) => {
+			if (state === ConnectionState.CONNECTED) {
+				this._hasError = false;
+			}
+		});
+
+		this._mainConnection.on('close', (event) => {
+			this._handleClose(event);
+		});
+
+		this._mainConnection.on('error', (error) => {
+			if (!this._hasError) {
+				this._handleError(error);
+			}
+		});
+
+		this._mainConnection.on('message', (data) => {
+			this._handleMessage(data);
+		});
+	}
+
+	/**
+	 * Handles incoming messages
+	 * @private
+	 */
+	_handleMessage(data) {
+		try {
+			if (data.type === 'error') {
+				this._handleError(new RoomError(data.message, data.code));
+				return;
+			}
+
+			if (data.type === 'room_update' && data.room_state) {
+				if (!this._isInitialized) {
+					this._isInitialized = true;
+					logger.info('[RoomConnectionManager] Room initialized successfully');
+				}
 				store.dispatch({
 					domain: 'room',
 					type: actions.room.UPDATE_ROOM,
 					payload: data.room_state
 				});
+				return;
 			}
-		});
 
-		// Handle game started event
-		this._mainConnection.on('game_started', () => {
-			logger.debug('[RoomConnectionManager] Received game started event');
-			store.dispatch({
-				domain: 'room',
-				type: actions.room.UPDATE_ROOM_STATE,
-				payload: { state: RoomStates.PLAYING }
+			if (data.type === 'game_started') {
+				store.dispatch({
+					domain: 'room',
+					type: actions.room.UPDATE_ROOM_STATE,
+					payload: { state: RoomStates.PLAYING }
+				});
+			}
+		} catch (error) {
+			logger.error('[RoomConnectionManager] Error handling message:', error);
+		}
+	}
+
+	/**
+	 * Handles connection close events
+	 * @private
+	 */
+	_handleClose(event) {
+		if (!this._isInitialized) {
+			let errorMessage;
+			switch (event.code) {
+				case RoomErrorCodes.UNAUTHORIZED:
+					errorMessage = 'Unauthorized access to room';
+					break;
+				case RoomErrorCodes.ROOM_NOT_FOUND:
+					errorMessage = 'Room not found';
+					break;
+				case RoomErrorCodes.ROOM_FULL:
+					errorMessage = 'Room is full';
+					break;
+				case RoomErrorCodes.AI_MODE_RESTRICTED:
+					errorMessage = 'Cannot join AI mode room';
+					break;
+				case RoomErrorCodes.GAME_IN_PROGRESS:
+					errorMessage = 'Cannot join: Game in progress';
+					break;
+				case RoomErrorCodes.PRIVATE_ROOM_NO_INVITE:
+					errorMessage = 'Cannot join private room: No invitation';
+					break;
+				default:
+					if (event.code >= 4000) {
+						errorMessage = 'Room access denied';
+					}
+			}
+
+			if (errorMessage) {
+				this._handleError(new RoomError(errorMessage, event.code));
+			}
+		} else if (!this._hasError) {
+			this._handleError(new RoomError('Connection lost', 'CONNECTION_LOST'));
+		}
+	}
+
+	/**
+	 * Handles errors
+	 * @private
+	 */
+	_handleError(error) {
+		logger.error('[RoomConnectionManager] Room error:', error);
+		this._hasError = true;
+		this._isInitialized = false;
+		this.disconnect();
+
+		if (this._mainConnection) {
+			this._mainConnection.emit('room_error', {
+				code: error.code,
+				message: error.message
 			});
-		});
+		}
 	}
 
 	/**
 	 * Connects to the room
 	 */
 	async connect() {
-		return connectionManager.connectGroup(this._groupName);
+		try {
+			// Reset error and initialization flags
+			this._hasError = false;
+			this._isInitialized = false;
+
+			// Let ConnectionManager handle the connection and reconnection logic
+			const connected = await connectionManager.connectGroup(this._groupName);
+			if (!connected) {
+				throw new RoomError('Failed to connect to room', 'CONNECTION_ERROR');
+			}
+
+			// Get initial state after successful connection
+			const roomState = await this.getCurrentState();
+			if (roomState) {
+				this._isInitialized = true;
+				logger.info('[RoomConnectionManager] Room initialized successfully');
+				return true;
+			}
+
+			throw new RoomError('Failed to get initial room state', 'INITIALIZATION_ERROR');
+		} catch (error) {
+			// Only handle error if we haven't already
+			if (!this._hasError) {
+				this._handleError(error instanceof RoomError ? error : new RoomError(error.message, 'CONNECTION_ERROR'));
+			}
+			throw error;
+		}
 	}
 
 	/**
 	 * Disconnects from the room
 	 */
 	disconnect() {
-		connectionManager.disconnectGroup(this._groupName);
+		if (this._connections) {
+			connectionManager.disconnectGroup(this._groupName);
+		}
+		this._isInitialized = false;
+		this._hasError = true;
 	}
 
 	/**
 	 * Gets current room state
 	 */
 	async getCurrentState() {
+		if (!this._mainConnection?.state?.canSend)
+			return null;
+
 		try {
 			logger.debug('[RoomConnectionManager] Getting current state for room:', this._roomId);
 			const response = await this._mainConnection.sendRequest('get_state', {
@@ -140,20 +265,24 @@ export class RoomConnectionManager {
 				});
 				return response.room_state;
 			}
+
 			throw new RoomError('Invalid response format', RoomErrorCodes.INVALID_RESPONSE);
 		} catch (error) {
 			logger.error('[RoomConnectionManager] Failed to get room state:', error);
-			throw error;
+			return null;
 		}
 	}
 
+
 	/**
-	 * Starts the game
+	 * Sends a request to the room
+	 * @private
 	 */
-	async startGame() {
+	async _sendRequest(action, data = {}) {
 		try {
-			const response = await this._mainConnection.sendRequest('start_game', {
-				id: this._roomId
+			const response = await this._mainConnection.sendRequest(action, {
+				id: this._roomId,
+				...data
 			});
 
 			if (response.status === 'success') {
@@ -161,94 +290,39 @@ export class RoomConnectionManager {
 			}
 
 			throw new RoomError(
-				response.message || 'Failed to start game',
-				RoomErrorCodes.GAME_CREATE_ERROR
+				response.message || `Failed to ${action}`,
+				RoomErrorCodes.VALIDATION_ERROR
 			);
 		} catch (error) {
-			logger.error('Failed to start game:', error);
+			logger.error(`[RoomConnectionManager] Failed to ${action}:`, error);
 			throw error;
 		}
 	}
 
 	/**
-	 * Updates a room setting
+	 * Room action methods
 	 */
+
+	async startGame() {
+		return this._sendRequest('start_game');
+	}
+
 	async updateSetting(setting, value) {
-		try {
-			const response = await this._mainConnection.sendRequest('update_setting', {
-				id: this._roomId,
-				setting,
-				value
-			});
-
-			if (response.status !== 'success') {
-				throw new RoomError(
-					response.message || 'Failed to update setting',
-					RoomErrorCodes.VALIDATION_ERROR
-				);
-			}
-			return response;
-		} catch (error) {
-			logger.error('Failed to update setting:', error);
-			throw error;
-		}
+		return this._sendRequest('update_setting', { setting, value });
 	}
 
-	/**
-	 * Updates room mode
-	 */
 	async updateMode(mode) {
-		try {
-			const response = await this._mainConnection.sendRequest('update_mode', {
-				id: this._roomId,
-				mode
-			});
-
-			if (response.status !== 'success') {
-				throw new RoomError(
-					response.message || 'Failed to update mode',
-					RoomErrorCodes.VALIDATION_ERROR
-				);
-			}
-			return response;
-		} catch (error) {
-			logger.error('Failed to update mode:', error);
-			throw error;
-		}
+		return this._sendRequest('update_mode', { mode });
 	}
 
-	/**
-	 * Leaves the game
-	 */
 	async leaveGame() {
-		try {
-			const response = await this._mainConnection.sendRequest('leave_game', {
-				id: this._roomId
-			});
-
-			if (response.status !== 'success') {
-				throw new RoomError(
-					response.message || 'Failed to leave game',
-					RoomErrorCodes.VALIDATION_ERROR
-				);
-			}
-			return response;
-		} catch (error) {
-			logger.error('Failed to leave game:', error);
-			throw error;
-		}
+		return this._sendRequest('leave_game');
 	}
-
-	/**
-	 * Gets the game connection if available
-	 */
+	// Getters for connections
 	getGameConnection() {
 		return this._connections.get('game');
 	}
 
-	/**
-	 * Gets the main connection
-	 */
 	getMainConnection() {
 		return this._mainConnection;
 	}
@@ -257,7 +331,12 @@ export class RoomConnectionManager {
 	 * Cleans up all connections and resources
 	 */
 	destroy() {
-		connectionManager.removeConnectionGroup(this._groupName);
+		this.disconnect();
+		if (this._connections) {
+			connectionManager.removeConnectionGroup(this._groupName);
+			this._connections = null;
+		}
+		this._mainConnection = null;
 	}
 }
 

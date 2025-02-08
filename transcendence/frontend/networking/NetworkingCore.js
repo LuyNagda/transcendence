@@ -362,6 +362,8 @@ export class WebRTCConnection extends BaseConnection {
 		this._hasReceivedAnswer = false;
 		this._pendingCandidates = [];
 		this._hasRemoteDescription = false;
+		this._isNegotiating = false;
+		this._negotiationQueue = Promise.resolve(); // Add negotiation queue
 	}
 
 	/**
@@ -376,34 +378,58 @@ export class WebRTCConnection extends BaseConnection {
 			this._setupPeerHandlers();
 
 			if (this._config.isHost) {
+				logger.debug('Host: Creating data channel');
 				this._dataChannel = this._peer.createDataChannel('gameData', {
 					ordered: true,
 					maxRetransmits: 3
 				});
 				this._setupDataChannelHandlers(this._dataChannel);
+				await this._createAndSendOffer();
 			}
 
-			if (this._config.isHost) {
-				this._peer.onicegatheringstatechange = () => {
-					if (this._peer.iceGatheringState === 'complete' && !this._iceGatheringComplete) {
-						this._iceGatheringComplete = true;
-						this.emit('ready');
-					}
-				};
-
-				this.state = ConnectionState.SIGNALING;
-				this._peer.createOffer().then(offer => {
-					this._peer.setLocalDescription(offer);
-				}).catch(error => {
-					this._handleError(error);
-				});
-			} else {
-				this.state = ConnectionState.SIGNALING;
-				this.emit('ready');
-			}
+			this.state = ConnectionState.SIGNALING;
 		} catch (error) {
 			this._handleError(error);
 		}
+	}
+
+	/**
+	 * Creates and sends an offer
+	 * @private
+	 */
+	async _createAndSendOffer() {
+		// Queue the negotiation to prevent concurrent offers
+		this._negotiationQueue = this._negotiationQueue.then(async () => {
+			try {
+				if (this._peer.signalingState !== 'stable') {
+					logger.debug('Skipping offer creation - signaling state not stable');
+					return;
+				}
+
+				this._isNegotiating = true;
+				logger.debug('Creating offer...');
+				const offer = await this._peer.createOffer();
+
+				// Double check signaling state before setting local description
+				if (this._peer.signalingState !== 'stable') {
+					logger.debug('Signaling state changed during offer creation, aborting');
+					this._isNegotiating = false;
+					return;
+				}
+
+				await this._peer.setLocalDescription(offer);
+				this.emit('signal', {
+					type: 'offer',
+					sdp: offer.sdp
+				});
+			} catch (error) {
+				logger.error('Error creating offer:', error);
+				this._isNegotiating = false;
+			}
+		}).catch(error => {
+			logger.error('Error in negotiation queue:', error);
+			this._isNegotiating = false;
+		});
 	}
 
 	/**
@@ -413,7 +439,7 @@ export class WebRTCConnection extends BaseConnection {
 	_setupPeerHandlers() {
 		this._peer.onicecandidate = (event) => {
 			if (event.candidate) {
-				logger.debug(`${this._config.isHost ? 'Host' : 'Guest'}: Sending ICE candidate`);
+				logger.debug(`${this._config.isHost ? 'Host' : 'Guest'}: ICE candidate generated`);
 				this.emit('iceCandidate', event.candidate);
 			}
 		};
@@ -421,6 +447,12 @@ export class WebRTCConnection extends BaseConnection {
 		this._peer.onconnectionstatechange = () => {
 			logger.debug(`Connection state changed to: ${this._peer.connectionState}`);
 			if (this._peer.connectionState === 'connected') {
+				// Process any pending ICE candidates
+				while (this._pendingCandidates.length > 0) {
+					const candidate = this._pendingCandidates.shift();
+					this._peer.addIceCandidate(new RTCIceCandidate(candidate))
+						.catch(error => logger.error('Error adding pending ICE candidate:', error));
+				}
 				this.state = ConnectionState.CONNECTED;
 				this.processQueue();
 			} else if (this._peer.connectionState === 'failed') {
@@ -430,8 +462,27 @@ export class WebRTCConnection extends BaseConnection {
 			}
 		};
 
+		this._peer.onsignalingstatechange = () => {
+			logger.debug(`Signaling state changed to: ${this._peer.signalingState}`);
+			if (this._peer.signalingState === 'stable') {
+				this._isNegotiating = false;
+			}
+		};
+
+		this._peer.onnegotiationneeded = async () => {
+			try {
+				if (this._config.isHost && !this._isNegotiating) {
+					await this._createAndSendOffer();
+				}
+			} catch (error) {
+				logger.error('Error during negotiation:', error);
+				this._isNegotiating = false;
+			}
+		};
+
 		if (!this._config.isHost) {
 			this._peer.ondatachannel = (event) => {
+				logger.debug('Guest: Received data channel');
 				this._dataChannel = event.channel;
 				this._setupDataChannelHandlers(this._dataChannel);
 			};
@@ -444,6 +495,7 @@ export class WebRTCConnection extends BaseConnection {
 	 */
 	_setupDataChannelHandlers(channel) {
 		channel.onopen = () => {
+			logger.debug(`Data channel ${channel.label} opened`);
 			if (this._peer && this._peer.connectionState === 'connected') {
 				this.state = ConnectionState.CONNECTED;
 				this.processQueue();
@@ -461,11 +513,13 @@ export class WebRTCConnection extends BaseConnection {
 		};
 
 		channel.onclose = () => {
+			logger.debug(`Data channel ${channel.label} closed`);
 			this.state = ConnectionState.DISCONNECTED;
 			this.emit('close');
 		};
 
 		channel.onerror = (error) => {
+			logger.error(`Data channel ${channel.label} error:`, error);
 			this._handleError(error);
 		};
 	}
@@ -492,23 +546,34 @@ export class WebRTCConnection extends BaseConnection {
 	 */
 	async handleOffer(offer) {
 		if (!this._peer || this._config.isHost) return null;
-		if (this._hasRemoteDescription) {
-			logger.debug('Guest: Ignoring duplicate offer');
-			return null;  // Early return for duplicate offers
-		}
 
 		try {
 			logger.debug('Guest: Setting remote description from offer');
 			this.state = ConnectionState.SIGNALING;
+
+			// If we already have a remote description, we need to rollback
+			if (this._peer.signalingState !== 'stable') {
+				logger.debug('Rolling back local description');
+				await this._peer.setLocalDescription({ type: 'rollback' });
+			}
+
 			await this._peer.setRemoteDescription(new RTCSessionDescription(offer));
 			this._hasRemoteDescription = true;
-			logger.debug('Guest: Remote description set, processing pending candidates');
-			await this._processPendingCandidates();
+			logger.debug('Guest: Remote description set, creating answer');
 
 			const answer = await this._peer.createAnswer();
 			await this._peer.setLocalDescription(answer);
+
+			// Emit the answer signal
+			this.emit('signal', {
+				type: 'answer',
+				sdp: answer.sdp
+			});
+
+			logger.debug('Guest: Answer created and sent');
 			return answer;
 		} catch (error) {
+			logger.error('Error handling offer:', error);
 			this._handleError(error);
 			return null;
 		}
@@ -519,24 +584,19 @@ export class WebRTCConnection extends BaseConnection {
 	 * @param {RTCSessionDescriptionInit} answer - WebRTC answer
 	 */
 	async handleAnswer(answer) {
-		if (!this._peer || !this._config.isHost || this._hasReceivedAnswer) {
-			logger.debug('Host: Ignoring duplicate answer');
-			return;  // Early return for duplicate answers
+		if (!this._peer || !this._config.isHost) {
+			logger.debug('Ignoring answer - not host');
+			return;
 		}
 
 		try {
-			if (this._peer.signalingState === 'stable') {
-				logger.debug('Host: Ignoring answer - connection already stable');
-				return;
-			}
-
 			logger.debug('Host: Setting remote description from answer');
 			await this._peer.setRemoteDescription(new RTCSessionDescription(answer));
-			this._hasReceivedAnswer = true;
 			this._hasRemoteDescription = true;
-			logger.debug('Host: Remote description set, processing pending candidates');
-			await this._processPendingCandidates();
+			this._hasReceivedAnswer = true;
+			logger.debug('Host: Remote description set, connection should be establishing');
 		} catch (error) {
+			logger.error('Error handling answer:', error);
 			this._handleError(error);
 		}
 	}
@@ -546,6 +606,11 @@ export class WebRTCConnection extends BaseConnection {
 	 * @private
 	 */
 	async _processPendingCandidates() {
+		if (!this._hasRemoteDescription) {
+			logger.debug('Cannot process candidates without remote description');
+			return;
+		}
+
 		logger.debug(`Processing ${this._pendingCandidates.length} pending candidates`);
 		while (this._pendingCandidates.length > 0) {
 			const candidate = this._pendingCandidates.shift();
@@ -553,8 +618,7 @@ export class WebRTCConnection extends BaseConnection {
 				await this._peer.addIceCandidate(new RTCIceCandidate(candidate));
 				logger.debug('Successfully added ICE candidate');
 			} catch (error) {
-				// If we still get an error, this candidate might be invalid
-				logger.debug(`Skipping invalid ICE candidate: ${error.message}`);
+				logger.error('Error adding ICE candidate:', error);
 			}
 		}
 	}
@@ -571,13 +635,13 @@ export class WebRTCConnection extends BaseConnection {
 				logger.debug('Adding ICE candidate immediately');
 				await this._peer.addIceCandidate(new RTCIceCandidate(candidate));
 			} else {
+				logger.debug('Remote description not set, queueing ICE candidate');
 				this._pendingCandidates.push(candidate);
-				logger.debug(`Queued ICE candidate (total pending: ${this._pendingCandidates.length})`);
+				logger.debug(`Total pending candidates: ${this._pendingCandidates.length}`);
 			}
 		} catch (error) {
-			// If we fail to add the candidate immediately, queue it
+			logger.error('Error adding ICE candidate:', error);
 			this._pendingCandidates.push(candidate);
-			logger.debug(`Failed to add ICE candidate immediately, queued (total: ${this._pendingCandidates.length})`);
 		}
 	}
 

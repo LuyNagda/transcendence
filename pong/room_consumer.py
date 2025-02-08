@@ -37,6 +37,9 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 await self.close(code=4004)
                 return
 
+            # First accept the connection
+            await self.accept()
+
             # Add user to room group
             await self.channel_layer.group_add(
                 self.room_group_name,
@@ -44,15 +47,23 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             )
 
             # Add user to room if not already present
-            success, message = await self.add_user_to_room()
+            success, message, error_code = await self.add_user_to_room()
             if not success:
                 logger.error(f"Failed to add user to room: {message} - room_id: {self.room_id}", extra={
                     'user_id': self.user.id
                 })
-                await self.close(code=4002)
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'code': error_code,
+                    'message': message
+                }))
+                await self.channel_layer.group_discard(
+                    self.room_group_name,
+                    self.channel_name
+                )
+                await self.close(code=error_code)
                 return
 
-            await self.accept()
             logger.info(f"Room WebSocket connection accepted for user {self.user.username} in room {self.room_id}", extra={
                 'user_id': self.user.id
             })
@@ -64,6 +75,13 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error during connection - error_type: {type(e).__name__}, error_message: {str(e)}, traceback: {traceback.format_exc()}, room_id: {getattr(self, 'room_id', None)}", extra={
                 'user_id': getattr(self.user, 'id', None)
             })
+            # If we've already accepted the connection, send error message
+            if hasattr(self, 'accepted') and self.accepted:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'code': 4002,
+                    'message': 'Internal server error'
+                }))
             await self.close(code=4002)
             return
 
@@ -243,13 +261,13 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 logger.error(f"Cannot add user to room: Room not found, room_id: {self.room_id}", extra={
                     'user_id': self.user.id
                 })
-                return False, "Room not found"
+                return False, "Room not found", 4004
 
             # If user is the owner, always allow them in
             if self.user == self.room.owner:
                 if self.user not in self.room.players.all():
                     self.room.players.add(self.user)
-                return True, "Owner added to room"
+                return True, "Owner added to room", None
 
             # For non-owners, check if they can join
             if self.user not in self.room.players.all():
@@ -265,14 +283,20 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     logger.error(f"Cannot add user to room: Room is full - room_id: {self.room_id}, current_players: {current_players}, max_players: {max_players}", extra={
                         'user_id': self.user.id
                     })
-                    return False, "Room is full"
+                    return False, "Room is full", 4003
 
                 # For AI mode, only allow the owner
                 if self.room.mode == 'AI' and self.user != self.room.owner:
                     logger.error(f"Cannot add user to AI room: Not the owner - room_id: {self.room_id}", extra={
                         'user_id': self.user.id
                     })
-                    return False, "Cannot join AI mode room"
+                    return False, "Cannot join AI mode room", 4005
+
+                if self.room.state == 'PLAYING':
+                    logger.error(f"Cannot add user to room: Game in progress - room_id: {self.room_id}", extra={
+                        'user_id': self.user.id
+                    })
+                    return False, "Cannot join room: Game in progress", 4006
 
                 # Check if user has a pending invitation
                 if self.user in self.room.pending_invitations.all():
@@ -283,24 +307,32 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     logger.info(f"Invited user added to room - room_id: {self.room_id}", extra={
                         'user_id': self.user.id
                     })
-                    return True, "Invited user added to room"
+                    return True, "Invited user added to room", None
+
+                # TODO: Implement is_private in model
+                # # If room is private and user has no invitation
+                # if self.user not in self.room.pending_invitations.all():
+                #     logger.error(f"Cannot add user to private room: No invitation - room_id: {self.room_id}", extra={
+                #         'user_id': self.user.id
+                #     })
+                #     return False, "Cannot join private room: No invitation", 4007
 
                 self.room.players.add(self.user)
                 logger.info(f"User added to room - room_id: {self.room_id}, current_players: {current_players + 1}, max_players: {max_players}", extra={
                     'user_id': self.user.id
                 })
-                return True, "User added to room"
+                return True, "User added to room", None
             else:
                 logger.info(f"User already in room - room_id: {self.room_id}", extra={
                     'user_id': self.user.id
                 })
-                return True, "User already in room"
+                return True, "User already in room", None
 
         except Exception as e:
             logger.error(f"Error adding user to room - error_type: {type(e).__name__}, error_message: {str(e)}, room_id: {self.room_id}, traceback: {traceback.format_exc()}", extra={
                 'user_id': self.user.id
             })
-            return False, f"Error adding user to room: {str(e)}"
+            return False, f"Error adding user to room: {str(e)}", 4002
 
     @database_sync_to_async
     def remove_user_from_room(self):
@@ -352,8 +384,8 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'room_update',
             'room_state': room_state,
-            'trigger_htmx': True,
-            'trigger_components': ['game-settings']
+            # 'trigger_htmx': True,
+            # 'trigger_components': ['game-settings']
         }))
 
     @database_sync_to_async
@@ -531,7 +563,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             'mode': event['mode'],
             'settings': event.get('settings', {}),
             'room_state': event.get('room_state', {}),
-            'trigger_components': ['game-settings', 'mode-selection']
+            # 'trigger_components': ['game-settings', 'mode-selection']
         }))
 
     async def settings_change(self, event):
@@ -541,4 +573,28 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'settings_change',
             'settings': event['settings']
-        })) 
+        }))
+
+    async def game_finished(self, event):
+        """
+        Handle game finished event and update room state
+        """
+        try:
+            # Update room state to LOBBY if not already
+            if self.room.state != 'LOBBY':
+                await self.update_room_property('state', 'LOBBY')
+            
+            # Send game finished notification to clients
+            await self.send(text_data=json.dumps({
+                'type': 'game_finished',
+                'winner_id': event['winner_id'],
+                'final_score': event['final_score']
+            }))
+            
+            # Trigger a full room state update
+            await self.update_room()
+            
+        except Exception as e:
+            logger.error(f"Error handling game finished event: {str(e)}", extra={
+                'user_id': getattr(self.user, 'id', None)
+            }) 

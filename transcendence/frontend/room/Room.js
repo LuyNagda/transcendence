@@ -1,7 +1,7 @@
 import logger from '../logger.js';
-import { store } from '../state/store.js';
+import { store, actions } from '../state/store.js';
 import jaiPasVu from '../UI/JaiPasVu.js';
-import { RoomModes, RoomStates } from '../state/roomState.js';
+import { RoomModes, initialRoomState } from '../state/roomState.js';
 import { createRoomStateManager } from './RoomStateManager.js';
 import { createRoomUIManager } from './RoomUIManager.js';
 import { createRoomGameManager } from './RoomGameManager.js';
@@ -18,6 +18,14 @@ export default class Room {
 			logger.info('[Room] Static initialize: Initializing room from path:', window.location.pathname);
 			const roomId = window.location.pathname.replace('/pong/room/', '').replace('/', '');
 			logger.info('[Room] Static initialize: Initializing room:', roomId);
+
+			// Clear any existing room state before initialization
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.CLEAR_ROOM,
+				payload: null
+			});
+
 			Room._instance = new Room(roomId);
 			Room._instance._initializeRoomApp();
 		}
@@ -27,6 +35,14 @@ export default class Room {
 			logger.info('[Room] Static initialize: htmx:pushedIntoHistory :', path);
 			if (path.includes('/pong/room/')) {
 				const roomId = path.replace('/pong/room/', '').replace('/', '');
+
+				// Clear any existing room state before initialization
+				store.dispatch({
+					domain: 'room',
+					type: actions.room.CLEAR_ROOM,
+					payload: null
+				});
+
 				Room._instance = new Room(roomId);
 				Room._instance._initializeRoomApp();
 			} else {
@@ -42,54 +58,62 @@ export default class Room {
 		if (!roomId)
 			throw new Error('Room ID is required');
 		this._roomId = roomId;
+		this._isDestroyed = false;
 	}
 
 	async _initializeRoomApp() {
-		const userState = store.getState('user');
-		this._currentUser = {
-			id: userState.id,
-			username: userState.username
-		};
+		try {
+			const userState = store.getState('user');
+			this._currentUser = {
+				id: userState.id,
+				username: userState.username
+			};
 
-		this._initializeManagers();
-		this._setupEventHandlers();
+			// Initialize store with default state
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.UPDATE_ROOM,
+				payload: {
+					...initialRoomState,
+					id: this._roomId,
+					currentUser: this._currentUser
+				}
+			});
 
-		await this.connect();
+			this._initializeManagers();
+			this._setupEventHandlers();
 
-        const state = store.getState('room');
+			const connection = await this.connect();
+			if (this._isDestroyed) return;
 
-        logger.info('[Room] state: ', state);
+			if (connection) {
+				const state = store.getState('room');
+				logger.info('[Room] state: ', state);
+				this._uiManager._handleRoomStateUpdate(state);
 
-        this._uiManager._handleRoomStateUpdate(state);
-
-		logger.info('[Room] Room initialized successfully:', {
-			roomId: this._roomId,
-			user: this._currentUser
-		});
+				logger.info('[Room] Room initialized successfully:', {
+					roomId: this._roomId,
+					user: this._currentUser
+				});
+			}
+		} catch (error) {
+			logger.error('[Room] Failed to initialize room:', error);
+			if (!this._isDestroyed) {
+				this._handleRoomError({
+					code: 'INITIALIZATION_ERROR',
+					message: 'Failed to initialize room'
+				});
+			}
+		}
 	}
 
 	_initializeManagers() {
-		// Initialize state manager first
 		this._stateManager = createRoomStateManager(this._roomId);
-
-		// Initialize connection manager with appropriate configuration based on room mode
 		const mode = this._stateManager.getMode();
 		const connectionConfig = this._createConnectionConfig(mode);
 		this._connectionManager = createRoomConnectionManager(this._roomId, connectionConfig);
-
-		// Initialize UI manager
-		this._uiManager = createRoomUIManager(
-			this._roomId,
-			this._currentUser
-		);
-
-		// Initialize game manager with the game connection if available
-		const gameConnection = this._connectionManager.getGameConnection();
-		this._gameManager = createRoomGameManager(
-			this._roomId,
-			this._currentUser,
-			gameConnection
-		);
+		this._uiManager = createRoomUIManager(this._roomId);
+		this._gameManager = createRoomGameManager(this._roomId);
 	}
 
 	/**
@@ -109,12 +133,6 @@ export default class Room {
 		// Add WebRTC configuration if needed
 		if (config.enableGameConnection) {
 			config.rtcConfig = {
-				iceServers: [
-					{ urls: 'stun:stun.l.google.com:19302' }
-				],
-				// Add any additional WebRTC configuration here
-				iceTransportPolicy: 'all',
-				bundlePolicy: 'balanced'
 			};
 		}
 
@@ -141,6 +159,12 @@ export default class Room {
 		if (!mainConnection) {
 			throw new Error('Main connection not available');
 		}
+
+		// Handle room errors
+		mainConnection.on('room_error', (error) => {
+			logger.error('[Room] Room error:', error);
+			this._handleRoomError(error);
+		});
 
 		mainConnection.on('disconnected', () => {
 			logger.warn('[Room] Network connection lost');
@@ -184,6 +208,7 @@ export default class Room {
 				this._gameManager._handleGameStarted(data);
 			} else if (data.type === 'game_ended') {
 				this._gameManager._handleGameEnded(data);
+				this._connectionManager.getMainConnection()
 			}
 		});
 	}
@@ -215,17 +240,66 @@ export default class Room {
 	}
 
 	/**
+	 * Handles room errors and navigation
+	 * @private
+	 */
+	_handleRoomError(error) {
+		logger.error('[Room] Handling room error:', error);
+
+		// Set error in store first
+		store.dispatch({
+			domain: 'room',
+			type: actions.room.SET_ERROR,
+			payload: {
+				code: error.code || 'UNKNOWN_ERROR',
+				message: error.message || 'An unknown error occurred',
+				timestamp: Date.now()
+			}
+		});
+
+		// Clean up managers in specific order
+		if (this._gameManager) {
+			this._gameManager.destroy();
+			this._gameManager = null;
+		}
+		if (this._uiManager) {
+			this._uiManager.destroy();
+			this._uiManager = null;
+		}
+		if (this._stateManager) {
+			this._stateManager.destroy();
+			this._stateManager = null;
+		}
+		if (this._connectionManager) {
+			this._connectionManager.destroy();
+			this._connectionManager = null;
+		}
+
+		// Clear room state last
+		store.dispatch({
+			domain: 'room',
+			type: actions.room.CLEAR_ROOM,
+			payload: {
+				userId: this._currentUser?.id,
+				roomId: this._roomId
+			}
+		});
+		logger.info('[Room] Error handling and cleanup completed');
+	}
+
+	/**
 	 * Connect to the room's connections
 	 */
 	async connect() {
 		try {
 			const connection = await this._connectionManager.connect();
-            if (connection) {
-                this.setupInitialState();
-                logger.info('[Room] Connected to room', this.setupInitialState());
-            }
+			if (connection) {
+				await this.setupInitialState();
+				logger.info('[Room] Connected to room');
+			}
 		} catch (error) {
 			logger.error('[Room] Failed to connect to room:', error);
+			// Don't call _handleRoomError here as it will be called via the room_error event
 			throw error;
 		}
 	}
@@ -237,12 +311,12 @@ export default class Room {
 		try {
 			const roomState = await this._connectionManager.getCurrentState();
 			logger.info('`[Room] Initial room state`:', roomState);
-            this._stateManager.updateState(roomState);
-            store.dispatch({
-                domain: 'room', 
-                type: 'UPDATE_ROOM',
-                payload: roomState
-            });
+			this._stateManager.updateState(roomState);
+			store.dispatch({
+				domain: 'room',
+				type: 'UPDATE_ROOM',
+				payload: roomState
+			});
 			logger.info('Received initial room state');
 		} catch (error) {
 			logger.error('[Room] Failed to get initial room state:', error);
@@ -320,19 +394,38 @@ export default class Room {
 	}
 
 	destroy() {
-		this._connectionManager.destroy();
-		this._gameManager.destroy();
-		this._uiManager.destroy();
-		this._stateManager.destroy();
+		try {
+			this._isDestroyed = true;
 
-		store.dispatch({
-			domain: 'room',
-			type: 'CLEAR_ROOM',
-			payload: {
-				userId: this._currentUser.id
+			// Clean up managers in specific order
+			if (this._gameManager) {
+				this._gameManager.destroy();
+				this._gameManager = null;
 			}
-		});
+			if (this._uiManager) {
+				this._uiManager.destroy();
+				this._uiManager = null;
+			}
+			if (this._stateManager) {
+				this._stateManager.destroy();
+				this._stateManager = null;
+			}
+			if (this._connectionManager) {
+				this._connectionManager.destroy();
+				this._connectionManager = null;
+			}
 
-		logger.info('[Room] Destroyed');
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.CLEAR_ROOM,
+				payload: {
+					roomId: this._roomId
+				}
+			});
+
+			logger.info('[Room] Destroyed');
+		} catch (error) {
+			logger.error('[Room] Error during cleanup:', error);
+		}
 	}
 }

@@ -1,15 +1,14 @@
 import logger from '../logger.js';
-import { RoomModes } from '../state/roomState.js';
 import { GameRules } from '../pong/core/GameRules.js';
-import { store } from '../state/store.js';
+import { store, actions } from '../state/store.js';
+import { createPongGameController } from '../pong/PongGameController.js';
 
 /**
  * Manages game-specific logic for a room
  */
 export class RoomGameManager {
-	constructor(roomId, currentUser, networkManager) {
+	constructor(roomId, networkManager) {
 		this._roomId = roomId;
-		this._currentUser = currentUser;
 		this._networkManager = networkManager;
 		this._gameInProgress = false;
 		this._gameInstance = null;
@@ -34,9 +33,16 @@ export class RoomGameManager {
 	async _handleGameStarted(data) {
 		try {
 			const { game_id, player1_id, player2_id, settings } = data;
-			const isHost = this._currentUser.id === player1_id;
 
-			await this._initializeGame(game_id, isHost, settings);
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.UPDATE_ROOM,
+				payload: {
+					currentGameId: game_id
+				}
+			});
+
+			await this._initializeGame(game_id);
 			this._emit('game_started', data);
 		} catch (error) {
 			logger.error('Error handling game start:', error);
@@ -48,59 +54,85 @@ export class RoomGameManager {
 		try {
 			this._destroyGame();
 			this._emit('game_ended', data);
+			logger.info('Game ended successfully, room state reset to LOBBY');
 		} catch (error) {
 			logger.error('Error handling game end:', error);
 		}
 	}
 
-	async _initializeGame(gameId, isHost, settings) {
+	async _initializeGame(gameId) {
 		try {
-			// Ensure game container is ready
 			const container = document.querySelector('#game-container .screen');
-			if (!container) {
+			if (!container)
 				throw new Error('Game container not found');
-			}
-
-			// Clear any existing game messages
-			const existingMessage = container.querySelector('.game-message');
-			if (existingMessage) {
-				existingMessage.remove();
-			}
-
-			// Ensure canvas exists and is properly sized
 			const canvas = container.querySelector('#game');
-			if (!canvas) {
+			if (!canvas)
 				throw new Error('Game canvas not found');
-			}
 
-			// Set canvas dimensions
 			canvas.width = GameRules.CANVAS_WIDTH;
 			canvas.height = GameRules.CANVAS_HEIGHT;
 
-			// Initialize game instance
-            const state = store.getState('room');
-			const gameMode = state.mode || RoomModes.CLASSIC;
-			const GameClass = await this._loadGameClass(gameMode);
-
-			this._gameInstance = new GameClass(
-				canvas,
-				this._networkManager,
-				{
-					gameId,
-					isHost,
-					settings: this._validateGameSettings(settings),
-					useWebGL: this._useWebGL
+			// Create context handlers for WebGL
+			const contextHandlers = {
+				onContextLost: () => {
+					logger.warn('WebGL context lost');
+					store.dispatch({
+						domain: 'room',
+						type: actions.room.TOGGLE_WEBGL,
+						payload: { useWebGL: false }
+					})
+					this._recreateGame();
+				},
+				onContextRestored: () => {
+					logger.info('WebGL context restored');
+					store.dispatch({
+						domain: 'room',
+						type: actions.room.TOGGLE_WEBGL,
+						payload: { useWebGL: true }
+					})
 				}
-			);
+			};
+
+			const roomState = store.getState('room');
+			const userState = store.getState('user');
+
+			// Determine if current user is host
+			const isHost = roomState.mode === 'AI' || (roomState.owner && roomState.owner.id === userState.id);
+			logger.info('Game host status:', {
+				isAIMode: roomState.mode === 'AI',
+				userId: userState.id,
+				ownerId: roomState.owner?.id,
+				isHost: isHost
+			});
+
+			// Create game controller
+			this._gameInstance = createPongGameController({
+				gameId: gameId || roomState.currentGameId,
+				currentUser: userState,
+				isHost: isHost,
+				useWebGL: false,
+				settings: roomState.settings,
+				contextHandlers: contextHandlers
+			});
+
+			// Initialize game
+			const initialized = await this._gameInstance.initialize();
+			if (!initialized) {
+				throw new Error('Failed to initialize game controller');
+			}
 
 			// Start the game
-			await this._gameInstance.start();
+			const started = await this._gameInstance.start();
+			if (!started)
+				throw new Error('Failed to start game');
+
 			this._gameInProgress = true;
 
 			logger.info('Game initialized successfully:', {
-				gameId,
-				isHost,
-				mode: gameMode
+				gameId: gameId || roomState.currentGameId,
+				isHost: isHost,
+				mode: roomState.mode,
+				settings: roomState.settings
 			});
 		} catch (error) {
 			logger.error('Failed to initialize game:', error);
@@ -108,31 +140,22 @@ export class RoomGameManager {
 		}
 	}
 
-	async _loadGameClass(mode) {
+	async _recreateGame() {
 		try {
-			switch (mode) {
-				case RoomModes.AI:
-					const { AIGame } = await import('../pong/AIGame.js');
-					return AIGame;
-				case RoomModes.RANKED:
-					const { RankedGame } = await import('../pong/RankedGame.js');
-					return RankedGame;
-				case RoomModes.TOURNAMENT:
-					const { TournamentGame } = await import('../pong/TournamentGame.js');
-					return TournamentGame;
-				case RoomModes.CLASSIC:
-				default:
-					const { ClassicGame } = await import('../pong/ClassicGame.js');
-					return ClassicGame;
+			// Destroy existing game instance
+			if (this._gameInstance) {
+				this._gameInstance.destroy();
+				this._gameInstance = null;
 			}
+			await this._initializeGame();
 		} catch (error) {
-			logger.error('Failed to load game class:', error);
-			throw new Error(`Failed to load game mode: ${mode}`);
+			logger.error('Failed to recreate game:', error);
+			this.handleGameFailure(error);
 		}
 	}
 
 	_validateGameSettings(settings) {
-		const { settings: validatedSettings } = GameRules.validateSettings(settings);
+		const validatedSettings = GameRules.validateSettings(settings);
 		return validatedSettings;
 	}
 
@@ -158,10 +181,77 @@ export class RoomGameManager {
 
 	_destroyGame() {
 		if (this._gameInstance) {
+			logger.info('Starting game cleanup...');
+
+			// Stop all intervals first
+			if (this._gameInstance._syncInterval) {
+				logger.info('Clearing sync interval...');
+				clearInterval(this._gameInstance._syncInterval);
+				this._gameInstance._syncInterval = null;
+			}
+			if (this._gameInstance._ballLaunchInterval) {
+				logger.info('Clearing ball launch interval...');
+				clearInterval(this._gameInstance._ballLaunchInterval);
+				this._gameInstance._ballLaunchInterval = null;
+			}
+
+			// Stop the game engine and wait for it to fully stop
+			if (this._gameInstance._gameEngine) {
+				logger.info('Stopping game engine...');
+				this._gameInstance._gameEngine.stop();
+
+				// Unregister all components in reverse order
+				logger.info('Unregistering game components...');
+				this._gameInstance._gameEngine.unregisterComponent('aiHandler');
+				this._gameInstance._gameEngine.unregisterComponent('input');
+				// this._gameInstance._gameEngine.unregisterComponent('network');
+				this._gameInstance._gameEngine.unregisterComponent('renderer');
+				this._gameInstance._gameEngine.unregisterComponent('state');
+				this._gameInstance._gameEngine.unregisterComponent('controller');
+
+				// Clear the update loop
+				this._gameInstance._gameEngine._components.clear();
+				this._gameInstance._gameEngine = null;
+			}
+
+			// Clear AI controller
+			if (this._gameInstance._aiController) {
+				logger.info('Clearing AI controller...');
+				this._gameInstance._aiController = null;
+			}
+
+			// Clear physics and input handlers
+			if (this._gameInstance._physics) {
+				logger.info('Clearing physics...');
+				this._gameInstance._physics._observers.clear();
+				this._gameInstance._physics = null;
+			}
+
+			if (this._gameInstance._inputHandler) {
+				logger.info('Clearing input handler...');
+				this._gameInstance._inputHandler.disable();
+				this._gameInstance._inputHandler = null;
+			}
+
+			// Destroy the game instance
+			logger.info('Destroying game instance...');
 			this._gameInstance.destroy();
 			this._gameInstance = null;
 		}
 		this._gameInProgress = false;
+
+		store.dispatch({
+			domain: 'game',
+			type: actions.game.UPDATE_STATUS,
+			payload: 'finished'
+		});
+
+		store.dispatch({
+			domain: 'game',
+			type: actions.game.RESET_SCORE
+		});
+
+		logger.info('Game cleanup completed successfully');
 	}
 
 	// Event handling

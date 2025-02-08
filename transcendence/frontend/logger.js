@@ -24,12 +24,12 @@ class Logger {
 			...config,
 			currentLevel: LogLevel[config.logLevel || defaultConfig.logLevel]
 		};
-
-		console.log('Logger initialized with:', this.config);
+		if (config.debug)
+			console.log('Logger initialized with:', this.config);
 	}
 
 	_shouldLog(level) {
-		return this.config.debug || LogLevel[level] >= this.config.currentLevel;
+		return this.config.debug && LogLevel[level] >= this.config.currentLevel;
 	}
 
 	_formatMessage(level, message, ...args) {

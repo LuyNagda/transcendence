@@ -14,11 +14,6 @@ export const initialGameState = {
 	},
 	players: [],
 	status: 'waiting',
-	ballPosition: { x: 0, y: 0 },
-	paddlePositions: {
-		player1: 0,
-		player2: 0
-	},
 	timestamp: null
 };
 

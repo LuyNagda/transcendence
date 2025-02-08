@@ -11,7 +11,7 @@ export class GameEngine {
 
 	registerComponent(name, component) {
 		this._components.set(name, component);
-		logger.debug(`Component registered: ${name}`);
+		logger.debug(`[Game Engine] Component registered: ${name}`);
 	}
 
 	unregisterComponent(name) {
@@ -30,20 +30,20 @@ export class GameEngine {
 		if (this._isRunning) return;
 		this._isRunning = true;
 
-		// Initialize all components
-		logger.info('Initializing game engine components...');
+		logger.info('[Game Engine] Initializing game engine components...');
 		for (const [name, component] of this._components.entries()) {
 			if (component && component.initialize) {
-				logger.debug(`Initializing component: ${name}`);
+				logger.debug(`[Game Engine] Initializing component: ${name}`);
 				component.initialize();
 			}
 		}
 
-		logger.info('Starting game loop');
+		logger.info('[Game Engine] Starting game loop');
 		this._gameLoop = requestAnimationFrame(this._update.bind(this));
 	}
 
 	stop() {
+		logger.info('[Game Engine] Stopping game engine');
 		if (this._animationFrameId) {
 			cancelAnimationFrame(this._animationFrameId);
 			this._animationFrameId = null;
@@ -53,29 +53,41 @@ export class GameEngine {
 
 	_update() {
 		if (!this._isRunning) {
-			logger.debug('Game engine not running, skipping update');
+			logger.debug('[Game Engine] Game engine not running, skipping update');
 			return;
 		}
 
 		// Get game state component
 		const gameState = this._components.get('state');
-		if (gameState && gameState.update) {
+		if (!gameState) {
+			logger.warn('[Game Engine] No game state component found, stopping engine');
+			this.stop();
+			return;
+		}
+
+		// Check game status first
+		const currentState = gameState.getState();
+		if (currentState.gameStatus === 'finished') {
+			logger.info('[Game Engine] Game finished, stopping engine');
+			this.stop();
+			return;
+		}
+
+		// Update game state
+		if (gameState.update) {
 			gameState.update();
 		}
 
 		// Update AI first if it exists
 		const aiHandler = this._components.get('aiHandler');
 		if (aiHandler && aiHandler.update) {
-			logger.debug('Updating AI handler');
+			logger.debug('[Game Engine] Updating AI handler');
 			aiHandler.update();
-		} else if (this._components.has('aiHandler')) {
-			logger.warn('AI handler exists but has no update method');
 		}
 
 		// Update all other components except AI and state
 		for (const [name, component] of this._components.entries()) {
 			if (component !== gameState && component !== aiHandler && component.update) {
-				logger.debug(`Updating component: ${name}`);
 				component.update();
 			}
 		}
@@ -88,21 +100,26 @@ export class GameEngine {
 
 		// Update renderer with current state
 		const renderer = this._components.get('renderer');
-		if (renderer) {
-			renderer.render(gameState.getState());
-		}
+		if (renderer)
+			renderer.render(currentState);
 
-		// Schedule next frame
-		this._animationFrameId = requestAnimationFrame(this._update.bind(this));
+		// Schedule next frame only if still running
+		if (this._isRunning && currentState.gameStatus !== 'finished')
+			this._animationFrameId = requestAnimationFrame(this._update.bind(this));
 	}
 
 	destroy() {
+		logger.info('[Game Engine] Destroying game engine');
 		this.stop();
 		if (this._isDestroying) return;
 		this._isDestroying = true;
 
-		for (const [name, component] of this._components.entries()) {
+		// Destroy all components in reverse order
+		const componentNames = Array.from(this._components.keys()).reverse();
+		for (const name of componentNames) {
+			const component = this._components.get(name);
 			if (component && component.destroy && name !== 'controller') {
+				logger.info(`[Game Engine] Destroying component: ${name}`);
 				component.destroy();
 			}
 		}

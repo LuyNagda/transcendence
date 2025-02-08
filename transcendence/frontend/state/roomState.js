@@ -14,7 +14,10 @@ export const roomActions = {
 	UPDATE_PLAYERS: 'UPDATE_PLAYERS',
 	UPDATE_ROOM_STATE: 'UPDATE_ROOM_STATE',
 	UPDATE_ROOM_MODE: 'UPDATE_ROOM_MODE',
-	CLEAR_ROOM: 'CLEAR_ROOM'
+	TOGGLE_WEBGL: 'TOGGLE_WEBGL',
+	CLEAR_ROOM: 'CLEAR_ROOM',
+	SET_ERROR: 'SET_ERROR',
+	CLEAR_ERROR: 'CLEAR_ERROR'
 };
 
 export const RoomModes = {
@@ -99,9 +102,13 @@ export const getDefaultSettingsForMode = (mode) => {
 
 export const initialRoomState = {
 	id: '',
+	error: null,
 	isPrivate: false,
+	isHost: false,
+	useWebGL: false,
 	mode: RoomModes.AI,
 	state: RoomStates.LOBBY,
+	currentGameId: 0,
 	maxPlayers: getMaxPlayersForMode(RoomModes.AI),
 	players: [],
 	settings: getDefaultSettingsForMode(RoomModes.AI),
@@ -176,6 +183,9 @@ export const validateSettings = (settings) => {
 export const roomValidators = {
 	id: (value) => typeof value === 'string',
 	isPrivate: (value) => typeof value === 'boolean',
+	isHost: (value) => typeof value === 'boolean',
+	currentGameId: (value) => typeof value === 'number',
+	useWebGL: (value) => typeof value === 'boolean',
 	mode: (value) => Object.values(RoomModes).includes(value),
 	state: (value) => Object.values(RoomStates).includes(value),
 	players: (value) => Array.isArray(value),
@@ -187,16 +197,9 @@ export const roomValidators = {
 	},
 	createdAt: (value) => typeof value === 'number',
 	createdBy: (value) => typeof value === 'number',
-	pend: (value) => {
-		return Array.isArray(value) && value.every((invitation) => {
-			return (
-				typeof invitation === 'object' &&
-				typeof invitation.roomId === 'string' &&
-				typeof invitation.invitedBy === 'string' &&
-				typeof invitation.timestamp === 'number'
-			);
-		});
-	}
+	pendingInvitations: (value) => Array.isArray(value),
+	error: (value) => value === null || typeof value === 'object',
+	lastUpdate: (value) => value === null || typeof value === 'number'
 };
 
 export const roomReducers = {
@@ -248,8 +251,10 @@ export const roomReducers = {
 		const validation = validateSettings(newSettings);
 
 		if (!validation.isValid) {
-			console.error('Invalid room settings:', validation.errors);
-			return state;
+			return {
+				...state,
+				error: new Error("Failed to validate settings")
+			};
 		}
 
 		return {
@@ -311,5 +316,31 @@ export const roomReducers = {
 		};
 	},
 
-	[roomActions.CLEAR_ROOM]: () => initialRoomState
+	[roomActions.TOGGLE_WEBGL]: (state, payload) => {
+		return {
+			...state,
+			useWebGL: payload.useWebGL
+		}
+	},
+
+	[roomActions.CLEAR_ROOM]: () => initialRoomState,
+
+	[roomActions.SET_ERROR]: (state, payload) => {
+		const { code, message } = payload;
+		return {
+			...state,
+			error: {
+				code,
+				message,
+				timestamp: Date.now()
+			}
+		};
+	},
+
+	[roomActions.CLEAR_ERROR]: (state) => {
+		return {
+			...state,
+			error: null
+		};
+	}
 };

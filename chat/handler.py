@@ -233,6 +233,10 @@ class ChatHandler:
     @database_sync_to_async
     def check_room_full(self, room: PongRoom) -> tuple[bool, int]:
         return room.is_full, room.max_players
+    
+    @database_sync_to_async
+    def check_room_is_ai(self, room: PongRoom) -> bool:
+        return room.is_ai
 
     async def handle_accept_game_invitation(self, data: Dict[str, Any]) -> None:
         if 'sender_id' not in data:
@@ -251,6 +255,12 @@ class ChatHandler:
             room_obj = await self.get_pong_room(room['room_id'])
             if not room_obj:
                 await self.send_response('accept_game_invitation', success=False, error='Room not found')
+                return
+            
+            is_ai = await self.check_room_is_ai(room_obj)
+            if is_ai:
+                await self.send_response('accept_game_invitation', success=False, 
+                    error=f'Room is in AI mode, cannot join, create a room to play against AI')
                 return
 
             is_full, max_players = await self.check_room_full(room_obj)
