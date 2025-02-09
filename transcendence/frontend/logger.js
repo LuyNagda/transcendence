@@ -14,21 +14,29 @@ const defaultConfig = {
 };
 
 class Logger {
-	constructor() {
-		this.config = { ...defaultConfig };
-	}
+	constructor() { }
 
 	initialize(config = {}) {
+		if (this.config && this.config.debug) {
+			console.warn('[WARN] Logger is already initialized');
+			return;
+		}
+
 		this.config = {
 			...defaultConfig,
 			...config,
-			currentLevel: LogLevel[config.logLevel || defaultConfig.logLevel]
+			currentLevel: LogLevel[config.logLevel || defaultConfig.logLevel],
+			debug: config.debug || global.DEBUG
 		};
-		if (config.debug)
+
+		if (this.config.debug) {
 			console.log('Logger initialized with:', this.config);
+		}
 	}
 
 	_shouldLog(level) {
+		if (!this.config)
+			return false;
 		return this.config.debug && LogLevel[level] >= this.config.currentLevel;
 	}
 

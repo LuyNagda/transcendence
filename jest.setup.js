@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import logger from './transcendence/frontend/logger.js';
 
 // Create spies for console methods
 global.consoleMocks = {
@@ -8,9 +9,13 @@ global.consoleMocks = {
 	debug: jest.spyOn(console, 'debug').mockImplementation(() => { })
 };
 
+global.DEBUG = true;
+logger.initialize({ debug: true });
+
 // Clear all mocks before each test
 beforeEach(() => {
 	Object.values(global.consoleMocks).forEach(mock => mock.mockClear());
+	global.DEBUG = true;
 });
 
 // Restore all mocks after all tests
