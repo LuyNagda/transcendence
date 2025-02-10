@@ -13,36 +13,11 @@
 			<span class="visually-hidden">Friend requests</span>
 		</span>
 	</a>
-	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="friendRequests">
-		<li v-if="!friend_requests"class="dropdown-item">
-			No Pending Friend Requests
-		</li>
-		<li v-for="friend_request in friend_requests" class="dropdown-item">
-			<div class="dropdown-item d-flex justify-content-between align-items-center">
-				<div class="d-flex align-items-center me-2">
-					Friend Name
-				</div>
-				<div class="btn-group" role="group" aria-label="Friend request actions">
-					<a href="#" class="btn btn-success btn-sm d-flex align-items-center justify-content-center" 
-					   role="button" 
-					   aria-label="Confirm friend request"
-					   v-on:click="acceptFriendRequest([[ friend_request ]])">
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check" viewBox="0 0 16 16" aria-hidden="true">
-							<path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/>
-						</svg>
-					</a>
-					<a href="#" class="btn btn-danger btn-sm d-flex align-items-center justify-content-center" 
-					   role="button" 
-					   aria-label="Deny friend request"
-					   v-on:click="denyFriendRequest([[ friend_request ]])">
-						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x" viewBox="0 0 16 16" aria-hidden="true">
-							<path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
-						</svg>
-					</a>
-				</div>
-			</div>
-		</li>
-	</ul>
+	<ul id="friend-requests-container" class="dropdown-menu dropdown-menu-end" aria-labelledby="friendRequests">
+        <li class="dropdown-item" id="no-friend-requests">
+            No Pending Friend Requests
+        </li>
+    </ul>
 </li>
 <li class="nav-item d-flex align-items-center justify-content-center">
 	<a class="nav-link d-flex align-items-center position-relative" data-bs-toggle="offcanvas"
@@ -92,7 +67,47 @@
 	</ul>
 </li>
 
+<script>
+    function acceptFriendRequest(senderId) {
+        if (window.chatApp) {
+            window.chatApp._sendMessage({
+                type: 'accept_friend_request',
+                sender_id: senderId
+            });
+            removeFriendRequest(senderId);
+        } else {
+            console.error('chatApp is not defined');
+        }
+    }
 
+    function denyFriendRequest(senderId) {
+        if (window.chatApp) {
+            window.chatApp._sendMessage({
+                type: 'deny_friend_request',
+                sender_id: senderId
+            });
+            removeFriendRequest(senderId);
+        } else {
+            console.error('chatApp is not defined');
+        }
+    }
+
+    function removeFriendRequest(senderId) {
+        const requestElement = document.querySelector(`li[data-sender-id="${senderId}"]`);
+        if (requestElement) {
+            requestElement.remove();
+        }
+
+        const friendRequestsContainer = document.querySelector('#friend-requests-container');
+        if (friendRequestsContainer.children.length === 0) {
+            const noRequestsElement = document.createElement('li');
+            noRequestsElement.classList.add('dropdown-item');
+            noRequestsElement.id = 'no-friend-requests';
+            noRequestsElement.textContent = 'No Pending Friend Requests';
+            friendRequestsContainer.appendChild(noRequestsElement);
+        }
+    }
+</script>
 {% block modal %}{% include "modal.html" %}{% endblock %}
 
 {% endblock %}

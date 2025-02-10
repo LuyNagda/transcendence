@@ -147,6 +147,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             await MessageSender.send_error(self, 'An error occurred while processing your request')
 
+    async def handle_message(self, message_type: str, data: Dict[str, Any]) -> None:
+        handlers = {
+            'chat_message': self.chat_message,
+            'friend_request': self.friend_request,
+            'accept_friend_request': self.accept_friend_request,
+            'deny_friend_request': self.deny_friend_request,
+            'game_invitation': self.game_invitation,
+            'status_update': self.status_update,
+            'add_friends_message': self.add_friends_message,
+            'set_user_online': self.set_user_online,
+            'set_user_offline': self.set_user_offline,
+            'broadcast_status': self.broadcast_status,
+            'get_allowed_user_ids': self.get_allowed_user_ids
+            # ... other handlers ...
+        }
+        handler = handlers.get(message_type)
+        if handler:
+            await handler(data)
+        else:
+            log.warning(f"Unhandled message type: {message_type}", extra={
+                'user_id': self.user.id if self.user else None
+            })
+
     @database_sync_to_async
     def set_user_online(self) -> None:
         if self.user and self.user.is_authenticated:
@@ -178,6 +201,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await MessageSender.send_message(self, MessageSender.chat_message(event['message'], event))
     
     async def add_friends_message(self, event: Dict[str, Any]) -> None:
+        """Handle incoming friends request message from channel layer"""
+        await MessageSender.send_message(self, event)
+    
+    async def friend_request(self, event: Dict[str, Any]) -> None:
+        """Handle incoming friends request message from channel layer"""
+        await MessageSender.send_message(self, event)
+
+    async def accept_friend_request(self, event: Dict[str, Any]) -> None:
+        """Handle incoming friends request message from channel layer"""
+        await MessageSender.send_message(self, event)
+    
+    async def deny_friend_request(self, event: Dict[str, Any]) -> None:
         """Handle incoming friends request message from channel layer"""
         await MessageSender.send_message(self, event)
 

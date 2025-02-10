@@ -47,7 +47,9 @@ class ChatHandler:
             'get_profile': self.handle_get_profile,
             'game_invitation': self.handle_game_invitation,
             'accept_game_invitation': self.handle_accept_game_invitation,
-            'tournament_warning': self.handle_tournament_warning
+            'tournament_warning': self.handle_tournament_warning,
+            'accept_friend_request': self.handle_accept_friend_request,
+            'deny_friend_request': self.handle_deny_friend_request
         }
 
         try:
@@ -126,10 +128,13 @@ class ChatHandler:
                 f"chat_{friend.id}",
                 {
                     'type': 'friend_request',
-                    'message': f'{friend.username} sent you a friend request',
+                    'message': f'{self.consumer.user.username} sent you a friend request',
                     'sender_id': self.consumer.user.id
                 }
             )
+            log.info(f"Friend request sent to {friend_username} from {self.consumer.user.username}", extra={
+                'user_id': self.consumer.user.id
+            })
 
         except Exception as e:
             log.error(f'Error getting user by username {friend_username}: {str(e)}', extra={
@@ -137,7 +142,30 @@ class ChatHandler:
             })
             raise
         
+    async def handle_accept_friend_request(self, data: Dict[str, Any]) -> None:
+        sender_id = data.get('sender_id')
+        if not sender_id:
+            await self.send_response('accept_friend_request', success=False, error='Missing sender_id')
+            return
 
+        sender = await self.get_user_by_id(sender_id)
+        if not sender:
+            await self.send_response('accept_friend_request', success=False, error='User not found')
+            return
+
+        # Add sender to the user's friends list
+        await self.add_friend(self.consumer.user, sender)
+        await self.send_response('accept_friend_request', success=True, data={'sender_id': sender_id})
+
+    async def handle_deny_friend_request(self, data: Dict[str, Any]) -> None:
+        sender_id = data.get('sender_id')
+        if not sender_id:
+            await self.send_response('deny_friend_request', success=False, error='Missing sender_id')
+            return
+
+        # No additional action needed for denying a friend request
+        await self.send_response('deny_friend_request', success=True, data={'sender_id': sender_id})
+    
     @database_sync_to_async
     def get_user_by_username(self, username: str) -> Optional[User]:
         try:
@@ -150,17 +178,20 @@ class ChatHandler:
     @database_sync_to_async
     def get_consumer_friends(self, user: User) -> list[User]:
         return list(user.friends.all())
+    
+    @database_sync_to_async
+    def get_user_by_id(self, user_id: int) -> Optional[User]:
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return None
 
     @database_sync_to_async
     def add_friend(self, user: User, friend: User) -> None:
-        try:
-            friend.friends.add(user)
-            user.friends.add(friend)
-            friend.save()
-            user.save()
-            return True
-        except:
-            return False
+        user.friends.add(friend)
+        friend.friends.add(user)
+        user.save()
+        friend.save()
 
     def serialize_user(self, user: User) -> Dict[str, Any]:
         return {
