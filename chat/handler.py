@@ -169,6 +169,14 @@ class ChatHandler:
             await self.send_friend_request(current_user, friend)
             log.info(f'Adding friend request')
             self.send_response('friend_request', success=True, data={'friend': friend})
+            await self.consumer.channel_layer.group_send(
+                f"chat_{friend.id}",
+                {
+                    'type': 'friend_request',
+                    'message': f'{current_user.username} sent you a friend request',
+                    'sender_id': current_user.id
+                }
+            )
 
         except User.DoesNotExist:
             log.info(f'Friend not found: {friend_username}')
