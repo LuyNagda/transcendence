@@ -83,7 +83,7 @@ export default class ChatApp {
 		// Register methods
 		jaiPasVu.registerMethods('chat', {
 			handleFormSubmit: this.handleFormSubmit.bind(this),
-			handleFormSubmitFriend: this.handleFormSubmitFriend.bind(this),
+			handleFormSubmitFriendRequest: this.handleFormSubmitFriendRequest.bind(this),
 			selectUser: this.selectUser.bind(this),
 			blockUser: this.blockUser.bind(this),
 			unblockUser: this.unblockUser.bind(this),
@@ -179,6 +179,18 @@ export default class ChatApp {
 					});
 				}
 			},
+
+			// add_friend: (data) => {
+			// 	if (!data?.sender_id || !data?.friend_username) return;
+
+			// 	store.dispatch({
+			// 		domain: 'chat',
+			// 		type: chatActions.ADD_FRIEND,
+			// 		payload: {
+			// 			friend_username: data.friend_username
+			// 		}
+			// 	});
+			// },
 
 			game_invitation: (data) => {
 				if (!data?.sender_id || !data?.room_id) return;
@@ -299,7 +311,7 @@ export default class ChatApp {
 		messageInput.value = '';
 	}
 
-	handleFormSubmitFriend(e) {
+	handleFormSubmitFriendRequest(e) {
 		e.preventDefault();
 		const friendInput = document.querySelector('#friend-input');
 		const friendUsername = friendInput.value.trim();
@@ -313,18 +325,9 @@ export default class ChatApp {
 
 		// Send standardized message object to backend
 		this._sendMessage({
-			type: 'add_friend',
+			type: 'friend_request',
 			user_id: currentUserId,
 			friend_username: friendUsername
-		});
-
-		// Update local state
-		store.dispatch({
-			domain: 'chat',
-			type: chatActions.ADD_FRIEND,
-			payload: {
-				friend_username: friendUsername
-			}
 		});
 
 		friendInput.value = '';

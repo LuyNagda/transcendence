@@ -10,7 +10,6 @@ export const chatActions = {
 	UPDATE_USERS: 'UPDATE_USERS',
 	INCREMENT_UNREAD: 'INCREMENT_UNREAD',
 	CLEAR_UNREAD: 'CLEAR_UNREAD',
-	ADD_FRIEND: 'ADD_FRIEND'
 };
 
 // Initial chat state

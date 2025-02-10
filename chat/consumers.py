@@ -177,8 +177,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Handle incoming chat message from channel layer"""
         await MessageSender.send_message(self, MessageSender.chat_message(event['message'], event))
     
-    async def add_friends_message(self, event: Dict[str, Any]) -> None:
+    async def friend_request_message(self, event: Dict[str, Any]) -> None:
         """Handle incoming friends request message from channel layer"""
+        await MessageSender.send_message(self, event)
+
+    async def friend_request_choice_message(self, event: Dict[str, Any]) -> None:
+        """Handle incoming friends request choice message from channel layer"""
         await MessageSender.send_message(self, event)
 
     async def status_update(self, event: Dict[str, Any]) -> None:
