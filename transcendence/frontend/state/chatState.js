@@ -10,6 +10,7 @@ export const chatActions = {
 	UPDATE_USERS: 'UPDATE_USERS',
 	INCREMENT_UNREAD: 'INCREMENT_UNREAD',
 	CLEAR_UNREAD: 'CLEAR_UNREAD',
+	FRIEND_REQUEST: 'FRIEND_REQUEST',
 };
 
 // Initial chat state
@@ -147,5 +148,10 @@ export const chatReducers = {
 			[friendId]: 0
 		},
 		lastUpdate: Date.now()
+	}),
+
+	[chatActions.FRIEND_REQUEST]: (state, payload) => ({
+		...state,
+		friendRequests: [...state.friendRequests, payload]
 	})
 };

@@ -180,17 +180,19 @@ export default class ChatApp {
 				}
 			},
 
-			// add_friend: (data) => {
-			// 	if (!data?.sender_id || !data?.friend_username) return;
+			add_friend: (data) => {
+				if (!data?.sender_id || !data?.friend_username) return;
 
-			// 	store.dispatch({
-			// 		domain: 'chat',
-			// 		type: chatActions.ADD_FRIEND,
-			// 		payload: {
-			// 			friend_username: data.friend_username
-			// 		}
-			// 	});
-			// },
+				store.dispatch({
+					domain: 'chat',
+					type: chatActions.FRIEND_REQUEST,
+					payload: {
+						friend: data.friend,
+						message: data.message,
+						error: data.error
+					}
+				});
+			},
 
 			game_invitation: (data) => {
 				if (!data?.sender_id || !data?.room_id) return;

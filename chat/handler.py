@@ -147,28 +147,28 @@ class ChatHandler:
 
             if current_user == friend:
                 log.info(f'Cannot add yourself as a friend')
-                self.send_response('friend_request', success=False, error='Cannot add yourself as a friend')
+                await self.send_response('friend_request', success=False, error='Cannot add yourself as a friend')
                 return
 
             if await self.already_friends(current_user, friend):
                 log.info(f'Friend already in friends list')
-                self.send_response('friend_request', success=False, error='User is already in your friends list')
+                await self.send_response('friend_request', success=False, error='User is already in your friends list')
                 return
 
             if await self.already_pending(current_user, friend):
                 log.info(f'Friend already in pending friends list')
-                self.send_response('friend_request', success=False, error='Friend already in pending friends list')
+                await self.send_response('friend_request', success=False, error='Friend already in pending friends list')
                 return
 
             if await self.already_crossing(current_user, friend):
                 await self.add_friend(current_user, friend)
                 log.info(f'User already in pending friends list, accepting friend request')
-                self.send_response('friend_request', success=True, data={'friend': friend, 'message': 'Friend request accepted automatically'})
+                await self.send_response('friend_request', success=True, data={'friend': friend, 'message': 'Friend request accepted automatically'})
                 return
 
             await self.send_friend_request(current_user, friend)
             log.info(f'Adding friend request')
-            self.send_response('friend_request', success=True, data={'friend': friend})
+            await self.send_response('friend_request', success=True, data={'friend': friend, 'message': 'Friend request sended'})
             await self.consumer.channel_layer.group_send(
                 f"chat_{friend.id}",
                 {
@@ -180,7 +180,7 @@ class ChatHandler:
 
         except User.DoesNotExist:
             log.info(f'Friend not found: {friend_username}')
-            self.send_response('friend_request', success=False, error='User not found')
+            await self.send_response('friend_request', success=False, error='User not found')
 
         except Exception as e:
             log.error(f'Error handling friend request: {str(e)} - User: {self.consumer.user.id}')
@@ -200,18 +200,18 @@ class ChatHandler:
 
             if choice == 'accept':
                 await self.add_friend(self.consumer.user, friend)
-                self.send_response('friend_request_choice', success=True, data={'friend': friend, 'message': 'Friend request accepted'})
+                await self.send_response('friend_request_choice', success=True, data={'friend': friend, 'message': 'Friend request accepted'})
                 return
             elif choice == 'reject':
-                self.send_response('friend_request_choice', success=True, data={'friend': friend, 'message': 'Friend request rejected'})
+                await self.send_response('friend_request_choice', success=True, data={'friend': friend, 'message': 'Friend request rejected'})
                 return
             else:
-                self.send_response('friend_request_choice', success=False, error='Invalid choice')
+                await self.send_response('friend_request_choice', success=False, error='Invalid choice')
                 return
 
         except User.DoesNotExist:
             log.info(f'Friend not found: {friend_id}')
-            self.send_response('friend_request_choice', success=False, error='User not found')
+            await self.send_response('friend_request_choice', success=False, error='User not found')
             return
 
         except Exception as e:
