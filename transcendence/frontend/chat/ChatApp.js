@@ -180,18 +180,20 @@ export default class ChatApp {
 				}
 			},
 
-			add_friend: (data) => {
-				if (!data?.sender_id || !data?.friend_username) return;
-
-				store.dispatch({
-					domain: 'chat',
-					type: chatActions.FRIEND_REQUEST,
-					payload: {
-						friend: data.friend,
-						message: data.message,
-						error: data.error
-					}
-				});
+			friend_request: (data) => {
+				// logger.debug('[ChatApp] Received friend request:', data.error);
+				if (data.error){
+					alert(data.error);
+				}
+				// else if (data?.message && data?.friend){
+					// store.dispatch({
+					// 	domain: 'chat',
+					// 	type: chatActions.FRIEND_REQUEST,
+					// 	payload: {
+					// 		friend: data.friend,
+					// 		message: data.message
+					// 	}
+					// });
 			},
 
 			game_invitation: (data) => {

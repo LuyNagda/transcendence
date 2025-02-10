@@ -163,7 +163,7 @@ class ChatHandler:
             if await self.already_crossing(current_user, friend):
                 await self.add_friend(current_user, friend)
                 log.info(f'User already in pending friends list, accepting friend request')
-                await self.send_response('friend_request', success=True, data={'friend': friend, 'message': 'Friend request accepted automatically'})
+                await self.send_response('friend_request', success=True, error='Friend request accepted automatically')
                 return
 
             await self.send_friend_request(current_user, friend)
@@ -206,12 +206,12 @@ class ChatHandler:
                 await self.send_response('friend_request_choice', success=True, data={'friend': friend, 'message': 'Friend request rejected'})
                 return
             else:
-                await self.send_response('friend_request_choice', success=False, error='Invalid choice')
+                self.send_response('friend_request_choice', success=False, error='Invalid choice')
                 return
 
         except User.DoesNotExist:
             log.info(f'Friend not found: {friend_id}')
-            await self.send_response('friend_request_choice', success=False, error='User not found')
+            self.send_response('friend_request_choice', success=False, error='User not found')
             return
 
         except Exception as e:
