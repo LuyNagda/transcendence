@@ -15,7 +15,6 @@ class User(AbstractUser):
     otp = models.CharField(max_length=8, blank=True, null=True, default=None)
     online = models.BooleanField(default=False)
     friends = models.ManyToManyField('self', blank=True, null= True, default=None)
-    friendrequests = models.ManyToManyField('self', blank=True, null= True, default=None)
 
     @property
     def player_data(self):

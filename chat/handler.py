@@ -7,6 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 from .models import ChatMessage, BlockedUser
 from pong.models import PongRoom
+from authentication.models import User
 import uuid
 
 User = get_user_model()
@@ -108,19 +109,27 @@ class ChatHandler:
         friend_username = data['friend_username']
 
         try:
-            friend = User.objects.get(username=friend_username)
+            friend = await self.get_user_by_username(friend_username)
             if not friend:
                 await self.send_response('add_friend', success=False, error='Error sending friend request')
                 return
             
             # Check if friend is already in the user's friends list
-            if friend in self.consumer.user.friends.all():
+            friends = await self.get_consumer_friends(self.consumer.user)
+            if friend.id in [f.id for f in friends]:
                 await self.send_response('add_friend', success=False, error='User is already in your friends list')
                 return
             
-            # Add friend to user's friends list 
-            await self.consumer.user.friends.add(friend)
-            await self.send_response('add_friend', success=True, data={'friend': friend})
+            # Add friend to user's friends list
+            await self.send_response('add_friend', success=True, data={'friend': self.serialize_user(friend)})
+            await self.consumer.channel_layer.group_send(
+                f"chat_{friend.id}",
+                {
+                    'type': 'friend_request',
+                    'message': f'{friend.username} sent you a friend request',
+                    'sender_id': self.consumer.user.id
+                }
+            )
 
         except Exception as e:
             log.error(f'Error getting user by username {friend_username}: {str(e)}', extra={
@@ -128,6 +137,38 @@ class ChatHandler:
             })
             raise
         
+
+    @database_sync_to_async
+    def get_user_by_username(self, username: str) -> Optional[User]:
+        try:
+            user = User.objects.get(username=username)
+            log.info(f"User found:", user)
+            return user
+        except ObjectDoesNotExist:
+            return None
+
+    @database_sync_to_async
+    def get_consumer_friends(self, user: User) -> list[User]:
+        return list(user.friends.all())
+
+    @database_sync_to_async
+    def add_friend(self, user: User, friend: User) -> None:
+        try:
+            friend.friends.add(user)
+            user.friends.add(friend)
+            friend.save()
+            user.save()
+            return True
+        except:
+            return False
+
+    def serialize_user(self, user: User) -> Dict[str, Any]:
+        return {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            # Add other fields as needed
+        }
 
     async def handle_chat_message(self, data: Dict[str, Any]) -> None:
         if 'message' not in data or 'recipient_id' not in data:

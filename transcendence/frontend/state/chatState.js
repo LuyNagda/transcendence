@@ -71,6 +71,11 @@ export const chatValidators = {
 
 // Chat state reducers
 export const chatReducers = {
+    [chatActions.ADD_FRIEND]: (state, payload) => ({
+		...initialChatState,
+		...payload,
+	}),
+
 	[chatActions.INITIALIZE]: (state, payload) => ({
 		...initialChatState,
 		...payload,

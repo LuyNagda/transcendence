@@ -220,6 +220,17 @@ export default class ChatApp {
 				});
 			},
 
+            friend_request: (data) => {
+                if (!data?.sender_id) return;
+
+                if (confirm(`${data.sender_id} sent you a friend request`)) {
+                    this._sendMessage({
+                        type: 'accept_friend_request',
+                        sender_id: data.sender_id
+                    });
+                }
+            },
+
 			error: (data) => {
 				logger.error('[ChatApp] Server error:', data.message);
 				alert(data.message || 'An error occurred');
