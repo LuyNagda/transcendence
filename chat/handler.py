@@ -105,6 +105,10 @@ class ChatHandler:
     @database_sync_to_async
     def already_friends(self, current_user: User, friend: User) -> bool:
         return current_user.friends.filter(id=friend.id).exists()
+        
+    @database_sync_to_async
+    def is_pending(self, current_user: User, friend: User) -> bool:
+        return current_user.friendrequests.filter(id=friend.id).exists()
 
     @database_sync_to_async
     def already_pending(self, current_user: User, friend: User) -> bool:
@@ -188,35 +192,44 @@ class ChatHandler:
 
     async def handle_friend_request_choice(self, data: Dict[str, Any]) -> None:
         log.info(f'Handling friend request choice')
-        if 'friend_id' not in data or 'choice' not in data:
-            raise KeyError('friend_id, choice')
+        if 'friend_username' not in data or 'choice' not in data:
+            raise KeyError('friend_username, choice')
         
-        friend_id = data['friend_id']
+        friend_username = data['friend_username']
+        current_user = self.consumer.user
         choice = data['choice']
 
         try:
-            friend = await self.get_user(friend_id)
-            await self.delete_friend_request(self.consumer.user, friend)
+            friend = await self.get_user(friend_username)
+            await self.delete_friend_request(current_user, friend)
+
+            if await self.already_friends(current_user, friend):
+                await self.send_response('friend_request_choice', success=False, error='Already friends')
+                return
+            
+            if not await self.is_pending(current_user, friend):
+                await self.send_response('friend_request_choice', success=False, error='No pending friend request')
+                return
 
             if choice == 'accept':
-                await self.add_friend(self.consumer.user, friend)
+                await self.add_friend(current_user, friend)
                 await self.send_response('friend_request_choice', success=True, data={'friend': friend, 'message': 'Friend request accepted'})
                 return
             elif choice == 'reject':
                 await self.send_response('friend_request_choice', success=True, data={'friend': friend, 'message': 'Friend request rejected'})
                 return
             else:
-                self.send_response('friend_request_choice', success=False, error='Invalid choice')
+                await self.send_response('friend_request_choice', success=False, error='Invalid choice')
                 return
 
         except User.DoesNotExist:
-            log.info(f'Friend not found: {friend_id}')
-            self.send_response('friend_request_choice', success=False, error='User not found')
+            log.info(f'Friend not found: {friend_username}')
+            await self.send_response('friend_request_choice', success=False, error='User not found')
             return
 
         except Exception as e:
             log.error(f'Error handling friend request choice: {str(e)}', extra={
-                'user_id': self.consumer.user.id
+                'user_id': current_user.id
             })
             raise
 

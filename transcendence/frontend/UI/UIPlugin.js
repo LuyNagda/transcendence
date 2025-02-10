@@ -41,6 +41,7 @@ export const uiPlugin = {
 					modals: {},
 					toasts: [],
 					offcanvas: {},
+					friendRequests: []
 				}
 			});
 
@@ -53,6 +54,7 @@ export const uiPlugin = {
 				offcanvas: {},
 				themes: Object.values(UI_THEME),
 				fontSizes: Object.values(UI_FONT_SIZE),
+				friendRequests: ["gogo", "gogo2", "gogo3"]
 			});
 
 			logger.debug('UI state initialized:', app.getState('ui'));
@@ -138,6 +140,19 @@ export const uiPlugin = {
 					autohide: options.autohide ?? true,
 					delay: options.delay ?? 5000
 				});
+			},
+			friendRequestChoice(friendUsername, choice) {
+				logger.debug('[UI] Friend request choice:', friendUsername, choice);
+				if (!friendUsername || !choice) {
+					logger.error('[UI] Friend request choice:', friendUsername, choice);
+					return;
+				}
+				
+				// ChatApp._sendMessage({
+				// 	type: 'friend_request_choice',
+				// 	friend_username: friendUsername,
+				// 	choice: choice
+				// });
 			}
 		});
 

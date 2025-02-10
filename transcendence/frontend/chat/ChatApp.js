@@ -5,6 +5,7 @@ import jaiPasVu from '../UI/JaiPasVu.js';
 import { chatActions } from '../state/chatState.js';
 import { USER_STATUS } from '../state/userState.js';
 import CookieService from '../networking/CookieService.js';
+import { uiActions } from '../state/uiState.js';
 
 export default class ChatApp {
 	static #instance = null;
@@ -186,14 +187,14 @@ export default class ChatApp {
 					alert(data.error);
 				}
 				// else if (data?.message && data?.friend){
-					// store.dispatch({
-					// 	domain: 'chat',
-					// 	type: chatActions.FRIEND_REQUEST,
-					// 	payload: {
-					// 		friend: data.friend,
-					// 		message: data.message
-					// 	}
-					// });
+				// 	store.dispatch({
+				// 		domain: 'ui',
+				// 		type: uiActions.toast.ADD_TOAST,
+				// 		payload: {
+				// 			message: data.message
+				// 		}
+				// 	});
+				// }
 			},
 
 			game_invitation: (data) => {
