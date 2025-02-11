@@ -90,6 +90,7 @@ export default class ChatApp {
 			unblockUser: this.unblockUser.bind(this),
 			inviteToGame: this.inviteToGame.bind(this),
 			viewProfile: this.viewProfile.bind(this),
+			removeFriend: this.removeFriend.bind(this),
 			formatTimestamp: (timestamp) => new Date(timestamp).toLocaleTimeString(),
 			getUserName: (userId) => {
 				const user = store.getState('chat').users.find(u => u.id === userId);
@@ -265,6 +266,7 @@ export default class ChatApp {
 					alert(data.error);
 				}
 				else if (data?.data?.message) {
+					this.refreshUserList();
 					alert(data.data.message);
 					// Mettre à jour la liste des demandes d'ami
 					// store.dispatch({
@@ -273,6 +275,24 @@ export default class ChatApp {
 					// 	payload: data.data.friend
 					// });
 				}
+				this._sendMessage({
+					type: 'load_friend_requests'
+				});
+			},
+
+			remove_friend: (data) => {
+				if (data.success) {
+					this.refreshUserList();
+					alert(data.data.message);
+				}
+				else {
+					alert(data.error);
+				}
+			},
+
+			refresh_friends: (data) => {
+				logger.debug('[ChatApp] Refreshing friends');
+				this.refreshUserList();
 				this._sendMessage({
 					type: 'load_friend_requests'
 				});
@@ -630,6 +650,14 @@ export default class ChatApp {
 			room_id: roomState.id
 		});
 		alert('Game invitation sent!');
+	}
+
+	removeFriend(userId) {
+		logger.debug('[ChatApp] Removing friend with ID:', userId);
+		this._sendMessage({
+			type: 'remove_friend',
+			friend_id: userId
+		});
 	}
 
 	viewProfile(userId) {

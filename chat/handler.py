@@ -48,7 +48,8 @@ class ChatHandler:
             'game_invitation': self.handle_game_invitation,
             'accept_game_invitation': self.handle_accept_game_invitation,
             'tournament_warning': self.handle_tournament_warning,
-            'load_friend_requests': self.handle_load_friend_requests
+            'load_friend_requests': self.handle_load_friend_requests,
+            'remove_friend': self.handle_remove_friend
         }
 
         try:
@@ -134,6 +135,22 @@ class ChatHandler:
         current_user.save()
 
     @database_sync_to_async
+    def remove_friend(self, current_user: User, friend: User) -> None:
+        current_user.friends.remove(friend)
+        friend.friends.remove(current_user)
+        friend.save()
+        current_user.save()
+
+    async def refresh_friends(self, friend: User) -> None:
+        await self.consumer.channel_layer.group_send(
+        f"chat_{friend.id}",
+            {
+                'type': 'refresh_friends', 
+                'message': 'update_required'
+            }
+        )
+
+    @database_sync_to_async
     def delete_friend_request(self, current_user: User, friend: User) -> None:
         friend.friendrequests.remove(current_user)
         current_user.friendrequests.remove(friend)
@@ -173,20 +190,15 @@ class ChatHandler:
             if await self.already_crossing(current_user, friend):
                 await self.add_friend(current_user, friend)
                 log.info(f'User already in pending friends list, accepting friend request')
+                await self.refresh_friends(friend)
+                await self.send_response('refresh_friends', success=True)
                 await self.send_response('friend_request', success=True, error='Friend request accepted automatically')
                 return
 
             await self.send_friend_request(current_user, friend)
             log.info(f'Adding friend request')
+            await self.refresh_friends(friend)
             await self.send_response('friend_request', success=True, data={'friend': friend.chat_user, 'message': 'Friend request sended'})
-            await self.consumer.channel_layer.group_send(
-                f"chat_{friend.id}",
-                {
-                    'type': 'friend_request',
-                    'sender_username': current_user.username,
-                    'sender_id': current_user.id
-                }
-            )
 
         except User.DoesNotExist:
             log.info(f'Friend not found: {friend_username}')
@@ -219,8 +231,10 @@ class ChatHandler:
                     
                 await self.delete_friend_request(current_user, friend)
                 await self.add_friend(current_user, friend)
+                await self.refresh_friends(friend)
                 await self.send_response('friend_request_choice', success=True, data={'friend': friend.chat_user, 'message': 'Friend request accepted'})
             elif choice == 'reject':
+                await self.refresh_friends(friend)
                 await self.delete_friend_request(current_user, friend)
                 await self.send_response('friend_request_choice', success=True, data={'friend': friend.chat_user, 'message': 'Friend request rejected'})
             else:
@@ -506,15 +520,26 @@ class ChatHandler:
             current_user = self.consumer.user
             requests = await self.get_pending_requests(current_user)
             
-            await self.send_response(
-                'load_friend_requests', 
-                success=True, 
-                data={'requests': requests}
-            )
+            await self.send_response('load_friend_requests', success=True, data={'requests': requests})
         except Exception as e:
             log.error(f'Error loading friend requests: {str(e)}')
-            await self.send_response(
-                'load_friend_requests', 
-                success=False, 
-                error=str(e)
-            )
+            await self.send_response('load_friend_requests', success=False, error=str(e))
+
+    async def handle_remove_friend(self, data: Dict[str, Any]) -> None:
+        if 'friend_id' not in data:
+            raise KeyError('friend_id')
+        
+        friend_id = data['friend_id']
+
+        try:
+            friend = await self.get_user(id=friend_id)
+            await self.remove_friend(self.consumer.user, friend)
+            await self.refresh_friends(friend)
+            await self.send_response('remove_friend', success=True, data={'friend': friend.chat_user, 'message': 'Friend removed'})
+
+
+        except Exception as e:
+            log.error(f'Error removing friend: {str(e)}')
+            await self.send_response('remove_friend', success=False, error='An error occurred')
+        
+        

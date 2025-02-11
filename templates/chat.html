@@ -76,6 +76,8 @@
                                 v-on:click="unblockUser([[ selectedUser.id ]])"
                                 >Unblock</button>
                         </span>
+						<button class="btn btn-warning" aria-label="Remove friend" id="remove-friend-button"
+                            v-on:click="removeFriend([[ selectedUser.id ]])">Remove Friend</button>
                         <button class="btn btn-success" aria-label="Invite selected user to Pong" id="invite-to-game-button"
                             v-on:click="inviteToGame([[ selectedUser.id ]])"
                             >Invite</button>

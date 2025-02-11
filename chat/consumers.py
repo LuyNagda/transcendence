@@ -185,6 +185,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Handle incoming friends request choice message from channel layer"""
         await MessageSender.send_message(self, event)
 
+    async def remove_friend_message(self, event: Dict[str, Any]) -> None:
+        """Handle incoming remove friend message from channel layer"""
+        await MessageSender.send_message(self, event)
+
     async def load_friend_requests_message(self, event: Dict[str, Any]) -> None:
         """Handle incoming load friend requests message from channel layer"""
         await MessageSender.send_message(self, event)
@@ -227,3 +231,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         ).values_list('id', flat=True))
         
         return allowed_users
+
+    async def refresh_friends(self, event: Dict[str, Any]) -> None:
+        """Handle friend list refresh requests"""
+        await self.send(text_data=json.dumps({
+            'type': 'refresh_friends',
+            'message': 'update_required'
+        }))
