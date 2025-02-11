@@ -9,7 +9,9 @@ export const chatActions = {
 	UPDATE_USER: 'UPDATE_USER',
 	UPDATE_USERS: 'UPDATE_USERS',
 	INCREMENT_UNREAD: 'INCREMENT_UNREAD',
-	CLEAR_UNREAD: 'CLEAR_UNREAD'
+	CLEAR_UNREAD: 'CLEAR_UNREAD',
+	ADD_FRIEND: 'ADD_FRIEND',
+    ADD_FRIEND_REQUEST: 'ADD_FRIEND_REQUEST',
 };
 
 // Initial chat state
@@ -70,6 +72,11 @@ export const chatValidators = {
 
 // Chat state reducers
 export const chatReducers = {
+    [chatActions.ADD_FRIEND]: (state, payload) => ({
+		...initialChatState,
+		...payload,
+	}),
+
 	[chatActions.INITIALIZE]: (state, payload) => ({
 		...initialChatState,
 		...payload,

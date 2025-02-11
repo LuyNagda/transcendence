@@ -5,6 +5,8 @@ import jaiPasVu from '../UI/JaiPasVu.js';
 import { chatActions } from '../state/chatState.js';
 import { USER_STATUS } from '../state/userState.js';
 import CookieService from '../networking/CookieService.js';
+import toastr from 'toastr';
+import 'toastr/build/toastr.min.css';
 
 export default class ChatApp {
 	static #instance = null;
@@ -13,17 +15,20 @@ export default class ChatApp {
 		if (store.getState('user').status === USER_STATUS.ONLINE) {
 			ChatApp.#instance = new ChatApp();
 			await ChatApp.#instance._setupConnection();
+            window.chatApp = ChatApp.#instance;
 		}
 		store.subscribe('user', async (state) => {
 			if (state.status === USER_STATUS.OFFLINE) {
 				if (ChatApp.#instance) {
 					ChatApp.#instance.destroy();
 					ChatApp.#instance = null;
+                    window.chatApp = null;
 				}
 			} else if (state.status === USER_STATUS.ONLINE) {
 				if (!ChatApp.#instance) {
 					ChatApp.#instance = new ChatApp();
 					await ChatApp.#instance._setupConnection();
+                    window.chatApp = ChatApp.#instance;
 				}
 			}
 		});
@@ -83,6 +88,7 @@ export default class ChatApp {
 		// Register methods
 		jaiPasVu.registerMethods('chat', {
 			handleFormSubmit: this.handleFormSubmit.bind(this),
+			handleFormSubmitFriend: this.handleFormSubmitFriend.bind(this),
 			selectUser: this.selectUser.bind(this),
 			blockUser: this.blockUser.bind(this),
 			unblockUser: this.unblockUser.bind(this),
@@ -219,6 +225,47 @@ export default class ChatApp {
 				});
 			},
 
+            friend_request: (data) => {
+                if (!data?.sender_id) return;
+    
+                // Update local state with the new friend request
+                store.dispatch({
+                    domain: 'chat',
+                    type: chatActions.ADD_FRIEND_REQUEST,
+                    payload: {
+                        sender_id: data.sender_id,
+                        message: data.message
+                    }
+                });
+    
+                // Update the DOM to display the friend request
+                this._displayFriendRequest(data.sender_id, data.message);
+            },
+
+            add_friend: (data) => {
+                if (!data?.success) {
+                    toastr.error(data.error || 'Failed to add friend');
+                } else {
+                    toastr.success(data.message || 'Friend request sent');
+                }
+            },
+
+            accept_friend_request: (data) => {
+                if (!data?.success) {
+                    toastr.error(data.error || 'Failed to accept friend request');
+                } else {
+                    toastr.success(data.message || 'Friend request accepted');
+                }
+            },
+
+            deny_friend_request: (data) => {
+                if (!data?.success) {
+                    toastr.error(data.error || 'Failed to deny friend request');
+                } else {
+                    toastr.success(data.message || 'Friend request denied');
+                }
+            },
+
 			error: (data) => {
 				logger.error('[ChatApp] Server error:', data.message);
 				alert(data.message || 'An error occurred');
@@ -232,6 +279,48 @@ export default class ChatApp {
 			logger.debug(`[ChatApp] Unhandled message type:`, data.type);
 		}
 	}
+
+    _displayFriendRequest(senderId, message) {
+        const friendRequestsContainer = document.querySelector('#friend-requests-container');
+        if (!friendRequestsContainer) return;
+
+        const noRequestsElement = document.querySelector('#no-friend-requests');
+        if (noRequestsElement) {
+            noRequestsElement.remove();
+        }
+
+        const requestElement = document.createElement('li');
+        requestElement.classList.add('dropdown-item');
+        requestElement.dataset.senderId = senderId;
+    
+        requestElement.innerHTML = `
+            <div class="dropdown-item d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center me-2">
+                    ${message}
+                </div>
+                <div class="btn-group" role="group" aria-label="Friend request actions">
+                    <a href="#" class="btn btn-success btn-sm d-flex align-items-center justify-content-center" 
+                       role="button" 
+                       aria-label="Confirm friend request"
+                       onclick="acceptFriendRequest(${senderId})">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/>
+                        </svg>
+                    </a>
+                    <a href="#" class="btn btn-danger btn-sm d-flex align-items-center justify-content-center" 
+                       role="button" 
+                       aria-label="Deny friend request"
+                       onclick="denyFriendRequest(${senderId})">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x" viewBox="0 0 16 16" aria-hidden="true">
+                            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        `;
+    
+        friendRequestsContainer.appendChild(requestElement);
+    }
 
 	_sendMessage(message) {
 		if (!this._connection?.state?.canSend) {
@@ -296,6 +385,37 @@ export default class ChatApp {
 		});
 
 		messageInput.value = '';
+	}
+
+	handleFormSubmitFriend(e) {
+		e.preventDefault();
+		const friendInput = document.querySelector('#friend-input');
+		const friendUsername = friendInput.value.trim();
+
+		if (!friendUsername) return;
+
+		const currentUserId = store.getState('user').id;
+		if (!currentUserId) return;
+
+		logger.debug('[ChatApp] Adding friend:', friendUsername);
+
+		// Send standardized message object to backend
+		this._sendMessage({
+			type: 'add_friend',
+			user_id: currentUserId,
+			friend_username: friendUsername
+		});
+
+		// Update local state
+		store.dispatch({
+			domain: 'chat',
+			type: chatActions.ADD_FRIEND,
+			payload: {
+				friend_username: friendUsername
+			}
+		});
+
+		friendInput.value = '';
 	}
 
 	handleUserClick(event) {

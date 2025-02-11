@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, register_converter, include
 from django.contrib.auth import views as auth_views
 from authentication.views import register, login_view, index, logout_view, forgot_password, otp, oauth_callback, set_password
-from home.views import profile, settings_view, change_password
+from home.views import profile, settings_view, change_password, games_history
 from django.conf.urls.static import static
 from django.conf import settings
 from rest_framework_simplejwt.views import (
@@ -61,5 +61,6 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('ai/', include('ai.urls')),
     path('static/<path:path>', serve, {'document_root': settings.STATIC_ROOT, 'show_indexes': settings.DEBUG}),
+    path('games-history', games_history, name='games-history'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) \
   + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
