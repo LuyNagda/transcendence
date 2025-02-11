@@ -116,6 +116,10 @@ class ChatHandler:
                 await self.send_response('add_friend', success=False, error='Error sending friend request')
                 return
             
+            if friend == self.consumer.user:
+                await self.send_response('add_friend', success=False, error='Cannot add self as friend')
+                return
+            
             # Check if friend is already in the user's friends list
             friends = await self.get_consumer_friends(self.consumer.user)
             if friend.id in [f.id for f in friends]:
