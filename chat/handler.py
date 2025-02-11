@@ -192,7 +192,7 @@ class ChatHandler:
                 log.info(f'User already in pending friends list, accepting friend request')
                 await self.refresh_friends(friend)
                 await self.send_response('refresh_friends', success=True)
-                await self.send_response('friend_request', success=True, error='Friend request accepted automatically')
+                await self.send_response('friend_request', success=True, data={'friend': friend.chat_user, 'message': 'Friend request accepted automatically'})
                 return
 
             await self.send_friend_request(current_user, friend)

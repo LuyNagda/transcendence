@@ -6,6 +6,7 @@ import { chatActions } from '../state/chatState.js';
 import { USER_STATUS } from '../state/userState.js';
 import CookieService from '../networking/CookieService.js';
 import { uiActions } from '../state/uiState.js';
+import toastr from 'toastr';
 
 export default class ChatApp {
 	static #instance = null;
@@ -184,7 +185,7 @@ export default class ChatApp {
 
 			friend_request: (data) => {
 				if (data.error) {
-					alert(data.error);
+					toastr.error(data.error);
 					// store.dispatch({
 					// 	domain: 'ui',
 					// 	type: uiActions.SHOW_TOAST,
@@ -194,7 +195,7 @@ export default class ChatApp {
 					// 	}
 					// });
 				} else if (data?.data?.message) {
-					alert(data.data.message);
+					toastr.success(data.data.message);
 					// store.dispatch({
 					// 	domain: 'ui',
 					// 	type: uiActions.SHOW_TOAST,
@@ -263,11 +264,11 @@ export default class ChatApp {
 
 			friend_request_choice: (data) => {
 				if (data.error) {
-					alert(data.error);
+					toastr.error(data.error);
 				}
 				else if (data?.data?.message) {
 					this.refreshUserList();
-					alert(data.data.message);
+					toastr.success(data.data.message);
 					// Mettre à jour la liste des demandes d'ami
 					// store.dispatch({
 					// 	domain: 'chat',
@@ -283,10 +284,10 @@ export default class ChatApp {
 			remove_friend: (data) => {
 				if (data.success) {
 					this.refreshUserList();
-					alert(data.data.message);
+					toastr.success(data.data.message);
 				}
 				else {
-					alert(data.error);
+					toastr.error(data.error);
 				}
 			},
 

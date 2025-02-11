@@ -7,6 +7,16 @@ import { connectionManager } from './networking/ConnectionManager.js';
 import { initializeAiManager } from './pong/AiManager.js';
 import Room from './room/Room.js';
 import ChatApp from './chat/ChatApp.js';
+import toastr from 'toastr';
+import 'toastr/build/toastr.min.css';
+
+toastr.options = {
+	positionClass: 'toast-bottom-right',
+	preventDuplicates: true,
+	closeButton: true,
+	newestOnTop: true,
+	timeOut: 5000
+};
 
 function _initializeErrorHandling() {
 	window.onerror = function (message, source, lineno, colno, error) {
