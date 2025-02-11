@@ -232,7 +232,7 @@ class ChatHandler:
 
         except Exception as e:
             log.error(f'Error handling friend request choice: {str(e)}')
-            await self.send_response('friend_request_choice', success=False, error=str(e))
+            await self.send_response('friend_request_choice', success=False, error='An error occurred')
 
     async def handle_chat_message(self, data: Dict[str, Any]) -> None:
         if 'message' not in data or 'recipient_id' not in data:
