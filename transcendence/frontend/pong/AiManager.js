@@ -1,12 +1,23 @@
+import logger from '../logger.js';
+
 export async function initializeAiManager() {
+    logger.info(`Initialization of AiManager...`);
+
     const trainButton = document.getElementById("train-ai-btn");
     const deleteButton = document.getElementById("delete-ai-btn");
     const dropdown = document.getElementById("saved-ai-dropdown");
     const managingLog = document.getElementById('managing-log');
     managingLog.style.display = 'block';
 
+    // Initial fetch of saved AIs
+    await fetchSavedAIs();
+
+    logger.info(`AiManager inatialized successfully`);
+
     // Fetch saved AIs and populate the dropdown
     async function fetchSavedAIs() {
+		logger.info(`Fetching saved AIs...`);
+
         try {
             const response = await fetch('/ai/list-saved-ai', {
                 method: 'GET'
@@ -27,6 +38,7 @@ export async function initializeAiManager() {
                 if (disabled_ai.includes(ai))
                     option.disabled = true;
                 dropdown.appendChild(option);
+                logger.info(`AIs fetched successfully`);
             });
         } catch (error) {
             managingLog.className = 'alert alert-danger';
@@ -171,7 +183,4 @@ export async function initializeAiManager() {
 
         enabled_buttons()
     });
-
-    // Initial fetch of saved AIs
-    fetchSavedAIs();
 }

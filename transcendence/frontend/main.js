@@ -19,6 +19,25 @@ function _initializeErrorHandling() {
 	});
 }
 
+function waitForElement(selector, callback) {
+    const element = document.querySelector(selector);
+    if (element) {
+        callback();  // If the element already exists, run the callback immediately
+        return;
+    }
+
+    const observer = new MutationObserver((mutations, obs) => {
+		logger.info(`[Waiting] waitForElement :`, selector);
+
+		if (document.querySelector(selector)) {
+            callback();
+            obs.disconnect();  // Stop observing once the element is found
+        }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+}
+
 async function initializeApp() {
 	try {
 		const configElement = document.getElementById('app-config');
@@ -29,18 +48,20 @@ async function initializeApp() {
 		const config = JSON.parse(configElement.textContent);
 		logger.initialize(config);
 		logger.info(`[Main] Starting application initialization`);
-
+		
 		_initializeErrorHandling();
-
+		
 		store.initialize();
 		connectionManager.initialize();
-		// initializeAiManager();	
-
+		
 		jaiPasVu.use(uiPlugin);
 		jaiPasVu.use(htmxPlugin);
 		jaiPasVu.initialize();
-
+		
 		await ChatApp.initialize();
+		
+		// Use the function to wait for #saved-ai-dropdown
+		waitForElement("#saved-ai-dropdown", initializeAiManager);
 
 		Room.initialize();
 
