@@ -269,12 +269,6 @@ export default class ChatApp {
 				else if (data?.data?.message) {
 					this.refreshUserList();
 					toastr.success(data.data.message);
-					// Mettre à jour la liste des demandes d'ami
-					// store.dispatch({
-					// 	domain: 'chat',
-					// 	type: chatActions.FRIEND_REQUEST,
-					// 	payload: data.data.friend
-					// });
 				}
 				this._sendMessage({
 					type: 'load_friend_requests'
@@ -284,11 +278,23 @@ export default class ChatApp {
 			remove_friend: (data) => {
 				if (data.success) {
 					this.refreshUserList();
+					store.dispatch({
+						domain: 'chat',
+						type: chatActions.SET_SELECTED_USER,
+					});
 					toastr.success(data.data.message);
 				}
 				else {
 					toastr.error(data.error);
 				}
+			},
+
+			unselect_user: (data) => {
+				logger.debug('[ChatApp] Unselecting user');
+				store.dispatch({
+					domain: 'chat',
+					type: chatActions.SET_SELECTED_USER,
+				});
 			},
 
 			refresh_friends: (data) => {

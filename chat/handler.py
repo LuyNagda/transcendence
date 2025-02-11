@@ -49,7 +49,8 @@ class ChatHandler:
             'accept_game_invitation': self.handle_accept_game_invitation,
             'tournament_warning': self.handle_tournament_warning,
             'load_friend_requests': self.handle_load_friend_requests,
-            'remove_friend': self.handle_remove_friend
+            'remove_friend': self.handle_remove_friend,
+            'unselect_user': self.handle_unselect_user,
         }
 
         try:
@@ -535,11 +536,19 @@ class ChatHandler:
             friend = await self.get_user(id=friend_id)
             await self.remove_friend(self.consumer.user, friend)
             await self.refresh_friends(friend)
+            await self.consumer.channel_layer.group_send(
+            f"chat_{friend.id}",
+                {
+                    'type': 'unselect_user',
+                    'message': 'update_required'
+                }
+            )
             await self.send_response('remove_friend', success=True, data={'friend': friend.chat_user, 'message': 'Friend removed'})
-
 
         except Exception as e:
             log.error(f'Error removing friend: {str(e)}')
             await self.send_response('remove_friend', success=False, error='An error occurred')
-        
-        
+
+    async def handle_unselect_user(self, event: Dict[str, Any]) -> None:
+        """Handle incoming unselect user message from channel layer"""
+        await MessageSender.send_message(self, event)

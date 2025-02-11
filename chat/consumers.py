@@ -189,6 +189,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Handle incoming remove friend message from channel layer"""
         await MessageSender.send_message(self, event)
 
+    async def unselect_user(self, event: Dict[str, Any]) -> None:
+        """Handle incoming unselect user message from channel layer"""
+        await MessageSender.send_message(self, event)
+
     async def load_friend_requests_message(self, event: Dict[str, Any]) -> None:
         """Handle incoming load friend requests message from channel layer"""
         await MessageSender.send_message(self, event)
