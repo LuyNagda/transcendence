@@ -66,7 +66,7 @@ def unblock_user(request, user_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def get_users(request):
-    users = User.objects.exclude(id=request.user.id)
+    users = request.user.friends.all()
     blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user_id', flat=True)
     user_list = []
     for user in users:
