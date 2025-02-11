@@ -5,6 +5,8 @@ import jaiPasVu from '../UI/JaiPasVu.js';
 import { chatActions } from '../state/chatState.js';
 import { USER_STATUS } from '../state/userState.js';
 import CookieService from '../networking/CookieService.js';
+import toastr from 'toastr';
+import 'toastr/build/toastr.min.css';
 
 export default class ChatApp {
 	static #instance = null;
@@ -238,6 +240,30 @@ export default class ChatApp {
     
                 // Update the DOM to display the friend request
                 this._displayFriendRequest(data.sender_id, data.message);
+            },
+
+            add_friend: (data) => {
+                if (!data?.success) {
+                    toastr.error(data.error || 'Failed to add friend');
+                } else {
+                    toastr.success(data.message || 'Friend request sent');
+                }
+            },
+
+            accept_friend_request: (data) => {
+                if (!data?.success) {
+                    toastr.error(data.error || 'Failed to accept friend request');
+                } else {
+                    toastr.success(data.message || 'Friend request accepted');
+                }
+            },
+
+            deny_friend_request: (data) => {
+                if (!data?.success) {
+                    toastr.error(data.error || 'Failed to deny friend request');
+                } else {
+                    toastr.success(data.message || 'Friend request denied');
+                }
             },
 
 			error: (data) => {
