@@ -14,8 +14,8 @@ class User(AbstractUser):
     profile_picture = models.ImageField(upload_to='profile_pictures/', default='profile_pictures/user.png')
     otp = models.CharField(max_length=8, blank=True, null=True, default=None)
     online = models.BooleanField(default=False)
-    friends = models.ManyToManyField('self', blank=True, null= True, default=None)
-    friendrequests = models.ManyToManyField('self', blank=True, null= True, symmetrical=False, default=None)
+    friends = models.ManyToManyField('self', blank=True, default=None)
+    friendrequests = models.ManyToManyField('self', blank=True, symmetrical=False, default=None)
 
     @property
     def player_data(self):

@@ -258,6 +258,24 @@ export default class ChatApp {
 						payload: { requests: data.data.requests }
 					});
 				}
+			},
+
+			friend_request_choice: (data) => {
+				if (data.error) {
+					alert(data.error);
+				}
+				else if (data?.data?.message) {
+					alert(data.data.message);
+					// Mettre à jour la liste des demandes d'ami
+					// store.dispatch({
+					// 	domain: 'chat',
+					// 	type: chatActions.FRIEND_REQUEST,
+					// 	payload: data.data.friend
+					// });
+				}
+				this._sendMessage({
+					type: 'load_friend_requests'
+				});
 			}
 		};
 

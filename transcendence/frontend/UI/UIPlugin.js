@@ -149,16 +149,16 @@ export const uiPlugin = {
 					type: 'load_friend_requests'
 				});
 			},
-			friendRequestChoice(friendUsername, choice) {
-				logger.debug('[UI] Friend request choice:', friendUsername, choice);
-				if (!friendUsername || !choice) {
-					logger.error('[UI] Friend request choice:', friendUsername, choice);
+			friendRequestChoice(friendId, choice) {
+				logger.debug('[UI] Friend request choice:', friendId, choice);
+				if (!friendId || !choice) {
+					logger.error('[UI] Friend request choice:', friendId, choice);
 					return;
 				}
 				
 				ChatApp.sendMessage({
 					type: 'friend_request_choice',
-					friend_username: friendUsername,
+					friend_id: friendId,
 					choice: choice
 				});
 			}
