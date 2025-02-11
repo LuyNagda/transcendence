@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Any, Optional, Callable, Awaitable, TypedDict, Union
+from typing import Dict, Any, Optional, Callable, Awaitable, TypedDict, Union, List
 from django.db import models
 from channels.db import database_sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
@@ -47,7 +47,8 @@ class ChatHandler:
             'get_profile': self.handle_get_profile,
             'game_invitation': self.handle_game_invitation,
             'accept_game_invitation': self.handle_accept_game_invitation,
-            'tournament_warning': self.handle_tournament_warning
+            'tournament_warning': self.handle_tournament_warning,
+            'load_friend_requests': self.handle_load_friend_requests
         }
 
         try:
@@ -172,12 +173,12 @@ class ChatHandler:
 
             await self.send_friend_request(current_user, friend)
             log.info(f'Adding friend request')
-            await self.send_response('friend_request', success=True, data={'friend': friend, 'message': 'Friend request sended'})
+            await self.send_response('friend_request', success=True, data={'friend': friend.chat_user, 'message': 'Friend request sended'})
             await self.consumer.channel_layer.group_send(
                 f"chat_{friend.id}",
                 {
                     'type': 'friend_request',
-                    'message': f'{current_user.username} sent you a friend request',
+                    'sender_username': current_user.username,
                     'sender_id': current_user.id
                 }
             )
@@ -216,7 +217,7 @@ class ChatHandler:
                 await self.send_response('friend_request_choice', success=True, data={'friend': friend, 'message': 'Friend request accepted'})
                 return
             elif choice == 'reject':
-                await self.send_response('friend_request_choice', success=True, data={'friend': friend, 'message': 'Friend request rejected'})
+                await self.send_response('friend_request_choice', success=True, data={'friend': friend.chat_user, 'message': 'Friend request rejected'})
                 return
             else:
                 await self.send_response('friend_request_choice', success=False, error='Invalid choice')
@@ -490,3 +491,30 @@ class ChatHandler:
     @database_sync_to_async
     def get_room_owner_id(self, room: PongRoom) -> int:
         return room.owner.id
+
+    @database_sync_to_async
+    def get_pending_requests(self, user: User) -> List[Dict[str, Any]]:
+        return list(user.friendrequests.all().values(
+            'id',
+            'username',
+            'profile_picture',
+            'online'
+        ))
+
+    async def handle_load_friend_requests(self, data: Dict[str, Any]) -> None:
+        try:
+            current_user = self.consumer.user
+            requests = await self.get_pending_requests(current_user)
+            
+            await self.send_response(
+                'load_friend_requests', 
+                success=True, 
+                data={'requests': requests}
+            )
+        except Exception as e:
+            log.error(f'Error loading friend requests: {str(e)}')
+            await self.send_response(
+                'load_friend_requests', 
+                success=False, 
+                error=str(e)
+            )

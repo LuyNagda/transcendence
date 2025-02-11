@@ -2,6 +2,7 @@ import { store, actions } from '../state/store.js';
 import logger from '../logger.js';
 import { UI_THEME, UI_FONT_SIZE } from '../state/uiState.js';
 import { Modal, Dropdown, Toast, Offcanvas } from '../vendor.js';
+import ChatApp from '../chat/ChatApp.js';
 
 export const AlertTypes = {
 	SUCCESS: 'success',
@@ -10,9 +11,11 @@ export const AlertTypes = {
 	INFO: 'info'
 };
 
+
 export const uiPlugin = {
 	name: 'ui',
 	app: null,
+	
 
 	install(app) {
 		this.app = app;
@@ -54,7 +57,7 @@ export const uiPlugin = {
 				offcanvas: {},
 				themes: Object.values(UI_THEME),
 				fontSizes: Object.values(UI_FONT_SIZE),
-				friendRequests: ["gogo", "gogo2", "gogo3"]
+				friendRequests: []
 			});
 
 			logger.debug('UI state initialized:', app.getState('ui'));
@@ -84,7 +87,7 @@ export const uiPlugin = {
 			hasActiveModals: function () { return Object.keys(this.modals).length > 0; },
 			hasActiveToasts: function () { return this.toasts.length > 0; },
 			activeModalCount: function () { return Object.keys(this.modals).length; },
-			activeToastCount: function () { return this.toasts.length; }
+			activeToastCount: function () { return this.toasts.length; },
 		});
 
 		// Register UI methods
@@ -141,6 +144,11 @@ export const uiPlugin = {
 					delay: options.delay ?? 5000
 				});
 			},
+			loadFriendRequests: () => {
+				ChatApp.sendMessage({
+					type: 'load_friend_requests'
+				});
+			},
 			friendRequestChoice(friendUsername, choice) {
 				logger.debug('[UI] Friend request choice:', friendUsername, choice);
 				if (!friendUsername || !choice) {
@@ -148,11 +156,11 @@ export const uiPlugin = {
 					return;
 				}
 				
-				// ChatApp._sendMessage({
-				// 	type: 'friend_request_choice',
-				// 	friend_username: friendUsername,
-				// 	choice: choice
-				// });
+				ChatApp.sendMessage({
+					type: 'friend_request_choice',
+					friend_username: friendUsername,
+					choice: choice
+				});
 			}
 		});
 
@@ -168,6 +176,7 @@ export const uiPlugin = {
 		store.subscribe('ui.modals', this._handleModalStateChange.bind(this));
 		store.subscribe('ui.toasts', this._handleToastStateChange.bind(this));
 		store.subscribe('ui.offcanvas', this._handleOffcanvasStateChange.bind(this));
+		// store.subscribe('ui.friendRequests', this._handleFriendRequestStateChange.bind(this));
 	},
 
 	_updateTheme(theme) {
@@ -327,5 +336,5 @@ export const uiPlugin = {
 		} catch (error) {
 			logger.error('Error applying font size to DOM:', error);
 		}
-	}
+	},
 };

@@ -7,7 +7,8 @@ export const uiActions = {
 	TOGGLE_OFFCANVAS: 'TOGGLE_OFFCANVAS',
 	UPDATE_THEME: 'UPDATE_THEME',
 	UPDATE_FONT_SIZE: 'UPDATE_FONT_SIZE',
-	UPDATE: 'UPDATE'
+	UPDATE: 'UPDATE',
+	LOAD_FRIEND_REQUESTS: 'LOAD_FRIEND_REQUESTS'
 };
 
 export const UI_THEME = {
@@ -137,5 +138,10 @@ export const uiReducers = {
 			...state,
 			fontSize
 		};
-	}
+	},
+
+	[uiActions.LOAD_FRIEND_REQUESTS]: (state, payload) => ({
+		...state,
+		friendRequests: payload.requests
+	})
 }; 

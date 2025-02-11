@@ -182,19 +182,27 @@ export default class ChatApp {
 			},
 
 			friend_request: (data) => {
-				// logger.debug('[ChatApp] Received friend request:', data.error);
-				if (data.error){
+				if (data.error) {
 					alert(data.error);
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: uiActions.SHOW_TOAST,
+					// 	payload: {
+					// 		message: data.error,
+					// 		type: 'error'
+					// 	}
+					// });
+				} else if (data?.data?.message) {
+					alert(data.data.message);
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: uiActions.SHOW_TOAST,
+					// 	payload: {
+					// 		message: data.message,
+					// 		type: 'success'
+					// 	}
+					// });
 				}
-				// else if (data?.message && data?.friend){
-				// 	store.dispatch({
-				// 		domain: 'ui',
-				// 		type: uiActions.toast.ADD_TOAST,
-				// 		payload: {
-				// 			message: data.message
-				// 		}
-				// 	});
-				// }
 			},
 
 			game_invitation: (data) => {
@@ -240,6 +248,16 @@ export default class ChatApp {
 			error: (data) => {
 				logger.error('[ChatApp] Server error:', data.message);
 				alert(data.message || 'An error occurred');
+			},
+
+			load_friend_requests: (data) => {
+				if (data.success) {
+					store.dispatch({
+						domain: 'ui',
+						type: uiActions.LOAD_FRIEND_REQUESTS,
+						payload: { requests: data.data.requests }
+					});
+				}
 			}
 		};
 
@@ -605,5 +623,13 @@ export default class ChatApp {
 
 	formatTimestamp(timestamp) {
 		return new Date(timestamp).toLocaleTimeString();
+	}
+
+	static sendMessage(message) {
+		if (!this.#instance) {
+			logger.error('ChatApp not initialized');
+			return;
+		}
+		this.#instance._sendMessage(message);
 	}
 }

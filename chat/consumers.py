@@ -185,6 +185,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """Handle incoming friends request choice message from channel layer"""
         await MessageSender.send_message(self, event)
 
+    async def load_friend_requests_message(self, event: Dict[str, Any]) -> None:
+        """Handle incoming load friend requests message from channel layer"""
+        await MessageSender.send_message(self, event)
+
     async def status_update(self, event: Dict[str, Any]) -> None:
         """Handle status update event"""
         user = event.get('user')  # Get user from event
