@@ -10,7 +10,6 @@ const buildOptions = {
 		'main': 'transcendence/frontend/main.js',
 		'vendor': 'transcendence/frontend/vendor.js',
 		'high-contrast': 'transcendence/frontend/css/high-contrast.css',
-		'toastr': 'node_modules/toastr/build/toastr.min.css'
 	},
 	bundle: true,
 	outdir: 'transcendence/static',

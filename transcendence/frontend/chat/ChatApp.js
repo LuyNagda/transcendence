@@ -6,8 +6,6 @@ import { chatActions } from '../state/chatState.js';
 import { USER_STATUS } from '../state/userState.js';
 import CookieService from '../networking/CookieService.js';
 import { uiActions } from '../state/uiState.js';
-import toastr from 'toastr';
-
 export default class ChatApp {
 	static #instance = null;
 
@@ -184,26 +182,27 @@ export default class ChatApp {
 			},
 
 			friend_request: (data) => {
-				if (data.error) {
-					toastr.error(data.error);
-					// store.dispatch({
-					// 	domain: 'ui',
-					// 	type: uiActions.SHOW_TOAST,
-					// 	payload: {
-					// 		message: data.error,
-					// 		type: 'error'
-					// 	}
-					// });
-				} else if (data?.data?.message) {
-					toastr.success(data.data.message);
-					// store.dispatch({
-					// 	domain: 'ui',
-					// 	type: uiActions.SHOW_TOAST,
-					// 	payload: {
-					// 		message: data.message,
-					// 		type: 'success'
-					// 	}
-					// });
+				if (data.success) {
+					store.dispatch({
+						domain: 'ui',
+						type: actions.ui.SHOW_TOAST,
+						payload: {
+							id: `toast-${Date.now()}`,
+							message: data.data.message,
+							type: 'success'
+						}
+					});
+				}
+				else {
+					store.dispatch({
+						domain: 'ui',
+						type: actions.ui.SHOW_TOAST,
+						payload: {
+							id: `toast-${Date.now()}`,
+							message: data.error,
+							type: 'error'
+						}
+					});
 				}
 			},
 
@@ -263,12 +262,28 @@ export default class ChatApp {
 			},
 
 			friend_request_choice: (data) => {
-				if (data.error) {
-					toastr.error(data.error);
-				}
-				else if (data?.data?.message) {
+				if (data.success) {
 					this.refreshUserList();
-					toastr.success(data.data.message);
+					store.dispatch({
+						domain: 'ui',
+						type: actions.ui.SHOW_TOAST,
+						payload: {
+							id: `toast-${Date.now()}`,
+							message: data.data.message,
+							type: 'success'
+						}
+					});
+				}
+				else {
+					store.dispatch({
+						domain: 'ui',
+						type: actions.ui.SHOW_TOAST,
+						payload: {
+							id: `toast-${Date.now()}`,
+							message: data.error,
+							type: 'error'
+						}
+					});
 				}
 				this._sendMessage({
 					type: 'load_friend_requests'
@@ -282,10 +297,26 @@ export default class ChatApp {
 						domain: 'chat',
 						type: chatActions.SET_SELECTED_USER,
 					});
-					toastr.success(data.data.message);
+					store.dispatch({
+						domain: 'ui',
+						type: actions.ui.SHOW_TOAST,
+						payload: {
+							id: `toast-${Date.now()}`,
+							message: data.data.message,
+							type: 'success'
+						}
+					});
 				}
 				else {
-					toastr.error(data.error);
+					store.dispatch({
+						domain: 'ui',
+						type: actions.ui.SHOW_TOAST,
+						payload: {
+							id: `toast-${Date.now()}`,
+							message: data.error,
+							type: 'error'
+						}
+					});
 				}
 			},
 

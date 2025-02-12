@@ -173,9 +173,9 @@ export const uiPlugin = {
 		});
 
 		// Subscribe to specific UI state changes
-		store.subscribe('ui.modals', this._handleModalStateChange.bind(this));
-		store.subscribe('ui.toasts', this._handleToastStateChange.bind(this));
-		store.subscribe('ui.offcanvas', this._handleOffcanvasStateChange.bind(this));
+		store.subscribe('ui', this._handleModalStateChange.bind(this));
+		store.subscribe('ui', this._handleToastStateChange.bind(this));
+		store.subscribe('ui', this._handleOffcanvasStateChange.bind(this));
 		// store.subscribe('ui.friendRequests', this._handleFriendRequestStateChange.bind(this));
 	},
 
@@ -251,8 +251,9 @@ export const uiPlugin = {
 		});
 	},
 
-	_handleToastStateChange(toasts) {
-		(toasts || []).forEach(toastData => {
+	_handleToastStateChange(state) {
+		const toasts = state?.toasts || [];
+		toasts.forEach(toastData => {
 			const toastElement = document.getElementById(toastData.id);
 			if (toastElement) {
 				const toast = Toast.getInstance(toastElement) || new Toast(toastElement);
