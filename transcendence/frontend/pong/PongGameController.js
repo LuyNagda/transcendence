@@ -19,10 +19,7 @@ class BasePongGameController {
 		this._currentUser = currentUser;
 		this._isHost = isHost;
 		this._useWebGL = useWebGL;
-		this._settings = {
-			...settings,
-			isAIMode: settings.aiDifficulty ? true : settings.isAIMode || false
-		};
+		this._settings = settings;
 		this._contextHandlers = contextHandlers;
 		this._initialized = false;
 		this._isAIMode = store.getState('room').mode === 'AI';
@@ -43,7 +40,10 @@ class BasePongGameController {
 		// Initialize core components
 		this._physics = new PongPhysics(validatedSettings);
 		this._gameEngine = new GameEngine();
-		this._inputHandler = new InputHandler(isHost);
+
+		const gameMode = this._isAIMode ? 'ai' : (this._gameId ? 'multiplayer' : 'local');
+		logger.info('Setting game mode to:', gameMode, 'isAIMode:', this._isAIMode);
+		this._inputHandler = new InputHandler(isHost, gameMode);
 
 		// Initialize AI controller if in AI mode
 		if (this._isAIMode) {
@@ -136,8 +136,6 @@ class BasePongGameController {
 				}
 			}
 		});
-
-
 	}
 
 	async _initializeAI(difficulty) {
@@ -243,11 +241,9 @@ class BasePongGameController {
 
 	async initialize() {
 		try {
-			// Initialize renderer
 			const canvas = document.getElementById('game');
-			if (!canvas) {
+			if (!canvas)
 				throw new Error('Game canvas not found');
-			}
 
 			// Ensure canvas is properly sized
 			if (canvas.width !== GameRules.CANVAS_WIDTH || canvas.height !== GameRules.CANVAS_HEIGHT) {
@@ -260,52 +256,18 @@ class BasePongGameController {
 				? new WebGLRenderer(canvas, this._contextHandlers)
 				: new Canvas2DRenderer(canvas);
 
-			if (!renderer.initialize()) {
+			if (!renderer.initialize())
 				throw new Error('Failed to initialize renderer');
-			}
-
-			// Initialize network manager if not in AI mode and not already initialized
-			if (!this._isAIMode && !this._networkManager) {
-				logger.info('Initializing network manager...');
-				try {
-					this._networkManager = new PongNetworkManager(this._gameId, this._currentUser, this._isHost, this._isAIMode);
-					if (!this._networkManager) {
-						throw new Error('Failed to create network manager');
-					}
-
-					const networkConnected = await this._networkManager.connect();
-					if (!networkConnected) {
-						throw new Error('Failed to initialize network connection');
-					}
-
-					this._setupNetworkHandlers();
-					logger.info('Network manager initialized successfully');
-				} catch (error) {
-					logger.error('Failed to initialize network manager:', error);
-					this._networkManager = null;
-					throw error;
-				}
-			}
 
 			// Wait for AI initialization if in AI mode
-			if (this._isAIMode && !this._aiController) {
+			if (this._isAIMode && !this._aiController)
 				await this._initializeAI(this._settings.aiDifficulty || GameRules.DIFFICULTY_LEVELS.EASY);
-			}
-
-			// // Initialize game state
-			// const initialState = this._physics.getState();
-			// initialState.gameStatus = 'waiting';
-			// initialState.scores = { left: 0, right: 0 };
-			// this._physics.updateState(initialState);
 
 			// Register components with game engine
 			this._gameEngine.registerComponent('state', this._physics);
 			this._gameEngine.registerComponent('renderer', renderer);
 			this._gameEngine.registerComponent('input', this._inputHandler);
 			this._gameEngine.registerComponent('controller', this);
-
-			// Set up input handlers
-			this._setupInputHandlers();
 
 			// Subscribe renderer to state changes
 			this._physics.subscribe(renderer);
@@ -320,22 +282,18 @@ class BasePongGameController {
 	}
 
 	destroy() {
-		if (this._gameEngine) {
+		if (this._gameEngine)
 			this._gameEngine.stop();
-		}
-		if (this._networkManager) {
+		if (this._networkManager)
 			this._networkManager.destroy();
-		}
 		this._initialized = false;
 		this._gameEngine = null;
 		this._networkManager = null;
 
 		logger.debug('Destroying PongGame instance');
 		// Clean up observers
-		if (this._physics) {
-			// Clear all observers
+		if (this._physics)
 			this._physics._observers.clear();
-		}
 	}
 
 	updateSettings(settings) {
@@ -399,20 +357,15 @@ class BasePongGameController {
 				}
 
 				// Only update game status and scores from WebSocket
-				const currentState = this._physics.getState();
 				const updates = {};
-
-				if (message.state.status) {
+				if (message.state.status)
 					updates.gameStatus = message.state.status;
-				}
-				if (message.state.scores) {
+				if (message.state.scores)
 					updates.scores = message.state.scores;
-				}
 
 				// Only update if we have changes
-				if (Object.keys(updates).length > 0) {
+				if (Object.keys(updates).length > 0)
 					this._physics.updateState(updates);
-				}
 
 			} catch (error) {
 				logger.error('Error handling game state update:', error);
@@ -422,24 +375,20 @@ class BasePongGameController {
 		// Handle real-time game state updates (WebRTC)
 		this._networkManager.onGameMessage('gameState', (message) => {
 			try {
-				if (!message.state || this._physics.getState().gameStatus === 'finished') {
+				if (!message.state || this._physics.getState().gameStatus === 'finished')
 					return;
-				}
 
 				// Update ball and paddle positions from WebRTC
 				const currentState = this._physics.getState();
 				const updates = {};
 
 				// Only include valid position updates
-				if (message.state.ball && typeof message.state.ball.x === 'number') {
+				if (message.state.ball && typeof message.state.ball.x === 'number')
 					updates.ball = message.state.ball;
-				}
-				if (message.state.leftPaddle && typeof message.state.leftPaddle.y === 'number') {
+				if (message.state.leftPaddle && typeof message.state.leftPaddle.y === 'number')
 					updates.leftPaddle = message.state.leftPaddle;
-				}
-				if (message.state.rightPaddle && typeof message.state.rightPaddle.y === 'number') {
+				if (message.state.rightPaddle && typeof message.state.rightPaddle.y === 'number')
 					updates.rightPaddle = message.state.rightPaddle;
-				}
 
 				// Only update if we have valid position changes
 				if (Object.keys(updates).length > 0) {
@@ -493,7 +442,8 @@ class BasePongGameController {
 					dx: initialVelocity.dx,
 					dy: initialVelocity.dy,
 					resetting: false
-				}
+				},
+				gameStatus: 'playing'
 			});
 			logger.info('Ball launched with velocity:', initialVelocity);
 		}
@@ -587,9 +537,8 @@ class BasePongGameController {
 			}
 
 			// Send game completion notification if host (both for multiplayer and AI modes)
-			if (this._isHost && this._networkManager) {
+			if (this._isHost && this._networkManager)
 				await this._networkManager.sendGameComplete(formattedScores);
-			}
 
 			// Update store with final scores and game status
 			store.dispatch({
@@ -643,7 +592,7 @@ class BasePongGameController {
 
 				this._networkManager.sendGameState(currentState);
 			}
-		}, 100); // Sync every 100ms
+		}, 50); // Sync every 50ms
 	}
 
 	_handleAIPaddleMove(data) {
@@ -661,9 +610,8 @@ class BasePongGameController {
 
 	stop() {
 		return new Promise((resolve) => {
-			if (this._gameEngine) {
+			if (this._gameEngine)
 				this._gameEngine.stop();
-			}
 			// Give a small delay for any pending operations to complete
 			setTimeout(resolve, 100);
 		});
@@ -694,117 +642,165 @@ class HostPongGameController extends BasePongGameController {
 		super(gameId, currentUser, true, useWebGL, settings, contextHandlers);
 		this._syncInterval = null;
 		this._ballLaunchInterval = null;
+		this._lastGuestPaddleUpdate = null;
 		logger.info('Host controller initialized with settings:', this._settings);
 	}
 
 	async start() {
 		try {
-			logger.info('Starting host game...', {
-				initialized: this._initialized,
-				isAIMode: this._isAIMode,
-				hasAIController: !!this._aiController
-			});
-
-			if (!this._initialized) {
-				logger.error('Game not initialized before start');
+			// Initialize base components but skip network manager
+			const initialized = await this.initialize();
+			if (!initialized) {
+				logger.error('Failed to initialize base components');
 				return false;
 			}
 
-			// Ensure AI is initialized in AI mode
-			if (this._isAIMode) {
-				logger.info('Game is in AI mode');
-				if (!this._aiController) {
-					logger.info('Initializing AI controller...');
-					await this._initializeAI(this._settings.aiDifficulty || GameRules.DIFFICULTY_LEVELS.EASY);
-				}
-				if (!this._aiController) {
-					logger.error('AI controller not initialized in AI mode');
-					return false;
-				}
-				logger.info('AI controller ready');
-			} else {
-				logger.info('Waiting for guest WebRTC connection...');
-				try {
-					await this._networkManager.waitForGuestConnection(20000);
-					logger.info('Guest WebRTC connection established');
-				} catch (error) {
-					logger.error('Failed to establish WebRTC connection with guest:', error);
-					return false;
-				}
-			}
+			this._setupInputHandlers();
 
-			logger.info('Starting game engine');
-			this._gameEngine.start();
-
-			logger.info('Setting game status to playing');
-			this._physics.updateState({
-				gameStatus: 'playing',
-				ball: {
-					...this._physics.getState().ball,
-					resetting: false
-				}
-			});
-
+			// Only initialize network manager for multiplayer games
 			if (!this._isAIMode) {
-				logger.info('Starting state sync');
-				this._startStateSync();
-			} else {
-				logger.info('Skipping state sync in AI mode');
-			}
-
-			// Launch ball after a short delay
-			logger.info('Scheduling initial ball launch...');
-			setTimeout(() => {
-				const state = this._physics.getState();
-				logger.info('Checking game state before launch:', {
-					gameStatus: state.gameStatus,
-					ballState: {
-						dx: state.ball.dx,
-						dy: state.ball.dy,
-						resetting: state.ball.resetting
+				// Only initialize network manager if not already initialized
+				if (!this._networkManager) {
+					logger.info('Initializing network manager in host start...');
+					this._networkManager = new PongNetworkManager(this._gameId, this._currentUser, true);
+					const connected = await this._networkManager.connect();
+					if (!connected) {
+						logger.error('Failed to connect network manager');
+						return false;
 					}
+					this._setupNetworkHandlers();
+				}
+
+				try {
+					await this._networkManager.waitForGuestConnection();
+				} catch (error) {
+					logger.error('Failed to establish connection with guest:', error);
+					return false;
+				}
+
+				// Handle guest paddle movement
+				this._networkManager.onGameMessage('paddleMove', ({ direction, isHost }) => {
+					if (isHost) return; // Ignore host messages
+
+					const currentState = this._physics.getState();
+					const baseDirection = direction === 'up' ? -1 : 1;
+					const paddleSpeed = this._physics.getPaddleSpeed();
+
+					this._physics.updateState({
+						rightPaddle: {
+							...currentState.rightPaddle,
+							dy: baseDirection * paddleSpeed
+						}
+					});
+					this._lastGuestPaddleUpdate = Date.now();
 				});
 
-				if (state.gameStatus === 'playing') {
-					logger.info('Executing initial ball launch...');
+				this._networkManager.onGameMessage('paddleStop', ({ isHost }) => {
+					if (isHost) return; // Ignore host messages
+
+					this._physics.updateState({
+						rightPaddle: {
+							...this._physics.getState().rightPaddle,
+							dy: 0
+						}
+					});
+					this._lastGuestPaddleUpdate = Date.now();
+				});
+			}
+
+			this._gameEngine.start();
+			if (!this._isAIMode)
+				this._startStateSync();
+
+			this._physics.updateState({ gameStatus: 'playing' });
+
+			// Schedule initial ball launch after a short delay
+			setTimeout(() => {
+				if (this._physics.getState().gameStatus === 'playing') {
 					this.launchBall();
 
-					// In AI mode, set up periodic ball launch check
-					if (this._isAIMode) {
-						logger.info('Setting up periodic ball launch check for AI mode');
-						if (this._ballLaunchInterval) {
-							clearInterval(this._ballLaunchInterval);
+					// Set up periodic ball launch check
+					if (this._ballLaunchInterval)
+						clearInterval(this._ballLaunchInterval);
+					this._ballLaunchInterval = setInterval(() => {
+						const state = this._physics.getState();
+						if (state.gameStatus === 'playing' &&
+							state.ball.dx === 0 &&
+							state.ball.dy === 0 &&
+							!state.ball.resetting) {
+							this.launchBall();
 						}
-						this._ballLaunchInterval = setInterval(() => {
-							const state = this._physics.getState();
-							logger.debug('Periodic ball launch check - state:', {
-								gameStatus: state.gameStatus,
-								ballState: {
-									dx: state.ball.dx,
-									dy: state.ball.dy,
-									resetting: state.ball.resetting
-								}
-							});
-
-							if (state.gameStatus === 'playing' &&
-								state.ball.dx === 0 &&
-								state.ball.dy === 0 &&
-								!state.ball.resetting) {
-								logger.info('Periodic ball launch check - launching ball');
-								this.launchBall();
-							}
-						}, 1000); // Check every second
-					}
-				} else {
-					logger.warn('Game not in playing state during initial ball launch');
+					}, 2000); // Check every 2 seconds
 				}
-			}, 1000);
+			}, 1000); // Initial launch after 1 second
 
+			logger.info('Host game controller started successfully');
 			return true;
 		} catch (error) {
-			logger.error('Failed to start host game:', error);
+			logger.error('Failed to start host game controller:', error);
 			return false;
 		}
+	}
+
+	launchBall() {
+		// Only host should launch the ball
+		if (!this._isHost) return;
+
+		const currentState = this._physics.getState();
+		const ball = currentState.ball;
+
+		// Only launch if ball is stationary and not resetting
+		if (ball.dx === 0 && ball.dy === 0 && !ball.resetting) {
+			logger.info('Launching ball...');
+			const initialVelocity = this._physics.getInitialBallVelocity();
+
+			// Ensure the ball is in the center before launch
+			const canvas = document.getElementById('game');
+			this._physics.updateState({
+				ball: {
+					...ball,
+					x: canvas.width / 2,
+					y: canvas.height / 2,
+					dx: initialVelocity.dx,
+					dy: initialVelocity.dy,
+					resetting: false
+				},
+				gameStatus: 'playing'
+			});
+			logger.info('Ball launched with velocity:', initialVelocity);
+		}
+	}
+
+	_startStateSync() {
+		// Send game state updates to guest
+		this._gameEngine.registerComponent('stateSync', {
+			update: () => {
+				if (this._physics.getState().gameStatus === 'playing' && !this._gameFinished) {
+					const state = this._physics.getState();
+					const now = Date.now();
+
+					// Create a complete state object, preserving guest paddle state
+					const completeState = {
+						...state,
+						ball: { ...state.ball },
+						leftPaddle: { ...state.leftPaddle },
+						rightPaddle: { ...state.rightPaddle }
+					};
+
+					// Only update guest paddle if we haven't received a recent update
+					if (this._lastGuestPaddleUpdate && now - this._lastGuestPaddleUpdate < 100) {
+						// Keep the last known guest paddle state
+						const currentRightPaddle = state.rightPaddle;
+						completeState.rightPaddle = {
+							...currentRightPaddle,
+							dy: currentRightPaddle.dy || 0  // Ensure dy is defined
+						};
+					}
+
+					this._networkManager.sendGameState(completeState);
+				}
+			}
+		});
 	}
 
 	destroy() {
@@ -824,42 +820,164 @@ class HostPongGameController extends BasePongGameController {
 class GuestPongGameController extends BasePongGameController {
 	constructor(gameId, currentUser, useWebGL = true, settings = {}, contextHandlers = {}) {
 		super(gameId, currentUser, false, useWebGL, settings, contextHandlers);
+		this._lastLocalPaddleUpdate = null;
 	}
 
 	async start() {
-		if (!this._initialized) {
-			throw new Error('Game controller not initialized');
-		}
-
 		try {
-			// Wait for WebRTC connection to be established
-			if (!this._gameFinished) {
-				logger.info('Waiting for host WebRTC connection...');
-				try {
-					await this._networkManager.waitForHostConnection(20000);
-					logger.info('Host WebRTC connection established');
-				} catch (error) {
-					logger.error('Failed to establish WebRTC connection with host:', error);
-					this.destroy();
+			// Initialize base components
+			const initialized = await this.initialize();
+			if (!initialized) {
+				logger.error('Failed to initialize base components');
+				return false;
+			}
+
+			this._setupInputHandlers();
+			this._setupNetworkHandlers();
+
+			// Initialize network manager
+			if (!this._networkManager) {
+				logger.info('Initializing network manager in guest start...');
+				this._networkManager = new PongNetworkManager(this._gameId, this._currentUser, false);
+				const connected = await this._networkManager.connect();
+				if (!connected) {
+					logger.error('Failed to connect network manager');
 					return false;
 				}
 			}
 
-			// Start the game engine and enable input for paddle only
-			logger.info('Starting game engine');
+			try {
+				await this._networkManager.waitForHostConnection();
+			} catch (error) {
+				logger.error('Failed to establish connection with host:', error);
+				return false;
+			}
+
+			// Handle real-time game state updates (WebRTC)
+			this._networkManager.onGameMessage('gameState', (message) => {
+				try {
+					if (!message.state || this._physics.getState().gameStatus === 'finished') {
+						return;
+					}
+
+					// Transform the received state to mirror the game
+					const transformedState = this._transformReceivedState(message.state);
+					const currentState = this._physics.getState();
+					const updates = {};
+
+					// Only include valid position updates
+					if (transformedState.ball && typeof transformedState.ball.x === 'number')
+						updates.ball = transformedState.ball;
+					if (transformedState.leftPaddle && typeof transformedState.leftPaddle.y === 'number')
+						updates.leftPaddle = transformedState.leftPaddle;
+					if (transformedState.rightPaddle && typeof transformedState.rightPaddle.y === 'number')
+						updates.rightPaddle = transformedState.rightPaddle;
+
+					// Apply updates if any
+					if (Object.keys(updates).length > 0)
+						this._physics.updateState(updates);
+				} catch (error) {
+					logger.error('Error handling game state update:', error);
+				}
+			});
+
+			// Start game engine
 			this._gameEngine.start();
-			this._inputHandler.enable();
-
-			// Set game state to playing
-			logger.info('Setting game status to playing');
-			this._physics.updateState({ gameStatus: 'playing' });
-
+			logger.info('Guest game controller started successfully');
 			return true;
 		} catch (error) {
-			logger.error('Failed to start game:', error);
-			this.destroy();
+			logger.error('Failed to start guest game controller:', error);
 			return false;
 		}
+	}
+
+	_transformReceivedState(state) {
+		const canvas = document.getElementById('game');
+		if (!canvas || !state) return null;
+
+		try {
+			const transformedState = { ...state };
+
+			// Transform ball position and velocity if they exist
+			if (state.ball && typeof state.ball.x === 'number') {
+				transformedState.ball = {
+					...state.ball,
+					x: canvas.width - state.ball.x - (state.ball.width || 10),
+					dx: -state.ball.dx
+				};
+			}
+
+			// Swap paddles if they exist
+			if (state.leftPaddle && typeof state.leftPaddle.x === 'number') {
+				transformedState.rightPaddle = {
+					...state.leftPaddle,
+					x: canvas.width - state.leftPaddle.x - (state.leftPaddle.width || 10)
+				};
+			}
+			if (state.rightPaddle && typeof state.rightPaddle.x === 'number') {
+				transformedState.leftPaddle = {
+					...state.rightPaddle,
+					x: canvas.width - state.rightPaddle.x - (state.rightPaddle.width || 10)
+				};
+			}
+
+			// Transform scores if they exist
+			if (state.scores) {
+				transformedState.scores = {
+					left: Number(state.scores.right) || 0,
+					right: Number(state.scores.left) || 0
+				};
+			}
+
+			return transformedState;
+		} catch (error) {
+			logger.error('Error transforming received state:', error);
+			return null;
+		}
+	}
+
+	_setupInputHandlers() {
+		// Override paddle movement to track local updates
+		this._inputHandler.onInput('paddleMove', ({ direction }) => {
+			const currentState = this._physics.getState();
+			const baseDirection = direction === 'up' ? -1 : 1;
+			const paddleSpeed = this._physics.getPaddleSpeed();
+
+			// For guest, update leftPaddle since the view is mirrored
+			this._physics.updateState({
+				leftPaddle: {
+					...currentState.leftPaddle,
+					dy: baseDirection * paddleSpeed
+				}
+			});
+			this._lastLocalPaddleUpdate = Date.now();
+
+			if (this._networkManager) {
+				this._networkManager.sendGameMessage({
+					type: 'paddleMove',
+					direction: direction,
+					isHost: false
+				});
+			}
+		});
+
+		this._inputHandler.onInput('paddleStop', () => {
+			// For guest, update leftPaddle since the view is mirrored
+			this._physics.updateState({
+				leftPaddle: {
+					...this._physics.getState().leftPaddle,
+					dy: 0
+				}
+			});
+			this._lastLocalPaddleUpdate = Date.now();
+
+			if (this._networkManager) {
+				this._networkManager.sendGameMessage({
+					type: 'paddleStop',
+					isHost: false
+				});
+			}
+		});
 	}
 
 	destroy() {

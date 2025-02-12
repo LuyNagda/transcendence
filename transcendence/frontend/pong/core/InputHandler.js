@@ -1,8 +1,9 @@
 import logger from '../../logger.js';
 
 export class InputHandler {
-	constructor(isHost) {
+	constructor(isHost, gameMode = 'multiplayer') {
 		this._isHost = isHost;
+		this._gameMode = gameMode; // 'local', 'multiplayer', or 'ai'
 		this._keyStates = new Map();
 		this._handlers = new Map();
 		this._enabled = true;
@@ -11,20 +12,26 @@ export class InputHandler {
 
 		// Define control schemes
 		this._controls = {
-			host: {
-				up: ['w', 'W'],
-				down: ['s', 'S']
+			shared: {
+				up: ['w', 'W', 'ArrowUp', 'Up'],
+				down: ['s', 'S', 'ArrowDown', 'Down']
 			},
-			guest: {
-				up: ['ArrowUp'],
-				down: ['ArrowDown']
+			local: {
+				host: {
+					up: ['w', 'W'],
+					down: ['s', 'S']
+				},
+				guest: {
+					up: ['ArrowUp', 'Up'],
+					down: ['ArrowDown', 'Down']
+				}
 			}
 		};
 
 		// Bind methods
 		this._handleKeyDown = this._handleKeyDown.bind(this);
 		this._handleKeyUp = this._handleKeyUp.bind(this);
-		logger.debug('InputHandler initialized with isHost:', isHost);
+		logger.debug('InputHandler initialized with isHost:', isHost, 'gameMode:', gameMode);
 	}
 
 	initialize() {
@@ -83,7 +90,9 @@ export class InputHandler {
 		}
 
 		const key = event.key;
-		const controls = this._isHost ? this._controls.host : this._controls.guest;
+		const controls = this._gameMode === 'local'
+			? (this._isHost ? this._controls.local.host : this._controls.local.guest)
+			: this._controls.shared;
 
 		// Check if the key is a valid control
 		const isUpKey = controls.up.includes(key);
@@ -114,7 +123,9 @@ export class InputHandler {
 		}
 
 		const key = event.key;
-		const controls = this._isHost ? this._controls.host : this._controls.guest;
+		const controls = this._gameMode === 'local'
+			? (this._isHost ? this._controls.local.host : this._controls.local.guest)
+			: this._controls.shared;
 
 		// Check if the key is a valid control
 		const isUpKey = controls.up.includes(key);
@@ -153,6 +164,17 @@ export class InputHandler {
 	}
 
 	getActiveControls() {
-		return this._isHost ? this._controls.host : this._controls.guest;
+		return this._gameMode === 'local'
+			? (this._isHost ? this._controls.local.host : this._controls.local.guest)
+			: this._controls.shared;
+	}
+
+	setGameMode(mode) {
+		if (['local', 'multiplayer', 'ai'].includes(mode)) {
+			this._gameMode = mode;
+			logger.debug('Game mode set to:', mode);
+		} else {
+			logger.warn('Invalid game mode:', mode);
+		}
 	}
 } 
