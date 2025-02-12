@@ -22,11 +22,10 @@ export class RoomGameManager {
 		if (!this._networkManager) return;
 
 		this._networkManager.on('message', (data) => {
-			if (data.type === 'game_started') {
+			if (data.type === 'game_started')
 				this._handleGameStarted(data);
-			} else if (data.type === 'game_ended') {
+			else if (data.type === 'game_ended')
 				this._handleGameEnded(data);
-			}
 		});
 	}
 
@@ -115,13 +114,10 @@ export class RoomGameManager {
 				contextHandlers: contextHandlers
 			});
 
-			// Initialize game
 			const initialized = await this._gameInstance.initialize();
-			if (!initialized) {
+			if (!initialized)
 				throw new Error('Failed to initialize game controller');
-			}
 
-			// Start the game
 			const started = await this._gameInstance.start();
 			if (!started)
 				throw new Error('Failed to start game');
@@ -248,7 +244,7 @@ export class RoomGameManager {
 
 		store.dispatch({
 			domain: 'game',
-			type: actions.game.RESET_SCORE
+			type: actions.game.RESET_GAME
 		});
 
 		logger.info('Game cleanup completed successfully');
@@ -256,18 +252,16 @@ export class RoomGameManager {
 
 	// Event handling
 	on(event, handler) {
-		if (!this._eventHandlers.has(event)) {
+		if (!this._eventHandlers.has(event))
 			this._eventHandlers.set(event, new Set());
-		}
 		this._eventHandlers.get(event).add(handler);
 		return () => this.off(event, handler);
 	}
 
 	off(event, handler) {
 		const handlers = this._eventHandlers.get(event);
-		if (handlers) {
+		if (handlers)
 			handlers.delete(handler);
-		}
 	}
 
 	_emit(event, data) {

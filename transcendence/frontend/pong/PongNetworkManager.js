@@ -274,7 +274,7 @@ export class PongNetworkManager {
 					const rtcState = {
 						type: 'gameState',
 						state: {
-							ball: {
+							ball: state.ball ? {
 								x: state.ball.x,
 								y: state.ball.y,
 								dx: state.ball.dx,
@@ -282,21 +282,21 @@ export class PongNetworkManager {
 								width: state.ball.width,
 								height: state.ball.height,
 								resetting: state.ball.resetting
-							},
-							leftPaddle: {
+							} : null,
+							leftPaddle: state.leftPaddle ? {
 								x: state.leftPaddle.x,
 								y: state.leftPaddle.y,
 								width: state.leftPaddle.width,
 								height: state.leftPaddle.height,
 								dy: state.leftPaddle.dy
-							},
-							rightPaddle: {
+							} : null,
+							rightPaddle: state.rightPaddle ? {
 								x: state.rightPaddle.x,
 								y: state.rightPaddle.y,
 								width: state.rightPaddle.width,
 								height: state.rightPaddle.height,
 								dy: state.rightPaddle.dy
-							}
+							} : null
 						}
 					};
 					logger.debug('Sending WebRTC state update:', rtcState);
