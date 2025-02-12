@@ -10,7 +10,7 @@
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.26.3",
     "esbuild": "^0.24.2",
-    "esbuild-jest": "^0.5.0",
+    "esbuild-jest": "^0.4.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0"
   },
@@ -20,5 +20,9 @@
     "htmx.org": "^1.9.12",
     "regl": "^2.1.1"
   },
-  "packageManager": "pnpm@9.4.0+sha512.f549b8a52c9d2b8536762f99c0722205efc5af913e77835dbccc3b0b0b2ca9e7dc8022b78062c17291c48e88749c70ce88eb5a74f1fa8c4bf5e18bb46c8bd83a"
+  "packageManager": "pnpm@9.4.0+sha512.f549b8a52c9d2b8536762f99c0722205efc5af913e77835dbccc3b0b0b2ca9e7dc8022b78062c17291c48e88749c70ce88eb5a74f1fa8c4bf5e18bb46c8bd83a",
+  "resolutions": {
+    "braces": "3.0.3",
+    "micromatch": "4.0.8"
+  }
 }

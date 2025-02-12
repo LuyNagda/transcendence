@@ -5,7 +5,7 @@ import jaiPasVu from '../UI/JaiPasVu.js';
 import { chatActions } from '../state/chatState.js';
 import { USER_STATUS } from '../state/userState.js';
 import CookieService from '../networking/CookieService.js';
-
+import { uiActions } from '../state/uiState.js';
 export default class ChatApp {
 	static #instance = null;
 
@@ -83,11 +83,13 @@ export default class ChatApp {
 		// Register methods
 		jaiPasVu.registerMethods('chat', {
 			handleFormSubmit: this.handleFormSubmit.bind(this),
+			handleFormSubmitFriendRequest: this.handleFormSubmitFriendRequest.bind(this),
 			selectUser: this.selectUser.bind(this),
 			blockUser: this.blockUser.bind(this),
 			unblockUser: this.unblockUser.bind(this),
 			inviteToGame: this.inviteToGame.bind(this),
 			viewProfile: this.viewProfile.bind(this),
+			removeFriend: this.removeFriend.bind(this),
 			formatTimestamp: (timestamp) => new Date(timestamp).toLocaleTimeString(),
 			getUserName: (userId) => {
 				const user = store.getState('chat').users.find(u => u.id === userId);
@@ -179,6 +181,33 @@ export default class ChatApp {
 				}
 			},
 
+			friend_request: (data) => {
+				if (data.success) {
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.data.message,
+					// 		type: 'success'
+					// 	}
+					// });
+					alert(data.data.message);
+				}
+				else {
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.error,
+					// 		type: 'error'
+					// 	}
+					// });
+					alert(data.error);
+				}
+			},
+
 			game_invitation: (data) => {
 				if (!data?.sender_id || !data?.room_id) return;
 
@@ -222,6 +251,95 @@ export default class ChatApp {
 			error: (data) => {
 				logger.error('[ChatApp] Server error:', data.message);
 				alert(data.message || 'An error occurred');
+			},
+
+			load_friend_requests: (data) => {
+				if (data.success) {
+					store.dispatch({
+						domain: 'ui',
+						type: uiActions.LOAD_FRIEND_REQUESTS,
+						payload: { requests: data.data.requests }
+					});
+				}
+			},
+
+			friend_request_choice: (data) => {
+				if (data.success) {
+					this.refreshUserList();
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.data.message,
+					// 		type: 'success'
+					// 	}
+					// });
+					alert(data.data.message);
+				}
+				else {
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.error,
+					// 		type: 'error'
+					// 	}
+					// });
+					alert(data.error);
+				}
+				this._sendMessage({
+					type: 'load_friend_requests'
+				});
+			},
+
+			remove_friend: (data) => {
+				if (data.success) {
+					this.refreshUserList();
+					store.dispatch({
+						domain: 'chat',
+						type: chatActions.SET_SELECTED_USER,
+					});
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.data.message,
+					// 		type: 'success'
+					// 	}
+					// });
+					alert(data.data.message);
+				}
+				else {
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.error,
+					// 		type: 'error'
+					// 	}
+					// });
+					alert(data.error);
+				}
+			},
+
+			unselect_user: (data) => {
+				logger.debug('[ChatApp] Unselecting user');
+				store.dispatch({
+					domain: 'chat',
+					type: chatActions.SET_SELECTED_USER,
+				});
+			},
+
+			refresh_friends: (data) => {
+				logger.debug('[ChatApp] Refreshing friends');
+				this.refreshUserList();
+				this._sendMessage({
+					type: 'load_friend_requests'
+				});
 			}
 		};
 
@@ -296,6 +414,28 @@ export default class ChatApp {
 		});
 
 		messageInput.value = '';
+	}
+
+	handleFormSubmitFriendRequest(e) {
+		e.preventDefault();
+		const friendInput = document.querySelector('#friend-input');
+		const friendUsername = friendInput.value.trim();
+
+		if (!friendUsername) return;
+
+		const currentUserId = store.getState('user').id;
+		if (!currentUserId) return;
+
+		logger.debug('[ChatApp] Adding friend:', friendUsername);
+
+		// Send standardized message object to backend
+		this._sendMessage({
+			type: 'friend_request',
+			user_id: currentUserId,
+			friend_username: friendUsername
+		});
+
+		friendInput.value = '';
 	}
 
 	handleUserClick(event) {
@@ -556,6 +696,14 @@ export default class ChatApp {
 		alert('Game invitation sent!');
 	}
 
+	removeFriend(userId) {
+		logger.debug('[ChatApp] Removing friend with ID:', userId);
+		this._sendMessage({
+			type: 'remove_friend',
+			friend_id: userId
+		});
+	}
+
 	viewProfile(userId) {
 		this._sendMessage({
 			type: 'get_profile',
@@ -565,5 +713,13 @@ export default class ChatApp {
 
 	formatTimestamp(timestamp) {
 		return new Date(timestamp).toLocaleTimeString();
+	}
+
+	static sendMessage(message) {
+		if (!this.#instance) {
+			logger.error('ChatApp not initialized');
+			return;
+		}
+		this.#instance._sendMessage(message);
 	}
 }

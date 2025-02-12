@@ -67,9 +67,10 @@ def unblock_user(request, user_id):
 @permission_classes([IsAuthenticatedWithCookie])
 def get_users(request):
     users = User.objects.exclude(id=request.user.id)
+    friends = request.user.friends.all()
     blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user_id', flat=True)
     user_list = []
-    for user in users:
+    for user in friends:
         user_data = user.chat_user
         user_data.update({ 'blocked': user.id in blocked_users })
         user_list.append(user_data)

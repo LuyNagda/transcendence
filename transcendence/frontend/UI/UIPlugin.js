@@ -2,6 +2,7 @@ import { store, actions } from '../state/store.js';
 import logger from '../logger.js';
 import { UI_THEME, UI_FONT_SIZE } from '../state/uiState.js';
 import { Modal, Dropdown, Toast, Offcanvas } from '../vendor.js';
+import ChatApp from '../chat/ChatApp.js';
 
 export const AlertTypes = {
 	SUCCESS: 'success',
@@ -10,9 +11,11 @@ export const AlertTypes = {
 	INFO: 'info'
 };
 
+
 export const uiPlugin = {
 	name: 'ui',
 	app: null,
+	
 
 	install(app) {
 		this.app = app;
@@ -41,6 +44,7 @@ export const uiPlugin = {
 					modals: {},
 					toasts: [],
 					offcanvas: {},
+					friendRequests: []
 				}
 			});
 
@@ -53,6 +57,7 @@ export const uiPlugin = {
 				offcanvas: {},
 				themes: Object.values(UI_THEME),
 				fontSizes: Object.values(UI_FONT_SIZE),
+				friendRequests: []
 			});
 
 			logger.debug('UI state initialized:', app.getState('ui'));
@@ -82,7 +87,7 @@ export const uiPlugin = {
 			hasActiveModals: function () { return Object.keys(this.modals).length > 0; },
 			hasActiveToasts: function () { return this.toasts.length > 0; },
 			activeModalCount: function () { return Object.keys(this.modals).length; },
-			activeToastCount: function () { return this.toasts.length; }
+			activeToastCount: function () { return this.toasts.length; },
 		});
 
 		// Register UI methods
@@ -138,6 +143,24 @@ export const uiPlugin = {
 					autohide: options.autohide ?? true,
 					delay: options.delay ?? 5000
 				});
+			},
+			loadFriendRequests: () => {
+				ChatApp.sendMessage({
+					type: 'load_friend_requests'
+				});
+			},
+			friendRequestChoice(friendId, choice) {
+				logger.debug('[UI] Friend request choice:', friendId, choice);
+				if (!friendId || !choice) {
+					logger.error('[UI] Friend request choice:', friendId, choice);
+					return;
+				}
+				
+				ChatApp.sendMessage({
+					type: 'friend_request_choice',
+					friend_id: friendId,
+					choice: choice
+				});
 			}
 		});
 
@@ -150,9 +173,10 @@ export const uiPlugin = {
 		});
 
 		// Subscribe to specific UI state changes
-		store.subscribe('ui.modals', this._handleModalStateChange.bind(this));
-		store.subscribe('ui.toasts', this._handleToastStateChange.bind(this));
-		store.subscribe('ui.offcanvas', this._handleOffcanvasStateChange.bind(this));
+		store.subscribe('ui', this._handleModalStateChange.bind(this));
+		store.subscribe('ui', this._handleToastStateChange.bind(this));
+		store.subscribe('ui', this._handleOffcanvasStateChange.bind(this));
+		// store.subscribe('ui.friendRequests', this._handleFriendRequestStateChange.bind(this));
 	},
 
 	_updateTheme(theme) {
@@ -227,8 +251,9 @@ export const uiPlugin = {
 		});
 	},
 
-	_handleToastStateChange(toasts) {
-		(toasts || []).forEach(toastData => {
+	_handleToastStateChange(state) {
+		const toasts = state?.toasts || [];
+		toasts.forEach(toastData => {
 			const toastElement = document.getElementById(toastData.id);
 			if (toastElement) {
 				const toast = Toast.getInstance(toastElement) || new Toast(toastElement);
@@ -312,5 +337,5 @@ export const uiPlugin = {
 		} catch (error) {
 			logger.error('Error applying font size to DOM:', error);
 		}
-	}
+	},
 };

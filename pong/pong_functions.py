@@ -49,7 +49,7 @@ def calculate_rankings(tournament: Tournament) -> List[Tuple[User, dict]]:
         return sorted_rankings
     
 def total_games_played(player):
-    return PongGame.objects.filter(player1=player).count() + Match.objects.filter(player2=player).count()
+    return PongGame.objects.filter(player1=player).count() + PongGame.objects.filter(player2=player).count()
 
 def total_wins(player):
     return PongGame.objects.filter(player1=player, player1_score__gt=F('player2_score')).count() + PongGame.objects.filter(player2=player, player2_score__gt=F('player1_score')).count()

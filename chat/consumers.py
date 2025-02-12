@@ -176,6 +176,26 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def chat_message(self, event: Dict[str, Any]) -> None:
         """Handle incoming chat message from channel layer"""
         await MessageSender.send_message(self, MessageSender.chat_message(event['message'], event))
+    
+    async def friend_request_message(self, event: Dict[str, Any]) -> None:
+        """Handle incoming friends request message from channel layer"""
+        await MessageSender.send_message(self, event)
+
+    async def friend_request_choice_message(self, event: Dict[str, Any]) -> None:
+        """Handle incoming friends request choice message from channel layer"""
+        await MessageSender.send_message(self, event)
+
+    async def remove_friend_message(self, event: Dict[str, Any]) -> None:
+        """Handle incoming remove friend message from channel layer"""
+        await MessageSender.send_message(self, event)
+
+    async def unselect_user(self, event: Dict[str, Any]) -> None:
+        """Handle incoming unselect user message from channel layer"""
+        await MessageSender.send_message(self, event)
+
+    async def load_friend_requests_message(self, event: Dict[str, Any]) -> None:
+        """Handle incoming load friend requests message from channel layer"""
+        await MessageSender.send_message(self, event)
 
     async def status_update(self, event: Dict[str, Any]) -> None:
         """Handle status update event"""
@@ -215,3 +235,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         ).values_list('id', flat=True))
         
         return allowed_users
+
+    async def refresh_friends(self, event: Dict[str, Any]) -> None:
+        """Handle friend list refresh requests"""
+        await self.send(text_data=json.dumps({
+            'type': 'refresh_friends',
+            'message': 'update_required'
+        }))

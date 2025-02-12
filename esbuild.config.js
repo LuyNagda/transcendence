@@ -9,7 +9,7 @@ const buildOptions = {
 	entryPoints: {
 		'main': 'transcendence/frontend/main.js',
 		'vendor': 'transcendence/frontend/vendor.js',
-		'high-contrast': 'transcendence/frontend/css/high-contrast.css'
+		'high-contrast': 'transcendence/frontend/css/high-contrast.css',
 	},
 	bundle: true,
 	outdir: 'transcendence/static',

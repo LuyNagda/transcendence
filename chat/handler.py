@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, Any, Optional, Callable, Awaitable, TypedDict, Union
+from typing import Dict, Any, Optional, Callable, Awaitable, TypedDict, Union, List
 from django.db import models
 from channels.db import database_sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
@@ -41,21 +41,22 @@ class ChatHandler:
     async def handle_message(self, message_type: str, data: Dict[str, Any]) -> None:
         actions: Dict[str, Callable[[Dict[str, Any]], Awaitable[None]]] = {
             'chat_message': self.handle_chat_message,
+            'friend_request': self.handle_friend_request,
+            'friend_request_choice': self.handle_friend_request_choice,
             'user_status_change': self.handle_user_status_change,
             'get_profile': self.handle_get_profile,
             'game_invitation': self.handle_game_invitation,
             'accept_game_invitation': self.handle_accept_game_invitation,
-            'tournament_warning': self.handle_tournament_warning
+            'tournament_warning': self.handle_tournament_warning,
+            'load_friend_requests': self.handle_load_friend_requests,
+            'remove_friend': self.handle_remove_friend,
+            'unselect_user': self.handle_unselect_user,
         }
 
         try:
             handler = actions.get(message_type)
+            log.info(f'Handling message type: {message_type}')
             if handler:
-                log.debug('Handling message', extra={
-                    'user_id': self.consumer.user.id,
-                    'message_type': message_type,
-                    'data': json.dumps(data)
-                })
                 await handler(data)
             else:
                 log.warning('Unhandled message type', extra={
@@ -99,6 +100,154 @@ class ChatHandler:
                 'error': str(e)
             })
             return False
+
+    @database_sync_to_async
+    def get_user(self, username: Optional[str] = None, id: Optional[int] = None) -> User:
+        if username:
+            return User.objects.get(username=username)
+        elif id:
+            return User.objects.get(id=id)
+        else:
+            raise ValueError('No username or id provided')
+
+    @database_sync_to_async
+    def already_friends(self, current_user: User, friend: User) -> bool:
+        return current_user.friends.filter(id=friend.id).exists()
+        
+    @database_sync_to_async
+    def is_pending(self, current_user: User, friend: User) -> bool:
+        return current_user.friendrequests.filter(id=friend.id).exists()
+
+    @database_sync_to_async
+    def already_pending(self, current_user: User, friend: User) -> bool:
+        return friend.friendrequests.filter(id=current_user.id).exists()
+
+    @database_sync_to_async
+    def already_crossing(self, current_user: User, friend: User) -> bool:
+        return current_user.friendrequests.filter(id=friend.id).exists()
+
+    @database_sync_to_async
+    def add_friend(self, current_user: User, friend: User) -> None:
+        current_user.friends.add(friend)
+        friend.friends.add(current_user)
+        friend.friendrequests.remove(current_user)
+        current_user.friendrequests.remove(friend)
+        friend.save()
+        current_user.save()
+
+    @database_sync_to_async
+    def remove_friend(self, current_user: User, friend: User) -> None:
+        current_user.friends.remove(friend)
+        friend.friends.remove(current_user)
+        friend.save()
+        current_user.save()
+
+    async def refresh_friends(self, friend: User) -> None:
+        await self.consumer.channel_layer.group_send(
+        f"chat_{friend.id}",
+            {
+                'type': 'refresh_friends', 
+                'message': 'update_required'
+            }
+        )
+
+    @database_sync_to_async
+    def delete_friend_request(self, current_user: User, friend: User) -> None:
+        friend.friendrequests.remove(current_user)
+        current_user.friendrequests.remove(friend)
+        friend.save()
+        current_user.save()
+
+    @database_sync_to_async
+    def send_friend_request(self, current_user: User, friend: User) -> None:
+        friend.friendrequests.add(current_user)
+
+    async def handle_friend_request(self, data: Dict[str, Any]) -> None:
+        log.info(f'Handling add friend')
+        if 'friend_username' not in data:
+            raise KeyError('friend_username')
+        
+        friend_username = data['friend_username']
+
+        try:
+            friend = await self.get_user(username=friend_username)
+            current_user = self.consumer.user
+
+            if current_user == friend:
+                log.info(f'Cannot add yourself as a friend')
+                await self.send_response('friend_request', success=False, error='Cannot add yourself as a friend')
+                return
+
+            if await self.already_friends(current_user, friend):
+                log.info(f'Friend already in friends list')
+                await self.send_response('friend_request', success=False, error='User is already in your friends list')
+                return
+
+            if await self.already_pending(current_user, friend):
+                log.info(f'Friend already in pending friends list')
+                await self.send_response('friend_request', success=False, error='Friend already in pending friends list')
+                return
+
+            if await self.already_crossing(current_user, friend):
+                await self.add_friend(current_user, friend)
+                log.info(f'User already in pending friends list, accepting friend request')
+                await self.refresh_friends(friend)
+                await self.send_response('refresh_friends', success=True)
+                await self.send_response('friend_request', success=True, data={'friend': friend.chat_user, 'message': 'Friend request accepted automatically'})
+                return
+
+            await self.send_friend_request(current_user, friend)
+            log.info(f'Adding friend request')
+            await self.refresh_friends(friend)
+            await self.send_response('friend_request', success=True, data={'friend': friend.chat_user, 'message': 'Friend request sended'})
+
+        except User.DoesNotExist:
+            log.info(f'Friend not found: {friend_username}')
+            await self.send_response('friend_request', success=False, error='User not found')
+
+        except Exception as e:
+            log.error(f'Error handling friend request: {str(e)} - User: {self.consumer.user.id}')
+            raise
+
+    async def handle_friend_request_choice(self, data: Dict[str, Any]) -> None:
+        log.info(f'Handling friend request choice')
+        if 'friend_id' not in data or 'choice' not in data:
+            raise KeyError('friend_id, choice')
+        
+        friend_id = data['friend_id']
+        current_user = self.consumer.user
+        choice = data['choice']
+
+        try:
+            friend = await self.get_user(id=friend_id)
+
+            if not await self.is_pending(current_user, friend):
+                await self.send_response('friend_request_choice', success=False, error='No pending friend request')
+                return
+
+            if choice == 'accept':
+                if await self.already_friends(current_user, friend):
+                    await self.send_response('friend_request_choice', success=False, error='Already friends')
+                    return
+                    
+                await self.delete_friend_request(current_user, friend)
+                await self.add_friend(current_user, friend)
+                await self.refresh_friends(friend)
+                await self.send_response('friend_request_choice', success=True, data={'friend': friend.chat_user, 'message': 'Friend request accepted'})
+            elif choice == 'reject':
+                await self.refresh_friends(friend)
+                await self.delete_friend_request(current_user, friend)
+                await self.send_response('friend_request_choice', success=True, data={'friend': friend.chat_user, 'message': 'Friend request rejected'})
+            else:
+                await self.send_response('friend_request_choice', success=False, error='Invalid choice')
+            
+        except User.DoesNotExist:
+            log.info(f'Friend not found: {friend_id}')
+            await self.send_response('friend_request_choice', success=False, error='User not found')
+
+        except Exception as e:
+            log.error(f'Error handling friend request choice: {str(e)}')
+            await self.send_response('friend_request_choice', success=False, error='An error occurred')
 
     async def handle_chat_message(self, data: Dict[str, Any]) -> None:
         if 'message' not in data or 'recipient_id' not in data:
@@ -367,3 +516,49 @@ class ChatHandler:
     @database_sync_to_async
     def get_room_owner_id(self, room: PongRoom) -> int:
         return room.owner.id
+
+    @database_sync_to_async
+    def get_pending_requests(self, user: User) -> List[Dict[str, Any]]:
+        return list(user.friendrequests.all().values(
+            'id',
+            'username',
+            'profile_picture',
+            'online'
+        ))
+
+    async def handle_load_friend_requests(self, data: Dict[str, Any]) -> None:
+        try:
+            current_user = self.consumer.user
+            requests = await self.get_pending_requests(current_user)
+            
+            await self.send_response('load_friend_requests', success=True, data={'requests': requests})
+        except Exception as e:
+            log.error(f'Error loading friend requests: {str(e)}')
+            await self.send_response('load_friend_requests', success=False, error=str(e))
+
+    async def handle_remove_friend(self, data: Dict[str, Any]) -> None:
+        if 'friend_id' not in data:
+            raise KeyError('friend_id')
+        
+        friend_id = data['friend_id']
+
+        try:
+            friend = await self.get_user(id=friend_id)
+            await self.remove_friend(self.consumer.user, friend)
+            await self.refresh_friends(friend)
+            await self.consumer.channel_layer.group_send(
+            f"chat_{friend.id}",
+                {
+                    'type': 'unselect_user',
+                    'message': 'update_required'
+                }
+            )
+            await self.send_response('remove_friend', success=True, data={'friend': friend.chat_user, 'message': 'Friend removed'})
+
+        except Exception as e:
+            log.error(f'Error removing friend: {str(e)}')
+            await self.send_response('remove_friend', success=False, error='An error occurred')
+
+    async def handle_unselect_user(self, event: Dict[str, Any]) -> None:
+        """Handle incoming unselect user message from channel layer"""
+        await MessageSender.send_message(self, event)
