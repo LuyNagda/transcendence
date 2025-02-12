@@ -183,26 +183,28 @@ export default class ChatApp {
 
 			friend_request: (data) => {
 				if (data.success) {
-					store.dispatch({
-						domain: 'ui',
-						type: actions.ui.SHOW_TOAST,
-						payload: {
-							id: `toast-${Date.now()}`,
-							message: data.data.message,
-							type: 'success'
-						}
-					});
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.data.message,
+					// 		type: 'success'
+					// 	}
+					// });
+					alert(data.data.message);
 				}
 				else {
-					store.dispatch({
-						domain: 'ui',
-						type: actions.ui.SHOW_TOAST,
-						payload: {
-							id: `toast-${Date.now()}`,
-							message: data.error,
-							type: 'error'
-						}
-					});
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.error,
+					// 		type: 'error'
+					// 	}
+					// });
+					alert(data.error);
 				}
 			},
 
@@ -264,26 +266,28 @@ export default class ChatApp {
 			friend_request_choice: (data) => {
 				if (data.success) {
 					this.refreshUserList();
-					store.dispatch({
-						domain: 'ui',
-						type: actions.ui.SHOW_TOAST,
-						payload: {
-							id: `toast-${Date.now()}`,
-							message: data.data.message,
-							type: 'success'
-						}
-					});
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.data.message,
+					// 		type: 'success'
+					// 	}
+					// });
+					alert(data.data.message);
 				}
 				else {
-					store.dispatch({
-						domain: 'ui',
-						type: actions.ui.SHOW_TOAST,
-						payload: {
-							id: `toast-${Date.now()}`,
-							message: data.error,
-							type: 'error'
-						}
-					});
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.error,
+					// 		type: 'error'
+					// 	}
+					// });
+					alert(data.error);
 				}
 				this._sendMessage({
 					type: 'load_friend_requests'
@@ -297,26 +301,28 @@ export default class ChatApp {
 						domain: 'chat',
 						type: chatActions.SET_SELECTED_USER,
 					});
-					store.dispatch({
-						domain: 'ui',
-						type: actions.ui.SHOW_TOAST,
-						payload: {
-							id: `toast-${Date.now()}`,
-							message: data.data.message,
-							type: 'success'
-						}
-					});
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.data.message,
+					// 		type: 'success'
+					// 	}
+					// });
+					alert(data.data.message);
 				}
 				else {
-					store.dispatch({
-						domain: 'ui',
-						type: actions.ui.SHOW_TOAST,
-						payload: {
-							id: `toast-${Date.now()}`,
-							message: data.error,
-							type: 'error'
-						}
-					});
+					// store.dispatch({
+					// 	domain: 'ui',
+					// 	type: actions.ui.SHOW_TOAST,
+					// 	payload: {
+					// 		id: `toast-${Date.now()}`,
+					// 		message: data.error,
+					// 		type: 'error'
+					// 	}
+					// });
+					alert(data.error);
 				}
 			},
 
