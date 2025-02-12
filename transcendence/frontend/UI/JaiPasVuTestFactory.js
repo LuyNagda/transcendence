@@ -5,18 +5,67 @@ import { jest } from '@jest/globals';
 /**
  * Utility function to clean Django template syntax for testing
  * @param {string} template - Django template string
+ * @param {Map<string, string>} [includedTemplates] - Map of included template names to their content
  * @returns {string} Cleaned template for testing
  */
-function cleanDjangoTemplate(template) {
+function cleanDjangoTemplate(template, includedTemplates = new Map()) {
+	// First handle template inheritance if we have includedTemplates
+	if (includedTemplates.size > 0) {
+		// Handle extends
+		const extendsMatch = template.match(/{%\s*extends\s+["']([^"']+)["']\s*%}/);
+		if (extendsMatch) {
+			const parentName = extendsMatch[1].split('/').pop().replace('.html', '');
+			const parentTemplate = includedTemplates.get(parentName);
+
+			if (parentTemplate) {
+				// Extract blocks from child template
+				const blocks = {};
+				template.replace(/{%\s*block\s+(\w+)\s*%}([\s\S]*?){%\s*endblock\s*%}/g, (match, blockName, content) => {
+					blocks[blockName] = content.trim();
+					return '';
+				});
+
+				// Replace blocks in parent template
+				template = parentTemplate.replace(/{%\s*block\s+(\w+)\s*%}[\s\S]*?{%\s*endblock\s*%}/g, (match, blockName) => {
+					return blocks[blockName] || match;
+				});
+			} else {
+				logger.warn(`Parent template not found: ${extendsMatch[1]} (${parentName})`);
+			}
+		}
+
+		// Handle includes
+		template = template.replace(/{%\s*include\s+["']([^"']+)["']\s*%}/g, (match, includePath) => {
+			// Handle different path formats
+			let templateName;
+			if (includePath.includes('/')) {
+				// For paths like 'pong/components/room_state.html'
+				templateName = includePath.split('/').pop().replace('.html', '');
+			} else {
+				// For simple includes like 'ui.html'
+				templateName = includePath.replace('.html', '');
+			}
+
+			const content = includedTemplates.get(templateName);
+			if (!content) {
+				logger.warn(`Template include not found: ${includePath} (${templateName})`);
+				return match;
+			}
+			return content;
+		});
+	}
+
 	return template
-		// Remove Django template tags
+		// Remove remaining Django template tags
 		.replace(/{%\s*extends[^%]*%}/g, '')
 		.replace(/{%\s*include[^%]*%}/g, '')
 		.replace(/{%\s*load[^%]*%}/g, '')
 		.replace(/{%\s*block\s+\w+\s*%}/g, '')
 		.replace(/{%\s*endblock\s*%}/g, '')
+		.replace(/{%\s*csrf_token\s*%}/g, '')
+		.replace(/{%\s*url\s+['"]([^'"]+)['"]\s*%}/g, '#') // Replace url tags with #
 		// Clean up Django variables for testing
-		.replace(/{{(\s*\w+\s*)}}/g, (_, match) => `[[${match.trim()}]]`)
+		.replace(/{{(\s*\w+[\w\.]*\s*)}}/g, (_, match) => `[[${match.trim()}]]`)
 		// Clean up whitespace
 		.replace(/>\s+</g, '><')
 		.replace(/\s+/g, ' ')
@@ -214,11 +263,26 @@ export class JaiPasVuTestFactory {
 	 * Register a template for later use
 	 * @param {string} name - Template name
 	 * @param {string} template - Template content
+	 * @param {Map<string, string>} [includedTemplates] - Map of included template names to their content
 	 */
-	registerTemplate(name, template) {
-		const cleanedTemplate = cleanDjangoTemplate(template);
+	registerTemplate(name, template, includedTemplates = new Map()) {
+		const cleanedTemplate = cleanDjangoTemplate(template, includedTemplates);
 		const prettifiedTemplate = prettifyHtml(cleanedTemplate);
 		this._templates.set(name, cleanedTemplate);
+	}
+
+	/**
+	 * Register multiple templates at once and handle their includes
+	 * @param {Object.<string, string>} templates - Object mapping template names to their content
+	 */
+	registerTemplates(templates) {
+		// First register all templates to make them available for includes
+		const templateMap = new Map(Object.entries(templates));
+
+		// Then process each template with access to all other templates for includes
+		Object.entries(templates).forEach(([name, content]) => {
+			this.registerTemplate(name, content, templateMap);
+		});
 	}
 
 	/**
