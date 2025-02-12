@@ -5,8 +5,8 @@ import { GameEngine } from './core/GameEngine';
 import { PongPhysics } from './core/PongPhysics';
 import { SettingsManager } from './core/SettingsManager.js';
 import { GameRules } from './core/GameRules.js';
+import { InputHandler } from './core/InputHandler.js';
 
-import { InputHandler } from './InputHandler.js';
 import { WebGLRenderer } from './renderers/WebGLRenderer.js';
 import { Canvas2DRenderer } from './renderers/CanvasRenderer.js';
 import { AIController } from './AIController.js';

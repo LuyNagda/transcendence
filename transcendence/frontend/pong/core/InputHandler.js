@@ -1,4 +1,4 @@
-import logger from '../logger.js';
+import logger from '../../logger.js';
 
 export class InputHandler {
 	constructor(isHost) {
@@ -48,7 +48,6 @@ export class InputHandler {
 
 	disable() {
 		this._enabled = false;
-		// Clear all key states when disabled
 		this._keyStates.clear();
 		logger.debug('InputHandler disabled and key states cleared');
 	}
@@ -58,9 +57,8 @@ export class InputHandler {
 	}
 
 	onInput(type, handler) {
-		if (!this._handlers.has(type)) {
+		if (!this._handlers.has(type))
 			this._handlers.set(type, new Set());
-		}
 		this._handlers.get(type).add(handler);
 		logger.debug('Input handler registered for type:', type);
 	}
@@ -92,14 +90,12 @@ export class InputHandler {
 		const isDownKey = controls.down.includes(key);
 
 		// Prevent default behavior for game controls
-		if (isUpKey || isDownKey) {
+		if (isUpKey || isDownKey)
 			event.preventDefault();
-		}
 
 		// Update key state
 		if (!this._keyStates.get(key)) {
 			this._keyStates.set(key, true);
-			this._notifyHandlers('keydown', { key, isHost: this._isHost });
 			logger.debug('Key down event processed:', key);
 		}
 
@@ -125,20 +121,16 @@ export class InputHandler {
 		const isDownKey = controls.down.includes(key);
 
 		// Prevent default behavior for game controls
-		if (isUpKey || isDownKey) {
+		if (isUpKey || isDownKey)
 			event.preventDefault();
-		}
 
 		// Update key state
 		this._keyStates.set(key, false);
-		this._notifyHandlers('keyup', { key, isHost: this._isHost });
 		logger.debug('Key up event processed:', key);
 
 		// Handle paddle stop
-		if (isUpKey || isDownKey) {
+		if (isUpKey || isDownKey)
 			this._notifyHandlers('paddleStop', { isHost: this._isHost });
-			logger.debug('Paddle stop event triggered');
-		}
 	}
 
 	_notifyHandlers(type, data) {
