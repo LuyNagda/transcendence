@@ -1,5 +1,4 @@
-<section v-if="room.currentUser.id === room.owner.id" id="mode-selection" class="my-5"
-    aria-labelledby="mode-selection-heading">
+<section id="mode-selection" class="my-5" aria-labelledby="mode-selection-heading">
     <h2 id="mode-selection-heading">Choose Game Mode</h2>
     <form id="mode-form" method="post" onsubmit="return false;" aria-labelledby="mode-selection-heading">
         {% csrf_token %}
@@ -12,11 +11,11 @@
             </small>
         </div>
 
-        <div class="form-group mb-3">
+        <div v-if="[[owner.id === currentUser.id && state === 'LOBBY']]" class="form-group mb-3">
             <label for="game-mode" id="game-mode-label">Game Mode</label>
-            <select id="game-mode" name="mode" class="form-control" v-model="room.mode"
-                v-on:change="room.handleModeChange" aria-labelledby="game-mode-label"
-                aria-describedby="game-mode-description" :disabled="room.owner.id !== room.currentUser.id">
+            <select id="game-mode" name="mode" class="form-control" v-model="mode" v-on:change="handleModeChange"
+                aria-labelledby="game-mode-label" aria-describedby="game-mode-description"
+                :disabled="owner.id !== currentUser.id">
                 <option value="AI">AI Mode</option>
                 <option value="CLASSIC">Classic Mode</option>
                 <option value="RANKED">Ranked Mode</option>
@@ -28,8 +27,4 @@
             </small>
         </div>
     </form>
-</section>
-
-<section v-else id="current-mode" class="my-5" aria-labelledby="current-mode-heading">
-    <h2 id="current-mode-heading">Current Game Mode: <span v-text="room.mode"></span></h2>
 </section>

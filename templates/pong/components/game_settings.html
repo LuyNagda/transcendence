@@ -3,14 +3,12 @@
 <div id="game-settings" class="card mb-4">
     <div class="card-body">
         <!-- Settings form for room owner -->
-        <form id="settings-form"
-            v-if="room.settings && !room.gameStarted && room.owner && room.currentUser && room.owner.id === room.currentUser.id">
+        <form id="settings-form" v-if="[[owner.id === currentUser.id]] && state === 'LOBBY'">
             <!-- Paddle Speed -->
             <div class="mb-3">
                 <label for="paddleSpeed" class="form-label">Paddle Speed</label>
                 <input type="range" class="form-range" id="paddleSpeed" min="1" max="10" step="1"
-                    data-setting="paddleSpeed" v-model="room.settings.paddleSpeed"
-                    v-on:change="room.handleSettingChange">
+                    data-setting="paddleSpeed" v-model="settings.paddleSpeed" v-on:change="handleSettingChange">
                 <div class="d-flex justify-content-between">
                     <span>Slow</span>
                     <span>Fast</span>
@@ -21,7 +19,7 @@
             <div class="mb-3">
                 <label for="ballSpeed" class="form-label">Ball Speed</label>
                 <input type="range" class="form-range" id="ballSpeed" min="1" max="10" step="1" data-setting="ballSpeed"
-                    v-model="room.settings.ballSpeed" v-on:change="room.handleSettingChange">
+                    v-model="settings.ballSpeed" v-on:change="handleSettingChange">
                 <div class="d-flex justify-content-between">
                     <span>Slow</span>
                     <span>Fast</span>
@@ -32,7 +30,7 @@
             <div class="mb-3">
                 <label for="paddleSize" class="form-label">Paddle Size</label>
                 <input type="range" class="form-range" id="paddleSize" min="1" max="10" step="1"
-                    data-setting="paddleSize" v-model="room.settings.paddleSize" v-on:change="room.handleSettingChange">
+                    data-setting="paddleSize" v-model="settings.paddleSize" v-on:change="handleSettingChange">
                 <div class="d-flex justify-content-between">
                     <span>Small</span>
                     <span>Large</span>
@@ -42,8 +40,8 @@
             <!-- Max Score -->
             <div class="mb-3">
                 <label for="maxScore" class="form-label">Points to Win</label>
-                <select class="form-select" id="maxScore" data-setting="maxScore" v-model="room.settings.maxScore"
-                    v-on:change="room.handleSettingChange">
+                <select class="form-select" id="maxScore" data-setting="maxScore" v-model="settings.maxScore"
+                    v-on:change="handleSettingChange">
                     <option value="5">5 Points</option>
                     <option value="11">11 Points</option>
                     <option value="21">21 Points</option>
@@ -51,22 +49,22 @@
             </div>
 
             <!-- AI Difficulty (only shown in AI mode) -->
-            <div class="mb-3" v-if="room.mode === 'AI'">
+            <div class="mb-3" v-if="mode === 'AI'">
                 <label for="aiDifficulty" class="form-label">AI Model</label>
                 <select class="form-select" id="aiDifficulty" data-setting="aiDifficulty"
-                    v-model="room.settings.aiDifficulty" v-on:change="room.handleSettingChange">
+                    v-model="settings.aiDifficulty" v-on:change="handleSettingChange">
                     <option value="" disabled selected>Loading models...</option>
                 </select>
             </div>
         </form>
 
         <!-- Read-only settings display -->
-        <div v-if="room.settings && room.gameStarted">
+        <div v-else>
             <div class="mb-3">
                 <div class="text-muted mb-1">Paddle Speed</div>
                 <div class="progress">
-                    <div class="progress-bar" role="progressbar" v-text="room.settings.paddleSpeed + '/10'"
-                        v-bind:style="room.getProgressBarStyle(room.settings.paddleSpeed)">
+                    <div class="progress-bar" role="progressbar" v-text="settings.paddleSpeed + '/10'"
+                        v-bind:style="getProgressBarStyle(settings.paddleSpeed, 'paddleSpeed')">
                     </div>
                 </div>
             </div>
@@ -74,8 +72,8 @@
             <div class="mb-3">
                 <div class="text-muted mb-1">Ball Speed</div>
                 <div class="progress">
-                    <div class="progress-bar" role="progressbar" v-text="room.settings.ballSpeed + '/10'"
-                        v-bind:style="room.getProgressBarStyle(room.settings.ballSpeed)">
+                    <div class="progress-bar" role="progressbar" v-text="settings.ballSpeed + '/10'"
+                        v-bind:style="getProgressBarStyle(settings.ballSpeed, 'ballSpeed')">
                     </div>
                 </div>
             </div>
@@ -83,8 +81,8 @@
             <div class="mb-3">
                 <div class="text-muted mb-1">Paddle Size</div>
                 <div class="progress">
-                    <div class="progress-bar" role="progressbar" v-text="room.settings.paddleSize + '%'"
-                        v-bind:style="room.getProgressBarStyle(room.settings.paddleSize)">
+                    <div class="progress-bar" role="progressbar" v-text="settings.paddleSize + '/10'"
+                        v-bind:style="getProgressBarStyle(settings.paddleSize, 'paddleSize')">
                     </div>
                 </div>
             </div>
@@ -93,20 +91,15 @@
                 <div>
                     <div class="text-muted mb-1">Points to Win</div>
                     <p class="mb-0 fs-5">
-                        <span v-text="room.settings.maxScore"></span> Points
+                        <span v-text="settings.maxScore"></span> Points
                     </p>
                 </div>
 
-                <div v-if="room.mode === 'AI'">
+                <div v-if="mode === 'AI'">
                     <div class="text-muted mb-1">AI Model</div>
-                    <p class="mb-0 fs-5" v-text="room.settings.aiDifficulty"></p>
+                    <p class="mb-0 fs-5" v-text="settings.aiDifficulty"></p>
                 </div>
             </div>
-        </div>
-
-        <!-- No settings message -->
-        <div v-if="!room.settings" class="alert alert-warning">
-            Loading settings...
         </div>
     </div>
 </div>

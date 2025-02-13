@@ -2,30 +2,31 @@
     <div class="card-body" id="room-state-description">
         <h5 class="card-subtitle mb-2">Mode: <span v-text="mode" aria-live="polite"></span></h5>
 
-        <h6 class="mt-4">Players (<span v-text="mappedPlayers.length" aria-live="polite"></span> /
+        <h6 class="mt-4">Players (<span v-text="players.length" aria-live="polite"></span> /
             <span v-text="maxPlayers" aria-live="polite"></span>)
         </h6>
 
         <ul class="list-group mb-3" role="list" aria-labelledby="players-list-heading">
             <li v-for="player in mappedPlayers"
                 class="list-group-item d-flex justify-content-between align-items-center" role="listitem">
-                <span v-text="player.username"></span>
+                <span>[[player.username]]</span>
                 <div>
-                    <span v-if="player.isOwner" class="badge bg-info rounded-pill me-2" aria-label="Owner">Owner</span>
-                    <span v-if="player.isCurrentUser" class="badge bg-primary rounded-pill me-2"
+                    <span v-if="[[player.isOwner]]" class="badge bg-info rounded-pill me-2"
+                        aria-label="Owner">Owner</span>
+                    <span v-if="[[player.isCurrentUser]]" class="badge bg-primary rounded-pill me-2"
                         aria-label="You">You</span>
-                    <button v-if="player.canBeKicked" class="btn btn-danger btn-sm" v-on:click="kickPlayer(player.id)"
-                        aria-label="Kick player">
+                    <button v-if="[[player.canBeKicked]]" class="btn btn-danger btn-sm"
+                        v-on:click="kickPlayer(player.id)" aria-label="Kick player">
                         Kick
                     </button>
                 </div>
             </li>
-            <li v-if="!mappedPlayers.length" class="list-group-item" aria-live="polite">
+            <li v-if="[[!players.length]]" class="list-group-item" aria-live="polite">
                 No players in the room yet.
             </li>
         </ul>
 
-        <div v-if="pendingInvitations.length" aria-live="polite">
+        <div v-if="pendingInvitations && pendingInvitations.length > 0" aria-live="polite">
             <h6>Pending Invitations</h6>
             <ul class="list-group mb-3">
                 <li v-for="invitation in pendingInvitations"
@@ -42,17 +43,17 @@
             </ul>
         </div>
 
-        <p v-if="availableSlots > 0" class="card-text" aria-live="polite">
-            Available slots: <span v-text="availableSlots"></span>
+        <p v-if="players.length < maxPlayers" class="card-text" aria-live="polite">
+            Available slots: <span v-text="maxPlayers - players.length"></span>
         </p>
 
-        <p v-if="mappedPlayers.length === maxPlayers && availableSlots <= 0" class="card-text text-warning"
+        <p v-else-if="players.length === maxPlayers && availableSlots <= 0" class="card-text text-warning"
             aria-live="polite">
             <i class="fas fa-circle-exclamation me-2"></i>
             Room is full
         </p>
 
-        <p v-if="mappedPlayers.length > maxPlayers" class="card-text text-danger" aria-live="polite">
+        <p v-else class="card-text text-danger" aria-live="polite">
             <i class="fas fa-triangle-exclamation me-2"></i>
             Room is overfull - some players must leave
         </p>
@@ -70,8 +71,8 @@
     </div>
 
     <div class="card-footer d-flex justify-content-between">
-        <button id="startGameBtn" v-on:click="startGame" type="button" class="btn btn-primary"
-            aria-label="Start the game">
+        <button id="startGameBtn" v-if="[[owner.id === currentUser.id]]" v-on:click="startGame" type="button"
+            class="btn btn-primary" aria-label="Start the game">
             Start
         </button>
         <button id="leaveGameBtn" class="btn btn-danger" hx-get="{% url 'pong' %}" hx-target="#content"

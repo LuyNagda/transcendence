@@ -128,6 +128,31 @@ export class RoomConnectionManager {
 				return;
 			}
 
+			if (data.type === 'settings_update') {
+				logger.debug('[RoomConnectionManager] Received settings update:', data);
+				// First update the specific setting
+				if (data.setting && data.value !== undefined) {
+					store.dispatch({
+						domain: 'room',
+						type: actions.room.UPDATE_ROOM_SETTINGS,
+						payload: {
+							settings: {
+								[data.setting]: data.value
+							}
+						}
+					});
+				}
+				// Then update the full room state if provided
+				if (data.room_state) {
+					store.dispatch({
+						domain: 'room',
+						type: actions.room.UPDATE_ROOM,
+						payload: data.room_state
+					});
+				}
+				return;
+			}
+
 			if (data.type === 'game_started') {
 				store.dispatch({
 					domain: 'room',
@@ -308,11 +333,15 @@ export class RoomConnectionManager {
 	}
 
 	async updateSetting(setting, value) {
-		return this._sendRequest('update_setting', { setting, value });
+		return this._sendRequest('update_property', {
+			property: 'settings',
+			setting: setting,
+			value: typeof value === 'string' && !isNaN(value) ? parseInt(value, 10) : value
+		});
 	}
 
 	async updateMode(mode) {
-		return this._sendRequest('update_mode', { mode });
+		return this._sendRequest('change_mode', { mode });
 	}
 
 	async leaveGame() {

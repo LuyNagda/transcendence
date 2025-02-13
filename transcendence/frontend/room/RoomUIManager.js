@@ -46,8 +46,52 @@ export class RoomUIManager {
 			},
 			getCurrentUser: () => store.getState('user'),
 			toggleInviteModal: () => this._toggleInviteModal(),
-			handleSettingChange: this.handleSettingChange,
-			handleModeChange: this.handleModeChange
+			handleSettingChange: (event) => {
+				const setting = event.target.dataset.setting;
+				const value = event.target.value;
+				const parseAsInt = event.target.type === 'range' || event.target.type === 'number';
+				this.handleSettingChange(setting, value, parseAsInt);
+			},
+			handleModeChange: (event) => {
+				const newMode = event.target.value;
+				logger.debug('Handling mode change:', newMode);
+				this._callHandler('modeChange', newMode);
+			},
+			getProgressBarStyle: (value, settingType) => {
+				const getColorForPaddleSettings = (value) => {
+					if (value >= 7) return '#28a745';  // Green
+					if (value >= 5) return '#ffc107';  // Yellow
+					if (value >= 3) return '#fd7e14';  // Orange
+					return '#dc3545';                  // Red
+				};
+
+				const getColorForBallSpeed = (value) => {
+					if (value >= 8) return '#dc3545';  // Red
+					if (value >= 6) return '#fd7e14';  // Orange
+					if (value >= 4) return '#ffc107';  // Yellow
+					return '#28a745';                  // Green
+				};
+
+				const width = `${value * 10}%`;
+				let backgroundColor;
+
+				switch (settingType) {
+					case 'paddleSize':
+					case 'paddleSpeed':
+						backgroundColor = getColorForPaddleSettings(value);
+						break;
+					case 'ballSpeed':
+						backgroundColor = getColorForBallSpeed(value);
+						break;
+					default:
+						backgroundColor = '#ffc107';  // Default yellow for value 5
+				}
+
+				return {
+					width,
+					backgroundColor
+				};
+			}
 		});
 
 		this._observers.push(
@@ -228,7 +272,12 @@ export class RoomUIManager {
 				return;
 			}
 
-			const parsedValue = parseAsInt ? parseInt(value) : value;
+			if (!setting || value === undefined) {
+				logger.warn('Invalid setting change parameters:', { setting, value });
+				return;
+			}
+
+			const parsedValue = parseAsInt ? parseInt(value, 10) : value;
 			this._callHandler('settingChange', setting, parsedValue);
 		} catch (error) {
 			logger.error('Error in handleSettingChange:', error);
@@ -237,8 +286,9 @@ export class RoomUIManager {
 
 	handleModeChange(event) {
 		try {
-			logger.debug('Handling mode change:', event.target.value);
-			this._callHandler('modeChange', event);
+			const newMode = event.target.value;
+			logger.debug('Handling mode change:', newMode);
+			this._callHandler('modeChange', newMode);
 		} catch (error) {
 			logger.error('Error in handleModeChange:', error);
 		}
