@@ -669,10 +669,10 @@ export default class ChatApp {
 				status: user.status || 'offline',
 				profile_picture: user.profile_picture || '',
 				online: user.status === 'online',
-				// match: total_games_played(user),
-				// win: total_wins(user),
-				// lose: total_losses(user),
-				// winrate: winrate(user)
+				match: user.total_games,
+				win: user.total_wins,
+				lose: user.total_losses,
+				winrate: user.winrate
 			}
 		});
 		this.loadMessageHistory(user.id);

@@ -61,4 +61,4 @@ def winrate(player):
     total = total_games_played(player)
     if total == 0:
         return 0
-    return total_wins(player) / total
+    return round(total_wins(player) / total, 2) * 100

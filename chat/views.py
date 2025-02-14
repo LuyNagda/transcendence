@@ -8,6 +8,7 @@ from authentication.decorators import IsAuthenticatedWithCookie
 from django.core.serializers.json import DjangoJSONEncoder
 from django.forms.models import model_to_dict
 import logging
+from pong.pong_functions import total_games_played, total_wins, total_losses, winrate
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -72,6 +73,11 @@ def get_users(request):
     user_list = []
     for user in friends:
         user_data = user.chat_user
+        user_data.update({'total_games': total_games_played(user)})
+        user_data.update({'total_wins': total_wins(user)})
+        user_data.update({'total_losses': total_losses(user)})
+        user_data.update({'winrate': winrate(user)})
         user_data.update({ 'blocked': user.id in blocked_users })
         user_list.append(user_data)
+
     return JsonResponse(user_list, safe=False)
