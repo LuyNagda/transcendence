@@ -668,7 +668,11 @@ export default class ChatApp {
 				blocked: user.blocked || false,
 				status: user.status || 'offline',
 				profile_picture: user.profile_picture || '',
-				online: user.status === 'online'
+				online: user.status === 'online',
+				// match: total_games_played(user),
+				// win: total_wins(user),
+				// lose: total_losses(user),
+				// winrate: winrate(user)
 			}
 		});
 		this.loadMessageHistory(user.id);
