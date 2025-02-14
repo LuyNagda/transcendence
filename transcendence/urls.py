@@ -18,7 +18,7 @@ from django.contrib import admin
 from django.urls import path, register_converter, include
 from django.contrib.auth import views as auth_views
 from authentication.views import register, login_view, index, logout_view, forgot_password, otp, oauth_callback, set_password
-from home.views import profile, settings_view, change_password, games_history
+from home.views import profile, settings_view, change_password, games_history, enable_2fa
 from django.conf.urls.static import static
 from django.conf import settings
 from rest_framework_simplejwt.views import (
@@ -51,6 +51,7 @@ urlpatterns = [
     path('index', index, name='index'),
     path('forgot-password', forgot_password, name='forgot-password'),
     path('settings', settings_view, name='settings'),
+    path('enable-2fa/', enable_2fa, name='enable-2fa'),
     path('change-password', change_password, name='change-password'),
     path('chat/', include('chat.urls')),
     path('users/', include('users.urls')),

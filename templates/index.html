@@ -116,16 +116,4 @@
 
 </div>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<script>
-    $(document).ready(function() {
-        console.log("Document is ready");
-        // Check if the title of the page is "Index"
-        if (document.title === "Index") {
-            console.log("Title is Index");
-            // Change the URL without reloading the page
-            history.pushState({}, "", "/index");
-            console.log("URL changed to /index");
-        }
-    });
-</script>
 {% endblock %}

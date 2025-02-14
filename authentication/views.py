@@ -23,6 +23,7 @@ import requests
 import logging
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import login
+from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -47,7 +48,8 @@ def already_logged_in(request):
 	'users': users,
 	'blocked_users': blocked_users,
 	}
-	response = render(request, 'index.html', context)
+	response = JsonResponse({"message": "Already logged in."}, status=status.HTTP_200_OK)
+	response['HX-Location'] = '/index'
 	return response
 
 @api_view(['GET', 'POST'])
@@ -61,7 +63,9 @@ def register(request):
 			user = form.save()
 			logger.info(f"New user registered: {user.username}", extra={'user_id': user.id})
 			messages.success(request, 'Registration successful. You can now log in.')
-			return redirect('login')
+			response = JsonResponse({"message": "Registration successful."}, status=status.HTTP_200_OK)
+			response['HX-Location'] = '/login'
+			return response
 		else:
 			logger.warning(f"Failed registration attempt: {form.errors}")
 			return render(request, 'register.html', {'form': form})
@@ -95,7 +99,8 @@ def login_view(request):
                 # Rotate the CSRF token
                 rotate_token(request)
                 
-                response = redirect('index')
+                response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
+                response['HX-Location'] = '/index'
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 logger.info(f"User {username} logged in successfully", extra={'user_id': user.id})
@@ -153,7 +158,8 @@ def logout_view(request):
             logger.error(f"Error during Django logout for user {username} (ID: {user_id}): {str(logout_error)}")
         
         # Create a response and delete the tokens
-        response = redirect('login')
+        response = JsonResponse({"message": "Logout successful."}, status=status.HTTP_200_OK)
+        response['HX-Location'] = '/login'
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
         return response
@@ -231,7 +237,9 @@ def reset_password(request, uidb64, token):
             if form.is_valid():
                 form.save()
                 messages.success(request, 'Password has been reset.')
-                return redirect('login')
+                response = JsonResponse({"message": "Password has been reset."}, status=status.HTTP_200_OK)
+                response['HX-Location'] = '/login'
+                return response
         else:
             form = ResetPasswordForm(user)
         return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uidb64, 'token': token})
@@ -242,8 +250,6 @@ def reset_password(request, uidb64, token):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def otp(request):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
     if request.method == 'POST':
         if 'otp' in request.POST:
             form = OTPForm(request.POST)
@@ -253,12 +259,14 @@ def otp(request):
                     user = User.objects.get(otp=otp)
                     user.otp = None
                     user.save()
+                    login(request, user)
                     refresh = RefreshToken.for_user(user)
                     access_token = str(refresh.access_token)
                     refresh_token = str(refresh)
                     response = render(request, 'index.html', {'user': user, 'access_token': access_token, 'refresh_token': refresh_token})
                     response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                     response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
+                    response['Location'] = '/index'
                     return response
                 except User.DoesNotExist:
                     messages.error(request, 'Invalid OTP.')
@@ -269,6 +277,9 @@ def otp(request):
                 email = form.cleaned_data['email']
                 try:
                     user = User.objects.get(email=email)
+                    if user.twofa == False:
+                        messages.error(request, '2FA is not enabled for this user.')
+                        return render(request, 'login-2fa.html', {'form': form})
                     otp = generate_otp()
                     user.otp = otp
                     user.save()
@@ -323,7 +334,8 @@ def oauth_callback(request):
                 access_token = str(refresh.access_token)
                 refresh_token = str(refresh)
                 # Optionally set tokens in cookies
-                response = redirect('index')
+                response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
+                response['HX-Location'] = '/index'
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 return response

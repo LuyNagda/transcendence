@@ -33,7 +33,17 @@ def profile(request):
 def settings_view(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
-    return render(request, 'settings.html', {'user': request.user, 'access_token': access_token, 'refresh_token': refresh_token})
+    user = User.objects.get(username=request.user.username)
+    return render(request, 'settings.html', {'user': user, 'access_token': access_token, 'refresh_token': refresh_token})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticatedWithCookie])
+def enable_2fa(request):
+    if request.method == 'POST':
+        user = User.objects.get(username=request.user.username)
+        user.twofa = not user.twofa
+        user.save()
+        return render(request, 'settings.html', {'user': user})
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])

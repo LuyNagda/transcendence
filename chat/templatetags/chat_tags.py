@@ -10,8 +10,10 @@ User = get_user_model()
 def render_chat(context):
     request = context['request']
     users = User.objects.exclude(id=request.user.id)
-    blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user_id', flat=True)
-    
+    if request.user.is_authenticated:
+        blocked_users = BlockedUser.objects.filter(user=request.user).values_list('blocked_user_id', flat=True)
+    else:
+        blocked_users = []
     chat_context = {
         'users': users,
         'blocked_users': blocked_users,
