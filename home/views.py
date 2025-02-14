@@ -7,6 +7,11 @@ from django.contrib.auth import login
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 from pong.pong_functions import total_games_played, total_wins, total_losses, winrate
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+import logging
+
+logger = logging.getLogger(__name__)
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -31,9 +36,20 @@ def profile(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def settings_view(request):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
-    return render(request, 'settings.html', {'user': request.user, 'access_token': access_token, 'refresh_token': refresh_token})
+    user = User.objects.get(username=request.user.username)
+    logger.info("inside settings view", user)
+    return render(request, 'settings.html', {'user': user})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticatedWithCookie])
+def enable_2fa(request):
+	user = get_object_or_404(User, username=request.user.username)
+	user.twofa = not user.twofa
+	user.save()
+	return JsonResponse({
+		'message': f'Two-factor authentication {"enabled" if user.twofa else "disabled"}.',
+		'twofa': user.twofa
+	}, headers={'HX-Location': '/settings'})
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])

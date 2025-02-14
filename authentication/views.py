@@ -23,6 +23,7 @@ import requests
 import logging
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.contrib.auth import login
+from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -47,7 +48,8 @@ def already_logged_in(request):
 	'users': users,
 	'blocked_users': blocked_users,
 	}
-	response = render(request, 'index.html', context)
+	response = JsonResponse({"message": "Already logged in."}, status=status.HTTP_200_OK)
+	response['HX-Location'] = '/index'
 	return response
 
 @api_view(['GET', 'POST'])
@@ -61,7 +63,9 @@ def register(request):
 			user = form.save()
 			logger.info(f"New user registered: {user.username}", extra={'user_id': user.id})
 			messages.success(request, 'Registration successful. You can now log in.')
-			return redirect('login')
+			response = JsonResponse({"message": "Registration successful."}, status=status.HTTP_200_OK)
+			response['HX-Location'] = '/login'
+			return response
 		else:
 			logger.warning(f"Failed registration attempt: {form.errors}")
 			return render(request, 'register.html', {'form': form})
@@ -87,6 +91,16 @@ def login_view(request):
                 return render(request, 'login.html', {'form': form})
             user = authenticate(request, username=username, password=password)
             if user is not None and user.check_password(password):
+                if user.twofa == True:
+                    otp = generate_otp()
+                    user.otp = otp
+                    user.save()
+                    subject = f'OTP from {get_current_site(request).name}'
+                    message = render_to_string('user-2fa-email.html', {'user': user, 'otp': otp})
+                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+                    response = render(request, 'login-2fa.html', {'form': OTPForm()})
+                    response['HX-Location'] = '/login-2fa'
+                    return response
                 # Issue JWT tokens
                 refresh = RefreshToken.for_user(user)
                 access_token = str(refresh.access_token)
@@ -95,7 +109,8 @@ def login_view(request):
                 # Rotate the CSRF token
                 rotate_token(request)
                 
-                response = redirect('index')
+                response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
+                response['HX-Location'] = '/index'
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 logger.info(f"User {username} logged in successfully", extra={'user_id': user.id})
@@ -153,7 +168,8 @@ def logout_view(request):
             logger.error(f"Error during Django logout for user {username} (ID: {user_id}): {str(logout_error)}")
         
         # Create a response and delete the tokens
-        response = redirect('login')
+        response = JsonResponse({"message": "Logout successful."}, status=status.HTTP_200_OK)
+        response['HX-Location'] = '/login'
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
         return response
@@ -231,7 +247,9 @@ def reset_password(request, uidb64, token):
             if form.is_valid():
                 form.save()
                 messages.success(request, 'Password has been reset.')
-                return redirect('login')
+                response = JsonResponse({"message": "Password has been reset."}, status=status.HTTP_200_OK)
+                response['HX-Location'] = '/login'
+                return response
         else:
             form = ResetPasswordForm(user)
         return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uidb64, 'token': token})
@@ -242,46 +260,27 @@ def reset_password(request, uidb64, token):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def otp(request):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
-    if request.method == 'POST':
-        if 'otp' in request.POST:
-            form = OTPForm(request.POST)
-            if form.is_valid():
-                otp = form.cleaned_data['otp']
-                try:
-                    user = User.objects.get(otp=otp)
-                    user.otp = None
-                    user.save()
-                    refresh = RefreshToken.for_user(user)
-                    access_token = str(refresh.access_token)
-                    refresh_token = str(refresh)
-                    response = render(request, 'index.html', {'user': user, 'access_token': access_token, 'refresh_token': refresh_token})
-                    response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
-                    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
-                    return response
-                except User.DoesNotExist:
-                    messages.error(request, 'Invalid OTP.')
-            return render(request, 'login-2fa.html', {'form': form})
-        elif 'email' in request.POST:
-            form = TWOFAForm(request.POST)
-            if form.is_valid():
-                email = form.cleaned_data['email']
-                try:
-                    user = User.objects.get(email=email)
-                    otp = generate_otp()
-                    user.otp = otp
-                    user.save()
-                    subject = f'OTP from {get_current_site(request).name}'
-                    message = render_to_string('user-2fa-email.html', {'user': user, 'otp': otp})
-                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
-                    return render(request, 'login-2fa.html', {'form': OTPForm()})
-                except User.DoesNotExist:
-                    messages.error(request, 'Invalid email.')
-            return render(request, 'login-2fa.html', {'form': form})
-    else:
-        form = TWOFAForm()
-    return render(request, 'login-2fa.html', {'form': form})
+	if request.method == 'POST':
+		form = OTPForm(request.POST)
+		if form.is_valid():
+			otp = form.cleaned_data['otp']
+			try:
+				user = User.objects.get(otp=otp)
+				user.otp = None
+				user.save()
+				login(request, user)
+				refresh = RefreshToken.for_user(user)
+				access_token = str(refresh.access_token)
+				refresh_token = str(refresh)
+				response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
+				response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
+				response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
+				response['HX-Location'] = '/index'
+				return response
+			except User.DoesNotExist:
+				messages.error(request, 'Invalid OTP.')
+		return render(request, 'login-2fa.html', {'form': OTPForm()})
+	return render(request, 'login-2fa.html', {'form': OTPForm()})
 
 def authenticate_api(request, access_token):
     user_info_url = 'https://api.intra.42.fr/v2/me'
@@ -323,7 +322,8 @@ def oauth_callback(request):
                 access_token = str(refresh.access_token)
                 refresh_token = str(refresh)
                 # Optionally set tokens in cookies
-                response = redirect('index')
+                response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
+                response['HX-Location'] = '/index'
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 return response

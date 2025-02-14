@@ -16,6 +16,7 @@ class User(AbstractUser):
     online = models.BooleanField(default=False)
     friends = models.ManyToManyField('self', blank=True, default=None)
     friendrequests = models.ManyToManyField('self', blank=True, symmetrical=False, default=None)
+    twofa = models.BooleanField(default=False)
 
     @property
     def player_data(self):
