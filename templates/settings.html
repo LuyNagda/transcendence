@@ -24,13 +24,17 @@
 			{% endif %}
             <br>
             <li>
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="enable-2fa" name="2fa" 
-                            {% if user.twofa %}checked{% endif %} 
-                            hx-post="{% url 'enable-2fa' %}" hx-target="#content" hx-swap="outerHTML">
-                    <label class="form-check-label" for="enable-2fa">Two-Factor Authentication</label>
-                    </form>
-                </div>
+                <form id="2fa-form">
+					<div class="form-check form-switch">
+						<input class="form-check-input" type="checkbox" id="enable-2fa" name="2fa"
+							{% if user.twofa %}checked{% endif %}
+							hx-post="{% url 'enable-2fa' %}"
+							hx-target="#content"
+							hx-swap="outerHTML"
+							aria-label="Toggle Two-Factor Authentication">
+						<label class="form-check-label" for="enable-2fa">Two-Factor Authentication</label>
+					</div>
+				</form>
             </li>
 		</ul>
 	</div>

@@ -91,6 +91,16 @@ def login_view(request):
                 return render(request, 'login.html', {'form': form})
             user = authenticate(request, username=username, password=password)
             if user is not None and user.check_password(password):
+                if user.twofa == True:
+                    otp = generate_otp()
+                    user.otp = otp
+                    user.save()
+                    subject = f'OTP from {get_current_site(request).name}'
+                    message = render_to_string('user-2fa-email.html', {'user': user, 'otp': otp})
+                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+                    response = render(request, 'login-2fa.html', {'form': OTPForm()})
+                    response['HX-Location'] = '/login-2fa'
+                    return response
                 # Issue JWT tokens
                 refresh = RefreshToken.for_user(user)
                 access_token = str(refresh.access_token)
@@ -250,49 +260,27 @@ def reset_password(request, uidb64, token):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def otp(request):
-    if request.method == 'POST':
-        if 'otp' in request.POST:
-            form = OTPForm(request.POST)
-            if form.is_valid():
-                otp = form.cleaned_data['otp']
-                try:
-                    user = User.objects.get(otp=otp)
-                    user.otp = None
-                    user.save()
-                    login(request, user)
-                    refresh = RefreshToken.for_user(user)
-                    access_token = str(refresh.access_token)
-                    refresh_token = str(refresh)
-                    response = render(request, 'index.html', {'user': user, 'access_token': access_token, 'refresh_token': refresh_token})
-                    response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
-                    response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
-                    response['Location'] = '/index'
-                    return response
-                except User.DoesNotExist:
-                    messages.error(request, 'Invalid OTP.')
-            return render(request, 'login-2fa.html', {'form': form})
-        elif 'email' in request.POST:
-            form = TWOFAForm(request.POST)
-            if form.is_valid():
-                email = form.cleaned_data['email']
-                try:
-                    user = User.objects.get(email=email)
-                    if user.twofa == False:
-                        messages.error(request, '2FA is not enabled for this user.')
-                        return render(request, 'login-2fa.html', {'form': form})
-                    otp = generate_otp()
-                    user.otp = otp
-                    user.save()
-                    subject = f'OTP from {get_current_site(request).name}'
-                    message = render_to_string('user-2fa-email.html', {'user': user, 'otp': otp})
-                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
-                    return render(request, 'login-2fa.html', {'form': OTPForm()})
-                except User.DoesNotExist:
-                    messages.error(request, 'Invalid email.')
-            return render(request, 'login-2fa.html', {'form': form})
-    else:
-        form = TWOFAForm()
-    return render(request, 'login-2fa.html', {'form': form})
+	if request.method == 'POST':
+		form = OTPForm(request.POST)
+		if form.is_valid():
+			otp = form.cleaned_data['otp']
+			try:
+				user = User.objects.get(otp=otp)
+				user.otp = None
+				user.save()
+				login(request, user)
+				refresh = RefreshToken.for_user(user)
+				access_token = str(refresh.access_token)
+				refresh_token = str(refresh)
+				response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
+				response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
+				response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
+				response['HX-Location'] = '/index'
+				return response
+			except User.DoesNotExist:
+				messages.error(request, 'Invalid OTP.')
+		return render(request, 'login-2fa.html', {'form': OTPForm()})
+	return render(request, 'login-2fa.html', {'form': OTPForm()})
 
 def authenticate_api(request, access_token):
     user_info_url = 'https://api.intra.42.fr/v2/me'
