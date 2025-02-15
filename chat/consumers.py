@@ -160,8 +160,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def set_user_offline(self) -> None:
         if self.user:
-            self.user.online = False
-            self.user.save()
+            User.objects.filter(id=self.user.id).update(online=False)
+            self.user.refresh_from_db()
 
     async def broadcast_status(self) -> None:
         user_ids: List[int] = await self.get_allowed_user_ids()
