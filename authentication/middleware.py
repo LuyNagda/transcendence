@@ -144,6 +144,7 @@ class RedirectOn401Middleware:
                         samesite='Lax',
                         max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds())
                     )
+                    return response
 
                 except TokenError:
                     # If the refresh token is invalid, redirect to login
@@ -151,13 +152,14 @@ class RedirectOn401Middleware:
                     response['HX-Redirect'] = settings.LOGIN_URL
                     response.delete_cookie('access_token')
                     response.delete_cookie('refresh_token')
+                    return response
             else:
                 # If there's no refresh token, redirect to login
                 response = JsonResponse({'detail': 'Invalid refresh token'}, status=401)
                 response['HX-Redirect'] = settings.LOGIN_URL
                 response.delete_cookie('access_token')
                 response.delete_cookie('refresh_token')
-        
+                return response
         return response
 
 class WebSocketNotFoundMiddleware(BaseMiddleware):

@@ -124,7 +124,12 @@ def login_view(request):
             messages.error(request, 'Invalid form submission.')
     else:
         form = LoginForm()
-    return render(request, 'login.html', {'form': form})
+    context = {
+        'ft_client_id': settings.FT_CLIENT_ID,
+        'ft_redirect_uri': settings.FT_REDIRECT_URI,
+        'form': form,
+    }
+    return render(request, 'login.html', context)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -169,9 +174,9 @@ def logout_view(request):
         
         # Create a response and delete the tokens
         response = JsonResponse({"message": "Logout successful."}, status=status.HTTP_200_OK)
-        response['HX-Location'] = '/login'
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
+        response['HX-Location'] = '/login'
         return response
 
     except Exception as e:
@@ -295,7 +300,6 @@ def authenticate_api(request, access_token):
         return user
     return None
 
-
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def oauth_callback(request):
@@ -311,9 +315,9 @@ def oauth_callback(request):
         'redirect_uri': settings.FT_REDIRECT_URI,
         'state': state,
         }
-        response = requests.post(token_url, data=payload)
-        if response.status_code == 200:
-            data = response.json()
+        response_42api = requests.post(token_url, data=payload)
+        if response_42api.status_code == 200:
+            data = response_42api.json()
             access_token = data['access_token']
             user = authenticate_api(request, access_token=access_token)
             if user is not None:
@@ -322,20 +326,25 @@ def oauth_callback(request):
                 access_token = str(refresh.access_token)
                 refresh_token = str(refresh)
                 # Optionally set tokens in cookies
-                response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
-                response['HX-Location'] = '/index'
+                response = redirect('/index')
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 return response
             else:
                 messages.error(request, 'Invalid access token.')
-                render(request, 'login.html', {'form': LoginForm()})
+                response = JsonResponse({"message": "Invalid access token."}, status=status.HTTP_400_BAD_REQUEST)
+                response['HX-Location'] = '/login'
+                return response
         else:
             messages.error(request, 'Invalid code.')
-            render(request, 'login.html', {'form': LoginForm()})
+            response = JsonResponse({"message": "Invalid code."}, status=status.HTTP_400_BAD_REQUEST)
+            response['HX-Location'] = '/login'
+            return response
     else:
         messages.error(request, 'Invalid code.')
-    return render(request, 'login.html', {'form': LoginForm()})
+        response = JsonResponse({"message": "Invalid code."}, status=status.HTTP_400_BAD_REQUEST)
+        response['HX-Location'] = '/login'
+        return response
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])
