@@ -2,7 +2,6 @@ import logging, json
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections
-from django.shortcuts import redirect
 from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
@@ -149,14 +148,14 @@ class RedirectOn401Middleware:
                 except TokenError:
                     # If the refresh token is invalid, redirect to login
                     response = JsonResponse({'detail': 'Invalid refresh token'}, status=401)
-                    response['HX-Redirect'] = settings.LOGIN_URL
+                    response['HX-Location'] = settings.LOGIN_URL
                     response.delete_cookie('access_token')
                     response.delete_cookie('refresh_token')
                     return response
             else:
                 # If there's no refresh token, redirect to login
                 response = JsonResponse({'detail': 'Invalid refresh token'}, status=401)
-                response['HX-Redirect'] = settings.LOGIN_URL
+                response['HX-Location'] = settings.LOGIN_URL
                 response.delete_cookie('access_token')
                 response.delete_cookie('refresh_token')
                 return response

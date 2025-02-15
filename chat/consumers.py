@@ -150,12 +150,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def set_user_online(self) -> None:
         if self.user and self.user.is_authenticated:
-            self.user.online = True
-            self.user.save()
-        else:
-            log.warning("Attempted to set AnonymousUser online", extra={
-                'user_id': getattr(self.user, 'id', 'Unknown')
-            })
+            User.objects.filter(id=self.user.id).update(online=True)
+            self.user.refresh_from_db()
 
     @database_sync_to_async
     def set_user_offline(self) -> None:
