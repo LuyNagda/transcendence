@@ -8,6 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 from pong.pong_functions import total_games_played, total_wins, total_losses, winrate
 from django.http import JsonResponse
+from django.db import models
 from django.shortcuts import get_object_or_404
 import logging
 
@@ -74,7 +75,11 @@ def change_password(request):
 @permission_classes([IsAuthenticatedWithCookie])
 def games_history(request):
     player = User.objects.get(username=request.user.username)
-    games_history = PongGame.objects.filter(player1=player, player2=player)
+    games_history = PongGame.objects.filter(
+        models.Q(player1=player) | 
+        models.Q(player2=player)
+	).order_by('-created_at')
+    logger.info(games_history)
     total_games = total_games_played(player)
     wins = total_wins(player)
     losses = total_losses(player)

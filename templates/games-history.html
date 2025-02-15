@@ -38,16 +38,16 @@
 				</td>
 				<td>
 					{% if games.player1 != request.user %}
-						games.player2_score
+						{{ games.player2_score }}
 					{% else %}
-						games.player1_score
+						{{ games.player1_score }}
 					{% endif %}
 				</td>
 				<td>
 					{% if games.player1 != request.user %}
-						games.player1_score
+						{{ games.player1_score }}
 					{% else %}
-						games.player2_score
+						{{ games.player2_score }}
 					{% endif %}
 				</td>
 				<td>{{ games.created_at }}</td>
