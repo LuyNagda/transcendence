@@ -58,7 +58,7 @@ def total_losses(player):
     return PongGame.objects.filter(player1=player, player1_score__lt=F('player2_score')).count() + PongGame.objects.filter(player2=player, player2_score__lt=F('player1_score')).count()
 
 def winrate(player):
-    total = total_games_played(player)
+    total = total_wins(player) + total_losses(player)
     if total == 0:
         return 0
     return round(total_wins(player) / total, 2) * 100
