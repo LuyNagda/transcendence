@@ -7,11 +7,19 @@ import { roomActions, roomReducers, roomValidators, initialRoomState } from './r
 import { gameActions, gameReducers, initialGameState } from './gameState.js';
 import { uiActions, uiReducers, uiValidators, initialUIState, UI_FONT_SIZE, UI_THEME } from './uiState.js';
 
-// Event types for state changes
 export const StateChangeTypes = {
 	UPDATE: 'update',
 	RESET: 'reset',
 	BATCH_UPDATE: 'batch_update'
+};
+
+export const actions = {
+	config: configActions,
+	user: userActions,
+	chat: chatActions,
+	room: roomActions,
+	game: gameActions,
+	ui: uiActions
 };
 
 /**
@@ -69,7 +77,7 @@ export const StateChangeTypes = {
  *   },
  *   {
  *     domain: 'room',
- *     type: 'UPDATE_ROOM_STATE',
+ *     type: 'UPDATE_ROOM',
  *     payload: { state: 'PLAYING' }
  *   }
  * ]);
@@ -254,7 +262,7 @@ class Store {
 	 *     payload: { settings: { maxPlayers: 4 } }
 	 *   },
 	 *   {
-	 *     domain: 'room',
+	 *     domain: 'game',
 	 *     type: 'UPDATE_PLAYERS',
 	 *     payload: { players: [] }  // Example player data array
 	 *   }
@@ -277,7 +285,6 @@ class Store {
 				}
 
 				const newState = reducers[type](currentState, payload);
-				logger.debug(`[Store] State after reducer:`, { domain, newState });
 
 				// Skip if state hasn't changed
 				if (isDeepEqual(currentState, newState)) {
@@ -295,6 +302,8 @@ class Store {
 					return;
 				}
 
+				logger.debug(`[Store] State updated for ${domain}:`, { newState, currentState: this.state[domain] });
+
 				// Update state
 				this.state = {
 					...this.state,
@@ -302,7 +311,6 @@ class Store {
 				};
 
 				updatedDomains.add(domain);
-				logger.debug(`[Store] State updated for ${domain}:`, newState);
 			});
 
 			// Notify subscribers and persist state if any domains were updated
@@ -365,7 +373,7 @@ class Store {
 	 *   },
 	 *   {
 	 *     domain: 'room',
-	 *     type: 'UPDATE_ROOM_STATE',
+	 *     type: 'UPDATE_ROOM',
 	 *     payload: { state: 'PLAYING' }
 	 *   }
 	 * ]);
@@ -622,15 +630,5 @@ class Store {
 		logger.debug('[Store] initialized');
 	}
 }
-
-// Export actions for convenience
-export const actions = {
-	config: configActions,
-	user: userActions,
-	chat: chatActions,
-	room: roomActions,
-	game: gameActions,
-	ui: uiActions
-};
 
 export const store = new Store();

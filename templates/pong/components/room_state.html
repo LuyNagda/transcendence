@@ -58,12 +58,11 @@
             Room is overfull - some players must leave
         </p>
 
-        <div v-if="error" class="alert alert-danger mt-3" role="alert" aria-live="assertive">
+        <div v-if="error" :class="'alert alert-' + errorType + ' mt-3'" role="alert" aria-live="assertive">
             <div class="d-flex align-items-center">
                 <i class="fas fa-exclamation-circle me-2"></i>
                 <div>
-                    <strong v-if="error.code" v-text="error.code" class="me-2"></strong>
-                    <span v-text="error.message"></span>
+                    <span v-text="errorMessage"></span>
                     <small v-if="error.timestamp" class="d-block text-muted mt-1" v-text="formatErrorTime"></small>
                 </div>
             </div>
@@ -72,8 +71,8 @@
 
     <div class="card-footer d-flex justify-content-between">
         <button id="startGameBtn" v-if="[[owner.id === currentUser.id]]" v-on:click="startGame" type="button"
-            class="btn btn-primary" aria-label="Start the game">
-            Start
+            class="btn btn-primary" :disabled="!canStartGame" aria-label="Start the game">
+            <span>Start</span>
         </button>
         <button id="leaveGameBtn" class="btn btn-danger" hx-get="{% url 'pong' %}" hx-target="#content"
             hx-swap="innerHTML" hx-push-url="true" aria-label="Leave the game">

@@ -14,30 +14,28 @@ export class RoomGameManager {
 		this._gameInstance = null;
 		this._useWebGL = false;
 		this._eventHandlers = new Map();
-
-		this._initializeNetworkHandlers();
+		this._currentUser = null;
 	}
 
-	_initializeNetworkHandlers() {
-		if (!this._networkManager) return;
-
-		this._networkManager.on('message', (data) => {
-			if (data.type === 'game_started')
-				this._handleGameStarted(data);
-			else if (data.type === 'game_ended')
-				this._handleGameEnded(data);
-		});
+	setCurrentUser(user) {
+		this._currentUser = user;
 	}
 
-	async _handleGameStarted(data) {
+	isGameInProgress() {
+		return this._gameInProgress;
+	}
+
+	async handleGameStarted(data) {
 		try {
-			const { game_id, player1_id, player2_id, settings } = data;
+			const { game_id, settings } = data;
 
+			// Update room state with the authoritative settings from server
 			store.dispatch({
 				domain: 'room',
 				type: actions.room.UPDATE_ROOM,
 				payload: {
-					currentGameId: game_id
+					currentGameId: game_id,
+					settings: settings
 				}
 			});
 
@@ -49,17 +47,18 @@ export class RoomGameManager {
 		}
 	}
 
-	_handleGameEnded(data) {
+	handleGameEnded(data) {
 		try {
-			this._destroyGame();
+			this.cleanup();
 			this._emit('game_ended', data);
-			logger.info('Game ended successfully, room state reset to LOBBY');
+			logger.info('Game ended successfully');
 		} catch (error) {
 			logger.error('Error handling game end:', error);
+			this.handleGameFailure(error);
 		}
 	}
 
-	async _initializeGame(gameId) {
+	async prepareGame(roomState) {
 		try {
 			const container = document.querySelector('#game-container .screen');
 			if (!container)
@@ -71,6 +70,22 @@ export class RoomGameManager {
 			canvas.width = GameRules.CANVAS_WIDTH;
 			canvas.height = GameRules.CANVAS_HEIGHT;
 
+			logger.info('Game canvas prepared for initialization');
+			return true;
+		} catch (error) {
+			logger.error('Failed to prepare game:', error);
+			return false;
+		}
+	}
+
+	async _initializeGame(gameId) {
+		try {
+			if (!this._currentUser) {
+				throw new Error('Current user not set');
+			}
+
+			const roomState = store.getState('room');
+
 			// Create context handlers for WebGL
 			const contextHandlers = {
 				onContextLost: () => {
@@ -79,7 +94,7 @@ export class RoomGameManager {
 						domain: 'room',
 						type: actions.room.TOGGLE_WEBGL,
 						payload: { useWebGL: false }
-					})
+					});
 					this._recreateGame();
 				},
 				onContextRestored: () => {
@@ -88,28 +103,25 @@ export class RoomGameManager {
 						domain: 'room',
 						type: actions.room.TOGGLE_WEBGL,
 						payload: { useWebGL: true }
-					})
+					});
 				}
 			};
 
-			const roomState = store.getState('room');
-			const userState = store.getState('user');
-
 			// Determine if current user is host
-			const isHost = roomState.mode === 'AI' || (roomState.owner && roomState.owner.id === userState.id);
+			const isHost = roomState.mode === 'AI' || (roomState.owner && roomState.owner.id === this._currentUser.id);
 			logger.info('Game host status:', {
 				isAIMode: roomState.mode === 'AI',
-				userId: userState.id,
+				userId: this._currentUser.id,
 				ownerId: roomState.owner?.id,
 				isHost: isHost
 			});
 
 			// Create game controller
 			this._gameInstance = createPongGameController({
-				gameId: gameId || roomState.currentGameId,
-				currentUser: userState,
+				gameId: gameId,
+				currentUser: this._currentUser,
 				isHost: isHost,
-				useWebGL: false,
+				useWebGL: this._useWebGL,
 				settings: roomState.settings,
 				contextHandlers: contextHandlers
 			});
@@ -125,7 +137,7 @@ export class RoomGameManager {
 			this._gameInProgress = true;
 
 			logger.info('Game initialized successfully:', {
-				gameId: gameId || roomState.currentGameId,
+				gameId: gameId,
 				isHost: isHost,
 				mode: roomState.mode,
 				settings: roomState.settings
@@ -138,44 +150,33 @@ export class RoomGameManager {
 
 	async _recreateGame() {
 		try {
-			// Destroy existing game instance
-			if (this._gameInstance) {
-				this._gameInstance.destroy();
-				this._gameInstance = null;
+			this.cleanup();
+			const roomState = store.getState('room');
+			if (roomState.currentGameId) {
+				await this._initializeGame(roomState.currentGameId);
 			}
-			await this._initializeGame();
 		} catch (error) {
 			logger.error('Failed to recreate game:', error);
 			this.handleGameFailure(error);
 		}
 	}
 
-	_validateGameSettings(settings) {
-		const validatedSettings = GameRules.validateSettings(settings);
-		return validatedSettings;
-	}
-
-	// Public API
-	isGameInProgress() {
-		return this._gameInProgress;
-	}
-
-	setGameInProgress(value) {
-		this._gameInProgress = value;
-	}
-
-	setWebGL(value) {
-		this._useWebGL = value;
+	updateSettings(data) {
+		if (this._gameInstance && this._gameInProgress) {
+			this._gameInstance.updateSettings({
+				[data.setting]: data.value
+			});
+		}
 	}
 
 	handleGameFailure(error) {
 		logger.error('Game failure:', error);
 		this._gameInProgress = false;
-		this._destroyGame();
+		this.cleanup();
 		this._emit('game_failure', error);
 	}
 
-	_destroyGame() {
+	cleanup() {
 		if (this._gameInstance) {
 			logger.info('Starting game cleanup...');
 
@@ -200,7 +201,6 @@ export class RoomGameManager {
 				logger.info('Unregistering game components...');
 				this._gameInstance._gameEngine.unregisterComponent('aiHandler');
 				this._gameInstance._gameEngine.unregisterComponent('input');
-				// this._gameInstance._gameEngine.unregisterComponent('network');
 				this._gameInstance._gameEngine.unregisterComponent('renderer');
 				this._gameInstance._gameEngine.unregisterComponent('state');
 				this._gameInstance._gameEngine.unregisterComponent('controller');
@@ -278,25 +278,17 @@ export class RoomGameManager {
 	}
 
 	updateNetworkManager(networkManager) {
-		if (this._networkManager) {
-			this._networkManager.off('game_started', this._handleGameStarted);
-			this._networkManager.off('game_ended', this._handleGameEnded);
-		}
 		this._networkManager = networkManager;
-		this._initializeNetworkHandlers();
 	}
 
 	destroy() {
-		this._destroyGame();
-		if (this._networkManager) {
-			this._networkManager.off('game_started', this._handleGameStarted);
-			this._networkManager.off('game_ended', this._handleGameEnded);
-		}
+		this.cleanup();
 		this._eventHandlers.clear();
+		this._networkManager = null;
 	}
 }
 
 // Factory function to create RoomGameManager instance
-export const createRoomGameManager = (roomId, currentUser, networkManager) => {
-	return new RoomGameManager(roomId, currentUser, networkManager);
+export const createRoomGameManager = (roomId, networkManager) => {
+	return new RoomGameManager(roomId, networkManager);
 }; 

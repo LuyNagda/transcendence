@@ -21,48 +21,32 @@ logger = logging.getLogger(__name__)
 DEFAULT_SETTINGS = {
     'ballSpeed': 5,
     'paddleSpeed': 5,
+    'paddleSize': 5,
     'maxScore': 11,
-    'powerUps': False
 }
 
 DEFAULT_AI_SETTINGS = {
     'ballSpeed': 4,
     'paddleSpeed': 4,
+    'paddleSize': 5,
     'maxScore': 11,
-    'powerUps': False,
     'aiDifficulty': 'medium'
 }
 
 DEFAULT_RANKED_SETTINGS = {
     'ballSpeed': 6,
     'paddleSpeed': 6,
+    'paddleSize': 5,
     'maxScore': 11,
-    'powerUps': False
 }
 
 def validate_settings(settings):
     """Validate game settings and return sanitized values"""
     validated = {}
-    
-    # Ball speed (1-10)
     validated['ballSpeed'] = max(1, min(10, int(settings.get('ballSpeed', 5))))
-    
-    # Paddle speed (1-10)
     validated['paddleSpeed'] = max(1, min(10, int(settings.get('paddleSpeed', 5))))
-    
-    # Max score (1-21)
+    validated['paddleSize'] = max(1, min(10, int(settings.get('paddleSize', 5))))
     validated['maxScore'] = max(1, min(21, int(settings.get('maxScore', 11))))
-    
-    # Power ups (boolean)
-    validated['powerUps'] = bool(settings.get('powerUps', False))
-    
-    # AI difficulty (only for AI mode)
-    if 'aiDifficulty' in settings:
-        difficulties = ['easy', 'medium', 'hard']
-        validated['aiDifficulty'] = settings.get('aiDifficulty', 'medium')
-        if validated['aiDifficulty'] not in difficulties:
-            validated['aiDifficulty'] = 'medium'
-    
     return validated
 
 @api_view(['GET'])
@@ -160,14 +144,13 @@ def create_pong_room(request):
         room = PongRoom.objects.create(
             room_id=room_id,
             owner=request.user,
-            mode=PongRoom.Mode.AI
+            mode=PongRoom.Mode.CLASSIC
         )
         room.players.add(request.user)
         logger.info(f"Room created with ID {room_id} by user {request.user.username}")
         return render(request, 'pong/pong.html', {'room_id': room_id, 'room': 'created'})
     except Exception as e:
-        logger.error(f"Erreur lors de la création de la salle : {str(e)}")
-        logger.error(f"Error creating room for user {request.user.username}")
+        logger.error(f"Error creating room for user {request.user.username} : {str(e)}")
         return JsonResponse({'status': 'error'})
 
 @api_view(['GET'])

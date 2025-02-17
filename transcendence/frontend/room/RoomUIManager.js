@@ -11,6 +11,7 @@ export class RoomUIManager {
 		this._roomId = roomId;
 		this._eventHandlers = new Map();
 		this._observers = [];
+		this._settingChangeTimeout = null;
 
 		if (!jaiPasVu.initialized)
 			jaiPasVu.initialize(document.body);
@@ -53,9 +54,12 @@ export class RoomUIManager {
 				this.handleSettingChange(setting, value, parseAsInt);
 			},
 			handleModeChange: (event) => {
-				const newMode = event.target.value;
-				logger.debug('Handling mode change:', newMode);
-				this._callHandler('modeChange', newMode);
+				if (!event || !event.target) {
+					logger.error('Invalid mode change event:', event);
+					return;
+				}
+				logger.debug('Handling mode change:', event.target.value);
+				this._callHandler('modeChange', event);
 			},
 			getProgressBarStyle: (value, settingType) => {
 				const getColorForPaddleSettings = (value) => {
@@ -106,7 +110,7 @@ export class RoomUIManager {
 			...state,
 			mappedPlayers: function () {
 				const players = state.players || [];
-				const currentUserId = state.currentUser?.id;
+				const currentUserId = store.getState('user').id;
 				return players.map(player => ({
 					...player,
 					isCurrentUser: player.id === currentUserId,
@@ -118,7 +122,7 @@ export class RoomUIManager {
 				return Math.max(0, state.maxPlayers - (state.players?.length || 0));
 			},
 			isOwner: function () {
-				return state.owner?.id === state.currentUser?.id;
+				return state.owner?.id === store.getState('user').id;
 			},
 			isLobbyState: function () {
 				return state.state === RoomStates.LOBBY;
@@ -142,7 +146,29 @@ export class RoomUIManager {
 				return !!state.error;
 			},
 			errorMessage: function () {
-				return state.error?.message || '';
+				if (!state.error) return '';
+				const code = state.error.code || 'UNKNOWN_ERROR';
+				const message = state.error.message || 'An unknown error occurred';
+				return `${code}: ${message}`;
+			},
+			errorType: function () {
+				if (!state.error) return 'danger';
+				const code = state.error.code;
+				// Handle numeric codes (4000-4999) as warnings
+				if (typeof code === 'number' && code >= 4000 && code < 5000) return 'warning';
+				// Handle specific string codes
+				switch (code) {
+					case 'CONNECTION_LOST':
+					case 'CONNECTION_ERROR':
+					case 'PLAYER_COUNT_ERROR':  // Show player count errors as warnings
+						return 'warning';
+					case 'VALIDATION_ERROR':
+					case 'INITIALIZATION_ERROR':
+					case 'GAME_CREATE_ERROR':
+						return 'danger';
+					default:
+						return 'danger';
+				}
 			},
 			formatErrorTime: function () {
 				if (!state.error?.timestamp) return '';
@@ -181,7 +207,7 @@ export class RoomUIManager {
 		return {
 			mappedPlayers: function (state) {
 				const players = state.players || [];
-				const currentUserId = state.currentUser?.id;
+				const currentUserId = store.getState('user').id;
 				return players.map(player => ({
 					...player,
 					isCurrentUser: player.id === currentUserId,
@@ -193,7 +219,7 @@ export class RoomUIManager {
 				return Math.max(0, state.maxPlayers - (state.players?.length || 0));
 			},
 			isOwner: function (state) {
-				return state.owner?.id === state.currentUser?.id;
+				return state.owner?.id === store.getState('user').id;
 			},
 			isLobbyState: function (state) {
 				return state.state === RoomStates.LOBBY;
@@ -277,8 +303,14 @@ export class RoomUIManager {
 				return;
 			}
 
-			const parsedValue = parseAsInt ? parseInt(value, 10) : value;
-			this._callHandler('settingChange', setting, parsedValue);
+			// Debounce the setting change
+			if (this._settingChangeTimeout)
+				clearTimeout(this._settingChangeTimeout);
+			this._settingChangeTimeout = setTimeout(() => {
+				const parsedValue = parseAsInt ? parseInt(value, 10) : value;
+				this._callHandler('settingChange', setting, parsedValue);
+				this._settingChangeTimeout = null;
+			}, 100); // 100ms debounce
 		} catch (error) {
 			logger.error('Error in handleSettingChange:', error);
 		}
@@ -286,9 +318,21 @@ export class RoomUIManager {
 
 	handleModeChange(event) {
 		try {
+			if (!event || !event.target || typeof event.target.value === 'undefined') {
+				logger.error('Invalid mode change event:', event);
+				return;
+			}
+
+			// Clear any existing error state when mode changes
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.CLEAR_ERROR,
+				payload: null
+			});
+
 			const newMode = event.target.value;
 			logger.debug('Handling mode change:', newMode);
-			this._callHandler('modeChange', newMode);
+			this._callHandler('modeChange', event);
 		} catch (error) {
 			logger.error('Error in handleModeChange:', error);
 		}

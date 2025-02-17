@@ -47,6 +47,7 @@ class PongRoom(models.Model):
     state = models.CharField(max_length=20, choices=State.choices, default=State.LOBBY)
     created_at = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_pong_rooms', null=True)
+    settings = models.JSONField(default=dict)
 
     def __str__(self):
         return f"PONGROOM[{self.room_id}]: {self.mode}"
@@ -77,6 +78,15 @@ class PongRoom(models.Model):
             return 8
         else:
             return 2
+        
+    @property
+    def can_start_game(self):
+        return self.state == self.State.LOBBY and (
+            (self.player_count == 1 and self.mode == self.Mode.AI) or
+            (self.player_count == 2 and self.mode == self.Mode.CLASSIC) or
+            (self.player_count == 2 and self.mode == self.Mode.RANKED) or
+            (self.player_count >= 3 and self.mode == self.Mode.TOURNAMENT)
+        )
 
     def get_max_players(self):
         return self.max_players
@@ -86,6 +96,30 @@ class PongRoom(models.Model):
             self.mode = self.mode.upper()
             if self.mode not in dict(self.Mode.choices):
                 raise ValueError(f"Invalid mode: {self.mode}")
+            
+            if not self.settings:
+                if self.mode == self.Mode.AI:
+                    self.settings = {
+                        'ballSpeed': 4,
+                        'paddleSpeed': 4,
+                        'paddleSize': 5,
+                        'maxScore': 11,
+                        'aiDifficulty': 'medium'
+                    }
+                elif self.mode == self.Mode.RANKED:
+                    self.settings = {
+                        'ballSpeed': 6,
+                        'paddleSpeed': 6,
+                        'paddleSize': 4,
+                        'maxScore': 11,
+                    }
+                else:
+                    self.settings = {
+                        'ballSpeed': 5,
+                        'paddleSpeed': 5,
+                        'paddleSize': 5,
+                        'maxScore': 11,
+                    }
         super().save(*args, **kwargs)
 
     def serialize(self):
@@ -106,7 +140,9 @@ class PongRoom(models.Model):
                 'username': user.username
             } for user in self.pending_invitations.all()],
             'maxPlayers': self.max_players,
-            'createdAt': self.created_at.isoformat()
+            'settings': self.settings,
+            'canStartGame': self.can_start_game,
+            'createdAt': self.created_at.isoformat(),
         }
 
 class Tournament(models.Model):

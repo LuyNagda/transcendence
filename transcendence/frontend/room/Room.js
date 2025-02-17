@@ -1,11 +1,11 @@
 import logger from '../logger.js';
 import { store, actions } from '../state/store.js';
 import jaiPasVu from '../UI/JaiPasVu.js';
-import { RoomModes, initialRoomState } from '../state/roomState.js';
-import { createRoomStateManager } from './RoomStateManager.js';
+import { RoomModes, RoomStates } from '../state/roomState.js';
 import { createRoomUIManager } from './RoomUIManager.js';
 import { createRoomGameManager } from './RoomGameManager.js';
 import { createRoomConnectionManager } from './RoomConnectionManager.js';
+import { GameRules } from '../pong/core/GameRules.js';
 
 /**
  * Main Room class that coordinates between different managers
@@ -15,7 +15,6 @@ export default class Room {
 	static initialize() {
 		// First init when loading a room from the path
 		if (window.location.pathname.includes('/pong/room/')) {
-			logger.info('[Room] Static initialize: Initializing room from path:', window.location.pathname);
 			const roomId = window.location.pathname.replace('/pong/room/', '').replace('/', '');
 			logger.info('[Room] Static initialize: Initializing room:', roomId);
 
@@ -74,7 +73,6 @@ export default class Room {
 				domain: 'room',
 				type: actions.room.UPDATE_ROOM,
 				payload: {
-					...initialRoomState,
 					id: this._roomId,
 					currentUser: this._currentUser
 				}
@@ -82,6 +80,40 @@ export default class Room {
 
 			this._initializeManagers();
 			this._setupEventHandlers();
+
+			const mainConnection = this._connectionManager.getMainConnection();
+			if (!mainConnection)
+				throw new Error('Main connection not available');
+
+			mainConnection.on('message', (data) => {
+				if (this._isDestroyed) return;
+
+				switch (data.type) {
+					case 'room_update':
+						if (data.room_state)
+							this._handleRoomStateUpdate(data.room_state);
+						break;
+					case 'settings_update':
+						if (data.setting && data.value !== undefined)
+							this._handleSettingsUpdate(data);
+						break;
+					case 'mode_change':
+						if (data.mode)
+							this._handleModeChangeEvent(data.mode);
+						break;
+					case 'game_started':
+						this._handleGameStarted(data);
+						break;
+					case 'game_ended':
+						this._handleGameEnded(data);
+						break;
+					case 'error':
+						// Ignore error messages as they're handled by the connection manager
+						break;
+					default:
+						logger.debug('[Room] Received message:', data);
+				}
+			});
 
 			const connection = await this.connect();
 			if (this._isDestroyed) return;
@@ -97,8 +129,8 @@ export default class Room {
 				});
 			}
 		} catch (error) {
-			logger.error('[Room] Failed to initialize room:', error);
 			if (!this._isDestroyed) {
+				logger.error('[Room] Failed to initialize room:', error);
 				this._handleRoomError({
 					code: 'INITIALIZATION_ERROR',
 					message: 'Failed to initialize room'
@@ -108,12 +140,30 @@ export default class Room {
 	}
 
 	_initializeManagers() {
-		this._stateManager = createRoomStateManager(this._roomId);
-		const mode = this._stateManager.getMode();
+		const mode = this._getRoomMode();
 		const connectionConfig = this._createConnectionConfig(mode);
 		this._connectionManager = createRoomConnectionManager(this._roomId, connectionConfig);
 		this._uiManager = createRoomUIManager(this._roomId);
-		this._gameManager = createRoomGameManager(this._roomId);
+		this._gameManager = createRoomGameManager(this._roomId, this._connectionManager);
+
+		// Update game manager with current user info
+		this._gameManager.setCurrentUser(this._currentUser);
+	}
+
+	_getRoomMode() {
+		const roomState = store.getState('room');
+		return roomState?.mode || RoomModes.CLASSIC;
+	}
+
+	_getAvailableSlots() {
+		const roomState = store.getState('room');
+		if (!roomState) return 0;
+		return roomState.maxPlayers - (roomState.players?.length || 0);
+	}
+
+	_isOwner(userId) {
+		const roomState = store.getState('room');
+		return roomState?.owner?.id === userId;
 	}
 
 	/**
@@ -151,7 +201,11 @@ export default class Room {
 		// Set up game event handlers
 		this._gameManager.on('game_failure', (error) => {
 			logger.error('Game failure:', error);
-			this._stateManager.transitionToLobby();
+			this._handleGameFailure(error);
+		});
+
+		this._gameManager.on('game_ended', () => {
+			this._updateRoomState({ state: RoomStates.LOBBY });
 		});
 
 		// Set up connection event handlers
@@ -162,55 +216,94 @@ export default class Room {
 
 		// Handle room errors
 		mainConnection.on('room_error', (error) => {
-			logger.error('[Room] Room error:', error);
+			const isExpectedError = (
+				// Numeric error codes in 4000-4999 range are expected
+				(typeof error.code === 'number' && error.code >= 4000 && error.code < 5000) ||
+				// Specific string error codes that are expected
+				['CONNECTION_LOST', 'CONNECTION_ERROR'].includes(error.code)
+			);
+
+			if (isExpectedError)
+				logger.warn('[Room] Room error:', error);
+			else
+				logger.error('[Room] Room error:', error);
 			this._handleRoomError(error);
 		});
 
 		mainConnection.on('disconnected', () => {
 			logger.warn('[Room] Network connection lost');
-			this._stateManager.transitionToLobby();
+			this._handleConnectionLost();
 		});
 
 		mainConnection.on('max_reconnect_attempts', () => {
 			logger.error('[Room] Failed to reconnect to server');
-			this._stateManager.transitionToLobby();
+			this._handleConnectionLost();
 		});
+	}
 
-		// Handle room update events
-		mainConnection.on('room_update', (data) => {
-			logger.debug('[Room] Received room update:', data);
-			if (data.room_state) {
-				this._stateManager.updateState(data.room_state);
-			}
-		});
+	// Event handlers
+	_handleGameStarted(data) {
+		logger.info('[Room] Game started:', data);
+		this._updateRoomState({ state: RoomStates.PLAYING, canStartGame: false });
+		this._gameManager.handleGameStarted(data);
+	}
 
-		// Handle settings update events
-		mainConnection.on('settings_update', (data) => {
-			logger.debug('[Room] Received settings update:', data);
-			if (data.setting && data.value) {
-				this._stateManager.updateSettings({
+	_handleGameEnded(data) {
+		logger.info('[Room] Game ended:', data);
+		this._updateRoomState({ state: RoomStates.LOBBY });
+		this._gameManager.handleGameEnded(data);
+	}
+
+	_handleGameFailure(error) {
+		logger.error('[Room] Game failure:', error);
+		this._updateRoomState({ state: RoomStates.LOBBY });
+		this._gameManager.cleanup();
+	}
+
+	_handleConnectionLost() {
+		this._updateRoomState({ state: RoomStates.LOBBY });
+		if (this._gameManager.isGameInProgress()) {
+			this._gameManager.cleanup();
+		}
+	}
+
+	_handleRoomStateUpdate(roomState) {
+		this._updateRoomState(roomState);
+
+		// Update game manager if needed
+		if (roomState.state === RoomStates.PLAYING && !this._gameManager.isGameInProgress()) {
+			this._gameManager.prepareGame(roomState);
+		} else if (roomState.state === RoomStates.LOBBY && this._gameManager.isGameInProgress()) {
+			this._gameManager.cleanup();
+		}
+	}
+
+	_handleSettingsUpdate(data) {
+		logger.info('[Room] Handling settings update:', data);
+		try {
+			// Update room settings in store
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.UPDATE_ROOM_SETTINGS,
+				payload: {
+					settings: {
+						[data.setting]: data.value
+					}
+				}
+			});
+
+			// Update game manager if game is in progress
+			if (this._gameManager && this._gameManager.isGameInProgress()) {
+				this._gameManager.updateSettings({
 					[data.setting]: data.value
 				});
 			}
-		});
 
-		// Handle mode change events
-		mainConnection.on('mode_change', async (data) => {
-			logger.debug('[Room] Received mode change:', data);
-			if (data.mode) {
-				await this._handleModeChangeEvent(data.mode);
-			}
-		});
-
-		// Handle game started event
-		mainConnection.on('message', (data) => {
-			if (data.type === 'game_started') {
-				this._gameManager._handleGameStarted(data);
-			} else if (data.type === 'game_ended') {
-				this._gameManager._handleGameEnded(data);
-				this._connectionManager.getMainConnection()
-			}
-		});
+			// Update UI
+			this._uiManager._handleRoomStateUpdate(store.getState('room'));
+		} catch (error) {
+			logger.error('[Room] Error handling settings update:', error);
+		}
 	}
 
 	/**
@@ -218,8 +311,14 @@ export default class Room {
 	 * @private
 	 */
 	async _handleModeChangeEvent(newMode) {
-		const currentMode = this._stateManager.getMode();
-		this._stateManager.updateMode(newMode);
+		const currentMode = this._getRoomMode();
+
+		// Update store with new mode
+		store.dispatch({
+			domain: 'room',
+			type: actions.room.UPDATE_ROOM,
+			payload: { mode: newMode }
+		});
 
 		// Check if we need to reinitialize connections
 		const needsReconnection = (currentMode === RoomModes.AI) !== (newMode === RoomModes.AI);
@@ -240,51 +339,85 @@ export default class Room {
 	}
 
 	/**
+	 * Updates room state in store
+	 * @private
+	 */
+	_updateRoomState(newState) {
+		if (!newState) return;
+		const oldState = store.getState('room');
+
+		store.dispatch({
+			domain: 'room',
+			type: actions.room.UPDATE_ROOM,
+			payload: {
+				...newState,
+				id: this._roomId
+			}
+		});
+
+		// Ensure game canvas is ready when transitioning to PLAYING state
+		if (oldState.state !== newState.state && newState.state === RoomStates.PLAYING)
+			this._ensureGameCanvasReady();
+	}
+
+	_ensureGameCanvasReady() {
+		const canvas = document.querySelector('#game-container .screen #game');
+		if (!canvas) {
+			logger.error('Game canvas not found during transition to PLAYING state');
+			return;
+		}
+
+		if (canvas.width !== GameRules.CANVAS_WIDTH || canvas.height !== GameRules.CANVAS_HEIGHT) {
+			canvas.width = GameRules.CANVAS_WIDTH;
+			canvas.height = GameRules.CANVAS_HEIGHT;
+		}
+	}
+
+	/**
 	 * Handles room errors and navigation
 	 * @private
 	 */
 	_handleRoomError(error) {
-		logger.error('[Room] Handling room error:', error);
+		// Only handle error if we haven't already been destroyed
+		if (!this._isDestroyed) {
+			this._isDestroyed = true;  // Mark as destroyed first to prevent further error handling
 
-		// Set error in store first
-		store.dispatch({
-			domain: 'room',
-			type: actions.room.SET_ERROR,
-			payload: {
-				code: error.code || 'UNKNOWN_ERROR',
-				message: error.message || 'An unknown error occurred',
-				timestamp: Date.now()
+			// Set error in store first
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.SET_ERROR,
+				payload: {
+					code: error.code || 'UNKNOWN_ERROR',
+					message: error.message || 'An unknown error occurred',
+					timestamp: Date.now()
+				}
+			});
+
+			// Clean up managers in specific order
+			if (this._gameManager) {
+				this._gameManager.destroy();
+				this._gameManager = null;
 			}
-		});
-
-		// Clean up managers in specific order
-		if (this._gameManager) {
-			this._gameManager.destroy();
-			this._gameManager = null;
-		}
-		if (this._uiManager) {
-			this._uiManager.destroy();
-			this._uiManager = null;
-		}
-		if (this._stateManager) {
-			this._stateManager.destroy();
-			this._stateManager = null;
-		}
-		if (this._connectionManager) {
-			this._connectionManager.destroy();
-			this._connectionManager = null;
-		}
-
-		// Clear room state last
-		store.dispatch({
-			domain: 'room',
-			type: actions.room.CLEAR_ROOM,
-			payload: {
-				userId: this._currentUser?.id,
-				roomId: this._roomId
+			if (this._uiManager) {
+				this._uiManager.destroy();
+				this._uiManager = null;
 			}
-		});
-		logger.info('[Room] Error handling and cleanup completed');
+			if (this._connectionManager) {
+				this._connectionManager.destroy();
+				this._connectionManager = null;
+			}
+
+			// Clear room state last
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.CLEAR_ROOM,
+				payload: {
+					userId: this._currentUser?.id,
+					roomId: this._roomId
+				}
+			});
+			logger.info('[Room] Error handling and cleanup completed');
+		}
 	}
 
 	/**
@@ -293,13 +426,22 @@ export default class Room {
 	async connect() {
 		try {
 			const connection = await this._connectionManager.connect();
-			if (connection) {
-				await this.setupInitialState();
-				logger.info('[Room] Connected to room');
+			if (connection && !this._isDestroyed) {
+				// Don't try to get initial state if we have an error
+				const roomState = store.getState('room');
+				if (!roomState.error) {
+					await this.setupInitialState();
+					logger.info('[Room] Connected to room');
+					return connection;
+				}
 			}
+			return null;
 		} catch (error) {
-			logger.error('[Room] Failed to connect to room:', error);
-			// Don't call _handleRoomError here as it will be called via the room_error event
+			// Only log the error if we haven't been destroyed
+			if (!this._isDestroyed) {
+				logger.error('[Room] Failed to connect to room:', error);
+				this._handleRoomError(error);
+			}
 			throw error;
 		}
 	}
@@ -309,15 +451,18 @@ export default class Room {
 	 */
 	async setupInitialState() {
 		try {
-			const roomState = await this._connectionManager.getCurrentState();
-			logger.info('`[Room] Initial room state`:', roomState);
-			this._stateManager.updateState(roomState);
-			store.dispatch({
-				domain: 'room',
-				type: 'UPDATE_ROOM',
-				payload: roomState
-			});
-			logger.info('Received initial room state');
+			// Check if we have an error before attempting to get state
+			const roomState = store.getState('room');
+			if (roomState.error) {
+				logger.warn('[Room] Not getting initial state due to existing error');
+				return;
+			}
+
+			const newState = await this._connectionManager.getCurrentState();
+			if (newState) {
+				logger.info('[Room] Initial room state:', newState);
+				this._updateRoomState(newState);
+			}
 		} catch (error) {
 			logger.error('[Room] Failed to get initial room state:', error);
 			throw error;
@@ -326,16 +471,63 @@ export default class Room {
 
 	async startGame() {
 		try {
+			const roomState = store.getState('room');
+			if (roomState.state !== RoomStates.LOBBY) {
+				throw new Error('Cannot start game: Room not in LOBBY state');
+			}
+
+			// Clear any existing error state
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.CLEAR_ERROR,
+				payload: null
+			});
+
+			// Let the server handle validation and game creation
 			await this._connectionManager.startGame();
 		} catch (error) {
 			logger.error('[Room] Failed to start game:', error);
+
+			// Determine appropriate error message based on room state
+			const roomState = store.getState('room');
+			let errorMessage = 'Failed to start game';
+			let errorCode = 'GAME_CREATE_ERROR';
+
+			if (roomState.mode !== RoomModes.AI && roomState.players.length < 2) {
+				errorMessage = 'Cannot start game: Not enough players';
+				errorCode = 'PLAYER_COUNT_ERROR';
+			} else if (error.message.includes('validation')) {
+				errorMessage = 'Cannot start game: Invalid game settings';
+				errorCode = 'VALIDATION_ERROR';
+			}
+
+			// Set error state with appropriate message
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.SET_ERROR,
+				payload: {
+					code: errorCode,
+					message: errorMessage,
+					timestamp: Date.now()
+				}
+			});
+
+			this._handleGameFailure(error);
 			throw error;
 		}
 	}
 
 	async leaveGame() {
 		logger.info('[Room] Leaving game');
-		await this._connectionManager.leaveGame();
+		try {
+			await this._connectionManager.leaveGame();
+			if (this._gameManager.isGameInProgress()) {
+				this._gameManager.cleanup();
+			}
+		} catch (error) {
+			logger.error('[Room] Failed to leave game:', error);
+			this._handleGameFailure(error);
+		}
 	}
 
 	async updateSetting(setting, value) {
@@ -348,11 +540,45 @@ export default class Room {
 	}
 
 	async handleModeChange(event) {
-		const newMode = event.target.value;
 		try {
+			if (!event || !event.target || !event.target.value) {
+				logger.error('[Room] Invalid mode change event:', event);
+				return;
+			}
+
+			const newMode = event.target.value;
+			if (!Object.values(RoomModes).includes(newMode)) {
+				logger.error('[Room] Invalid mode value:', newMode);
+				return;
+			}
+
+			// Clear any existing error state
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.CLEAR_ERROR,
+				payload: null
+			});
+
+			logger.info('[Room] Changing mode to:', newMode);
 			await this._connectionManager.updateMode(newMode);
+
+			// Clear error state again after mode change is complete
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.CLEAR_ERROR,
+				payload: null
+			});
 		} catch (error) {
 			logger.error('[Room] Failed to change mode:', error);
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.SET_ERROR,
+				payload: {
+					code: 'MODE_CHANGE_ERROR',
+					message: 'Failed to change game mode',
+					timestamp: Date.now()
+				}
+			});
 		}
 	}
 
@@ -367,7 +593,7 @@ export default class Room {
 	}
 
 	async inviteFriend(friendId) {
-		if (!this._stateManager.availableSlots) {
+		if (!this._getAvailableSlots()) {
 			logger.warn('[Room] Room is full');
 			return;
 		}
@@ -380,14 +606,20 @@ export default class Room {
 	}
 
 	async cancelInvitation(invitationId) {
-		if (!this._stateManager.isOwner(this._currentUser.id)) {
+		if (!this._isOwner(this._currentUser.id)) {
 			logger.warn('[Room] Only room owner can cancel invitations');
 			return;
 		}
 
 		try {
 			await this._connectionManager.cancelInvitation(invitationId);
-			this._stateManager.removeInvitation(invitationId);
+			// Update store to remove invitation
+			const roomState = store.getState('room');
+			if (roomState?.pendingInvitations) {
+				this._updateRoomState({
+					pendingInvitations: roomState.pendingInvitations.filter(inv => inv.id !== invitationId)
+				});
+			}
 		} catch (error) {
 			logger.error('[Room] Failed to cancel invitation:', error);
 		}
@@ -405,10 +637,6 @@ export default class Room {
 			if (this._uiManager) {
 				this._uiManager.destroy();
 				this._uiManager = null;
-			}
-			if (this._stateManager) {
-				this._stateManager.destroy();
-				this._stateManager = null;
 			}
 			if (this._connectionManager) {
 				this._connectionManager.destroy();

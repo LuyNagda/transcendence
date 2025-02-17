@@ -1,9 +1,9 @@
 {% load static %}
 
-<div id="game-settings" class="card mb-4">
+<div id="game-settings" class="card mb-4" v-if="!error">
     <div class="card-body">
         <!-- Settings form for room owner -->
-        <form id="settings-form" v-if="[[owner.id === currentUser.id]] && state === 'LOBBY'">
+        <form id="settings-form" v-if="isOwner && isLobbyState">
             <!-- Paddle Speed -->
             <div class="mb-3">
                 <label for="paddleSpeed" class="form-label">Paddle Speed</label>

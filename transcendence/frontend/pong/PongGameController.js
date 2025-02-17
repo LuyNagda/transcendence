@@ -19,7 +19,6 @@ class BasePongGameController {
 		this._currentUser = currentUser;
 		this._isHost = isHost;
 		this._useWebGL = useWebGL;
-		this._settings = settings;
 		this._contextHandlers = contextHandlers;
 		this._initialized = false;
 		this._isAIMode = store.getState('room').mode === 'AI';
@@ -31,10 +30,17 @@ class BasePongGameController {
 		this._networkManager = null;
 		this._gameFinished = false;
 
-		logger.info('Initializing game controller with settings:', this._settings);
+		logger.info('Initializing game controller with settings:', settings);
 
 		// Initialize settings manager first with validated settings
-		const validatedSettings = GameRules.validateSettings(this._settings);
+		const { isValid, settings: validatedSettings } = GameRules.validateSettings(settings);
+		if (!isValid) {
+			logger.warn('Invalid game settings detected, using validated settings:', {
+				original: settings,
+				validated: validatedSettings
+			});
+		}
+		this._settings = validatedSettings;
 		this._settingsManager = new SettingsManager(validatedSettings);
 
 		// Initialize core components

@@ -111,7 +111,16 @@ export class RoomConnectionManager {
 	_handleMessage(data) {
 		try {
 			if (data.type === 'error') {
-				this._handleError(new RoomError(data.message, data.code));
+				logger.warn('[RoomConnectionManager] Received error message:', data);
+				// Set error state and disconnect, but don't trigger another error
+				if (!this._hasError) {
+					this._hasError = true;
+					this.disconnect();
+					this._mainConnection.emit('room_error', {
+						code: data.code,
+						message: data.message
+					});
+				}
 				return;
 			}
 
@@ -130,24 +139,20 @@ export class RoomConnectionManager {
 
 			if (data.type === 'settings_update') {
 				logger.debug('[RoomConnectionManager] Received settings update:', data);
-				// First update the specific setting
-				if (data.setting && data.value !== undefined) {
-					store.dispatch({
-						domain: 'room',
-						type: actions.room.UPDATE_ROOM_SETTINGS,
-						payload: {
-							settings: {
-								[data.setting]: data.value
-							}
-						}
-					});
+
+				if (!data.data) {
+					logger.error('[RoomConnectionManager] Invalid settings update message format: missing data field');
+					return;
 				}
-				// Then update the full room state if provided
-				if (data.room_state) {
+
+				const { room_state } = data.data;
+
+				if (room_state) {
+					logger.debug('[RoomConnectionManager] Updating room state with new settings');
 					store.dispatch({
 						domain: 'room',
 						type: actions.room.UPDATE_ROOM,
-						payload: data.room_state
+						payload: room_state
 					});
 				}
 				return;
@@ -156,12 +161,16 @@ export class RoomConnectionManager {
 			if (data.type === 'game_started') {
 				store.dispatch({
 					domain: 'room',
-					type: actions.room.UPDATE_ROOM_STATE,
-					payload: { state: RoomStates.PLAYING }
+					type: actions.room.UPDATE_ROOM,
+					payload: {
+						state: RoomStates.PLAYING,
+						...data.data
+					}
 				});
 			}
 		} catch (error) {
 			logger.error('[RoomConnectionManager] Error handling message:', error);
+			this._handleError(new RoomError('Error processing message', 'MESSAGE_ERROR'));
 		}
 	}
 
@@ -170,8 +179,15 @@ export class RoomConnectionManager {
 	 * @private
 	 */
 	_handleClose(event) {
+		// Don't handle close if we already have an error
+		if (this._hasError) {
+			logger.debug('[RoomConnectionManager] Ignoring close event due to existing error');
+			return;
+		}
+
 		if (!this._isInitialized) {
 			let errorMessage;
+			let errorCode = event.code;
 			switch (event.code) {
 				case RoomErrorCodes.UNAUTHORIZED:
 					errorMessage = 'Unauthorized access to room';
@@ -193,14 +209,15 @@ export class RoomConnectionManager {
 					break;
 				default:
 					if (event.code >= 4000) {
-						errorMessage = 'Room access denied';
+						errorMessage = event.reason || 'Room access denied';
 					}
 			}
 
 			if (errorMessage) {
-				this._handleError(new RoomError(errorMessage, event.code));
+				logger.warn(`[RoomConnectionManager] Connection closed: ${errorMessage} (code: ${errorCode})`);
+				this._handleError(new RoomError(errorMessage, errorCode), true);
 			}
-		} else if (!this._hasError) {
+		} else {
 			this._handleError(new RoomError('Connection lost', 'CONNECTION_LOST'));
 		}
 	}
@@ -209,17 +226,21 @@ export class RoomConnectionManager {
 	 * Handles errors
 	 * @private
 	 */
-	_handleError(error) {
-		logger.error('[RoomConnectionManager] Room error:', error);
-		this._hasError = true;
-		this._isInitialized = false;
-		this.disconnect();
+	_handleError(error, isExpected = false) {
+		const logLevel = isExpected ? 'warn' : 'error';
+		logger[logLevel]('[RoomConnectionManager] Room error:', error);
 
-		if (this._mainConnection) {
-			this._mainConnection.emit('room_error', {
-				code: error.code,
-				message: error.message
-			});
+		if (!this._hasError) {
+			this._hasError = true;
+			this._isInitialized = false;
+
+			// Only emit room_error if we have a connection and haven't already emitted
+			if (this._mainConnection) {
+				this._mainConnection.emit('room_error', {
+					code: error.code,
+					message: error.message
+				});
+			}
 		}
 	}
 
@@ -238,12 +259,21 @@ export class RoomConnectionManager {
 				throw new RoomError('Failed to connect to room', 'CONNECTION_ERROR');
 			}
 
-			// Get initial state after successful connection
-			const roomState = await this.getCurrentState();
-			if (roomState) {
-				this._isInitialized = true;
-				logger.info('[RoomConnectionManager] Room initialized successfully');
-				return true;
+			// Wait for a short delay to ensure server has processed the connection
+			await new Promise(resolve => setTimeout(resolve, 500));
+
+			// Check if we've received any errors during connection
+			if (this._hasError)
+				throw new RoomError('Connection refused by server', 'CONNECTION_REFUSED');
+
+			// Only get initial state if we haven't encountered any errors
+			if (!this._hasError) {
+				const roomState = await this.getCurrentState();
+				if (roomState) {
+					this._isInitialized = true;
+					logger.info('[RoomConnectionManager] Room initialized successfully');
+					return true;
+				}
 			}
 
 			throw new RoomError('Failed to get initial room state', 'INITIALIZATION_ERROR');
@@ -271,7 +301,8 @@ export class RoomConnectionManager {
 	 * Gets current room state
 	 */
 	async getCurrentState() {
-		if (!this._mainConnection?.state?.canSend)
+		// Don't attempt to get state if we have an error or aren't properly connected
+		if (this._hasError || !this._mainConnection?.state?.canSend || !this._mainConnection?.state?.name === 'connected')
 			return null;
 
 		try {

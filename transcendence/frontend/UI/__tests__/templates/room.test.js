@@ -200,18 +200,13 @@ describe('Pong Room Templates', () => {
 				owner: { id: 1 },
 				currentUser: { id: 2 },
 				mode: 'CLASSIC',
-				state: 'PLAYING'
-			});
-
-			// Register computed properties to match RoomUIManager
-			factory.jaiPasVu.registerComputed('room', {
+				state: 'PLAYING',
+				error: null,
 				isOwner: (state) => state.owner?.id === state.currentUser?.id,
 				isLobbyState: (state) => state.state === 'LOBBY'
 			});
 
-			factory.updateAll();
-
-			expect(factory.isVisible('#settings-form')).toBeFalsy();
+			expect(factory.exists('#settings-form[style*="display: none"]')).toBeTruthy();
 			const progressBars = factory.queryAll('.progress-bar');
 			expect(progressBars.length).toBe(3); // paddleSpeed, ballSpeed, paddleSize
 			expect(progressBars[0].textContent).toContain('5/10');
@@ -243,7 +238,7 @@ describe('Pong Room Templates', () => {
 				owner: { id: 1 },
 				currentUser: { id: 1 },
 				pendingInvitations: [],
-				// Include computed properties as functions in the data object
+				error: null,
 				mappedPlayers: function () {
 					const players = this.players || [];
 					const currentUserId = this.currentUser?.id;
@@ -261,9 +256,6 @@ describe('Pong Room Templates', () => {
 					return this.state === 'LOBBY';
 				}
 			});
-
-			// Force a reactive update
-			factory.updateAll();
 
 			// Check room state
 			expect(factory.query('#room-state')).toBeTruthy();
@@ -293,7 +285,7 @@ describe('Pong Room Templates', () => {
 		});
 
 		test('handles game state transitions', () => {
-			// Start in lobby
+			// Start in lobby state
 			factory.registerData('room', {
 				state: 'LOBBY',
 				mode: 'CLASSIC',
@@ -304,35 +296,30 @@ describe('Pong Room Templates', () => {
 					maxScore: 11
 				},
 				players: [
-					{ id: 1, username: 'Player1', isOwner: true, isCurrentUser: true }
+					{ id: 1, username: 'Player1' }
 				],
 				maxPlayers: 2,
-				isOwner: true,
-				isLobbyState: true,
-				gameStarted: false,
 				owner: { id: 1 },
 				currentUser: { id: 1 },
-				pendingInvitations: []
-			});
-
-			// Register computed properties
-			factory.jaiPasVu.registerComputed('room', {
-				mappedPlayers: (state) => {
-					return state.players.map(player => ({
-						...player,
-						isCurrentUser: player.id === state.currentUser?.id,
-						isOwner: player.id === state.owner?.id,
-						canBeKicked: player.id !== state.owner?.id && state.owner?.id === state.currentUser?.id
-					}));
-				},
+				pendingInvitations: [],
+				error: null,
 				isOwner: (state) => state.owner?.id === state.currentUser?.id,
-				isLobbyState: (state) => state.state === 'LOBBY'
+				isLobbyState: (state) => state.state === 'LOBBY',
+				mappedPlayers: (state) => {
+					const players = state.players || [];
+					const currentUserId = state.currentUser?.id;
+					return players.map(player => ({
+						...player,
+						isCurrentUser: player.id === currentUserId,
+						isOwner: player.id === state.owner?.id,
+						canBeKicked: player.id !== state.owner?.id && state.owner?.id === currentUserId
+					}));
+				}
 			});
 
-			factory.updateAll();
 			expect(factory.exists('#mode-selection-container')).toBeTruthy();
 
-			// Transition to game started
+			// Transition to game state
 			factory.registerData('room', {
 				state: 'PLAYING',
 				mode: 'CLASSIC',
@@ -343,19 +330,16 @@ describe('Pong Room Templates', () => {
 					maxScore: 11
 				},
 				players: [
-					{ id: 1, username: 'Player1', isOwner: true, isCurrentUser: true }
+					{ id: 1, username: 'Player1' }
 				],
 				maxPlayers: 2,
-				gameStarted: true,
 				owner: { id: 1 },
-				currentUser: { id: 2 },  // Make current user different from owner
+				currentUser: { id: 2 }, // Make current user different from owner
 				pendingInvitations: []
 			});
 
-			factory.updateAll();
-
-			expect(factory.isVisible('#mode-selection-container')).toBeFalsy();
-			expect(factory.isVisible('#settings-form')).toBeFalsy();
+			expect(factory.exists('#mode-selection-container[style*="display: none"]')).toBeTruthy();
+			expect(factory.exists('#settings-form[style*="display: none"]')).toBeTruthy();
 			expect(factory.exists('.progress-bar')).toBeTruthy();
 		});
 	});
