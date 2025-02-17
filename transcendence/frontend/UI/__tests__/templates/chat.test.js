@@ -161,7 +161,7 @@ describe('Chat Template', () => {
 
 			expect(input.disabled).toBe(true);
 			expect(sendButton.disabled).toBe(true);
-			expect(input.placeholder).toBe('This user has blocked you');
+			expect(input.placeholder).toBe('You have blocked this user');
 		});
 
 		test('can send message to unblocked user', () => {

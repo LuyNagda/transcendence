@@ -222,7 +222,9 @@ export default class ChatApp {
 
 			accept_game_invitation: (data) => {
 				if (data.success) {
-					jaiPasVu.navigate(`/pong/room/${data.data.room_id}/`);
+                    logger.info('Navigating to game room:', data);
+					const url = `/pong/room/${data.data.room_id}/`;
+                    jaiPasVu.navigate(url);
 				} else {
 					alert(data.error || 'Failed to join game. Room might be full.');
 				}
@@ -678,15 +680,18 @@ export default class ChatApp {
 		this.loadMessageHistory(user.id);
 	}
 
-	blockUser(userId) {
+	blockUser() {
+        const userId = store.getState('chat').selectedUser.id;
 		this.handleBlockAction(userId, true);
 	}
 
-	unblockUser(userId) {
+	unblockUser() {
+        const userId = store.getState('chat').selectedUser.id;
 		this.handleBlockAction(userId, false);
 	}
 
-	inviteToGame(userId) {
+	inviteToGame() {
+        const userId = store.getState('chat').selectedUser.id;
 		let roomState = store.getState('room');
 		if (!roomState.id) {
 			alert('No room found');
@@ -700,7 +705,8 @@ export default class ChatApp {
 		alert('Game invitation sent!');
 	}
 
-	removeFriend(userId) {
+	removeFriend() {
+        const userId = store.getState('chat').selectedUser.id;
 		logger.debug('[ChatApp] Removing friend with ID:', userId);
 		this._sendMessage({
 			type: 'remove_friend',
@@ -708,7 +714,8 @@ export default class ChatApp {
 		});
 	}
 
-	viewProfile(userId) {
+	viewProfile() {
+        const userId = store.getState('chat').selectedUser.id;
 		this._sendMessage({
 			type: 'get_profile',
 			user_id: userId

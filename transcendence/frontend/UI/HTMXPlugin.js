@@ -72,22 +72,15 @@ export const htmxPlugin = {
 		});
 
 		app.navigate = (path, options = {}) => {
-			const defaultOptions = {
-				target: '#content',
-				swap: 'innerHTML',
-				pushUrl: true
-			};
-			const finalOptions = { ...defaultOptions, ...options };
-
-			if (finalOptions.pushUrl) {
-				app.emit('htmx:pushedIntoHistory', path);
-			}
-
-			htmx.ajax('GET', path, {
-				target: finalOptions.target,
-				swap: finalOptions.swap
-			});
-		};
+            const link = document.createElement('a');
+            link.href = path;
+            link.setAttribute('hx-get', path);
+            link.setAttribute('hx-target', '#content');
+            link.setAttribute('hx-push-url', 'true');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
 	},
 
 	/**

@@ -373,6 +373,9 @@ class ChatHandler:
         try:
             room = PongRoom.objects.get(room_id=room_id)
             recipient = User.objects.get(id=recipient_id)
+            all_room = PongRoom.objects.filter(pending_invitations__id=recipient_id)
+            for r in all_room:
+                r.pending_invitations.remove(recipient)
             room.pending_invitations.add(recipient)
             return True
         except (PongRoom.DoesNotExist, User.DoesNotExist) as e:
@@ -436,7 +439,7 @@ class ChatHandler:
             room = PongRoom.objects.filter(
                 owner_id=owner_id,
                 pending_invitations__id=self.consumer.user.id
-            ).first()
+            ).last()
             if room:
                 return {
                     'room_id': room.room_id,
