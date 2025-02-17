@@ -48,8 +48,7 @@ def already_logged_in(request):
 	'users': users,
 	'blocked_users': blocked_users,
 	}
-	response = JsonResponse({"message": "Already logged in."}, status=status.HTTP_200_OK)
-	response['HX-Location'] = '/index'
+	response = redirect('/index', context=context)
 	return response
 
 @api_view(['GET', 'POST'])
@@ -109,8 +108,11 @@ def login_view(request):
                 # Rotate the CSRF token
                 rotate_token(request)
                 
-                response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
-                response['HX-Location'] = '/index'
+                if request.headers.get('HX-Request') == 'true':
+                    response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
+                    response['HX-Location'] = '/index'
+                else:
+                    response = redirect('/index')
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 logger.info(f"User {username} logged in successfully", extra={'user_id': user.id})
@@ -173,10 +175,13 @@ def logout_view(request):
             logger.error(f"Error during Django logout for user {username} (ID: {user_id}): {str(logout_error)}")
         
         # Create a response and delete the tokens
-        response = JsonResponse({"message": "Logout successful."}, status=status.HTTP_200_OK)
+        if request.headers.get('HX-Request') == 'true':
+            response = JsonResponse({"message": "Logout successful."}, status=status.HTTP_200_OK)
+            response['HX-Location'] = '/login'
+        else:
+            response = redirect('/login')
         response.delete_cookie('access_token')
         response.delete_cookie('refresh_token')
-        response['HX-Location'] = '/login'
         return response
 
     except Exception as e:
@@ -252,8 +257,11 @@ def reset_password(request, uidb64, token):
             if form.is_valid():
                 form.save()
                 messages.success(request, 'Password has been reset.')
-                response = JsonResponse({"message": "Password has been reset."}, status=status.HTTP_200_OK)
-                response['HX-Location'] = '/login'
+                if request.headers.get('HX-Request') == 'true':
+                    response = JsonResponse({"message": "Password has been reset."}, status=status.HTTP_200_OK)
+                    response['HX-Location'] = '/login'
+                else:
+                    response = redirect('/login')
                 return response
         else:
             form = ResetPasswordForm(user)
@@ -265,27 +273,30 @@ def reset_password(request, uidb64, token):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def otp(request):
-	if request.method == 'POST':
-		form = OTPForm(request.POST)
-		if form.is_valid():
-			otp = form.cleaned_data['otp']
-			try:
-				user = User.objects.get(otp=otp)
-				user.otp = None
-				user.save()
-				login(request, user)
-				refresh = RefreshToken.for_user(user)
-				access_token = str(refresh.access_token)
-				refresh_token = str(refresh)
-				response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
-				response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
-				response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
-				response['HX-Location'] = '/index'
-				return response
-			except User.DoesNotExist:
-				messages.error(request, 'Invalid OTP.')
-		return render(request, 'login-2fa.html', {'form': OTPForm()})
-	return render(request, 'login-2fa.html', {'form': OTPForm()})
+    if request.method == 'POST':
+        form = OTPForm(request.POST)
+        if form.is_valid():
+            otp = form.cleaned_data['otp']
+            try:
+                user = User.objects.get(otp=otp)
+                user.otp = None
+                user.save()
+                login(request, user)
+                refresh = RefreshToken.for_user(user)
+                access_token = str(refresh.access_token)
+                refresh_token = str(refresh)
+                if request.headers.get('HX-Request') == 'true':
+                    response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
+                    response['HX-Location'] = '/index'
+                else:
+                    response = redirect('/index')
+                response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
+                response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
+                return response
+            except User.DoesNotExist:
+                messages.error(request, 'Invalid OTP.')
+        return render(request, 'login-2fa.html', {'form': OTPForm()})
+    return render(request, 'login-2fa.html', {'form': OTPForm()})
 
 def authenticate_api(request, access_token):
     user_info_url = 'https://api.intra.42.fr/v2/me'
@@ -332,18 +343,27 @@ def oauth_callback(request):
                 return response
             else:
                 messages.error(request, 'Invalid access token.')
-                response = JsonResponse({"message": "Invalid access token."}, status=status.HTTP_400_BAD_REQUEST)
-                response['HX-Location'] = '/login'
+                if request.headers.get('HX-Request') == 'true':    
+                    response = JsonResponse({"message": "Invalid access token."}, status=status.HTTP_400_BAD_REQUEST)
+                    response['HX-Location'] = '/login'
+                else:
+                    response = redirect('/login')
                 return response
         else:
             messages.error(request, 'Invalid code.')
-            response = JsonResponse({"message": "Invalid code."}, status=status.HTTP_400_BAD_REQUEST)
-            response['HX-Location'] = '/login'
+            if request.headers.get('HX-Request') == 'true': 
+                response = JsonResponse({"message": "Invalid code."}, status=status.HTTP_400_BAD_REQUEST)
+                response['HX-Location'] = '/login'
+            else:
+                response = redirect('/login')
             return response
     else:
         messages.error(request, 'Invalid code.')
-        response = JsonResponse({"message": "Invalid code."}, status=status.HTTP_400_BAD_REQUEST)
-        response['HX-Location'] = '/login'
+        if request.headers.get('HX-Request') == 'true': 
+            response = JsonResponse({"message": "Invalid code."}, status=status.HTTP_400_BAD_REQUEST)
+            response['HX-Location'] = '/login'
+        else:
+            response = redirect('/login')
         return response
 
 @api_view(['GET', 'POST'])

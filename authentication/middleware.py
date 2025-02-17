@@ -9,6 +9,7 @@ from asgiref.sync import sync_to_async
 from channels.middleware import BaseMiddleware
 from channels.exceptions import StopConsumer
 from django.http import JsonResponse
+from django.shortcuts import redirect
 
 log = logging.getLogger(__name__)
 
@@ -127,8 +128,11 @@ class RedirectOn401Middleware:
                     new_access_token = str(refresh.access_token)
                     
                     # Create a new response to update the access token cookie
-                    response = JsonResponse({'detail': 'Access token refreshed'}, status=200)
-                    response['HX-Location'] = request.get_full_path()
+                    if request.headers.get('HX-Request') == 'true':
+                        response = JsonResponse({'detail': 'Access token refreshed'}, status=200)
+                        response['HX-Location'] = request.get_full_path()
+                    else:
+                        response = redirect(request.get_full_path())
                     response.set_cookie(
                         'access_token',
                         new_access_token,
@@ -147,15 +151,21 @@ class RedirectOn401Middleware:
 
                 except TokenError:
                     # If the refresh token is invalid, redirect to login
-                    response = JsonResponse({'detail': 'Invalid refresh token'}, status=401)
-                    response['HX-Location'] = settings.LOGIN_URL
+                    if request.headers.get('HX-Request') == 'true':
+                        response = JsonResponse({'detail': 'Invalid refresh token'}, status=401)
+                        response['HX-Location'] = settings.LOGIN_URL
+                    else:
+                        response = redirect(settings.LOGIN_URL)
                     response.delete_cookie('access_token')
                     response.delete_cookie('refresh_token')
                     return response
             else:
                 # If there's no refresh token, redirect to login
-                response = JsonResponse({'detail': 'Invalid refresh token'}, status=401)
-                response['HX-Location'] = settings.LOGIN_URL
+                if request.headers.get('HX-Request') == 'true':
+                    response = JsonResponse({'detail': 'Invalid refresh token'}, status=401)
+                    response['HX-Location'] = settings.LOGIN_URL
+                else:
+                    response = redirect(settings.LOGIN_URL)
                 response.delete_cookie('access_token')
                 response.delete_cookie('refresh_token')
                 return response
