@@ -14,18 +14,38 @@ from .models import BlockedUser, ChatMessage
 User = get_user_model()
 
 class ChatConsumerTestCase(TransactionTestCase):
-    @classmethod
-    def setUpClass(cls):
-        super().setUpClass()
-        asyncio.run(cls.asyncSetUpClass())
-
-    @classmethod
-    async def asyncSetUpClass(cls):
-        cls.user = await database_sync_to_async(User.objects.create_user)(
+    async def asyncSetUp(self):
+        self.user = await database_sync_to_async(User.objects.create_user)(
             username='marvin', password='password123', email='marvin@student.42lyon.fr')
-        cls.other_user = await database_sync_to_async(User.objects.create_user)(
-            username='otheruser', password='password123', email='otheruser@example.com')
-        cls.channel_layer = get_channel_layer()
+        self.other_user = await database_sync_to_async(User.objects.create_user)(
+            username='otheruser', password='password123', email='otheruser@student.42lyon.fr')
+        self.channel_layer = get_channel_layer()
+
+    def setUp(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_until_complete(self.asyncSetUp())
+
+    async def asyncTearDown(self):
+        # Clean up users
+        if hasattr(self, 'user'):
+            try:
+                await database_sync_to_async(self.user.delete)()
+            except User.DoesNotExist:
+                pass
+        if hasattr(self, 'other_user'):
+            try:
+                await database_sync_to_async(self.other_user.delete)()
+            except User.DoesNotExist:
+                pass
+        # Clean up any remaining test data
+        await database_sync_to_async(User.objects.all().delete)()
+        await database_sync_to_async(BlockedUser.objects.all().delete)()
+        await database_sync_to_async(ChatMessage.objects.all().delete)()
+
+    def tearDown(self):
+        self.loop.run_until_complete(self.asyncTearDown())
+        self.loop.close()
 
     async def create_communicator(self, user=None):
         application = AuthMiddlewareStack(URLRouter([path("ws/chat/", ChatConsumer.as_asgi())]))
@@ -67,119 +87,156 @@ class ChatConsumerTestCase(TransactionTestCase):
         await communicator.disconnect()
 
     async def test_chat_message_flow(self):
-        sender_comm = await self.connect_and_send('chat_message', {
-            'message': 'Hello!',
-            'recipient_id': self.other_user.id
-        })
-        recipient_comm = await self.create_communicator(self.other_user)
-        await recipient_comm.connect()
+        # Create test users specifically for this test
+        test_sender = await database_sync_to_async(User.objects.create_user)(
+            username='test_sender',
+            password='password123',
+            email='test_sender@student.42lyon.fr'
+        )
+        test_recipient = await database_sync_to_async(User.objects.create_user)(
+            username='test_recipient',
+            password='password123',
+            email='test_recipient@student.42lyon.fr'
+        )
 
-        response = await recipient_comm.receive_json_from()
-        while response.get('type') == 'user_status_change':
+        try:
+            sender_comm = await self.connect_and_send('chat_message', {
+                'message': 'Hello!',
+                'recipient_id': test_recipient.id
+            }, user=test_sender)
+            
+            recipient_comm = await self.create_communicator(test_recipient)
+            await recipient_comm.connect()
+
             response = await recipient_comm.receive_json_from()
+            while response.get('type') == 'status_update':
+                response = await recipient_comm.receive_json_from()
 
-        self.assertEqual(response.get('type'), 'chat_message')
-        self.assertEqual(response.get('message'), 'Hello!')
-        self.assertEqual(response.get('sender_id'), self.user.id)
+            self.assertEqual(response.get('type'), 'chat_message')
+            self.assertEqual(response.get('message', {}).get('content'), 'Hello!')
+            self.assertEqual(response.get('sender_id'), test_sender.id)
 
-        messages = await database_sync_to_async(ChatMessage.objects.filter)(
-            sender=self.user, recipient=self.other_user)
-        self.assertEqual(await database_sync_to_async(messages.count)(), 1)
+            messages = await database_sync_to_async(ChatMessage.objects.filter)(
+                sender=test_sender, recipient=test_recipient)
+            self.assertEqual(await database_sync_to_async(messages.count)(), 1)
 
-        await sender_comm.disconnect()
-        await recipient_comm.disconnect()
+        finally:
+            # Clean up connections
+            if 'sender_comm' in locals():
+                await sender_comm.disconnect()
+            if 'recipient_comm' in locals():
+                await recipient_comm.disconnect()
+            
+            # Clean up test users
+            await database_sync_to_async(test_sender.delete)()
+            await database_sync_to_async(test_recipient.delete)()
 
     async def test_blocked_user_interactions(self):
-        # Ensure users are created and persisted
-        self.user = await database_sync_to_async(User.objects.create_user)(
-            username='marvin', password='password123', email='marvin@student.42lyon.fr')
-        self.other_user = await database_sync_to_async(User.objects.create_user)(
-            username='otheruser', password='password123', email='otheruser@example.com')
+        # Create users with unique names for this test
+        blocked_sender = await database_sync_to_async(User.objects.create_user)(
+            username='blocked_sender',
+            password='password123',
+            email='blocked_sender@student.42lyon.fr'
+        )
+        blocking_user = await database_sync_to_async(User.objects.create_user)(
+            username='blocking_user',
+            password='password123',
+            email='blocking_user@student.42lyon.fr'
+        )
 
-        # Create BlockedUser object
-        await database_sync_to_async(BlockedUser.objects.create)(
-            user=self.other_user, blocked_user=self.user)
+        try:
+            # Create BlockedUser object
+            await database_sync_to_async(BlockedUser.objects.create)(
+                user=blocking_user, blocked_user=blocked_sender)
 
-        communicator = await self.connect_and_send('chat_message', {
-            'message': 'Blocked message',
-            'recipient_id': self.other_user.id
-        })
-        response = await communicator.receive_json_from()
-        self.assertEqual(response.get('error'), 'You are blocked...')
-        await communicator.disconnect()
+            communicator = await self.connect_and_send('chat_message', {
+                'message': 'Blocked message',
+                'recipient_id': blocking_user.id
+            }, user=blocked_sender)
+            
+            response = await communicator.receive_json_from()
+            self.assertEqual(response.get('error'), 'Message blocked: User is blocked')
+            await communicator.disconnect()
 
-        # Clean up
-        await database_sync_to_async(BlockedUser.objects.all().delete)()
-        await database_sync_to_async(User.objects.all().delete)()
+        finally:
+            # Clean up
+            await database_sync_to_async(BlockedUser.objects.all().delete)()
+            await database_sync_to_async(blocked_sender.delete)()
+            await database_sync_to_async(blocking_user.delete)()
 
     async def test_user_profile_and_status(self):
-        communicator = None
-        test_user = None
+        # Create test users with unique names
+        profile_user = await database_sync_to_async(User.objects.create_user)(
+            username='profile_test_user',
+            password='password123',
+            email='profile_test@student.42lyon.fr'
+        )
+
         try:
-            test_user = await database_sync_to_async(User.objects.create_user)(
-                username='otheruser', 
-                password='password123', 
-                email='otheruser@example.com'
-            )
             communicator = await self.connect_and_send('get_profile', {
-                'user_id': test_user.id
+                'user_id': profile_user.id
             })
 
-            test_user_comm = await self.create_communicator(test_user)
-            connected, _ = await test_user_comm.connect()
+            profile_user_comm = await self.create_communicator(profile_user)
+            connected, _ = await profile_user_comm.connect()
             self.assertTrue(connected, "Test user failed to connect")
 
             # Get the first response : profile
             response = await communicator.receive_json_from()
             self.assertEqual(response['type'], 'user_profile')
-            self.assertEqual(response['profile']['username'], 'otheruser')
+            self.assertEqual(response['data']['profile']['username'], 'profile_test_user')
 
             # Get the next response : status
             response = await communicator.receive_json_from()
-            while response.get('type') == 'user_status_change' and response.get('user_id') != test_user.id:
+            while response.get('type') == 'status_update' and response.get('user', {}).get('id') != profile_user.id:
                 response = await communicator.receive_json_from()
 
-            self.assertEqual(response['type'], 'user_status_change')
-            self.assertEqual(response['user_id'], test_user.id)
-            self.assertEqual(response['status'], 'online')
-
-        except Exception as e:
-            print(f"Test failed with error: {type(e).__name__}: {str(e)}")
-            raise
+            self.assertEqual(response['type'], 'status_update')
+            self.assertTrue(response.get('user', {}).get('online', False))
+            self.assertEqual(response.get('user', {}).get('id'), profile_user.id)
 
         finally:
-            try:
-                if communicator:
-                    await communicator.disconnect()
-                if 'test_user_comm' in locals():
-                    await test_user_comm.disconnect()
-                if test_user:
-                    await database_sync_to_async(test_user.delete)()
-            except Exception as e:
-                print(f"Error during cleanup: {type(e).__name__}: {str(e)}")
-
+            if 'communicator' in locals():
+                await communicator.disconnect()
+            if 'profile_user_comm' in locals():
+                await profile_user_comm.disconnect()
+            await database_sync_to_async(profile_user.delete)()
 
     async def test_error_handling(self):
         communicator = await self.create_communicator()
         await communicator.connect()
+        
+        # Test invalid JSON
         await communicator.send_to(text_data='{"type": invalid}')
         response = await communicator.receive_json_from()
-        self.assertEqual(response.get('error'), 'Invalid JSON data')
+        if response.get('type') == 'status_update': # Skip any status updates
+            response = await communicator.receive_json_from()
+        self.assertEqual(response.get('type'), 'error')
+        error_msg = response.get('message') or response.get('error')
+        self.assertEqual(error_msg, 'Invalid JSON data')
 
+        # Test missing required fields
         await communicator.send_json_to({'type': 'chat_message'})
         response = await communicator.receive_json_from()
-        if response.get('type') == 'user_status_change': # We might receive a status message first
+        if response.get('type') == 'status_update': # We might receive a status message first
             response = await communicator.receive_json_from()
-        self.assertEqual(response.get('error'), 'Missing required keys: message or recipient_id')
+        self.assertEqual(response.get('type'), 'error')
+        error_msg = response.get('message') or response.get('error')
+        self.assertEqual(error_msg, "Missing required data: 'message, recipient_id'")
 
+        # Test invalid user profile
         await communicator.send_json_to({'type': 'get_profile', 'user_id': 9999})
         response = await communicator.receive_json_from()
-        self.assertEqual(response.get('type'), 'error')
-        self.assertEqual(response.get('message'), 'User profile not found')
+        self.assertEqual(response.get('type'), 'user_profile')
+        self.assertEqual(response.get('success'), False)
+        self.assertEqual(response.get('error'), 'User profile not found')
 
+        # Test invalid message type
         await communicator.send_json_to({'type': 'invalid_type', 'message': 'Test'})
         response = await communicator.receive_json_from()
-        self.assertEqual(response.get('error'), 'Invalid message type')
+        self.assertEqual(response.get('type'), 'error')
+        error_msg = response.get('message') or response.get('error')
+        self.assertEqual(error_msg, 'Invalid message type')
 
         await communicator.disconnect()
 
@@ -202,27 +259,10 @@ class ChatConsumerTestCase(TransactionTestCase):
         self.assertFalse(connected)
         await communicator.disconnect()
 
-    def setUp(self):
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-
-    def tearDown(self):
-        self.loop.run_until_complete(self._async_tearDown())
-        self.loop.close()
-
     @classmethod
     def tearDownClass(cls):
         asyncio.run(cls.asyncTearDownClass())
         super().tearDownClass()
-
-    async def _async_tearDown(self):
-        try:
-            await database_sync_to_async(User.objects.all().delete)()
-            await database_sync_to_async(BlockedUser.objects.all().delete)()
-            await database_sync_to_async(ChatMessage.objects.all().delete)()
-        except Exception as e:
-            print(f"Error during tearDown: {type(e).__name__}: {str(e)}")
-            raise
 
     @classmethod
     async def asyncTearDownClass(cls):

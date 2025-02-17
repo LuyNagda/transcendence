@@ -112,7 +112,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
             
             await self.channel_layer.group_add(all, self.channel_name)
             await self.channel_layer.group_add(self.user_group_name, self.channel_name)
-            await self.set_user_online()
+            if not await self.set_user_online():
+                await self.close()
+                return
             await self.broadcast_status()
             log.info('WebSocket connected', extra={
                 'user_id': self.user.id
@@ -148,16 +150,24 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await MessageSender.send_error(self, 'An error occurred while processing your request')
 
     @database_sync_to_async
-    def set_user_online(self) -> None:
+    def set_user_online(self) -> bool:
         if self.user and self.user.is_authenticated:
-            User.objects.filter(id=self.user.id).update(online=True)
-            self.user.refresh_from_db()
+            try:
+                User.objects.filter(id=self.user.id).update(online=True)
+                self.user.refresh_from_db()
+            except User.DoesNotExist:
+                return False
+            return True
+        return False
 
     @database_sync_to_async
     def set_user_offline(self) -> None:
-        if self.user:
-            User.objects.filter(id=self.user.id).update(online=False)
-            self.user.refresh_from_db()
+        if self.user and self.user.is_authenticated:
+            try:
+                User.objects.filter(id=self.user.id).update(online=False)
+                self.user.refresh_from_db()
+            except User.DoesNotExist:
+                pass
 
     async def broadcast_status(self) -> None:
         user_ids: List[int] = await self.get_allowed_user_ids()
