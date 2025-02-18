@@ -27,19 +27,27 @@ export class RoomGameManager {
 
 	async handleGameStarted(data) {
 		try {
-			const { game_id, settings } = data;
+			const { player1_id, player2_id, game_id, settings } = data;
+
+			const user_id = store.getState('user').id;
+
+			if (user_id !== player1_id && user_id !== player2_id)
+			{
+				return;
+			}
+
+			const isHost = player1_id == user_id;
 
 			// Update room state with the authoritative settings from server
 			store.dispatch({
 				domain: 'room',
 				type: actions.room.UPDATE_ROOM,
 				payload: {
-					currentGameId: game_id,
 					settings: settings
 				}
 			});
 
-			await this._initializeGame(game_id);
+			await this._initializeGame(game_id, isHost);
 			this._emit('game_started', data);
 		} catch (error) {
 			logger.error('Error handling game start:', error);
@@ -78,7 +86,7 @@ export class RoomGameManager {
 		}
 	}
 
-	async _initializeGame(gameId) {
+	async _initializeGame(gameId, isHost) {
 		try {
 			if (!this._currentUser) {
 				throw new Error('Current user not set');
@@ -108,7 +116,7 @@ export class RoomGameManager {
 			};
 
 			// Determine if current user is host
-			const isHost = roomState.mode === 'AI' || (roomState.owner && roomState.owner.id === this._currentUser.id);
+			// const isHost = roomState.mode === 'AI' || (roomState.owner && roomState.owner.id === this._currentUser.id);
 			logger.info('Game host status:', {
 				isAIMode: roomState.mode === 'AI',
 				userId: this._currentUser.id,
@@ -152,9 +160,9 @@ export class RoomGameManager {
 		try {
 			this.cleanup();
 			const roomState = store.getState('room');
-			if (roomState.currentGameId) {
-				await this._initializeGame(roomState.currentGameId);
-			}
+			// if (roomState.currentGameId) {
+			// 	await this._initializeGame(roomState.currentGameId);
+			// }
 		} catch (error) {
 			logger.error('Failed to recreate game:', error);
 			this.handleGameFailure(error);
