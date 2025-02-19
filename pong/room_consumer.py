@@ -723,15 +723,22 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_tournament(self):
-        """Create a tournament linked to the room"""
-        logger.info("Pas 2 fois ?")
+        """Create or get existing tournament linked to the room"""
         try:
-            return Tournament.objects.create(
-                id=self.room.room_id,
+            # Vérifie si un tournoi existe déjà pour cette salle
+            if hasattr(self.room, 'tournament') and self.room.tournament:
+                return self.room.tournament
+            
+            # Crée un nouveau tournoi seulement si aucun n'existe
+            tournament = Tournament.objects.create(
                 name=f"Tournament {self.room.room_id}",
                 pong_room=self.room,
                 status='ONGOING'
             )
+            # Met à jour la référence du tournoi dans la salle
+            self.room.tournament = tournament
+            self.room.save()
+            return tournament
         except Exception as e:
             logger.error(f"Error creating tournament: {str(e)}")
             return None
