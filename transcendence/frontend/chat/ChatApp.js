@@ -595,6 +595,11 @@ export default class ChatApp {
 						payload: users
 					});
 
+					store.dispatch({
+						domain: 'chat',
+						type: chatActions.SET_SELECTED_USER,
+					});
+
 					// Refresh the user list to update statuses and buttons
 					this.refreshUserList();
 				} else {
