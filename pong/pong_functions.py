@@ -1,7 +1,7 @@
 import random
 from typing import List, Tuple, Union
 from authentication.models import User
-from pong.models import Tournament, Match, PongGame
+from pong.models import Tournament, Match, PongGame, PongRoom
 from django.db.models import F
 
 def randomize_and_pair_players(players: List[User]) -> List[Union[Tuple[User, User], Tuple[User, None]]]:
@@ -49,16 +49,43 @@ def calculate_rankings(tournament: Tournament) -> List[Tuple[User, dict]]:
         return sorted_rankings
     
 def total_games_played(player):
-    return PongGame.objects.filter(player1=player).count() + PongGame.objects.filter(player2=player).count()
+    return PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player1=player).count() + PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player2=player).count()
 
 def total_wins(player):
-    return PongGame.objects.filter(player1=player, player1_score__gt=F('player2_score')).count() + PongGame.objects.filter(player2=player, player2_score__gt=F('player1_score')).count()
+    return PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player1=player, player1_score__gt=F('player2_score')).count() + PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player2=player, player2_score__gt=F('player1_score')).count()
 
 def total_losses(player):
-    return PongGame.objects.filter(player1=player, player1_score__lt=F('player2_score')).count() + PongGame.objects.filter(player2=player, player2_score__lt=F('player1_score')).count()
+    return PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player1=player, player1_score__lt=F('player2_score')).count() + PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player2=player, player2_score__lt=F('player1_score')).count()
+
+def total_tournies_played(player):
+    return Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player).count()
+
+def total_wins_tournies(player):
+    tournaments = Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player)
+    total_wins = 0
+    for tournament in tournaments:
+        rankings = calculate_rankings(tournament)[0]
+        if player == rankings:
+            total_wins += 1
+    return total_wins
+
+def total_losses_tournies(player):
+    tournaments = Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player)
+    total_losses = 0
+    for tournament in tournaments:
+        rankings = calculate_rankings(tournament)[0]
+        if player != rankings:
+            total_losses += 1
+    return total_losses
 
 def winrate(player):
     total = total_wins(player) + total_losses(player)
+    if total == 0:
+        return 0
+    return round(total_wins(player) / total, 2) * 100
+
+def winrate_tourny(player):
+    total = total_wins_tournies(player) + total_losses_tournies(player)
     if total == 0:
         return 0
     return round(total_wins(player) / total, 2) * 100

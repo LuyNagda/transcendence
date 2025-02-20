@@ -11,8 +11,7 @@
 <div id="demo" class="container x-auto my-4">
     &nbsp; &nbsp;
     <h1>Games History</h1>
-	<h3>Played: {{ total_games }} | Wins: {{ wins }} | Losses: {{ losses }} | Winrate: {{ winrate }}</h3>
-    
+	<h3>Played: {{ total_games }} | Wins: {{ wins }} | Losses: {{ losses }} | Winrate: {{ winrate }} %</h3>
     <div>
 		<table id="table" class="table">
 			<thead>
@@ -50,11 +49,37 @@
 						{{ games.player2_score }}
 					{% endif %}
 				</td>
-				<td>{{ games.created_at }}</td>
-				<td>{{ games.finished_at }}</td>
+				<td>{{ games.created_at|date:"M. d, Y, H:i" }}</td>
+                <td>{{ games.finished_at|date:"M. d, Y, H:i" }}</td>
 			</tr>
 			{% endfor %}
 			</tbody>
+		</table>
+    </div>
+    <br/><br/><br/>
+    <br/><br/><br/>
+    <h1>Tournament History</h1>
+	<h3>Played: {{ total_tournies_player }} | Wins: {{ total_wins_player }} | Losses: {{ total_losses_player }} | Winrate: {{ wr_tourny }} %</h3>
+    <div>
+		<table id="table" class="table">
+			<thead>
+			<tr>
+				<th>Tournament Name</th>
+				<th>Wins</th>
+				<th>Losses</th>
+				<th>Points</th>
+			</tr>
+			</thead>
+			<tbody>
+                {% for tourny in player_rankings %}
+                <tr>
+                    <td>{{ tourny.tournament.name }}</td>
+                    <td>{{ tourny.stats.wins }}</td>
+                    <td>{{ tourny.stats.losses }}</td>
+                    <td>{{ tourny.stats.points }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
 		</table>
     </div>
 

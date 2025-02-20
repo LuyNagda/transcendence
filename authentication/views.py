@@ -107,7 +107,6 @@ def login_view(request):
                 
                 # Rotate the CSRF token
                 rotate_token(request)
-                
                 if request.headers.get('HX-Request') == 'true':
                     response = JsonResponse({"message": "Login successful."}, status=status.HTTP_200_OK)
                     response['HX-Location'] = '/index'
