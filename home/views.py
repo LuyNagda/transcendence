@@ -2,11 +2,11 @@ from authentication.models import User
 from django.contrib import messages
 from django.shortcuts import render
 from .forms import ProfileForm, MyPasswordChangeForm
-from pong.models import PongGame
+from pong.models import PongGame, Tournament, PongRoom, Match
 from django.contrib.auth import login
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
-from pong.pong_functions import total_games_played, total_wins, total_losses, winrate
+from pong.pong_functions import total_games_played, total_wins, total_losses, winrate, calculate_rankings
 from django.http import JsonResponse
 from django.db import models
 from django.shortcuts import get_object_or_404
@@ -75,17 +75,24 @@ def change_password(request):
 @permission_classes([IsAuthenticatedWithCookie])
 def games_history(request):
     player = User.objects.get(username=request.user.username)
-    games_history = PongGame.objects.filter(
+    games_history = PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(
         models.Q(player1=player) | 
         models.Q(player2=player)
-	).order_by('-created_at')
-    logger.info(games_history)
+	).order_by('-created_at')[:5]
+    tournament_played_by_player = Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player)
+    player_rankings = []
+    for tournament in tournament_played_by_player:
+        rankings = calculate_rankings(tournament_played_by_player)
+        player_stats = next((stats for p, stats in rankings if p == player), None)
+        player_rankings.append({'tournament': tournament, 'stats': player_stats})
+    player_rankings = player_rankings[:5]
     total_games = total_games_played(player)
     wins = total_wins(player)
     losses = total_losses(player)
     wr = winrate(player)
     context = {
         'games_history': games_history,
+        'player_rankings': player_rankings,
         'total_games': total_games,
         'wins': wins,
         'losses': losses,

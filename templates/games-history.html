@@ -50,11 +50,34 @@
 						{{ games.player2_score }}
 					{% endif %}
 				</td>
-				<td>{{ games.created_at }}</td>
-				<td>{{ games.finished_at }}</td>
+				<td>{{ games.created_at|date:"M. d, Y, H:i" }}</td>
+                <td>{{ games.finished_at|date:"M. d, Y, H:i" }}</td>
 			</tr>
 			{% endfor %}
 			</tbody>
+		</table>
+    </div>
+    <br/><br/><br/>
+    <div>
+		<table id="table" class="table">
+			<thead>
+			<tr>
+				<th>Tournament Name</th>
+				<th>Wins</th>
+				<th>Losses</th>
+				<th>Points</th>
+			</tr>
+			</thead>
+			<tbody>
+                {% for tourny in player_rankings %}
+                <tr>
+                    <td>{{ tourny.tournament.name }}</td>
+                    <td>{{ tourny.stats.wins }}</td>
+                    <td>{{ tourny.stats.losses }}</td>
+                    <td>{{ tourny.stats.points }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
 		</table>
     </div>
 
