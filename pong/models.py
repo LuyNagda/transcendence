@@ -153,6 +153,7 @@ class Tournament(models.Model):
 
 	id = models.AutoField(primary_key=True)
 	name = models.CharField(max_length=100)
+	eliminated = models.ManyToManyField(User, related_name='eliminated_tournaments', blank=True)
 	status = models.CharField(max_length=10, choices=Status.choices, default=Status.UPCOMING)
 	pong_room = models.OneToOneField(PongRoom, on_delete=models.CASCADE, related_name='tournament')
 	pong_games = models.ManyToManyField(PongGame, related_name='tournaments')

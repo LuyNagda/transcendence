@@ -64,7 +64,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 await self.close(code=error_code)
                 return
 
-            logger.info(f"Room WebSocket connection accepted for user {self.user.username} in room {self.room_id}", extra={
+            logger.info(f"Room WebSocket connection accepted for user {self.user.name} in room {self.room_id}", extra={
                 'user_id': self.user.id
             })
 
@@ -105,6 +105,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         try:
             responses = []
+            response = None
             data = json.loads(text_data)
             message_id = data.get('id')
             action = data.get('action')
@@ -218,19 +219,28 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     response = {'id': message_id, 'status': 'error', 'error': {'code': 4002, 'message': 'Only room owner can start game'}}
                 else:
                     games = await self.create_game()
-                    for game in games:
-                        responses.append({'id': message_id, 'status': 'success' if games else 'error', 'message': 'Game started' if games else 'Failed to create game', 'data': {'game_id': game.id} if games else None})
+                    if not games:  # Gestion du cas où aucun jeu n'est créé
+                        response = {'id': message_id, 'status': 'error', 'message': 'Failed to create game'}
+                    else:
+                        for game in games:
+                            responses.append({
+                                'id': message_id, 
+                                'status': 'success', 
+                                'message': 'Game started', 
+                                'data': {'game_id': game.id}
+                            })
             else:
                 logger.warning(f"Unknown action received: {action}")
                 response = {'id': message_id, 'status': 'error', 'message': f'Unknown action: {action}'}
 
-            # logger.info(f"Sending response: {response}")
+            # Envoi des réponses
             if responses:
                 for r in responses:
                     await self.send(text_data=json.dumps(r))
-            else:
+            elif response:  # Vérification que response est initialisée
                 await self.send(text_data=json.dumps(response))
-
+            else:
+                logger.warning("Aucune réponse générée pour l'action")
 
         except json.JSONDecodeError:
             logger.error(f'Received invalid JSON data: {text_data}', extra={
@@ -380,24 +390,25 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             is_valid, error_message = await self.validate_game_creation()
             if not is_valid:
                 logger.error(f"Game creation validation failed: {error_message}")
-                return None
+                return []
 
             await self.update_room_state('PLAYING')
             
             # Create tournament if mode is TOURNAMENT
             tournament = None
             if self.room.mode == 'TOURNAMENT':
-                tournament = await self.create_tournament()
+                tournament = await self.get_tournament()
                 if not tournament:
                     logger.error("Failed to create tournament")
                     await self.update_room_state('LOBBY')
-                    return None
+                    return []
 
-            games = await self.create_game_with_settings()
+            games = await self.create_game_with_settings() or []
+            
             if not games:
                 logger.error("Failed to create game with settings")
                 await self.update_room_state('LOBBY')
-                return None
+                return []
 
             # Link games to tournament if exists
             if tournament:
@@ -432,7 +443,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error creating game: {str(e)}")
             await self.update_room_state('LOBBY')
-            return None
+            return []
 
     @database_sync_to_async
     def validate_game_creation(self):
@@ -466,25 +477,35 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_game_with_settings(self):
-        """Creates a new game with current room settings"""
+        """Crée un nouveau jeu avec les paramètres actuels"""
         try:
             games = []
-            pair_player = self.pair_players(self.room.players.all())
-            logger.debug(f"Player pairs generated: {[[p.id for p in pair if p] for pair in pair_player]}")  # Log des IDs des joueurs
-            for i in range((self.room.players.count() + 1) // 2):
-                games.append(PongGame.objects.create(
-                    room=self.room,
-                    player1=pair_player[i][0],
-                    player2=pair_player[i][1],
-                    player2_is_ai=self.room.mode == 'AI',
-                    status='ongoing'
-                ))
-                logger.info(f"Games created: {games[i].id} for room {self.room.id}")
+            player_pairs = self.pair_players(list(self.room.players.all()), list(self.room.tournament.eliminated.all()))
+            
+            if not player_pairs:
+                logger.error("Aucun joueur actif pour créer des matchs")
+                return []
+            if len(player_pairs) == 1:
+                logger.debug(f"{player_pairs[0]} win the game")
+                return []
 
+            logger.debug(f"Paires générées : {[[p.id for p in pair if p] for pair in player_pairs]}")
+            
+            for pair in player_pairs:
+                if len(pair) >= 1:  # Vérifie qu'il y a au moins un joueur valide
+                    games.append(PongGame.objects.create(
+                        room=self.room,
+                        player1=pair[0],
+                        player2=pair[1] if len(pair) > 1 else None,
+                        player2_is_ai=self.room.mode == 'AI',
+                        status='ongoing'
+                    ))
+                    logger.info(f"Jeu créé : {games[-1].id}")
+            
             return games
         except Exception as e:
-            logger.error(f"Error creating game with settings: {str(e)}")
-            return None
+            logger.error(f"Erreur création jeu : {str(e)}")
+            return []
 
     async def game_started(self, event):
         """Handle game started event and send to client"""
@@ -669,12 +690,9 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         for game in self.room.tournament.pong_games.filter(status='finished'):
             logger.info(f"Scores du match {game.id}: Joueur1={game.player1_score}, Joueur2={game.player2_score}")
             loser = game.player1 if game.player1_score < game.player2_score else game.player2
-            # if loser and loser in current_players:
-                # TODO eliminated.add(loser.id)
-        
-        if eliminated:
-            self.room.players.remove(*User.objects.filter(id__in=eliminated))
-            logger.info(f"Joueurs éliminés du tournoi : {eliminated}")
+            if loser and loser in current_players:
+                self.room.tournament.eliminated.add(loser)
+                logger.info(f"Joueurs éliminés du tournoi : {loser}")
 
     @database_sync_to_async
     def clean_tournament(self):
@@ -746,17 +764,22 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
     #     """Récupère les IDs des joueurs dans la salle"""
     #     return list(self.room.players.all().values_list('id', flat=True))
 
-    def pair_players(self, player_ids: list) -> list:
+    def pair_players(self, player_ids: list, eliminated: list) -> list:
         """Group players into pairs for multiple concurrent games"""
+        logger.debug(f"Eliminated list {eliminated}")
+        # Filtrer les joueurs non éliminés
+        active_players = [player for player in player_ids if player not in eliminated]
+
+        # Créer les paires avec les joueurs actifs
         pairs = [
-            player_ids[i:i+2] if len(player_ids[i:i+2]) > 1 else [player_ids[i], None]
-            for i in range(0, len(player_ids), 2)
+            active_players[i:i+2] if len(active_players[i:i+2]) > 1 else [active_players[i], None]
+            for i in range(0, len(active_players), 2)
         ]
-        logger.debug(f"Player pairs generated: {[[p.id for p in pair if p] for pair in pairs]}")  # Log des IDs des joueurs
+        logger.debug(f"Player pairs generated: {[[p.id for p in pair if p] for pair in pairs]}")
         return pairs
 
     @database_sync_to_async
-    def create_tournament(self):
+    def get_tournament(self):
         """Create or get existing tournament linked to the room"""
         try:
             # Vérifie si un tournoi existe déjà pour cette salle
