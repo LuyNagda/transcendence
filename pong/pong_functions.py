@@ -57,8 +57,35 @@ def total_wins(player):
 def total_losses(player):
     return PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player1=player, player1_score__lt=F('player2_score')).count() + PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player2=player, player2_score__lt=F('player1_score')).count()
 
+def total_tournies_played(player):
+    return Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player).count()
+
+def total_wins_tournies(player):
+    tournaments = Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player)
+    total_wins = 0
+    for tournament in tournaments:
+        rankings = calculate_rankings(tournament)[0]
+        if player == rankings:
+            total_wins += 1
+    return total_wins
+
+def total_losses_tournies(player):
+    tournaments = Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player)
+    total_losses = 0
+    for tournament in tournaments:
+        rankings = calculate_rankings(tournament)[0]
+        if player != rankings:
+            total_losses += 1
+    return total_losses
+
 def winrate(player):
     total = total_wins(player) + total_losses(player)
+    if total == 0:
+        return 0
+    return round(total_wins(player) / total, 2) * 100
+
+def winrate_tourny(player):
+    total = total_wins_tournies(player) + total_losses_tournies(player)
     if total == 0:
         return 0
     return round(total_wins(player) / total, 2) * 100

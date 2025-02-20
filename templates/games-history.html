@@ -11,8 +11,7 @@
 <div id="demo" class="container x-auto my-4">
     &nbsp; &nbsp;
     <h1>Games History</h1>
-	<h3>Played: {{ total_games }} | Wins: {{ wins }} | Losses: {{ losses }} | Winrate: {{ winrate }}</h3>
-    
+	<h3>Played: {{ total_games }} | Wins: {{ wins }} | Losses: {{ losses }} | Winrate: {{ winrate }} %</h3>
     <div>
 		<table id="table" class="table">
 			<thead>
@@ -58,6 +57,9 @@
 		</table>
     </div>
     <br/><br/><br/>
+    <br/><br/><br/>
+    <h1>Tournament History</h1>
+	<h3>Played: {{ total_tournies_player }} | Wins: {{ total_wins_player }} | Losses: {{ total_losses_player }} | Winrate: {{ wr_tourny }} %</h3>
     <div>
 		<table id="table" class="table">
 			<thead>

@@ -6,7 +6,7 @@ from pong.models import PongGame, Tournament, PongRoom, Match
 from django.contrib.auth import login
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
-from pong.pong_functions import total_games_played, total_wins, total_losses, winrate, calculate_rankings
+from pong.pong_functions import total_games_played, total_wins, total_losses, winrate, calculate_rankings, total_tournies_played, total_wins_tournies, total_losses_tournies, winrate_tourny
 from django.http import JsonResponse
 from django.db import models
 from django.shortcuts import get_object_or_404
@@ -81,6 +81,10 @@ def games_history(request):
 	).order_by('-created_at')[:5]
     tournament_played_by_player = Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player)
     player_rankings = []
+    total_tournies_player = total_tournies_played(player)
+    total_wins_player = total_wins_tournies(player)
+    total_losses_player = total_losses_tournies(player)
+    wr_tourny = winrate_tourny(player)
     for tournament in tournament_played_by_player:
         rankings = calculate_rankings(tournament_played_by_player)
         player_stats = next((stats for p, stats in rankings if p == player), None)
@@ -96,6 +100,10 @@ def games_history(request):
         'total_games': total_games,
         'wins': wins,
         'losses': losses,
-        'winrate': wr
+        'winrate': wr,
+        'total_tournies_player': total_tournies_player,
+        'total_wins_player': total_wins_player,
+        'total_losses_player': total_losses_player,
+        'wr_tourny': wr_tourny
     }
     return render(request, 'games-history.html', context)
