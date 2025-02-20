@@ -8,7 +8,7 @@ CustomUser = get_user_model()
 class CustomUserCreationForm(forms.ModelForm):
     username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username', 'class': 'form-control'}))
     email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email', 'class': 'form-control'}))
-    nick_name = forms.CharField(label='Nick Name', max_length=10, widget=forms.TextInput(attrs={'placeholder': 'Nick Name', 'class': 'form-control'}))
+    nick_name = forms.CharField(label='Tournament Alias', max_length=10, widget=forms.TextInput(attrs={'placeholder': 'Tournament Alias', 'class': 'form-control'}))
     password1 = forms.CharField(label='Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control'}))
     password2 = forms.CharField(label='Confirm Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control'}))
 

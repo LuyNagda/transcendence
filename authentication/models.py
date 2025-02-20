@@ -24,6 +24,7 @@ class User(AbstractUser):
         return {
             'id': self.id,
             'username': self.username,
+            'alias': self.nick_name,
         }
     
     @property
