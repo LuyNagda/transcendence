@@ -485,8 +485,9 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             if not player_pairs:
                 logger.error("Aucun joueur actif pour créer des matchs")
                 return []
-            if len(player_pairs) == 1:
-                logger.debug(f"{player_pairs[0]} win the game")
+            if len(player_pairs[0]) == 1 and len(player_pairs) == 1:
+                logger.debug(f"{player_pairs[0][0].username} a gagné le tournoi")
+                self.room.tournament.eliminated.clear()
                 return []
 
             logger.debug(f"Paires générées : {[[p.id for p in pair if p] for pair in player_pairs]}")
@@ -767,15 +768,24 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
     def pair_players(self, player_ids: list, eliminated: list) -> list:
         """Group players into pairs for multiple concurrent games"""
         logger.debug(f"Eliminated list {eliminated}")
-        # Filtrer les joueurs non éliminés
         active_players = [player for player in player_ids if player not in eliminated]
-
-        # Créer les paires avec les joueurs actifs
+        
+        if not active_players:
+            return []
+        
+        # Cas d'un seul joueur
+        if len(active_players) == 1:
+            return [[active_players[0]]]
+        
+        # Gestion des nombres impairs > 1
+        max_index = len(active_players) - 1 if len(active_players) % 2 != 0 else len(active_players)
+        
         pairs = [
-            active_players[i:i+2] if len(active_players[i:i+2]) > 1 else [active_players[i], None]
-            for i in range(0, len(active_players), 2)
+            active_players[i:i+2] 
+            for i in range(0, max_index, 2)
         ]
-        logger.debug(f"Player pairs generated: {[[p.id for p in pair if p] for pair in pairs]}")
+        
+        logger.debug(f"Player pairs generated: {[[p.id for p in pair] for pair in pairs]}")
         return pairs
 
     @database_sync_to_async
