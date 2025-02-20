@@ -657,11 +657,45 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             for game in tournament.pong_games.all()
         )
 
+    @database_sync_to_async
+    def check_loser(self):
+        """Identifie et supprime les perdants du tournoi"""
+        if self.room.mode != "TOURNAMENT" or not hasattr(self.room, 'tournament'):
+            return
+
+        eliminated = set()
+        current_players = list(self.room.players.all())  # Récupération explicite des joueurs
+        
+        for game in self.room.tournament.pong_games.filter(status='finished'):
+            logger.info(f"Scores du match {game.id}: Joueur1={game.player1_score}, Joueur2={game.player2_score}")
+            loser = game.player1 if game.player1_score < game.player2_score else game.player2
+            # if loser and loser in current_players:
+                # TODO eliminated.add(loser.id)
+        
+        if eliminated:
+            self.room.players.remove(*User.objects.filter(id__in=eliminated))
+            logger.info(f"Joueurs éliminés du tournoi : {eliminated}")
+
+    @database_sync_to_async
+    def clean_tournament(self):
+        for game in self.room.tournament.pong_games.filter(status='finished'):
+            game.delete()
+            logger.info(f"Jeu {game.id} supprimé du tournoi {self.room.tournament.id}")
+
+    # @database_sync_to_async
+    # def clean_tournament(self):
+
     async def game_finished(self, event):
         """
         Handle game finished event and update room state
         """
         try:
+            # Vérifie les perdants pour chaque match terminé
+            if self.room.mode == "TOURNAMENT":
+                await self.check_loser()
+                await self.clean_tournament()
+                # await self.check_winner()
+
             # Update room state to LOBBY if not already
             if self.room.state != 'LOBBY' and await self.all_game_finished():
                 await self.update_room_property('state', 'LOBBY')
