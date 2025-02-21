@@ -486,7 +486,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 logger.error("Aucun joueur actif pour créer des matchs")
                 return []
             if len(player_pairs[0]) == 1 and len(player_pairs) == 1:
-                logger.debug(f"{player_pairs[0][0].username} a gagné le tournoi")
+                logger.debug(f"{player_pairs[0][0].username} win the tournament")
                 self.room.tournament.eliminated.clear()
                 return []
 
@@ -686,13 +686,15 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             return
 
         eliminated = set()
-        current_players = list(self.room.players.all())  # Récupération explicite des joueurs
+        current_players = list(self.room.players.all())
+        len_eliminated = 0
         
         for game in self.room.tournament.pong_games.filter(status='finished'):
             logger.info(f"Scores du match {game.id}: Joueur1={game.player1_score}, Joueur2={game.player2_score}")
             loser = game.player1 if game.player1_score < game.player2_score else game.player2
             if loser and loser in current_players:
                 self.room.tournament.eliminated.add(loser)
+                len_eliminated += 1
                 logger.info(f"Joueurs éliminés du tournoi : {loser}")
 
     @database_sync_to_async
@@ -701,31 +703,54 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             game.delete()
             logger.info(f"Jeu {game.id} supprimé du tournoi {self.room.tournament.id}")
 
-    # @database_sync_to_async
-    # def clean_tournament(self):
+    @database_sync_to_async
+    def tournament_finished(self):
+        if len(self.room.players.all()) == len(self.room.tournament.eliminated.all()) + 1:
+            # Récupérer le gagnant en excluant les perdants
+            winner = next(player for player in self.room.players.all() if player not in self.room.tournament.eliminated.all())
+            # Nettoyer la liste des perdants
+            self.room.tournament.eliminated.clear()
+            # Afficher le gagnant
+            logger.debug(f"{winner.username} a gagné le tournoi")
+
+            # await self.send(text_data=json.dumps({
+            #     'type': 'tournament_finisehd',
+            #     'winner_id': winner.id,
+            # }))
 
     async def game_finished(self, event):
         """
         Handle game finished event and update room state
         """
         try:
-            # Vérifie les perdants pour chaque match terminé
+            # Vérifier si l'utilisateur courant est l'hôte de la salle
+            if not await self.is_room_owner():
+                # Envoyer seulement la notification aux clients
+                await self.send(text_data=json.dumps({
+                    'type': 'game_finished',
+                    'winner_id': event['winner_id'],
+                    'final_score': event['final_score']
+                }))
+                return
+
+            # Logique réservée à l'hôte
             if self.room.mode == "TOURNAMENT":
                 await self.check_loser()
-                await self.clean_tournament()
-                # await self.check_winner()
 
-            # Update room state to LOBBY if not already
             if self.room.state != 'LOBBY' and await self.all_game_finished():
                 await self.update_room_property('state', 'LOBBY')
-                await self.update_room()
-            
+
             # Send game finished notification to clients
             await self.send(text_data=json.dumps({
                 'type': 'game_finished',
                 'winner_id': event['winner_id'],
                 'final_score': event['final_score']
-            }))            
+            }))
+
+            await self.clean_tournament()
+            await self.tournament_finished()
+
+            await self.update_room()
             
         except Exception as e:
             logger.error(f"Error handling game finished event: {str(e)}", extra={

@@ -60,5 +60,5 @@ def total_losses(player):
 def winrate(player):
     total = total_wins(player) + total_losses(player)
     if total == 0:
-        return 0
-    return round(total_wins(player) / total, 2) * 100
+        return 0.00
+    return round((total_wins(player) / total) * 100, 2)
