@@ -6,6 +6,8 @@ from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 
+IN_TRAINING = False
+
 def send_ai_to_front(request, ai_name):
     # Use Path or os.path to create a proper file path
     save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
@@ -40,10 +42,15 @@ def ai_manager(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def training(request):
+    global IN_TRAINING
+    if (IN_TRAINING):
+        return JsonResponse({"error": "Server not available: training in progress"}, status=400)
+
     if request.method != 'POST':
         return JsonResponse({"error": "Only POST method is allowed"}, status=405)
 
     try:
+
         # Parse JSON body
         data = json.loads(request.body)
         ai_name = data.get('ai_name', 'default')
@@ -71,9 +78,13 @@ def training(request):
         if not (100 <= max_score <= 1000):
             return JsonResponse({"error": "Max score must be between 100 and 1000"}, status=400)
 
+        IN_TRAINING = True
+
         # Create the full path
         save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
         log = ai.train_ai(save_file, training_params)
+
+        IN_TRAINING = False
 
         return JsonResponse({
             "status": "success",
