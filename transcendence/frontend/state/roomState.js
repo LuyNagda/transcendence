@@ -38,6 +38,7 @@ export const initialRoomState = {
 	createdAt: '',
 	createdBy: 0,
 	pendingInvitations: [],
+	availableAIs: ['Easy', 'Medium', 'Hard'],
 	lastUpdate: null
 };
 
@@ -56,7 +57,8 @@ export const roomValidators = {
 	createdBy: (value) => typeof value === 'number',
 	pendingInvitations: (value) => Array.isArray(value),
 	error: (value) => value === null || typeof value === 'object',
-	lastUpdate: (value) => value === null || typeof value === 'number'
+	lastUpdate: (value) => value === null || typeof value === 'number',
+	availableAIs: (value) => Array.isArray(value)
 };
 
 export const roomReducers = {

@@ -6,6 +6,7 @@ import { createRoomUIManager } from './RoomUIManager.js';
 import { createRoomGameManager } from './RoomGameManager.js';
 import { createRoomConnectionManager } from './RoomConnectionManager.js';
 import { GameRules } from '../pong/core/GameRules.js';
+import { AIService } from './AIService.js';
 
 /**
  * Main Room class that coordinates between different managers
@@ -68,14 +69,22 @@ export default class Room {
 				username: userState.username
 			};
 
+			const payload = {
+				id: this._roomId,
+				currentUser: this._currentUser
+			}
+
+			const availableAIs = await AIService.loadAvailableModels();
+			if (availableAIs.length > 0)
+				payload.availableAIs = availableAIs;
+
+			logger.info('[Room] Available AIs:', availableAIs);
+
 			// Initialize store with default state
 			store.dispatch({
 				domain: 'room',
 				type: actions.room.UPDATE_ROOM,
-				payload: {
-					id: this._roomId,
-					currentUser: this._currentUser
-				}
+				payload
 			});
 
 			this._initializeManagers();

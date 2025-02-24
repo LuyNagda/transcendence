@@ -53,7 +53,7 @@
                 <label for="aiDifficulty" class="form-label">AI Model</label>
                 <select class="form-select" id="aiDifficulty" data-setting="aiDifficulty"
                     v-model="settings.aiDifficulty" v-on:change="handleSettingChange">
-                    <option value="" disabled selected>Loading models...</option>
+                    <option v-for="ai in availableAIs" :value="ai">[[ai]]</option>
                 </select>
             </div>
         </form>

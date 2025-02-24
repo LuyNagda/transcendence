@@ -45,8 +45,7 @@ export class GameRules {
 		},
 		aiDifficulty: {
 			type: 'string',
-			enum: ['Easy', 'Medium', 'Hard'],
-			default: 'Easy',
+			default: 'Medium',
 			optional: true
 		}
 	};
@@ -58,7 +57,6 @@ export class GameRules {
 
 	static DEFAULT_AI_SETTINGS = {
 		...GameRules.DEFAULT_SETTINGS,
-		aiDifficulty: 'Easy',
 		ballSpeed: 4,
 		paddleSpeed: 6
 	};
@@ -67,13 +65,7 @@ export class GameRules {
 		...GameRules.DEFAULT_SETTINGS,
 		maxScore: 11,
 		ballSpeed: 6,
-		paddleSize: 4
-	};
-
-	static AI_SPEED_MULTIPLIERS = {
-		Easy: 0.7,
-		Medium: 1.0,
-		Hard: 1.3
+		paddleSize: 4,
 	};
 
 	static validateSetting(key, value) {
@@ -127,9 +119,5 @@ export class GameRules {
 			isValid,
 			settings: validatedSettings
 		};
-	}
-
-	static getAISpeedMultiplier(difficulty) {
-		return GameRules.AI_SPEED_MULTIPLIERS[difficulty] || GameRules.AI_SPEED_MULTIPLIERS.MEDIUM;
 	}
 } 

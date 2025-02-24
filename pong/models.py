@@ -104,7 +104,7 @@ class PongRoom(models.Model):
                         'paddleSpeed': 4,
                         'paddleSize': 5,
                         'maxScore': 11,
-                        'aiDifficulty': 'medium'
+                        'aiDifficulty': 'Medium'
                     }
                 elif self.mode == self.Mode.RANKED:
                     self.settings = {
@@ -112,6 +112,7 @@ class PongRoom(models.Model):
                         'paddleSpeed': 6,
                         'paddleSize': 4,
                         'maxScore': 11,
+                        'aiDifficulty': 'Medium'
                     }
                 else:
                     self.settings = {
@@ -119,6 +120,7 @@ class PongRoom(models.Model):
                         'paddleSpeed': 5,
                         'paddleSize': 5,
                         'maxScore': 11,
+                        'aiDifficulty': 'Medium'
                     }
         super().save(*args, **kwargs)
 

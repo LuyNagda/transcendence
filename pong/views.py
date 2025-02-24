@@ -18,21 +18,6 @@ User = get_user_model()
 # Configure the logger
 logger = logging.getLogger(__name__)
 
-DEFAULT_SETTINGS = {
-    'ballSpeed': 5,
-    'paddleSpeed': 5,
-    'paddleSize': 5,
-    'maxScore': 11,
-}
-
-DEFAULT_AI_SETTINGS = {
-    'ballSpeed': 4,
-    'paddleSpeed': 4,
-    'paddleSize': 5,
-    'maxScore': 11,
-    'aiDifficulty': 'medium'
-}
-
 DEFAULT_RANKED_SETTINGS = {
     'ballSpeed': 6,
     'paddleSpeed': 6,
@@ -280,11 +265,6 @@ def update_room_mode(request, room_id):
         room.mode = new_mode
         room.save()
 
-        # Get default settings based on mode
-        settings = DEFAULT_AI_SETTINGS if new_mode == PongRoom.Mode.AI else \
-                  DEFAULT_RANKED_SETTINGS if new_mode == PongRoom.Mode.RANKED else \
-                  DEFAULT_SETTINGS
-
         # Notify all room members about the mode change
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -292,14 +272,14 @@ def update_room_mode(request, room_id):
             {
                 'type': 'mode_change',
                 'mode': new_mode,
-                'settings': settings
+                'settings': room.settings
             }
         )
 
         return JsonResponse({
             'status': 'success',
             'mode': new_mode,
-            'settings': settings
+            'settings': room.settings
         })
 
     except PongRoom.DoesNotExist:
