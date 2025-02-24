@@ -166,6 +166,8 @@ export class RoomUIManager {
 					case 'INITIALIZATION_ERROR':
 					case 'GAME_CREATE_ERROR':
 						return 'danger';
+					case 'ROOM_INFO':
+						return 'info'
 					default:
 						return 'danger';
 				}

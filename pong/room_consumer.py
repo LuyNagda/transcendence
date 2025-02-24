@@ -5,6 +5,7 @@ from channels.db import database_sync_to_async
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from .models import PongRoom, PongGame, Tournament
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -387,15 +388,17 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
     async def create_game(self):
         """Creates a new game for the room"""
         try:
-            is_valid, error_message = await self.validate_game_creation()
-            if not is_valid:
-                logger.error(f"Game creation validation failed: {error_message}")
+            # Créer le tournoi pour tous les modes
+            tournament = await self.get_tournament()
+            
+            if self.room.mode == 'TOURNAMENT' and not tournament:
+                logger.error("Échec de la création du tournoi")
+                await self.update_room_state('LOBBY')
                 return []
-
+            
             await self.update_room_state('PLAYING')
             
             # Create tournament if mode is TOURNAMENT
-            tournament = None
             if self.room.mode == 'TOURNAMENT':
                 tournament = await self.get_tournament()
                 if not tournament:
@@ -480,12 +483,22 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         """Crée un nouveau jeu avec les paramètres actuels"""
         try:
             games = []
-            player_pairs = self.pair_players(list(self.room.players.all()), list(self.room.tournament.eliminated.all()))
+            
+            # Vérifier l'existence du tournoi avant d'y accéder
+            tournament = getattr(self.room, 'tournament', None)
+            eliminated_players = list(tournament.eliminated.all()) if tournament else []
+            
+            # Utiliser tous les joueurs si pas de tournoi
+            player_pairs = self.pair_players(
+                list(self.room.players.all()), 
+                eliminated_players
+            )
             
             if not player_pairs:
                 logger.error("Aucun joueur actif pour créer des matchs")
                 return []
-            if len(player_pairs[0]) == 1 and len(player_pairs) == 1:
+            
+            if len(player_pairs[0]) == 1 and len(player_pairs) == 1 and self.room.mode == 'TOURNAMENT':
                 logger.debug(f"{player_pairs[0][0].username} win the tournament")
                 self.room.tournament.eliminated.clear()
                 return []
@@ -711,12 +724,10 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             # Nettoyer la liste des perdants
             self.room.tournament.eliminated.clear()
             # Afficher le gagnant
-            logger.debug(f"{winner.username} a gagné le tournoi")
+            logger.debug(f"{winner.username} win the tournament")
+            return winner
 
-            # await self.send(text_data=json.dumps({
-            #     'type': 'tournament_finisehd',
-            #     'winner_id': winner.id,
-            # }))
+        return None
 
     async def game_finished(self, event):
         """
@@ -748,7 +759,14 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             }))
 
             await self.clean_tournament()
-            await self.tournament_finished()
+            winner = await self.tournament_finished()
+            if winner:
+                await self.send(text_data=json.dumps({
+                    'type': 'room_info',
+                    'message': f'{winner.username} win the tournament',
+                    'message_type': 'info',
+                    'timestamp': timezone.now().isoformat()
+                }))
 
             await self.update_room()
             
