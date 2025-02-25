@@ -750,6 +750,14 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
             if self.room.state != 'LOBBY' and await self.all_game_finished():
                 await self.update_room_property('state', 'LOBBY')
+                await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'room_info',
+                    'message': 'Round finished',
+                    'message_type': 'info',
+                    'timestamp': timezone.now().isoformat()
+                })
 
             # Send game finished notification to clients
             await self.send(text_data=json.dumps({
@@ -761,12 +769,14 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             await self.clean_tournament()
             winner = await self.tournament_finished()
             if winner:
-                await self.send(text_data=json.dumps({
+                await self.channel_layer.group_send(
+                self.room_group_name,
+                {
                     'type': 'room_info',
                     'message': f'{winner.username} win the tournament',
                     'message_type': 'info',
                     'timestamp': timezone.now().isoformat()
-                }))
+                })
 
             await self.update_room()
             
@@ -861,3 +871,12 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             tournament.save()
         except Exception as e:
             logger.error(f"Error adding games to tournament: {str(e)}")
+
+    async def room_info(self, event):
+        """Envoie les messages d'information de la salle à tous les clients"""
+        await self.send(text_data=json.dumps({
+            'type': 'room_info',
+            'message': event['message'],
+            'message_type': event.get('message_type', 'info'),
+            'timestamp': event.get('timestamp')
+        }))
