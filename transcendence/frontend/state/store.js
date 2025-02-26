@@ -6,6 +6,7 @@ import { chatActions, chatReducers, chatValidators, initialChatState } from './c
 import { roomActions, roomReducers, roomValidators, initialRoomState } from './roomState.js';
 import { gameActions, gameReducers, initialGameState } from './gameState.js';
 import { uiActions, uiReducers, uiValidators, initialUIState, UI_FONT_SIZE, UI_THEME } from './uiState.js';
+import { aiActions, aiReducers, aiValidators, initialAiState } from './aiState.js';
 
 export const StateChangeTypes = {
 	UPDATE: 'update',
@@ -19,7 +20,8 @@ export const actions = {
 	chat: chatActions,
 	room: roomActions,
 	game: gameActions,
-	ui: uiActions
+	ui: uiActions,
+	ai: aiActions
 };
 
 /**
@@ -126,7 +128,8 @@ class Store {
 			user: userReducers,
 			chat: chatReducers,
 			room: roomReducers,
-			game: gameReducers
+			game: gameReducers,
+			ai: aiReducers
 		};
 
 		this.validators = {
@@ -134,7 +137,8 @@ class Store {
 			user: userValidators,
 			chat: chatValidators,
 			room: roomValidators,
-			ui: uiValidators
+			ui: uiValidators,
+			ai: aiValidators,
 		};
 
 		// Initialize state
@@ -144,7 +148,8 @@ class Store {
 			chat: initialChatState,
 			room: initialRoomState,
 			game: initialGameState,
-			ui: initialUIState
+			ui: initialUIState,
+			ai: initialAiState
 		};
 
 		// Initialize unified subscribers
