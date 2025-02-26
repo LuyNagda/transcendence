@@ -1,4 +1,35 @@
 import logger from '../logger.js';
+import { store } from '../state/store.js'
+import { aiActions } from '../state/aiState.js'
+
+// Function to handle training button state
+function updateTrainingButtonState(isTrainingInProgress) {
+    const trainingButton = document.getElementById('train-ai-btn');
+    if (trainingButton) {
+        trainingButton.disabled = isTrainingInProgress;
+    }
+}
+
+// Subscribe to the AI state to listen for training status changes
+store.subscribe('ai', (aiState) => {
+    const isTrainingInProgress = aiState.trainingInProgress;
+    updateTrainingButtonState(isTrainingInProgress);
+});
+
+// Dispatch actions when training starts and ends
+function startTraining() {
+    store.dispatch({
+        domain: 'ai',
+        type: aiActions.START_TRAINING
+    });
+}
+
+function endTraining() {
+    store.dispatch({
+        domain: 'ai',
+        type: aiActions.END_TRAINING
+    });
+}
 
 export async function initializeAiManager() {
     logger.info(`Initialization of AiManager...`);
@@ -59,20 +90,18 @@ export async function initializeAiManager() {
     }
 
     trainButton.addEventListener("click", async () => {
-        disabled_buttons();
+        startTraining();
 
         // Get and validate AI name
         const aiName = document.getElementById('ai_name').value.trim();
         if (!aiName) {
             alert('AI Name is required.');
-            enabled_buttons();
             return;
         }
 
         // Validate AI name format
         if (!/^[a-zA-Z0-9_-]+$/.test(aiName)) {
             alert('AI Name can only contain letters, numbers, underscores, and hyphens.');
-            enabled_buttons();
             return;
         }
 
@@ -95,7 +124,6 @@ export async function initializeAiManager() {
         if (!csrfToken) {
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = 'CSRF token not found. Make sure {% csrf_token %} is included in your template.';
-            enabled_buttons();
             return;
         }
 
@@ -120,7 +148,6 @@ export async function initializeAiManager() {
             const data = await response.json();
 
             if (!response.ok) {
-                enabled_buttons();
                 throw new Error(data.error || 'Training failed');
             }
 
@@ -135,8 +162,9 @@ export async function initializeAiManager() {
             // Update the log on error
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error: ${error.message}`;
+        } finally {
+            endTraining();
         }
-        enabled_buttons();
     });
 
     // Handle Delete AI button click
