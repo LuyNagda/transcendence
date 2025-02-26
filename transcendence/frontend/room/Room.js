@@ -116,6 +116,9 @@ export default class Room {
 					case 'game_ended':
 						this._handleGameEnded(data);
 						break;
+					case 'room_info':
+						this._handleRoomMessage(data);
+						break;
 					case 'error':
 						// Ignore error messages as they're handled by the connection manager
 						break;
@@ -632,6 +635,18 @@ export default class Room {
 		} catch (error) {
 			logger.error('[Room] Failed to cancel invitation:', error);
 		}
+	}
+
+	_handleRoomMessage(data) {
+		store.dispatch({
+			domain: 'room',
+			type: actions.room.SET_ERROR,
+			payload: {
+				code: 'ROOM_INFO',
+				message: data.message,
+				variant: data.message_type
+			}
+		});
 	}
 
 	destroy() {

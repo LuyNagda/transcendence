@@ -81,11 +81,11 @@ def total_losses_tournies(player):
 def winrate(player):
     total = total_wins(player) + total_losses(player)
     if total == 0:
-        return 0
-    return round(total_wins(player) / total, 2) * 100
+        return 0.00
+    return round((total_wins(player) / total) * 100, 2)
 
 def winrate_tourny(player):
-    total = total_wins_tournies(player) + total_losses_tournies(player)
-    if total == 0:
-        return 0
-    return round(total_wins(player) / total, 2) * 100
+	total = total_wins_tournies(player) + total_losses_tournies(player)
+	if total == 0:
+		return 0.00
+	return round((total_wins_tournies(player) / total) * 100, 2)

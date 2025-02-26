@@ -4,7 +4,8 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
-from .models import PongRoom, PongGame
+from .models import PongRoom, PongGame, Tournament
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -64,7 +65,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 await self.close(code=error_code)
                 return
 
-            logger.info(f"Room WebSocket connection accepted for user {self.user.username} in room {self.room_id}", extra={
+            logger.info(f"Room WebSocket connection accepted for user {self.user.name} in room {self.room_id}", extra={
                 'user_id': self.user.id
             })
 
@@ -104,6 +105,8 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         try:
+            responses = []
+            response = None
             data = json.loads(text_data)
             message_id = data.get('id')
             action = data.get('action')
@@ -216,14 +219,29 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 if not await self.is_room_owner():
                     response = {'id': message_id, 'status': 'error', 'error': {'code': 4002, 'message': 'Only room owner can start game'}}
                 else:
-                    game = await self.create_game()
-                    response = {'id': message_id, 'status': 'success' if game else 'error', 'message': 'Game started' if game else 'Failed to create game', 'data': {'game_id': game.id} if game else None}
+                    games = await self.create_game()
+                    if not games:  # Gestion du cas où aucun jeu n'est créé
+                        response = {'id': message_id, 'status': 'error', 'message': 'Failed to create game'}
+                    else:
+                        for game in games:
+                            responses.append({
+                                'id': message_id, 
+                                'status': 'success', 
+                                'message': 'Game started', 
+                                'data': {'game_id': game.id}
+                            })
             else:
                 logger.warning(f"Unknown action received: {action}")
                 response = {'id': message_id, 'status': 'error', 'message': f'Unknown action: {action}'}
 
-            logger.info(f"Sending response: {response}")
-            await self.send(text_data=json.dumps(response))
+            # Envoi des réponses
+            if responses:
+                for r in responses:
+                    await self.send(text_data=json.dumps(r))
+            elif response:  # Vérification que response est initialisée
+                await self.send(text_data=json.dumps(response))
+            else:
+                logger.warning("Aucune réponse générée pour l'action")
 
         except json.JSONDecodeError:
             logger.error(f'Received invalid JSON data: {text_data}', extra={
@@ -370,51 +388,65 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
     async def create_game(self):
         """Creates a new game for the room"""
         try:
-            # Validate game creation
-            is_valid, error_message = await self.validate_game_creation()
-            if not is_valid:
-                logger.error(f"Game creation validation failed: {error_message}")
-                return None
-
-            # Update room state to PLAYING
+            # Créer le tournoi pour tous les modes
+            tournament = await self.get_tournament()
+            
+            if self.room.mode == 'TOURNAMENT' and not tournament:
+                logger.error("Échec de la création du tournoi")
+                await self.update_room_state('LOBBY')
+                return []
+            
             await self.update_room_state('PLAYING')
             
-            # Create the game
-            game = await self.create_game_with_settings()
-            if not game:
+            # Create tournament if mode is TOURNAMENT
+            if self.room.mode == 'TOURNAMENT':
+                tournament = await self.get_tournament()
+                if not tournament:
+                    logger.error("Failed to create tournament")
+                    await self.update_room_state('LOBBY')
+                    return []
+
+            games = await self.create_game_with_settings() or []
+            
+            if not games:
                 logger.error("Failed to create game with settings")
                 await self.update_room_state('LOBBY')
-                return None
+                return []
 
-            # Get room settings
+            # Link games to tournament if exists
+            if tournament:
+                await self.add_games_to_tournament(tournament, games)
+
             settings = self.room.settings or {}
             
-            # Prepare event data
-            event_data = {
-                'type': 'game_started',
-                'data': {
-                    'game_id': game.id,
-                    'player1_id': game.player1.id,
-                    'is_ai_game': game.player2_is_ai,
-                    'settings': settings
+            for game in games:                                    
+                event_data = {
+                    'type': 'game_started',
+                    'data': {
+                        'game_id': game.id,
+                        'player1_id': game.player1.id,
+                        'is_ai_game': game.player2_is_ai,
+                        'settings': settings,
+                        'tournament_id': tournament.id if tournament else None
+                    }
                 }
-            }
-            if game.player2:
-                event_data['data']['player2_id'] = game.player2.id
 
-            # Broadcast game started event
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                event_data
-            )
+                if game.player2:
+                    event_data['data']['player2_id'] = game.player2.id
+
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    event_data
+                )
             
-            logger.info(f"Game created and broadcast: {game.id} for room {self.room.id}")
-            return game
+                logger.info(f"Game created and broadcast: {game.id} for room {self.room.id}")
+
+            return games
 
         except Exception as e:
             logger.error(f"Error creating game: {str(e)}")
             await self.update_room_state('LOBBY')
-            return None
+            return []
 
     @database_sync_to_async
     def validate_game_creation(self):
@@ -448,22 +480,46 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def create_game_with_settings(self):
-        """Creates a new game with current room settings"""
+        """Crée un nouveau jeu avec les paramètres actuels"""
         try:
-            game = PongGame.objects.create(
-                room=self.room,
-                player1=self.room.owner,
-                player2=next((player for player in self.room.players.all() 
-                            if player != self.room.owner), None),
-                player2_is_ai=self.room.mode == 'AI',
-                status='ongoing'
+            games = []
+            
+            # Vérifier l'existence du tournoi avant d'y accéder
+            tournament = getattr(self.room, 'tournament', None)
+            eliminated_players = list(tournament.eliminated.all()) if tournament else []
+            
+            # Utiliser tous les joueurs si pas de tournoi
+            player_pairs = self.pair_players(
+                list(self.room.players.all()), 
+                eliminated_players
             )
             
-            logger.info(f"Game created: {game.id} for room {self.room.id}")
-            return game
+            if not player_pairs:
+                logger.error("Aucun joueur actif pour créer des matchs")
+                return []
+            
+            if len(player_pairs[0]) == 1 and len(player_pairs) == 1 and self.room.mode == 'TOURNAMENT':
+                logger.debug(f"{player_pairs[0][0].username} win the tournament")
+                self.room.tournament.eliminated.clear()
+                return []
+
+            logger.debug(f"Paires générées : {[[p.id for p in pair if p] for pair in player_pairs]}")
+            
+            for pair in player_pairs:
+                if len(pair) >= 1:  # Vérifie qu'il y a au moins un joueur valide
+                    games.append(PongGame.objects.create(
+                        room=self.room,
+                        player1=pair[0],
+                        player2=pair[1] if len(pair) > 1 else None,
+                        player2_is_ai=self.room.mode == 'AI',
+                        status='ongoing'
+                    ))
+                    logger.info(f"Jeu créé : {games[-1].id}")
+            
+            return games
         except Exception as e:
-            logger.error(f"Error creating game with settings: {str(e)}")
-            return None
+            logger.error(f"Erreur création jeu : {str(e)}")
+            return []
 
     async def game_started(self, event):
         """Handle game started event and send to client"""
@@ -625,23 +681,103 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             'room_state': room_state
         }))
 
+    @database_sync_to_async
+    def all_game_finished(self):
+        if self.room.mode != "TOURNAMENT":
+            return True
+        
+        tournament = self.room.tournament
+        return all(
+            game.status == PongGame.Status.FINISHED 
+            for game in tournament.pong_games.all()
+        )
+
+    @database_sync_to_async
+    def check_loser(self):
+        """Identifie et supprime les perdants du tournoi"""
+        if self.room.mode != "TOURNAMENT" or not hasattr(self.room, 'tournament'):
+            return
+
+        eliminated = set()
+        current_players = list(self.room.players.all())
+        len_eliminated = 0
+        
+        for game in self.room.tournament.pong_games.filter(status='finished'):
+            logger.info(f"Scores du match {game.id}: Joueur1={game.player1_score}, Joueur2={game.player2_score}")
+            loser = game.player1 if game.player1_score < game.player2_score else game.player2
+            if loser and loser in current_players:
+                self.room.tournament.eliminated.add(loser)
+                len_eliminated += 1
+                logger.info(f"Joueurs éliminés du tournoi : {loser}")
+
+    @database_sync_to_async
+    def clean_tournament(self):
+        for game in self.room.tournament.pong_games.filter(status='finished'):
+            game.delete()
+            logger.info(f"Jeu {game.id} supprimé du tournoi {self.room.tournament.id}")
+
+    @database_sync_to_async
+    def tournament_finished(self):
+        if len(self.room.players.all()) == len(self.room.tournament.eliminated.all()) + 1:
+            # Récupérer le gagnant en excluant les perdants
+            winner = next(player for player in self.room.players.all() if player not in self.room.tournament.eliminated.all())
+            # Nettoyer la liste des perdants
+            self.room.tournament.eliminated.clear()
+            # Afficher le gagnant
+            logger.debug(f"{winner.username} win the tournament")
+            return winner
+
+        return None
+
     async def game_finished(self, event):
         """
         Handle game finished event and update room state
         """
         try:
-            # Update room state to LOBBY if not already
-            if self.room.state != 'LOBBY':
+            # Vérifier si l'utilisateur courant est l'hôte de la salle
+            if not await self.is_room_owner():
+                # Envoyer seulement la notification aux clients
+                await self.send(text_data=json.dumps({
+                    'type': 'game_finished',
+                    'winner_id': event['winner_id'],
+                    'final_score': event['final_score']
+                }))
+                return
+
+            # Logique réservée à l'hôte
+            if self.room.mode == "TOURNAMENT":
+                await self.check_loser()
+
+            if self.room.state != 'LOBBY' and await self.all_game_finished():
                 await self.update_room_property('state', 'LOBBY')
-            
+                await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'room_info',
+                    'message': 'Round finished',
+                    'message_type': 'info',
+                    'timestamp': timezone.now().isoformat()
+                })
+
             # Send game finished notification to clients
             await self.send(text_data=json.dumps({
                 'type': 'game_finished',
                 'winner_id': event['winner_id'],
                 'final_score': event['final_score']
             }))
-            
-            # Trigger a full room state update
+
+            await self.clean_tournament()
+            winner = await self.tournament_finished()
+            if winner:
+                await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'room_info',
+                    'message': f'{winner.username} win the tournament',
+                    'message_type': 'info',
+                    'timestamp': timezone.now().isoformat()
+                })
+
             await self.update_room()
             
         except Exception as e:
@@ -676,3 +812,71 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error updating settings: {str(e)}")
             return False 
+
+    # @database_sync_to_async
+    # def get_room_player_ids(self):
+    #     """Récupère les IDs des joueurs dans la salle"""
+    #     return list(self.room.players.all().values_list('id', flat=True))
+
+    def pair_players(self, player_ids: list, eliminated: list) -> list:
+        """Group players into pairs for multiple concurrent games"""
+        logger.debug(f"Eliminated list {eliminated}")
+        active_players = [player for player in player_ids if player not in eliminated]
+        
+        if not active_players:
+            return []
+        
+        # Cas d'un seul joueur
+        if len(active_players) == 1:
+            return [[active_players[0]]]
+        
+        # Gestion des nombres impairs > 1
+        max_index = len(active_players) - 1 if len(active_players) % 2 != 0 else len(active_players)
+        
+        pairs = [
+            active_players[i:i+2] 
+            for i in range(0, max_index, 2)
+        ]
+        
+        logger.debug(f"Player pairs generated: {[[p.id for p in pair] for pair in pairs]}")
+        return pairs
+
+    @database_sync_to_async
+    def get_tournament(self):
+        """Create or get existing tournament linked to the room"""
+        try:
+            # Vérifie si un tournoi existe déjà pour cette salle
+            if hasattr(self.room, 'tournament') and self.room.tournament:
+                return self.room.tournament
+            
+            # Crée un nouveau tournoi seulement si aucun n'existe
+            tournament = Tournament.objects.create(
+                name=f"Tournament {self.room.room_id}",
+                pong_room=self.room,
+                status='ONGOING'
+            )
+            # Met à jour la référence du tournoi dans la salle
+            self.room.tournament = tournament
+            self.room.save()
+            return tournament
+        except Exception as e:
+            logger.error(f"Error creating tournament: {str(e)}")
+            return None
+
+    @database_sync_to_async
+    def add_games_to_tournament(self, tournament, games):
+        """Add games to tournament's pong_games"""
+        try:
+            tournament.pong_games.add(*games)
+            tournament.save()
+        except Exception as e:
+            logger.error(f"Error adding games to tournament: {str(e)}")
+
+    async def room_info(self, event):
+        """Envoie les messages d'information de la salle à tous les clients"""
+        await self.send(text_data=json.dumps({
+            'type': 'room_info',
+            'message': event['message'],
+            'message_type': event.get('message_type', 'info'),
+            'timestamp': event.get('timestamp')
+        }))

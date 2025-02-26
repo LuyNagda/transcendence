@@ -565,7 +565,6 @@ class BasePongGameController {
 				type: actions.room.UPDATE_ROOM,
 				payload: {
 					state: 'LOBBY',
-					currentGameId: 0
 				}
 			});
 

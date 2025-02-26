@@ -235,15 +235,6 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 if self.game.room:
                     room_group_name = f'pong_room_{self.game.room.room_id}'
                     # Send room state update first
-                    await self.channel_layer.group_send(
-                        room_group_name,
-                        {
-                            'type': 'send_room_update',
-                            'room_state': {
-                                'state': 'LOBBY'
-                            }
-                        }
-                    )
                     # Then send game finished notification
                     await self.channel_layer.group_send(
                         room_group_name,
@@ -261,7 +252,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f'Game error: {str(e)}, data: {text_data}', extra={
                 'user_id': self.user.id
-            })
+            })        
 
     async def relay_webrtc_signal(self, event):
         """Relays WebRTC signals between valid players"""
