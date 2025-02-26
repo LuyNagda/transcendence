@@ -93,6 +93,11 @@ def get_logging_config(log_level):
                 'level': log_level,
                 'propagate': False,
             },
+            'ai': {
+                'handlers': ['console'],
+                'level': log_level,
+                'propagate': False,
+            },
         },
         'root': {
             'handlers': ['console'],

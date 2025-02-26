@@ -1,7 +1,9 @@
-import os, json, multiprocessing, re
+import os, json, multiprocessing, re, logging
 import numpy as np
 from django.core.files.storage import default_storage
 from ai.gamesimulation import train_normal
+
+logger = logging.getLogger(__name__)
 
 NB_INPUTS = 5
 NB_NEURONS_LAYER1 = 6
@@ -255,7 +257,7 @@ def train_species_wrapper(args):
     """
     Ai_selected, Ai_nb, time_limit, max_score = args
     training_log = train_normal(Ai_selected, Ai_nb, time_limit, max_score)
-    print(training_log)
+    logger.info(training_log)
     point = Ai_selected.ai_score
     return training_log, point, Ai_nb
 
@@ -275,7 +277,7 @@ def train_ai(save_file, training_params):
             f"Max score = {max_score}\n\n"
         )
         
-        print(log_header)
+        logger.info(log_header)
         log += log_header
 
         Ai_Sample = Init_Ai(save_file, nb_species)
@@ -293,7 +295,7 @@ def train_ai(save_file, training_params):
             log_score += training_log + "\n"
             Ai_Sample[Ai_nb].ai_score = point
 
-        print(log_score)
+        logger.info(log_score)
 
         Save_Best_Ai(Ai_Sample, save_file)
         backup_file(save_file, j + 1)
