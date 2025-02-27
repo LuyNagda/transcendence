@@ -10,7 +10,6 @@ export class RoomUIManager {
 	constructor(roomId) {
 		this._roomId = roomId;
 		this._eventHandlers = new Map();
-		this._observers = [];
 		this._settingChangeTimeout = null;
 
 		if (!jaiPasVu.initialized)
@@ -21,6 +20,27 @@ export class RoomUIManager {
 		// Bind methods to preserve context
 		this.handleSettingChange = this.handleSettingChange.bind(this);
 		this.handleModeChange = this.handleModeChange.bind(this);
+		this.handleWebGLToggle = this.handleWebGLToggle.bind(this);
+
+		webglToggle.addEventListener('change', this.handleWebGLToggle);
+	}
+
+
+	handleWebGLToggle(event) {
+		const useWebGL = event.target.checked;
+		logger.info('[RoomUIManager] WebGL toggle changed:', useWebGL);
+
+		store.dispatch({
+			domain: 'room',
+			type: actions.room.TOGGLE_WEBGL,
+			payload: { useWebGL }
+		});
+
+		// If game is in progress, update the renderer
+		const roomState = store.getState('room');
+		if (roomState.state === RoomStates.PLAYING && this._gameManager) {
+			this._callHandler('webglToggle', useWebGL);
+		}
 	}
 
 	_initializeReactiveState() {
@@ -98,9 +118,7 @@ export class RoomUIManager {
 			}
 		});
 
-		this._observers.push(
-			store.subscribe('room', this._handleRoomStateUpdate.bind(this)),
-		);
+		store.subscribe('room', this._handleRoomStateUpdate.bind(this));
 	}
 
 	_handleRoomStateUpdate(state) {
@@ -165,6 +183,7 @@ export class RoomUIManager {
 					case 'VALIDATION_ERROR':
 					case 'INITIALIZATION_ERROR':
 					case 'GAME_CREATE_ERROR':
+					case 'GAME_CONNECTION_ERROR':
 						return 'danger';
 					case 'ROOM_INFO':
 						return 'info'
@@ -279,6 +298,10 @@ export class RoomUIManager {
 		this._eventHandlers.set('inviteFriend', handler);
 	}
 
+	setWebGLToggleHandler(handler) {
+		this._eventHandlers.set('webglToggle', handler);
+	}
+
 	_callHandler(handlerName, ...args) {
 		const handler = this._eventHandlers.get(handlerName);
 		if (handler) {
@@ -341,11 +364,15 @@ export class RoomUIManager {
 	}
 
 	destroy() {
-		logger.debug('[RoomUIManager] Destroying, cleanup #pong-room');
-		jaiPasVu.cleanup(document.getElementById('pong-room'));
+		logger.info('[RoomUIManager] Destroying UI manager');
+
+		// Clean up event handlers
 		this._eventHandlers.clear();
-		// Call each unsubscribe function
-		this._observers.forEach(unsubscribe => unsubscribe());
+
+		if (this._settingChangeTimeout) {
+			clearTimeout(this._settingChangeTimeout);
+			this._settingChangeTimeout = null;
+		}
 	}
 }
 

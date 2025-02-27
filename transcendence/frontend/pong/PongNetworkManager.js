@@ -1,63 +1,122 @@
 import logger from '../logger.js';
+import { ConnectionState, connectionManager } from '../networking/ConnectionManager.js';
 import { store } from '../state/store.js';
-import { connectionManager } from '../networking/ConnectionManager.js';
+import { gameActions } from '../state/gameState.js';
 
-/**
- * Manages networking for a Pong game session using WebRTC for multiplayer games
- * and WebSocket for signaling and local/AI games. Handles connection establishment,
- * message passing, and cleanup between players.
- */
 export class PongNetworkManager {
 	/**
-	 * @param {string} gameId - The game ID
-	 * @param {Object} currentUser - The current user object
-	 * @param {boolean} isHost - Whether this instance is the host
+	 * Creates a new NetworkSystem instance
+	 * @param {EventEmitter} eventEmitter - The event emitter for communication
+	 * @param {string} gameId - The ID of the game
+	 * @param {Object} currentUser - The current user
+	 * @param {boolean} isHost - Whether this client is the host
 	 * @param {boolean} isLocalGame - Whether this is a local/AI game
 	 */
-	constructor(gameId, currentUser, isHost, isLocalGame = false) {
+	constructor(eventEmitter, gameId, currentUser, isHost, isLocalGame = false) {
+		this._eventEmitter = eventEmitter;
 		this._gameId = gameId;
 		this._currentUser = currentUser;
 		this._isHost = isHost;
 		this._isLocalGame = isLocalGame;
-		this._messageHandlers = new Map();
+		this._connectionState = ConnectionState.DISCONNECTED.name;
+		this._connections = null;
+		this._messageQueue = [];
 		this._gameFinished = false;
-		this._connectionGroupName = `pong:${gameId}`;
-
-		// Only set up RTC config for multiplayer games
-		if (!isLocalGame) {
-			const config = store.getState('config');
-			this.rtcConfig = {
-				iceServers: [
-					{
-						urls: config.rtc?.stunUrl || 'stun:127.0.0.1:3478'
-					},
-					{
-						urls: [
-							config.rtc?.turnUrl || 'turn:127.0.0.1:3478'
-						],
-						username: config.rtc?.turnUsername || 'username',
-						credential: config.rtc?.turnPassword || 'password'
-					}
-				],
-				iceTransportPolicy: 'all',
-				iceCandidatePoolSize: 0,
-				bundlePolicy: 'balanced',
-				rtcpMuxPolicy: 'require',
-				iceServersPolicy: 'all'
-			};
-		}
+		this._connectionGroupName = `pong-${this._gameId}`;
 	}
 
 	/**
-	 * Establishes WebSocket and optionally WebRTC connections between players
-	 * @returns {Promise<boolean>} Success status
+	 * Initialize the network system
+	 * @returns {boolean} - Whether initialization was successful
+	 */
+	initialize() {
+		logger.info('Initializing network system');
+
+		// Message type mapping to normalize snake_case (server) to camelCase (local events)
+		this._messageTypeMap = {
+			'game_state': 'gameState',
+			'update_scores': 'scoreUpdate',
+			'game_complete': 'gameComplete',
+			'player_ready': 'playerReady',
+			'player_disconnected': 'playerDisconnected'
+		};
+
+		this._messageHandlers = {
+			// Physics and game state updates
+			'physicsUpdate': (message) => {
+				this._eventEmitter.emit('remotePhysicsUpdate', message.state);
+			},
+			'gameState': (message) => {
+				this._eventEmitter.emit('gameState', message);
+			},
+
+			// Score and game completion
+			'scoreUpdate': (message) => {
+				logger.debug('Received score update:', message.scores);
+				this._eventEmitter.emit('scoreUpdate', message.scores);
+
+				if (!this._isHost) {
+					store.dispatch({
+						domain: 'game',
+						type: gameActions.SET_SCORES,
+						payload: message.scores
+					});
+				}
+			},
+			'gameComplete': (message) => {
+				this._eventEmitter.emit('gameComplete', message.scores);
+			},
+
+			// Player input
+			'paddleMove': (message) => {
+				const inputData = {
+					direction: message.direction || 0,
+					intensity: 1.0
+				};
+				this._eventEmitter.emit('remoteInput', inputData);
+			},
+			'paddleStop': (message) => {
+				const inputData = {
+					direction: 0,
+					intensity: 0
+				};
+				this._eventEmitter.emit('remoteInput', inputData);
+			},
+
+			// Connection events
+			'playerReady': (message) => {
+				this._eventEmitter.emit('playerReady', message);
+			},
+			'playerDisconnected': (message) => {
+				this._eventEmitter.emit('playerDisconnected', message);
+				this._handleDisconnect();
+			},
+		};
+
+		// Bind methods
+		this._handleMessage = this._handleMessage.bind(this);
+		this._handleStateChange = this._handleStateChange.bind(this);
+		this._handleWebSocketMessage = this._handleWebSocketMessage.bind(this);
+		this._handleGameMessage = this._handleGameMessage.bind(this);
+		this._handleDisconnect = this._handleDisconnect.bind(this);
+
+		return true;
+	}
+
+	/**
+	 * Connect to the network
+	 * @returns {Promise<boolean>} - Whether connection was successful
 	 */
 	async connect() {
 		try {
-			// Clean up any existing connections first
-			this._cleanup();
+			if (this._connectionState !== ConnectionState.DISCONNECTED.name) {
+				logger.warn(`Cannot connect in state: ${this._connectionState}`);
+				return false;
+			}
 
-			// Create connection group based on game type
+			this._setConnectionState(ConnectionState.CONNECTING.name);
+			this.destroy();
+
 			const connections = {
 				signaling: {
 					type: 'websocket',
@@ -70,240 +129,201 @@ export class PongNetworkManager {
 				}
 			};
 
-			// Only add WebRTC connection for multiplayer games
 			if (!this._isLocalGame) {
-				connections.game = {
+				connections.gameplay = {
 					type: 'webrtc',
 					config: {
-						rtcConfig: {
-							...this.rtcConfig,
-							isHost: this._isHost
-						}
+						isHost: this._isHost
 					}
 				};
 			}
 
-			// Create and store connections
-			const group = connectionManager.createConnectionGroup(this._connectionGroupName, connections);
+			this._connections = connectionManager.createConnectionGroup(this._connectionGroupName, connections);
 
 			// Set up WebSocket handlers
-			const wsConnection = group.get('signaling');
-			wsConnection.on('message', (data) => this._handleWebSocketMessage(data));
-			wsConnection.on('close', () => this._handleDisconnect());
-			wsConnection.on('error', (error) => this._handleError(error));
+			const signalingConnection = this._connections.get('signaling');
+			signalingConnection.on('message', this._handleWebSocketMessage);
+			signalingConnection.on('stateChange', this._handleStateChange);
+			signalingConnection.on('close', this._handleDisconnect);
+			signalingConnection.on('error', (error) => this._handleError(error));
 
-			// Connect to WebSocket first
-			await connectionManager.getConnectionGroup(this._connectionGroupName).get('signaling').connect();
+			// Connect to signaling server
+			await signalingConnection.connect();
+			this._setConnectionState(ConnectionState.SIGNALING.name);
 
-			// Set up and connect WebRTC for multiplayer games
+			// For local games, we're connected after WebSocket is established
+			if (this._isLocalGame)
+				this._setConnectionState(ConnectionState.CONNECTED.name);
+
+			// Set up and connect WebRTC for non-local multiplayer games
 			if (!this._isLocalGame) {
-				const rtcConnection = group.get('game');
-				rtcConnection.on('message', (data) => this._handleGameMessage(data));
-				rtcConnection.on('iceCandidate', (candidate) => this._handleIceCandidate(candidate));
-				rtcConnection.on('close', () => this._handleDisconnect());
-				rtcConnection.on('error', (error) => this._handleError(error));
-				rtcConnection.on('signal', (signal) => {
-					logger.debug(`${this._isHost ? 'Host' : 'Guest'}: Sending WebRTC signal:`, signal);
-					wsConnection.send({
-						type: 'webrtc_signal',
-						signal: signal
+				const gameplayConnection = this._connections.get('gameplay');
+				gameplayConnection.on('message', this._handleGameMessage);
+				gameplayConnection.on('stateChange', this._handleStateChange);
+				gameplayConnection.on('close', this._handleDisconnect);
+				gameplayConnection.on('error', (error) => this._handleError(error));
+
+				// Set up ICE-related event handlers
+				gameplayConnection.on('iceTimeout', () => {
+					logger.warn('ICE connection timeout detected');
+					this._eventEmitter.emit('networkWarning', {
+						type: 'iceTimeout',
+						message: 'Connection taking longer than expected'
 					});
 				});
-				await connectionManager.getConnectionGroup(this._connectionGroupName).get('game').connect();
+
+				gameplayConnection.on('iceConnectionStateChange', (state) => {
+					logger.debug(`ICE connection state: ${state}`);
+					if (state === 'failed') {
+						this._eventEmitter.emit('networkWarning', {
+							type: 'iceFailed',
+							message: 'Connection failed, attempting recovery'
+						});
+					}
+				});
+
+				// Connect WebRTC for gameplay
+				await gameplayConnection.connect();
 			}
 
+			this._processMessageQueue();
 			return true;
 		} catch (error) {
-			logger.error('Failed to establish connection:', error);
-			this._cleanup();
+			logger.error('Error connecting to network:', error);
+			this._setConnectionState(ConnectionState.ERROR.name);
 			return false;
 		}
 	}
 
 	/**
-	 * Cleans up existing connections before creating new ones
-	 * @private
+	 * Disconnect from the network
 	 */
-	_cleanup() {
-		try {
-			const existingGroup = connectionManager.getConnectionGroup(this._connectionGroupName);
-			if (existingGroup) {
-				logger.debug('Cleaning up existing connections before reconnecting');
-				connectionManager.removeConnectionGroup(this._connectionGroupName);
+	disconnect() {
+		logger.info('Disconnecting from network');
+		this._gameFinished = true;
+		this.destroy();
+		this._setConnectionState(ConnectionState.DISCONNECTED.name);
+	}
+
+	/**
+	 * Send a game message
+	 * @param {Object} message - The message to send
+	 * @param {boolean} reliable - Whether the message needs reliable delivery
+	 * @returns {boolean} - Whether the message was sent
+	 */
+	sendGameMessage(message, reliable = true) {
+		// Add timestamp to message
+		const messageWithTimestamp = {
+			...message,
+			timestamp: Date.now()
+		};
+
+		if (this._isLocalGame && !reliable) return true;
+
+		// If not connected, queue the message
+		if (this._connectionState !== ConnectionState.CONNECTED.name) {
+			if (reliable) {
+				this._messageQueue.push(messageWithTimestamp);
+				logger.debug('Message queued for later sending');
 			}
-		} catch (error) {
-			logger.warn('Error during connection cleanup:', error);
+			return false;
 		}
-	}
 
-	/**
-	 * Waits for guest to connect within timeout period
-	 * @param {number} timeout - Maximum wait time in ms
-	 * @returns {Promise<boolean>} Connection success
-	 */
-	async waitForGuestConnection(timeout = 20000) {
-		if (!this._isHost)
-			throw new Error('Only host can wait for guest connection');
-
-		if (this._isLocalGame) // For local/AI games, resolve immediately
-			return Promise.resolve(true);
-
-		return new Promise((resolve, reject) => {
-			const group = connectionManager.getConnectionGroup(this._connectionGroupName);
-			if (!group) {
-				reject(new Error('Connection group not found'));
-				return;
-			}
-
-			const rtcConnection = group.get('game');
-			const startTime = Date.now();
-
-			const checkConnection = () => {
-				if (rtcConnection.state.name === 'connected') {
-					clearInterval(checkInterval);
-					clearTimeout(timeoutId);
-					resolve(true);
-				} else if (Date.now() - startTime >= timeout) {
-					clearInterval(checkInterval);
-					reject(new Error('Guest connection timeout'));
-				}
-			};
-
-			const checkInterval = setInterval(checkConnection, 100);
-			const timeoutId = setTimeout(() => {
-				clearInterval(checkInterval);
-				reject(new Error('Guest connection timeout'));
-			}, timeout);
-		});
-	}
-
-	/**
-	 * Waits for host to connect within timeout period
-	 * @param {number} timeout - Maximum wait time in ms
-	 * @returns {Promise<boolean>} Connection success
-	 */
-	async waitForHostConnection(timeout = 20000) {
-		if (this._isHost)
-			throw new Error('Only guest can wait for host connection');
-
-		if (this._isLocalGame)
-			return Promise.reject(new Error('Cannot wait for host in local game'));
-
-		return new Promise((resolve, reject) => {
-			const group = connectionManager.getConnectionGroup(this._connectionGroupName);
-			if (!group) {
-				reject(new Error('Connection group not found'));
-				return;
-			}
-
-			const rtcConnection = group.get('game');
-			const startTime = Date.now();
-
-			const checkConnection = () => {
-				if (rtcConnection.state.name === 'connected') {
-					clearInterval(checkInterval);
-					clearTimeout(timeoutId);
-					resolve(true);
-				} else if (Date.now() - startTime >= timeout) {
-					clearInterval(checkInterval);
-					reject(new Error('Host connection timeout'));
-				}
-			};
-
-			const checkInterval = setInterval(checkConnection, 100);
-			const timeoutId = setTimeout(() => {
-				clearInterval(checkInterval);
-				reject(new Error('Host connection timeout'));
-			}, timeout);
-		});
-	}
-
-	/**
-	 * Sends a game message
-	 * @param {Object} message - Message to send
-	 * @returns {boolean} Send success
-	 */
-	sendGameMessage(message) {
-		const group = connectionManager.getConnectionGroup(this._connectionGroupName);
-		if (!group) return false;
-
-		if (this._isLocalGame) {
-			// For local/AI games, process message locally
-			const handler = this._messageHandlers.get(message.type);
-			if (handler) {
-				// Process message in next tick to simulate network delay
-				setTimeout(() => {
-					try {
-						handler(message);
-					} catch (error) {
-						logger.error('Error handling local game message:', error);
-					}
-				}, 0);
-			}
-			return true;
-		} else {
-			// For multiplayer games, send via WebRTC
-			const rtcConnection = group.get('game');
-			if (rtcConnection && rtcConnection.state.canSend) {
-				try {
-					rtcConnection.send(message);
-					return true;
-				} catch (error) {
-					logger.warn('Failed to send game message:', error);
-					return false;
-				}
+		// Try to send via WebRTC for non-reliable messages
+		if (!reliable && this._connections) {
+			const gameplayConnection = this._connections.get('gameplay');
+			if (gameplayConnection && gameplayConnection.state.canSend) {
+				gameplayConnection.send(messageWithTimestamp);
+				return true;
 			}
 		}
+
+		// Fall back to WebSocket for reliable messages or if WebRTC is not available
+		if (this._connections) {
+			const signalingConnection = this._connections.get('signaling');
+			if (signalingConnection && signalingConnection.state.canSend) {
+				signalingConnection.send(messageWithTimestamp);
+				return true;
+			}
+		}
+
+		// If we can't send now, queue reliable messages
+		if (reliable) {
+			this._messageQueue.push(messageWithTimestamp);
+			logger.debug('Message queued for later sending');
+		}
+
 		return false;
 	}
 
 	/**
-	 * Sends game state based on connection type
-	 * @param {Object} state - Current game state
-	 * @returns {boolean} Send success
+	 * Send physics state update
+	 * @param {Object} state - The physics state
+	 * @returns {boolean} - Whether the state was sent
+	 */
+	sendPhysicsUpdate(state) {
+		return this.sendGameMessage({
+			type: 'physicsUpdate',
+			state
+		}, false);
+	}
+
+	/**
+	 * Send paddle input
+	 * @param {number} direction - The movement direction (-1 for up, 0 for stop, 1 for down)
+	 * @param {number} intensity - The movement intensity (0-1)
+	 * @returns {boolean} - Whether the input was sent
+	 */
+	sendPaddleInput(direction, intensity = 1.0) {
+		return this.sendGameMessage({
+			type: direction === 0 ? 'paddleStop' : 'paddleMove',
+			direction: direction,
+			intensity: intensity
+		}, false);
+	}
+
+	/**
+	 * Send game state with full details
+	 * @param {Object} state - The game state
+	 * @returns {boolean} - Whether the state was sent
 	 */
 	sendGameState(state) {
-		const group = connectionManager.getConnectionGroup(this._connectionGroupName);
-		if (!group) return false;
+		if (!this._connections) return false;
 
 		try {
-			// Send full game state (ball/paddle positions) via WebRTC in multiplayer only
+			// Only send full game state via WebRTC in multiplayer games
 			if (!this._isLocalGame) {
-				const rtcConnection = group.get('game');
-				if (rtcConnection && rtcConnection.state.canSend) {
-					const rtcState = {
+				const gameplayConnection = this._connections.get('gameplay');
+				if (gameplayConnection && gameplayConnection.state.canSend) {
+					gameplayConnection.send({
 						type: 'gameState',
 						state: {
-							ball: state.ball ? {
+							ball: {
 								x: state.ball.x,
 								y: state.ball.y,
 								dx: state.ball.dx,
 								dy: state.ball.dy,
 								width: state.ball.width,
 								height: state.ball.height,
-								resetting: state.ball.resetting
-							} : null,
-							leftPaddle: state.leftPaddle ? {
+							},
+							leftPaddle: {
 								x: state.leftPaddle.x,
 								y: state.leftPaddle.y,
 								width: state.leftPaddle.width,
 								height: state.leftPaddle.height,
 								dy: state.leftPaddle.dy
-							} : null,
-							rightPaddle: state.rightPaddle ? {
+							},
+							rightPaddle: {
 								x: state.rightPaddle.x,
 								y: state.rightPaddle.y,
 								width: state.rightPaddle.width,
 								height: state.rightPaddle.height,
 								dy: state.rightPaddle.dy
-							} : null
+							}
 						}
-					};
-					logger.debug('Sending WebRTC state update:', rtcState);
-					rtcConnection.send(rtcState);
+					});
 				}
 			}
-
 			return true;
 		} catch (error) {
 			logger.error('Failed to send game state:', error);
@@ -312,281 +332,76 @@ export class PongNetworkManager {
 	}
 
 	/**
-	 * Registers handler for specific game message type
-	 * @param {string} type - Message type to handle
-	 * @param {Function} handler - Handler function
+	 * Send score update
+	 * @param {Object} scores - The scores
+	 * @returns {boolean} - Whether the scores were sent
 	 */
-	onGameMessage(type, handler) {
-		this._messageHandlers.set(type, handler);
-	}
+	sendScoreUpdate(scores) {
+		let success = true;
 
-	/**
-	 * Checks if connection is established
-	 * @returns {boolean} Connection status
-	 */
-	checkConnection() {
-		const group = connectionManager.getConnectionGroup(this._connectionGroupName);
-		if (!group) return false;
-
-		const wsConnection = group.get('signaling');
-
-		if (this._isLocalGame) {
-			// For local/AI games, only check WebSocket connection
-			return wsConnection && wsConnection.state.name === 'connected';
-		} else {
-			// For multiplayer games, check both connections
-			const rtcConnection = group.get('game');
-			return rtcConnection &&
-				wsConnection &&
-				rtcConnection.state.name === 'connected' &&
-				wsConnection.state.name === 'connected';
-		}
-	}
-
-	/**
-	 * Waits for connection(s) to be established
-	 * @param {number} timeout - Maximum wait time in ms
-	 * @returns {Promise<boolean>} Connection success
-	 */
-	async waitForConnection(timeout = 20000) {
-		// For local/AI games, resolve immediately
-		if (this._isLocalGame) {
-			return Promise.resolve(true);
-		}
-
-		return new Promise((resolve, reject) => {
-			const startTime = Date.now();
-			const checkInterval = setInterval(() => {
-				if (this.checkConnection()) {
-					clearInterval(checkInterval);
-					clearTimeout(timeoutId);
-					resolve(true);
-				} else if (Date.now() - startTime >= timeout) {
-					clearInterval(checkInterval);
-					reject(new Error('Connection timeout'));
-				}
-			}, 100);
-
-			const timeoutId = setTimeout(() => {
-				clearInterval(checkInterval);
-				reject(new Error('Connection timeout'));
-			}, timeout);
-		});
-	}
-
-	/**
-	 * Gets the WebSocket connection from the connection group
-	 * @returns {Object|null} WebSocket connection or null if not found
-	 */
-	getWebSocketConnection() {
-		const group = connectionManager.getConnectionGroup(this._connectionGroupName);
-		if (!group) return null;
-		return group.get('signaling');
-	}
-
-	/**
-	 * Cleans up all connections and resets state
-	 */
-	destroy() {
-		this._gameFinished = true;
-		this._messageHandlers.clear();
-		this._cleanup();
-	}
-
-	/**
-	 * Handles incoming WebSocket messages
-	 * @private
-	 */
-	_handleWebSocketMessage(data) {
-		try {
-			switch (data.type) {
-				case 'webrtc_signal':
-					if (this._gameFinished) return;
-					this._handleWebRTCSignal(data.signal);
-					break;
-
-				case 'player_disconnected':
-					if (!this._gameFinished) {
-						this._handleDisconnect();
-					}
-					break;
-
-				case 'game_state':
-					if (!this._gameFinished) {
-						this._handleGameState(data);
-					}
-					break;
-
-				case 'player_ready':
-					if (!this._gameFinished) {
-						this._handlePlayerReady(data);
-					}
-					break;
-
-				default:
-					logger.debug('Unhandled WebSocket message type:', data.type);
-					break;
-			}
-		} catch (error) {
-			logger.error('Error handling WebSocket message:', error);
-		}
-	}
-
-	/**
-	 * Handles WebRTC signaling messages
-	 * @private
-	 */
-	async _handleWebRTCSignal(signal) {
-		try {
-			const group = connectionManager.getConnectionGroup(this._connectionGroupName);
-			if (!group) {
-				throw new Error('Connection group not found');
-			}
-
-			const rtcConnection = group.get('game');
-			if (!rtcConnection) {
-				throw new Error('WebRTC connection not found');
-			}
-
-			if (signal.type === 'offer') {
-				logger.debug('Guest: Received offer from host');
-				await rtcConnection._peer.setRemoteDescription(new RTCSessionDescription({
-					type: 'offer',
-					sdp: signal.sdp
-				}));
-				const answer = await rtcConnection._peer.createAnswer();
-				await rtcConnection._peer.setLocalDescription(answer);
-				// Send answer back through WebSocket
-				const wsConnection = group.get('signaling');
-				wsConnection.send({
-					type: 'webrtc_signal',
-					signal: {
-						type: 'answer',
-						sdp: answer.sdp
-					}
+		// Send score update to other player in P2P games
+		if (!this._isLocalGame) {
+			// Score updates are important and need reliable transport for P2P gameplay
+			const gameplayConnection = this._connections?.get('gameplay');
+			if (gameplayConnection && gameplayConnection.state.canSend) {
+				success = gameplayConnection.send({
+					type: 'scoreUpdate',
+					scores
 				});
-			} else if (signal.type === 'answer') {
-				logger.debug('Host: Received answer from guest');
-				await rtcConnection._peer.setRemoteDescription(new RTCSessionDescription({
-					type: 'answer',
-					sdp: signal.sdp
-				}));
-			} else if (signal.candidate) {
-				logger.debug(`${this._isHost ? 'Host' : 'Guest'}: Received ICE candidate`);
-				if (rtcConnection._peer.remoteDescription) {
-					await rtcConnection._peer.addIceCandidate(new RTCIceCandidate(signal.candidate))
-						.catch(error => logger.error('Error adding ICE candidate:', error));
-				} else {
-					rtcConnection._pendingCandidates.push(signal.candidate);
-				}
 			}
-		} catch (error) {
-			logger.error('Error handling WebRTC signal:', error);
-			this._handleError(error);
 		}
-	}
 
-	/**
-	 * Routes game messages to registered handlers
-	 * @private
-	 */
-	_handleGameMessage(data) {
-		try {
-			const handler = this._messageHandlers.get(data.type);
-			if (handler) {
-				handler(data);
-			}
-		} catch (error) {
-			logger.error('Error handling game message:', error);
-		}
-	}
-
-	/**
-	 * Handles ICE candidate exchange
-	 * @private
-	 */
-	_handleIceCandidate(candidate) {
-		const wsConnection = connectionManager.getConnectionGroup(this._connectionGroupName).get('signaling');
-		wsConnection.send({
-			type: 'webrtc_signal',
-			signal: {
-				type: 'candidate',
-				candidate: candidate
+		// Send through WebSocket for server-side tracking
+		this.sendRequest('update_scores', {
+			scores: {
+				left: scores.left,
+				right: scores.right
 			}
 		});
+
+		return success;
 	}
 
 	/**
-	 * Handles connection loss
-	 * @private
-	 */
-	_handleDisconnect() {
-		if (this._gameFinished) return;
-
-		logger.warn('Connection lost, cleaning up');
-		this.destroy();
-	}
-
-	/**
-	 * Routes game state updates to registered handlers
-	 * @private
-	 */
-	_handleGameState(data) {
-		const handler = this._messageHandlers.get('gameState');
-		if (handler) {
-			handler(data);
-		}
-	}
-
-	/**
-	 * Routes player ready events to registered handlers
-	 * @private
-	 */
-	_handlePlayerReady(data) {
-		const handler = this._messageHandlers.get('playerReady');
-		if (handler) {
-			handler(data);
-		}
-	}
-
-	/**
-	 * Sends game completion notification through both WebSocket and WebRTC channels
-	 * @param {Object} scores - Final game scores
-	 * @returns {Promise<boolean>} Success status
+	 * Send game complete notification
+	 * @param {Object} scores - The final scores
+	 * @returns {Promise<boolean>} - Whether the notification was sent
 	 */
 	async sendGameComplete(scores) {
 		try {
-			const group = connectionManager.getConnectionGroup(this._connectionGroupName);
-			if (!group) return false;
+			const signalingConnection = this._connections.get('signaling');
 
-			logger.info('Sending game completion notification');
-			const message = {
-				type: 'game_complete',
-				scores: scores
-			};
+			await this.sendRequest('game_complete', { scores: scores });
 
-			// Send through WebSocket first (for server)
-			const wsConnection = group.get('signaling');
-			if (wsConnection && wsConnection.state.canSend) {
-				logger.debug('Sending game completion through WebSocket:', message);
-				wsConnection.send(message);
-			}
+			if (this._isLocalGame) {
+				logger.info('Local game complete notification:', scores);
 
-			// Then through WebRTC (for peer)
-			if (!this._isLocalGame) {
-				const rtcConnection = group.get('game');
-				if (rtcConnection && rtcConnection.state.canSend) {
-					logger.debug('Sending game completion through WebRTC:', message);
-					rtcConnection.send(message);
+				// Even for local/AI games, still send the WebSocket message to reset room state
+				if (signalingConnection && signalingConnection.state.canSend) {
+					logger.debug('Sending game_complete for AI game to reset room state');
+					signalingConnection.send({
+						type: 'game_complete',
+						scores: scores
+					});
+					return true;
+				} else {
+					logger.warn('Could not send AI game completion - WebSocket connection unavailable');
+					return false;
+				}
+			} else {
+				// P2P game handling
+				if (signalingConnection && signalingConnection.state.canSend) {
+					logger.debug('Sending game_complete for P2P game');
+					signalingConnection.send({
+						type: 'game_complete',
+						scores: scores
+					});
+					return true;
+				} else {
+					logger.warn('Could not send P2P game completion - WebSocket connection unavailable');
+					return false;
 				}
 			}
-
-			// Send room state update
-			await this.sendRequest('update_room_state', {
-				state: 'LOBBY'
-			});
-
-			return true;
 		} catch (error) {
 			logger.error('Failed to send game completion:', error);
 			return false;
@@ -601,11 +416,16 @@ export class PongNetworkManager {
 	 */
 	async sendRequest(type, data) {
 		try {
-			const wsConnection = this.getWebSocketConnection();
+			const wsConnection = this._connections.get('signaling');
 			if (!wsConnection || !wsConnection.state.canSend) {
+				if (this._isLocalGame) {
+					logger.info(`Local game: would send ${type} request to server:`, data);
+					return true;
+				}
 				throw new Error('WebSocket connection not available');
 			}
 
+			logger.debug(`Sending ${type} request to server:`, data);
 			wsConnection.send({
 				type: type,
 				...data
@@ -618,30 +438,265 @@ export class PongNetworkManager {
 	}
 
 	/**
-	 * Sends score update through WebSocket
-	 * @param {Object} scores - Score object with left/right or player1/player2 scores
-	 * @returns {Promise<boolean>} Success status
+	 * Register an event handler for network-specific events
+	 * @param {string} event - The event name
+	 * @param {Function} callback - The callback function
+	 * @returns {Function} - Function to remove the handler
 	 */
-	async sendScoreUpdate(scores) {
-		try {
-			const wsConnection = this.getWebSocketConnection();
-			if (!wsConnection || !wsConnection.state.canSend) {
-				throw new Error('WebSocket connection not available');
-			}
+	on(event, callback) {
+		// Use the external event emitter directly
+		return this._eventEmitter.on(event, callback);
+	}
 
-			const scoreUpdate = {
-				type: 'update_scores',
-				scores: {
-					player1: scores.left || scores.player1,
-					player2: scores.right || scores.player2
+	/**
+	 * Remove an event handler
+	 * @param {string} event - The event name
+	 * @param {Function} callback - The callback function
+	 */
+	off(event, callback) {
+		this._eventEmitter.off(event, callback);
+	}
+
+	/**
+	 * Handle incoming messages, normalizing message types
+	 * @private
+	 * @param {Object} message - The message
+	 */
+	_handleMessage(message) {
+		// Normalize message type from snake_case to camelCase if necessary
+		const normalizedType = this._messageTypeMap[message.type] || message.type;
+		const handler = this._messageHandlers[normalizedType];
+
+		if (handler) {
+			try {
+				handler(message);
+			} catch (error) {
+				logger.error(`Error in message handler for ${normalizedType}:`, error);
+			}
+		} else {
+			// Forward unhandled messages directly to the event emitter
+			this._eventEmitter.emit('message', message);
+			this._eventEmitter.emit(normalizedType, message);
+		}
+	}
+
+	/**
+	 * Handle incoming WebSocket messages
+	 * @private
+	 * @param {Object} data - The message
+	 */
+	_handleWebSocketMessage(data) {
+		try {
+			switch (data.type) {
+				case 'webrtc_signal':
+					if (!this._isLocalGame)
+						connectionManager.handleWebRTCSignal(this._connectionGroupName, data.signal);
+					break;
+
+				case 'player_disconnected':
+					if (!this._gameFinished)
+						this._handleDisconnect();
+					break;
+
+				default:
+					// Use the unified message handler for all other message types
+					this._handleMessage(data);
+			}
+		} catch (error) {
+			logger.error('Error handling WebSocket message:', error);
+		}
+	}
+
+	/**
+	 * Handle WebRTC game messages
+	 * @private
+	 * @param {Object} data - The message
+	 */
+	_handleGameMessage(data) {
+		try {
+			this._handleMessage(data);
+		} catch (error) {
+			logger.error('Error handling game message:', error);
+		}
+	}
+
+	/**
+	 * Handle connection state changes
+	 * @private
+	 * @param {Object} state - The new state
+	 */
+	_handleStateChange(state) {
+		logger.info(`Connection state changed: ${state.name}`);
+
+		// For local games, we only need the WebSocket connection
+		if (this._isLocalGame) {
+			const signalingConnection = this._connections?.get('signaling');
+			if (signalingConnection && signalingConnection.state.name === 'connected') {
+				this._setConnectionState(ConnectionState.CONNECTED.name);
+				this._processMessageQueue();
+			} else if (signalingConnection && signalingConnection.state.name === 'error') {
+				this._setConnectionState(ConnectionState.ERROR.name);
+			}
+			return;
+		}
+
+		// For multiplayer games, check both connections
+		if (this._connections) {
+			const signalingConnection = this._connections.get('signaling');
+			const gameplayConnection = this._connections.get('gameplay');
+
+			if (signalingConnection.state.name === 'connected') {
+				if (gameplayConnection.state.name === 'connected') {
+					this._setConnectionState(ConnectionState.CONNECTED.name);
+					this._processMessageQueue();
+				} else if (this._connectionState !== ConnectionState.SIGNALING.name) {
+					this._setConnectionState(ConnectionState.SIGNALING.name);
+				}
+			} else if (signalingConnection.state.name === 'error' || gameplayConnection.state.name === 'error') {
+				this._setConnectionState(ConnectionState.ERROR.name);
+			}
+		}
+	}
+
+	/**
+	 * Handle connection errors
+	 * @private
+	 * @param {Error} error - The error
+	 */
+	_handleError(error) {
+		logger.error('Network error:', error);
+		this._setConnectionState(ConnectionState.ERROR.name);
+		this._eventEmitter.emit('networkError', { error });
+	}
+
+	/**
+	 * Handle disconnection
+	 * @private
+	 */
+	_handleDisconnect() {
+		if (this._gameFinished) return;
+
+		logger.warn('Connection lost, cleaning up');
+		this._eventEmitter.emit('networkDisconnect');
+		this._setConnectionState(ConnectionState.DISCONNECTED.name);
+	}
+
+	/**
+	 * Set the connection state
+	 * @private
+	 * @param {string} state - The new state
+	 */
+	_setConnectionState(state) {
+		if (this._connectionState === state) return;
+
+		logger.info(`Network connection state changing: ${this._connectionState} -> ${state}`);
+		this._connectionState = state;
+
+		// Emit state change event directly to the event emitter
+		this._eventEmitter.emit('networkStateChange', { state });
+	}
+
+	/**
+	 * Process the message queue
+	 * @private
+	 */
+	_processMessageQueue() {
+		if (this._messageQueue.length === 0) return;
+
+		logger.info(`Processing ${this._messageQueue.length} queued messages`);
+
+		// Process all queued messages
+		while (this._messageQueue.length > 0) {
+			const message = this._messageQueue.shift();
+			this.sendGameMessage(message, true);
+		}
+	}
+
+	/**
+	 * Wait until the connection state becomes CONNECTED
+	 * @param {number} timeout - Maximum wait time in ms
+	 * @returns {Promise<boolean>} - Returns true when connected, false when timed out
+	 */
+	async waitUntilConnected(timeout = 30000) {
+		logger.info('Waiting for connection to be established');
+
+		// If already connected, resolve immediately
+		if (this._connectionState === ConnectionState.CONNECTED.name) {
+			logger.debug('Already connected, resolving immediately');
+			return true;
+		}
+
+		return new Promise((resolve, reject) => {
+			// Set timeout for connection
+			const timeoutId = setTimeout(() => {
+				this._eventEmitter.off('networkStateChange', stateChangeHandler);
+				logger.warn('Timeout waiting for connection');
+				resolve(false); // Return false instead of rejecting on timeout
+			}, timeout);
+
+			// Handler for state change events
+			const stateChangeHandler = (event) => {
+				if (event.state === ConnectionState.CONNECTED.name) {
+					clearTimeout(timeoutId);
+					this._eventEmitter.off('networkStateChange', stateChangeHandler);
+					logger.info('Connection established successfully');
+					resolve(true);
+				} else if (event.state === ConnectionState.ERROR.name) {
+					clearTimeout(timeoutId);
+					this._eventEmitter.off('networkStateChange', stateChangeHandler);
+					reject(new Error('Connection failed with error'));
 				}
 			};
-			logger.debug('Sending score update:', scoreUpdate);
-			wsConnection.send(scoreUpdate);
-			return true;
-		} catch (error) {
-			logger.error('Failed to send score update:', error);
+
+			// Register state change handler
+			this._eventEmitter.on('networkStateChange', stateChangeHandler);
+
+			// Start connection if not already connecting
+			if (this._connectionState === ConnectionState.DISCONNECTED.name) {
+				logger.debug('Not connected, initiating connection');
+				this.connect().catch(error => {
+					clearTimeout(timeoutId);
+					this._eventEmitter.off('networkStateChange', stateChangeHandler);
+					reject(error);
+				});
+			}
+		});
+	}
+
+	/**
+	 * Check if the connection is established
+	 * @returns {boolean} - Whether the connection is established
+	 */
+	checkConnection() {
+		if (!this._connections) return false;
+
+		const signalingConnection = this._connections.get('signaling');
+		if (!signalingConnection || signalingConnection.state.name !== 'connected') {
 			return false;
+		}
+
+		// For local games, we only need the WebSocket connection
+		if (this._isLocalGame) {
+			return true;
+		}
+
+		// For multiplayer games, check both connections
+		const gameplayConnection = this._connections.get('gameplay');
+		return gameplayConnection && gameplayConnection.state.name === 'connected';
+	}
+
+	destroy() {
+		try {
+			this._gameFinished = true;
+			this._messageQueue = [];
+			if (this._connections) {
+				logger.debug('Cleaning up existing connections');
+				connectionManager.disconnectGroup(this._connectionGroupName);
+				connectionManager.removeConnectionGroup(this._connectionGroupName);
+				this._connections = null;
+			}
+		} catch (error) {
+			logger.warn('Error during PongNetworkManager destroy:', error);
 		}
 	}
 }

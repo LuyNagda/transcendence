@@ -11,7 +11,7 @@ export class RendererInterface {
 		throw new Error("Method 'initialize()' must be implemented");
 	}
 
-	render(gameState) {
+	render(gameState, gameMetadata, deltaTime) {
 		throw new Error("Method 'render()' must be implemented");
 	}
 
@@ -21,6 +21,10 @@ export class RendererInterface {
 
 	destroy() {
 		throw new Error("Method 'destroy()' must be implemented");
+	}
+
+	cleanup() {
+		return this.destroy();
 	}
 
 	// Optional methods that can be overridden

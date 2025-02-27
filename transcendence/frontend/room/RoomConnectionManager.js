@@ -2,7 +2,7 @@ import logger from '../logger.js';
 import { store, actions } from '../state/store.js';
 import { RoomStates } from '../state/roomState.js';
 import { connectionManager } from '../networking/ConnectionManager.js';
-import { ConnectionState } from '../networking/NetworkingCore.js';
+import { ConnectionState } from '../networking/BaseConnection.js';
 
 /**
  * Custom error types for room-specific errors
@@ -30,6 +30,7 @@ export const RoomErrorCodes = {
 
 	// Potentially retryable errors
 	GAME_CREATE_ERROR: 'GAME_CREATE_ERROR',
+	GAME_CONNECTION_ERROR: 'GAME_CONNECTION_ERROR',
 	INVALID_RESPONSE: 'INVALID_RESPONSE'
 };
 

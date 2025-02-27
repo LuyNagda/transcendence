@@ -157,9 +157,6 @@ export default class Room {
 		this._connectionManager = createRoomConnectionManager(this._roomId, connectionConfig);
 		this._uiManager = createRoomUIManager(this._roomId);
 		this._gameManager = createRoomGameManager(this._roomId, this._connectionManager);
-
-		// Update game manager with current user info
-		this._gameManager.setCurrentUser(this._currentUser);
 	}
 
 	_getRoomMode() {
@@ -209,6 +206,7 @@ export default class Room {
 		this._uiManager.setCancelInvitationHandler((invitationId) => this.cancelInvitation(invitationId));
 		this._uiManager.setModeChangeHandler((event) => this.handleModeChange(event));
 		this._uiManager.setInviteFriendHandler((friendId) => this.inviteFriend(friendId));
+		this._uiManager.setWebGLToggleHandler((useWebGL) => this.handleWebGLToggle(useWebGL));
 
 		// Set up game event handlers
 		this._gameManager.on('game_failure', (error) => {
@@ -293,7 +291,6 @@ export default class Room {
 	_handleSettingsUpdate(data) {
 		logger.info('[Room] Handling settings update:', data);
 		try {
-			// Update room settings in store
 			store.dispatch({
 				domain: 'room',
 				type: actions.room.UPDATE_ROOM_SETTINGS,
@@ -304,14 +301,6 @@ export default class Room {
 				}
 			});
 
-			// Update game manager if game is in progress
-			if (this._gameManager && this._gameManager.isGameInProgress()) {
-				this._gameManager.updateSettings({
-					[data.setting]: data.value
-				});
-			}
-
-			// Update UI
 			this._uiManager._handleRoomStateUpdate(store.getState('room'));
 		} catch (error) {
 			logger.error('[Room] Error handling settings update:', error);
@@ -646,6 +635,19 @@ export default class Room {
 				message: data.message,
 				variant: data.message_type
 			}
+		});
+	}
+
+	handleWebGLToggle(useWebGL) {
+		logger.info('[Room] Handling WebGL toggle:', useWebGL);
+
+		if (this._gameManager)
+			this._gameManager.setUseWebGL(useWebGL);
+
+		store.dispatch({
+			domain: 'room',
+			type: actions.room.TOGGLE_WEBGL,
+			payload: { useWebGL }
 		});
 	}
 

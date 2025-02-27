@@ -52,6 +52,12 @@ async function initializeApp() {
 		_initializeErrorHandling();
 		
 		store.initialize();
+		store.dispatch({
+			domain: 'config',
+			type: 'INITIALIZE',
+			payload: config
+		});
+
 		connectionManager.initialize();
 		
 		jaiPasVu.use(uiPlugin);

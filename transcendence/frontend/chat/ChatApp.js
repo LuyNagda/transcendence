@@ -4,7 +4,7 @@ import { store, actions } from '../state/store.js';
 import jaiPasVu from '../UI/JaiPasVu.js';
 import { chatActions } from '../state/chatState.js';
 import { USER_STATUS } from '../state/userState.js';
-import CookieService from '../networking/CookieService.js';
+import { getCookie } from '../utils.js';
 import { uiActions } from '../state/uiState.js';
 export default class ChatApp {
 	static #instance = null;
@@ -222,9 +222,9 @@ export default class ChatApp {
 
 			accept_game_invitation: (data) => {
 				if (data.success) {
-                    logger.info('Navigating to game room:', data);
+					logger.info('Navigating to game room:', data);
 					const url = `/pong/room/${data.data.room_id}/`;
-                    jaiPasVu.navigate(url);
+					jaiPasVu.navigate(url);
 				} else {
 					alert(data.error || 'Failed to join game. Room might be full.');
 				}
@@ -492,7 +492,7 @@ export default class ChatApp {
 		fetch(`/chat/history/${userId}/`, {
 			method: 'GET',
 			headers: {
-				'X-CSRFToken': CookieService.getCookie('csrftoken'),
+				'X-CSRFToken': getCookie('csrftoken'),
 				'Content-Type': 'application/json'
 			}
 		})
@@ -564,7 +564,7 @@ export default class ChatApp {
 		fetch(`/chat/${action}/${userId}/`, {
 			method: method,
 			headers: {
-				'X-CSRFToken': CookieService.getCookie('csrftoken'),
+				'X-CSRFToken': getCookie('csrftoken'),
 				'Content-Type': 'application/json'
 			}
 		})
@@ -686,17 +686,17 @@ export default class ChatApp {
 	}
 
 	blockUser() {
-        const userId = store.getState('chat').selectedUser.id;
+		const userId = store.getState('chat').selectedUser.id;
 		this.handleBlockAction(userId, true);
 	}
 
 	unblockUser() {
-        const userId = store.getState('chat').selectedUser.id;
+		const userId = store.getState('chat').selectedUser.id;
 		this.handleBlockAction(userId, false);
 	}
 
 	inviteToGame() {
-        const userId = store.getState('chat').selectedUser.id;
+		const userId = store.getState('chat').selectedUser.id;
 		let roomState = store.getState('room');
 		if (!roomState.id) {
 			alert('No room found');
@@ -711,7 +711,7 @@ export default class ChatApp {
 	}
 
 	removeFriend() {
-        const userId = store.getState('chat').selectedUser.id;
+		const userId = store.getState('chat').selectedUser.id;
 		logger.debug('[ChatApp] Removing friend with ID:', userId);
 		this._sendMessage({
 			type: 'remove_friend',
@@ -720,7 +720,7 @@ export default class ChatApp {
 	}
 
 	viewProfile() {
-        const userId = store.getState('chat').selectedUser.id;
+		const userId = store.getState('chat').selectedUser.id;
 		this._sendMessage({
 			type: 'get_profile',
 			user_id: userId

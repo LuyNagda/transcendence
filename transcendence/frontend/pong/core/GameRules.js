@@ -9,8 +9,8 @@ export class GameRules {
 	static RELAUNCH_TIME = 2000;
 
 	// Modifiable settings
-	static BASE_PADDLE_SPEED = 10;
-	static BASE_BALL_SPEED = 25;
+	static BASE_PADDLE_SPEED = 50;
+	static BASE_BALL_SPEED = 70;
 
 	static DIFFICULTY_LEVELS = {
 		EASY: 'Easy',
@@ -67,6 +67,39 @@ export class GameRules {
 		ballSpeed: 6,
 		paddleSize: 4,
 	};
+
+	/**
+	 * Calculate actual paddle height based on paddleSize setting
+	 * The formula is: BASE_HEIGHT + (paddleSize * 4)
+	 * This means each unit of paddleSize adds 4 pixels to the base height:
+	 * - paddleSize 1: 30 + 4 = 34 pixels
+	 * - paddleSize 5: 30 + 20 = 50 pixels
+	 * - paddleSize 10: 30 + 40 = 70 pixels
+	 * 
+	 * @param {number} paddleSize - Paddle size setting (1-10)
+	 * @returns {number} - Actual paddle height in pixels
+	 */
+	static calculatePaddleHeight(paddleSize = GameRules.DEFAULT_SETTINGS.paddleSize) {
+		return GameRules.BASE_PADDLE_HEIGHT + (paddleSize * 4);
+	}
+
+	/**
+	 * Calculate actual paddle speed based on paddleSpeed setting
+	 * @param {number} paddleSpeed - Paddle speed setting (1-10)
+	 * @returns {number} - Actual paddle speed in pixels per second
+	 */
+	static calculatePaddleSpeed(paddleSpeed = GameRules.DEFAULT_SETTINGS.paddleSpeed) {
+		return GameRules.BASE_PADDLE_SPEED * paddleSpeed;
+	}
+
+	/**
+	 * Calculate actual ball speed based on ballSpeed setting
+	 * @param {number} ballSpeed - Ball speed setting (1-10)
+	 * @returns {number} - Actual ball speed in pixels per second
+	 */
+	static calculateBallSpeed(ballSpeed = GameRules.DEFAULT_SETTINGS.ballSpeed) {
+		return GameRules.BASE_BALL_SPEED * ballSpeed;
+	}
 
 	static validateSetting(key, value) {
 		const schema = GameRules.SETTINGS_SCHEMA[key];

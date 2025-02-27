@@ -1,3 +1,4 @@
+import logger from '../../logger.js';
 import { RendererInterface } from './RendererInterface';
 import { vec3 } from 'gl-matrix';
 
@@ -26,6 +27,12 @@ export class WebGLRenderer extends RendererInterface {
 	}
 
 	initialize() {
+		// Check for WebGL support
+		if (!window.WebGLRenderingContext) {
+			logger.error('WebGL is not supported in this browser');
+			return false;
+		}
+
 		// Bind context handlers with proper fallbacks
 		const handleContextLost = (event) => {
 			event.preventDefault();
@@ -44,6 +51,12 @@ export class WebGLRenderer extends RendererInterface {
 		this._canvas.addEventListener('webglcontextrestored', handleContextRestored);
 
 		try {
+			const gl = this._canvas.getContext('webgl') || this._canvas.getContext('experimental-webgl');
+			if (!gl) {
+				logger.error('WebGL context could not be obtained');
+				return false;
+			}
+
 			this._setupBufferCanvas();
 			this._setupREGL();
 			this._createSpriteTexture();
@@ -51,7 +64,7 @@ export class WebGLRenderer extends RendererInterface {
 			this._startWebGLLoop();
 			return true;
 		} catch (error) {
-			console.error('WebGL initialization failed:', error);
+			logger.error('WebGL initialization failed:', error.name, error.message);
 			return false;
 		}
 	}
@@ -68,15 +81,27 @@ export class WebGLRenderer extends RendererInterface {
 	}
 
 	_setupREGL() {
-		const regl = require('regl');
-		this._regl = regl({
-			canvas: this._canvas,
-			attributes: {
-				antialias: true,
-				alpha: false,
-				preserveDrawingBuffer: true
-			}
-		});
+		try {
+			const regl = require('regl');
+			this._regl = regl({
+				canvas: this._canvas,
+				attributes: {
+					antialias: true,
+					alpha: false,
+					preserveDrawingBuffer: true
+				},
+				onDone: (err, reglInstance) => {
+					if (err) {
+						logger.error('Error creating REGL instance:', err);
+						throw err;
+					}
+					this._regl = reglInstance;
+				}
+			});
+		} catch (error) {
+			logger.error('Failed to initialize REGL:', error);
+			throw new Error('REGL initialization failed: ' + (error.message || 'Unknown error'));
+		}
 	}
 
 	_createSpriteTexture() {
@@ -235,6 +260,8 @@ export class WebGLRenderer extends RendererInterface {
 		// Clear buffer
 		this._bufferContext.fillStyle = '#000';
 		this._bufferContext.fillRect(0, 0, this._bufferW, this._bufferH);
+
+		if (!gameState) return;
 
 		// Calculate scale factors
 		const scaleX = this._bufferW / 858;

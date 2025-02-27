@@ -1,5 +1,7 @@
 import logger from '../logger.js';
-import { WebSocketConnection, WebRTCConnection } from './NetworkingCore.js';
+import { WebSocketConnection } from './WebsocketConnection.js';
+import { WebRTCConnection } from './WebRTCConnection.js';
+import { store } from '../state/store.js';
 
 /**
  * Factory object for creating different types of network connections
@@ -14,30 +16,49 @@ const ConnectionFactory = {
  */
 class ConnectionManager {
 	constructor() {
-		if (ConnectionManager.instance) {
-			return ConnectionManager.instance;
-		}
-		ConnectionManager.instance = this;
+		if (ConnectionManager._instance) return ConnectionManager._instance;
+		ConnectionManager._instance = this;
 
 		this._connections = new Map();
 		this._connectionGroups = new Map();
 		this._initialized = false;
-		this._config = null;
 	}
 
 	/**
 	 * Initializes the connection manager with default configurations
 	 * @param {Object} config Optional configuration object
 	 */
-	initialize(config = {}) {
+	initialize() {
 		if (this._initialized) {
 			logger.warn('[ConnectionManager] already initialized');
 			return;
 		}
 
-		this._config = config;
+		const config = store.getState('config');
+		this._rtcDefaultConfig = {
+			iceServers: [
+				{
+					urls: config.rtc?.stunUrl || 'stun:127.0.0.1:3478'
+				},
+				{
+					urls: [
+						config.rtc?.turnUrl1 || 'turn:127.0.0.1:3478',
+						config.rtc?.turnUrl2 || 'turn:127.0.0.1:5349'
+					],
+					username: config.rtc?.turnUsername || 'transcendence',
+					credential: config.rtc?.turnCredential || 'transcendence123'
+				}
+			],
+			iceTransportPolicy: 'all',
+			iceCandidatePoolSize: 0,
+			bundlePolicy: 'balanced',
+			rtcpMuxPolicy: 'require',
+			iceServersPolicy: 'all'
+		};
+
 		this._initialized = true;
-		logger.info('[ConnectionManager] initialized');
+
+		logger.debug('[ConnectionManager] ICE server configuration:', this._rtcDefaultConfig);
 	}
 
 	/**
@@ -58,11 +79,47 @@ class ConnectionManager {
 		const factory = ConnectionFactory[type];
 		if (!factory) throw new Error(`Unknown connection type: ${type}`);
 
+		// For WebRTC connections, merge with default config
+		if (type === 'webrtc') {
+			config.rtcConfig = config.rtcConfig ? {
+				...this._rtcDefaultConfig,
+				...config.rtcConfig,
+				isHost: config.isHost
+			} : {
+				...this._rtcDefaultConfig,
+				isHost: config.isHost
+			};
+		}
+
+		logger.info('[ConnectionManager] Creating connection', { type, name, config });
+
 		const connection = factory(name, config);
 		this._connections.set(name, connection);
+
+		// Set up common event logging
 		connection.on('stateChange', (state) => {
 			logger.info(`[ConnectionManager] Connection ${name} state changed to ${state.name}`);
 		});
+
+		// Set up WebRTC-specific event handling
+		if (type === 'webrtc') {
+			connection.on('iceConnectionStateChange', (state) => {
+				logger.debug(`[ConnectionManager] Connection ${name} ICE state: ${state}`);
+			});
+
+			connection.on('iceGatheringComplete', () => {
+				logger.debug(`[ConnectionManager] Connection ${name} ICE gathering complete`);
+			});
+
+			connection.on('iceTimeout', () => {
+				logger.warn(`[ConnectionManager] Connection ${name} ICE negotiation timeout`);
+			});
+
+			connection.on('iceRestartNeeded', () => {
+				logger.warn(`[ConnectionManager] Connection ${name} ICE restart needed`);
+				// The connection will handle the restart internally
+			});
+		}
 
 		return connection;
 	}
@@ -75,10 +132,38 @@ class ConnectionManager {
 	 */
 	createConnectionGroup(groupName, connections) {
 		const group = new Map();
+
+		// Create all connections in the group
 		for (const [name, config] of Object.entries(connections)) {
-			const connection = this.createConnection(config.type, `${groupName}:${name}`, config.config);
+			const connectionName = `${groupName}:${name}`;
+			const connection = this.createConnection(config.type, connectionName, config.config);
 			group.set(name, connection);
 		}
+
+		// Set up WebRTC signal relay if both WebSocket and WebRTC are in the group
+		const wsConnection = Array.from(group.entries())
+			.find(([_, conn]) => conn instanceof WebSocketConnection);
+		const rtcConnection = Array.from(group.entries())
+			.find(([_, conn]) => conn instanceof WebRTCConnection);
+
+		if (wsConnection && rtcConnection) {
+			const [wsName, ws] = wsConnection;
+			const [rtcName, rtc] = rtcConnection;
+
+			// Set up automatic signal relay from WebRTC to WebSocket
+			rtc.on('signal', (signal) => {
+				logger.debug(`[ConnectionManager] Relaying WebRTC signal from ${rtcName} through ${wsName}`);
+				if (ws.state.canSend) {
+					ws.send({
+						type: 'webrtc_signal',
+						signal: signal
+					});
+				} else {
+					logger.warn(`[ConnectionManager] Cannot relay signal - WebSocket not ready`);
+				}
+			});
+		}
+
 		this._connectionGroups.set(groupName, group);
 		return group;
 	}
@@ -132,10 +217,86 @@ class ConnectionManager {
 		if (!group) return false;
 
 		try {
-			await Promise.all(Array.from(group.values()).map(conn => conn.connect()));
+			// Connect WebSocket connections first
+			const wsConnections = Array.from(group.entries())
+				.filter(([_, conn]) => conn instanceof WebSocketConnection)
+				.map(([_, conn]) => conn);
+
+			if (wsConnections.length > 0) {
+				await Promise.all(wsConnections.map(conn => conn.connect()));
+			}
+
+			// Then connect WebRTC connections
+			const rtcConnections = Array.from(group.entries())
+				.filter(([_, conn]) => conn instanceof WebRTCConnection)
+				.map(([_, conn]) => conn);
+
+			if (rtcConnections.length > 0) {
+				await Promise.all(rtcConnections.map(conn => conn.connect()));
+			}
+
 			return true;
 		} catch (error) {
 			logger.error(`[ConnectionManager] Error connecting group ${groupName}:`, error);
+			return false;
+		}
+	}
+
+	/**
+	 * Handles WebRTC signaling for a connection group
+	 * @param {string} groupName - Name of the connection group
+	 * @param {Object} signal - WebRTC signaling data
+	 * @returns {Promise<boolean>} Success status
+	 */
+	async handleWebRTCSignal(groupName, signal) {
+		const group = this._connectionGroups.get(groupName);
+		if (!group) {
+			logger.warn(`[ConnectionManager] Cannot handle signal - group ${groupName} not found`);
+			return false;
+		}
+
+		// Find the WebRTC connection in the group
+		const rtcConnection = Array.from(group.values())
+			.find(conn => conn instanceof WebRTCConnection);
+
+		if (!rtcConnection) {
+			logger.warn(`[ConnectionManager] No WebRTC connection in group ${groupName}`);
+			return false;
+		}
+
+		try {
+			if (signal.type === 'offer') {
+				logger.debug(`[ConnectionManager] Handling offer for ${groupName}${signal.iceRestart ? ' (ICE restart)' : ''}`);
+				logger.debug(`Offer SDP: ${signal.sdp.substring(0, 100)}...`); // Log the first part of the SDP for debugging
+				await rtcConnection.handleOffer({
+					type: 'offer',
+					sdp: signal.sdp,
+					iceRestart: signal.iceRestart
+				});
+				return true;
+			} else if (signal.type === 'answer') {
+				logger.debug(`[ConnectionManager] Handling answer for ${groupName}`);
+				logger.debug(`Answer SDP: ${signal.sdp.substring(0, 100)}...`); // Log the first part of the SDP for debugging
+				await rtcConnection.handleAnswer({
+					type: 'answer',
+					sdp: signal.sdp
+				});
+				return true;
+			} else if (signal.type === 'candidate') {
+				logger.debug(`[ConnectionManager] Received ICE candidate for ${groupName}: ${signal.candidate.type} - ${signal.candidate.protocol}`);
+				if (signal.candidate) await rtcConnection.addIceCandidate(signal.candidate);
+				return true;
+			} else if (signal.type === 'iceRestart') {
+				logger.debug(`[ConnectionManager] Handling ICE restart request for ${groupName}`);
+				// This will trigger the WebRTC connection to create a new offer with ICE restart
+				rtcConnection.emit('iceRestartNeeded');
+				return true;
+			} else {
+				logger.warn(`[ConnectionManager] Unknown or malformed signal type: ${signal.type}`, signal);
+				return false;
+			}
+		} catch (error) {
+			logger.error(`[ConnectionManager] Error handling WebRTC signal:`, error);
 			return false;
 		}
 	}
@@ -169,7 +330,6 @@ class ConnectionManager {
 	destroy() {
 		this.disconnectAll();
 		this._initialized = false;
-		this._config = null;
 	}
 }
 

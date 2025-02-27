@@ -205,8 +205,11 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
             elif message_type == 'update_scores':
                 scores = data.get('scores', {})
-                player1_score = scores.get('player1', 0)
-                player2_score = scores.get('player2', 0)
+                player1_score = scores.get('left', 0)
+                player2_score = scores.get('right', 0)
+                logger.debug(f"Updating scores - game_id: {self.game_id}, scores: {player1_score}-{player2_score}", extra={
+                    'user_id': self.user.id
+                })
                 await self.update_game_state(player1_score, player2_score, 'ongoing')
 
             elif message_type == 'game_complete':
@@ -217,8 +220,8 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                     return
 
                 scores = data.get('scores', {})
-                player1_score = scores.get('player1', 0)
-                player2_score = scores.get('player2', 0)
+                player1_score = scores.get('left', 0)
+                player2_score = scores.get('right', 0)
 
                 logger.info(f"Game finished - game_id: {self.game_id}, scores: {player1_score}-{player2_score}", extra={
                     'user_id': self.user.id
@@ -244,6 +247,10 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                             'final_score': f"{player1_score}-{player2_score}"
                         }
                     )
+            else:
+                logger.warning(f"Received unknown message type: {message_type}", extra={
+                    'user_id': self.user.id
+                })
 
         except json.JSONDecodeError:
             logger.error(f'Invalid game JSON data: {text_data}', extra={
@@ -332,8 +339,8 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 'is_host': False
             },
             'scores': {
-                'player1': self.game.player1_score,
-                'player2': self.game.player2_score
+                'left': self.game.player1_score,
+                'right': self.game.player2_score
             },
             'status': self.game.status,
             'is_ai_game': self.game.player2_is_ai
@@ -389,3 +396,16 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             'user_id': event['user_id'],
             'is_host': event.get('is_host', False)
         }))
+
+    async def player_ready(self, event):
+        """Handles player_ready messages sent through the channel layer"""
+        try:
+            await self.send(text_data=json.dumps({
+                'type': 'player_ready',
+                'user_id': event.get('user_id'),
+                'is_host': event.get('is_host', False),
+            }))
+        except Exception as e:
+            logger.error(f"Error handling player_ready event: {str(e)}", extra={
+                'user_id': self.user.id
+            })
