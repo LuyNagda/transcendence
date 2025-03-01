@@ -1,5 +1,6 @@
 import logger from '../logger.js';
-import { ConnectionState, connectionManager } from '../networking/ConnectionManager.js';
+import { ConnectionState } from '../networking/BaseConnection.js'
+import { connectionManager } from '../networking/ConnectionManager.js';
 import { store } from '../state/store.js';
 import { gameActions } from '../state/gameState.js';
 

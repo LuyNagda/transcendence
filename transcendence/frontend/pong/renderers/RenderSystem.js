@@ -136,8 +136,9 @@ export class RenderSystem {
 
 		const canvasWidth = this.canvas.width;
 
-		const transformedState = state;
-		const transformedMetadata = metadata ? metadata : null;
+		// Create deep copies of state and metadata to avoid modifying originals
+		const transformedState = JSON.parse(JSON.stringify(state));
+		const transformedMetadata = metadata ? JSON.parse(JSON.stringify(metadata)) : null;
 
 		if (transformedState.ball) {
 			transformedState.ball.x = canvasWidth - transformedState.ball.x;

@@ -386,28 +386,46 @@ export class PongPhysics {
   }
 
   /**
-   * Apply authoritative state from network
+   * Apply the authoritative state from the host
    * @param {Object} authState - Authoritative state
-   * @param {number} interpolationFactor - Interpolation factor (0-1)
+   * @param {number} interpolationFactor - Base interpolation factor (0-1)
    */
-  applyAuthorityState(authState, interpolationFactor = 0.3) {
+  applyAuthorityState(authState, baseFactor = 0.3) {
     if (!authState) return;
 
     const { ball, leftPaddle, rightPaddle } = this.physicsState;
 
-    // Interpolate ball position and velocity
+    // Adaptive interpolation based on distance
+    // Apply higher interpolation for larger discrepancies to catch up faster
     if (authState.ball) {
-      ball.x = ball.x + (authState.ball.x - ball.x) * interpolationFactor;
-      ball.y = ball.y + (authState.ball.y - ball.y) * interpolationFactor;
-      ball.dx = ball.dx + (authState.ball.dx - ball.dx) * interpolationFactor;
-      ball.dy = ball.dy + (authState.ball.dy - ball.dy) * interpolationFactor;
+      // Calculate distance between current and authority position
+      const ballDist = Math.sqrt(
+        Math.pow(authState.ball.x - ball.x, 2) +
+        Math.pow(authState.ball.y - ball.y, 2)
+      );
+
+      // Increase interpolation factor based on distance
+      // For small differences, use base factor, for larger ones, increase up to 0.8
+      const ballFactor = Math.min(baseFactor + (ballDist / 100) * 0.5, 0.8);
+
+      ball.x = ball.x + (authState.ball.x - ball.x) * ballFactor;
+      ball.y = ball.y + (authState.ball.y - ball.y) * ballFactor;
+      ball.dx = authState.ball.dx; // Use exact velocity to prevent accumulated drift
+      ball.dy = authState.ball.dy; // Use exact velocity to prevent accumulated drift
     }
 
-    // Interpolate paddle positions
-    if (authState.leftPaddle)
-      leftPaddle.y = leftPaddle.y + (authState.leftPaddle.y - leftPaddle.y) * interpolationFactor;
-    if (authState.rightPaddle)
-      rightPaddle.y = rightPaddle.y + (authState.rightPaddle.y - rightPaddle.y) * interpolationFactor;
+    // Interpolate paddle positions with adaptive factor
+    if (authState.leftPaddle) {
+      const leftDist = Math.abs(authState.leftPaddle.y - leftPaddle.y);
+      const leftFactor = Math.min(baseFactor + (leftDist / 50) * 0.5, 0.8);
+      leftPaddle.y = leftPaddle.y + (authState.leftPaddle.y - leftPaddle.y) * leftFactor;
+    }
+
+    if (authState.rightPaddle) {
+      const rightDist = Math.abs(authState.rightPaddle.y - rightPaddle.y);
+      const rightFactor = Math.min(baseFactor + (rightDist / 50) * 0.5, 0.8);
+      rightPaddle.y = rightPaddle.y + (authState.rightPaddle.y - rightPaddle.y) * rightFactor;
+    }
   }
 
   /**

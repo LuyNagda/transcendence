@@ -21,8 +21,6 @@ export class RoomUIManager {
 		this.handleSettingChange = this.handleSettingChange.bind(this);
 		this.handleModeChange = this.handleModeChange.bind(this);
 		this.handleWebGLToggle = this.handleWebGLToggle.bind(this);
-
-		webglToggle.addEventListener('change', this.handleWebGLToggle);
 	}
 
 
