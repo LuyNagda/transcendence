@@ -8,10 +8,11 @@ sys.path.insert(0, project_root)
 from ai.ai import train_ai
 
 def main():
-    if (len(sys.argv) != 2):
+    if (len(sys.argv) != 3):
+        print(len(sys.argv))
         return print("Please provide a saved AI!")
     
-    save_file = sys.argv[1]
+    save_file = sys.argv[2]
 
     training_params = {
         'nb_generation': 100,
