@@ -712,9 +712,12 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def clean_tournament(self):
-        for game in self.room.tournament.pong_games.filter(status='finished'):
-            game.delete()
-            logger.info(f"Jeu {game.id} supprimé du tournoi {self.room.tournament.id}")
+        tournament = self.room.tournament
+        for game in tournament.pong_games.filter(status='finished'):
+            # Retire le jeu du tournoi sans le supprimer
+            tournament.pong_games.remove(game)
+            logger.info(f"Jeu {game.id} retiré du tournoi {tournament.id}")
+        tournament.save()
 
     @database_sync_to_async
     def tournament_finished(self):

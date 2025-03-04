@@ -75,7 +75,7 @@ def change_password(request):
 @permission_classes([IsAuthenticatedWithCookie])
 def games_history(request):
     player = User.objects.get(username=request.user.username)
-    games_history = PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(
+    games_history = PongGame.objects.filter(
         models.Q(player1=player) | 
         models.Q(player2=player)
 	).order_by('-created_at')[:5]
