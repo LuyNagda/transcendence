@@ -205,7 +205,6 @@ export default class Room {
 		this._uiManager.setKickPlayerHandler((playerId) => this.kickPlayer(playerId));
 		this._uiManager.setCancelInvitationHandler((invitationId) => this.cancelInvitation(invitationId));
 		this._uiManager.setModeChangeHandler((event) => this.handleModeChange(event));
-		this._uiManager.setInviteFriendHandler((friendId) => this.inviteFriend(friendId));
 		this._uiManager.setWebGLToggleHandler((useWebGL) => this.handleWebGLToggle(useWebGL));
 
 		// Set up game event handlers
@@ -590,19 +589,6 @@ export default class Room {
 		} catch (error) {
 			logger.error('[Room] Failed to kick player:', error);
 			throw error;
-		}
-	}
-
-	async inviteFriend(friendId) {
-		if (!this._getAvailableSlots()) {
-			logger.warn('[Room] Room is full');
-			return;
-		}
-
-		try {
-			await this._connectionManager.inviteFriend(friendId);
-		} catch (error) {
-			logger.error('[Room] Failed to invite friend:', error);
 		}
 	}
 

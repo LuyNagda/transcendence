@@ -16,7 +16,7 @@
                     <span v-if="[[player.isCurrentUser]]" class="badge bg-primary rounded-pill me-2"
                         aria-label="You">You</span>
                     <button v-if="[[player.canBeKicked]]" class="btn btn-danger btn-sm"
-                        v-on:click="kickPlayer(player.id)" aria-label="Kick player">
+                        v-on:click="kickPlayer([[player.id]])" aria-label="Kick player">
                         Kick
                     </button>
                 </div>
@@ -34,8 +34,8 @@
                     <span v-text="invitation.username"></span>
                     <div>
                         <span class="badge bg-warning rounded-pill me-2" aria-label="Pending">Pending</span>
-                        <button v-if="isOwner" class="btn btn-danger btn-sm"
-                            v-on:click="cancelInvitation(invitation.id)" aria-label="Cancel invitation">
+                        <button v-if="[[isOwner]]" class="btn btn-danger btn-sm"
+                            v-on:click="cancelInvitation([[invitation.id]])" aria-label="Cancel invitation">
                             Cancel
                         </button>
                     </div>

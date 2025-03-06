@@ -48,12 +48,20 @@ export class RoomUIManager {
 
 		jaiPasVu.registerMethods('room', {
 			kickPlayer: (playerId) => {
-				logger.debug('Kick player called:', playerId);
+				if (!playerId || playerId === '') {
+					logger.error('Invalid player ID for kick:', playerId);
+					return;
+				}
+				logger.debug('Kick player called with ID:', playerId);
 				this._callHandler('kickPlayer', playerId);
 			},
-			cancelInvitation: (invitationId) => {
-				logger.debug('Cancel invitation called:', invitationId);
-				this._callHandler('cancelInvitation', invitationId);
+			cancelInvitation: (playerId) => {
+				if (!playerId || playerId === '') {
+					logger.error('Invalid invitation ID for cancel:', playerId);
+					return;
+				}
+				logger.debug('Cancel invitation called with ID:', playerId);
+				this._callHandler('cancelInvitation', playerId);
 			},
 			startGame: () => {
 				logger.debug('Start game called');
@@ -176,7 +184,8 @@ export class RoomUIManager {
 				switch (code) {
 					case 'CONNECTION_LOST':
 					case 'CONNECTION_ERROR':
-					case 'PLAYER_COUNT_ERROR':  // Show player count errors as warnings
+					case 'PLAYER_COUNT_ERROR':
+					case 'PLAYER_KICKED':
 						return 'warning';
 					case 'VALIDATION_ERROR':
 					case 'INITIALIZATION_ERROR':
@@ -195,31 +204,6 @@ export class RoomUIManager {
 				return date.toLocaleTimeString();
 			}
 		});
-	}
-
-	_getMethods() {
-		return {
-			kickPlayer: (playerId) => {
-				logger.debug('Kick player called:', playerId);
-				this._callHandler('kickPlayer', playerId);
-			},
-			cancelInvitation: (invitationId) => {
-				logger.debug('Cancel invitation called:', invitationId);
-				this._callHandler('cancelInvitation', invitationId);
-			},
-			startGame: () => {
-				logger.debug('Start game called');
-				this._callHandler('startGame');
-			},
-			leaveGame: () => {
-				logger.debug('Leave game called');
-				this._callHandler('leaveGame');
-			},
-			getCurrentUser: () => store.getState('user'),
-			toggleInviteModal: () => this._toggleInviteModal(),
-			handleSettingChange: this.handleSettingChange,
-			handleModeChange: this.handleModeChange
-		};
 	}
 
 	_getComputedProps() {
@@ -290,10 +274,6 @@ export class RoomUIManager {
 
 	setModeChangeHandler(handler) {
 		this._eventHandlers.set('modeChange', handler);
-	}
-
-	setInviteFriendHandler(handler) {
-		this._eventHandlers.set('inviteFriend', handler);
 	}
 
 	setWebGLToggleHandler(handler) {

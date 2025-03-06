@@ -24,6 +24,7 @@ export const RoomErrorCodes = {
 	AI_MODE_RESTRICTED: 4005,
 	GAME_IN_PROGRESS: 4006,
 	PRIVATE_ROOM_NO_INVITE: 4007,
+	PLAYER_KICKED: 4008,
 	VALIDATION_ERROR: 'VALIDATION_ERROR',
 	ALREADY_PLAYING: 'ALREADY_PLAYING',
 	PLAYER_COUNT_ERROR: 'PLAYER_COUNT_ERROR',
@@ -208,6 +209,9 @@ export class RoomConnectionManager {
 				case RoomErrorCodes.PRIVATE_ROOM_NO_INVITE:
 					errorMessage = 'Cannot join private room: No invitation';
 					break;
+				case RoomErrorCodes.PLAYER_KICKED:
+					errorMessage = 'You have been kicked from the room';
+					break;
 				default:
 					if (event.code >= 4000) {
 						errorMessage = event.reason || 'Room access denied';
@@ -379,6 +383,15 @@ export class RoomConnectionManager {
 	async leaveGame() {
 		return this._sendRequest('leave_game');
 	}
+
+	async kickPlayer(playerId) {
+		return this._sendRequest('kick_player', { player_id: playerId });
+	}
+
+	async cancelInvitation(playerId) {
+		return this._sendRequest('cancel_invitation', { player_id: playerId });
+	}
+
 	// Getters for connections
 	getGameConnection() {
 		return this._connections.get('game');

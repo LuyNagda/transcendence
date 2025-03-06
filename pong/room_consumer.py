@@ -16,6 +16,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             self.user = self.scope.get("user")
             self.room_id = self.scope['url_route']['kwargs']['room_id']
             self.room_group_name = f'pong_room_{self.room_id}'
+            self._kicked = False
 
             logger.info(f'Room WebSocket connection attempt - room_id: {self.room_id}, authenticated: {getattr(self.user, "is_authenticated", False)}, scope_details: {{"type": self.scope.get("type"), "path": self.scope.get("path"), "headers": dict(self.scope.get("headers", []))}}', extra={
                 'user_id': getattr(self.user, 'id', None)
@@ -119,6 +120,10 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         try:
+            if hasattr(self, '_kicked') and self._kicked:
+                logger.info(f"Ignoring message from kicked player - room_id: {self.room_id}, user_id: {getattr(self.user, 'id', None)}")
+                return
+            
             responses = []
             response = None
             data = json.loads(text_data)
@@ -204,11 +209,16 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 else:
                     response = {'id': message_id, 'status': 'error', 'message': 'Failed to invite friend'}
             elif action == 'cancel_invitation':
-                await self.cancel_invitation(data['invitation_id'])
-                await self.update_room()
-                response = {'id': message_id, 'status': 'success', 'message': 'Invitation cancelled'}
+                player_id = data.get('player_id')
+                success = await self.cancel_invitation(player_id)
+                if success:  
+                    await self.update_room()
+                    response = {'id': message_id, 'status': 'success', 'message': 'Invitation cancelled'}
+                else:
+                    response = {'id': message_id, 'status': 'error', 'message': 'Failed to cancel invitation'}
             elif action == 'kick_player':
-                success = await self.kick_player(data['player_id'])
+                player_id = data.get('player_id')
+                success = await self.kick_player(player_id)
                 if success:
                     await self.update_room()
                     response = {'id': message_id, 'status': 'success', 'message': 'Player kicked'}
@@ -393,6 +403,10 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     async def send_room_update(self, event):
         """Send room state update to client"""
+        if hasattr(self, '_kicked') and self._kicked:
+            logger.info(f"Not sending room update to kicked player - room_id: {self.room_id}, user_id: {getattr(self.user, 'id', None)}")
+            return
+        
         room_state = event['room_state']
         await self.send(text_data=json.dumps({
             'type': 'room_update',
@@ -822,6 +836,109 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         return self.user == self.room.owner
 
     @database_sync_to_async
+    def kick_player(self, player_id):
+        """Kick a player from the room"""
+        try:
+            if not self.user == self.room.owner:
+                logger.error(f"Cannot kick player: Not the owner - room_id: {self.room_id}, player_id: {player_id}", extra={
+                    'user_id': self.user.id
+                })
+                return False
+            
+            if not player_id or player_id == "":
+                logger.error(f"Cannot kick player: Invalid player ID - room_id: {self.room_id}, player_id: {player_id}", extra={
+                    'user_id': self.user.id
+                })
+                return False
+                
+            try:
+                player = User.objects.get(id=player_id)
+            except User.DoesNotExist:
+                logger.error(f"Cannot kick player: Player not found - room_id: {self.room_id}, player_id: {player_id}", extra={
+                    'user_id': self.user.id
+                })
+                return False
+                
+            # Room owner can't kick themselves
+            if player.id == self.room.owner.id:
+                logger.error(f"Cannot kick player: Cannot kick room owner - room_id: {self.room_id}, player_id: {player_id}", extra={
+                    'user_id': self.user.id
+                })
+                return False
+                
+            # Remove player from room
+            if player in self.room.players.all():
+                self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'handle_player_kicked',
+                        'player_id': player.id
+                    }
+                )
+                                
+                self.room.players.remove(player)
+                
+                logger.info(f"Player kicked from room - room_id: {self.room_id}, player_id: {player_id}", extra={
+                    'user_id': self.user.id
+                })
+                return True
+            else:
+                logger.error(f"Cannot kick player: Player not in room - room_id: {self.room_id}, player_id: {player_id}", extra={
+                    'user_id': self.user.id
+                })
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error kicking player - error: {str(e)}, room_id: {self.room_id}, player_id: {player_id}", extra={
+                'user_id': self.user.id
+            })
+            return False
+            
+    @database_sync_to_async
+    def cancel_invitation(self, invitation_id):
+        """Cancel a pending invitation to the room"""
+        try:
+            if not self.user == self.room.owner:
+                logger.error(f"Cannot cancel invitation: Not the owner - room_id: {self.room_id}, invitation_id: {invitation_id}", extra={
+                    'user_id': self.user.id
+                })
+                return False
+                
+            if not invitation_id or invitation_id == "":
+                logger.error(f"Cannot cancel invitation: Invalid invitation ID - room_id: {self.room_id}, invitation_id: {invitation_id}", extra={
+                    'user_id': self.user.id
+                })
+                return False
+                
+            try:
+                invited_user = User.objects.get(id=invitation_id)
+            except User.DoesNotExist:
+                logger.error(f"Cannot cancel invitation: User not found - room_id: {self.room_id}, invitation_id: {invitation_id}", extra={
+                    'user_id': self.user.id
+                })
+                return False
+                
+            # Remove from pending invitations
+            if invited_user in self.room.pending_invitations.all():
+                self.room.pending_invitations.remove(invited_user)
+                
+                logger.info(f"Invitation canceled - room_id: {self.room_id}, invitation_id: {invitation_id}", extra={
+                    'user_id': self.user.id
+                })
+                return True
+            else:
+                logger.error(f"Cannot cancel invitation: User not in pending invitations - room_id: {self.room_id}, invitation_id: {invitation_id}", extra={
+                    'user_id': self.user.id
+                })
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error canceling invitation - error: {str(e)}, room_id: {self.room_id}, invitation_id: {invitation_id}", extra={
+                'user_id': self.user.id
+            })
+            return False
+
+    @database_sync_to_async
     def update_room_settings(self, setting, value):
         """Update room settings in database"""
         try:
@@ -913,3 +1030,28 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         """Ajoute un joueur éliminé au tournoi de manière thread-safe"""
         logger.debug(f"groscaca: {player}")
         self.room.tournament.eliminated.add(player)
+
+    async def handle_player_kicked(self, event):
+        """Handle player kicked event - only the kicked player will close their connection"""
+        player_id = event.get('player_id')
+        
+        try:
+            if str(self.user.id) == str(player_id):
+                logger.info(f"Processing kick for player - room_id: {self.room_id}, player_id: {player_id}")
+                self._kicked = True
+                await database_sync_to_async(self.room.players.remove)(self.user)
+                
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'code': 4008,
+                    'error': event.get('message', 'You have been kicked from the room')
+                }))
+                
+                try:
+                    await self.close(code=4008)
+                except Exception as e:
+                    logger.error(f"Error closing connection for kicked player - error: {str(e)}")
+                    # Fallback to normal close
+                    await self.close()
+        except Exception as e:
+            logger.error(f"Error handling player kicked - room_id: {self.room_id}, player_id: {player_id}, error: {str(e)}")
