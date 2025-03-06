@@ -244,6 +244,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         {
                             'type': 'game_finished',
                             'winner_id': self.game.player1.id if player1_score > player2_score else self.game.player2.id if self.game.player2 else None,
+							'loser': self.game.player1 if player1_score < player2_score else self.game.player2 if self.game.player2 else None,
                             'final_score': f"{player1_score}-{player2_score}"
                         }
                     )

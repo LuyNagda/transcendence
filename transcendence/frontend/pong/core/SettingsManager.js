@@ -91,11 +91,11 @@ export class SettingsManager {
 			...settings
 		};
 
-		logger.debug('Settings updated:', {
-			old: oldSettings,
-			new: this._settings,
-			changed: Object.keys(newSettings)
-		});
+		// logger.debug('Settings updated:', {
+		// 	old: oldSettings,
+		// 	new: this._settings,
+		// 	changed: Object.keys(newSettings)
+		// });
 	}
 
 	getSettings() {

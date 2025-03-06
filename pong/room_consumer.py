@@ -72,6 +72,13 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             # Send initial room state
             await self.update_room()
 
+            # Ajouter l'utilisateur à son groupe personnel
+            user_group = f"user_{self.user.id}"
+            await self.channel_layer.group_add(
+                user_group,
+                self.channel_name
+            )
+
         except Exception as e:
             logger.error(f"Error during connection - error_type: {type(e).__name__}, error_message: {str(e)}, traceback: {traceback.format_exc()}, room_id: {getattr(self, 'room_id', None)}", extra={
                 'user_id': getattr(self.user, 'id', None)
@@ -98,6 +105,13 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     await self.update_room()
             if hasattr(self, 'room_group_name') and hasattr(self, 'channel_name'):
                 await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+
+            # Retirer l'utilisateur de son groupe personnel
+            user_group = f"user_{self.user.id}"
+            await self.channel_layer.group_discard(
+                user_group,
+                self.channel_name
+            )
         except Exception as e:
             logger.error(f"Error during disconnect - error_type: {type(e).__name__}, error_message: {str(e)}, traceback: {traceback.format_exc()}", extra={
                 'user_id': getattr(self.user, 'id', None)
@@ -418,8 +432,41 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 await self.add_games_to_tournament(tournament, games)
 
             settings = self.room.settings or {}
-            
-            for game in games:                                    
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'room_info',
+                    'message': 'Round Started',
+                    'message_type': 'info',
+                    'timestamp': timezone.now().isoformat()
+                }
+            )
+            for game in games:
+
+                # Message pour le joueur 1
+                await self.channel_layer.group_send(
+                    f"user_{game.player1.id}",
+                    {
+                        'type': 'room_info',
+                        'message': f'Match starting against {game.player2.username if game.player2 else "AI"}',
+                        'message_type': 'info',
+                        'timestamp': timezone.now().isoformat()
+                    }
+                )
+
+                # Message pour le joueur 2 (si existe et n'est pas une IA)
+                if game.player2 and not game.player2_is_ai:
+                    await self.channel_layer.group_send(
+                        f"user_{game.player2.id}",
+                        {
+                            'type': 'room_info',
+                            'message': f'Match starting against {game.player1.username}',
+                            'message_type': 'info',
+                            'timestamp': timezone.now().isoformat()
+                        }
+                    )
+
                 event_data = {
                     'type': 'game_started',
                     'data': {
@@ -523,7 +570,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     async def game_started(self, event):
         """Handle game started event and send to client"""
-        logger.info(f"Handling game started event: {event}")
+        # logger.info(f"Handling game started event: {event}")
         
         # Extract data from the event
         event_data = event.get('data', {})
@@ -539,7 +586,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         if 'player2_id' in event_data:
             response_data['player2_id'] = event_data['player2_id']
 
-        logger.info(f"Sending game started response: {response_data}")
+        # logger.info(f"Sending game started response: {response_data}")
         await self.send(text_data=json.dumps(response_data))
 
     @database_sync_to_async
@@ -693,24 +740,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def check_loser(self):
-        """Identifie et supprime les perdants du tournoi"""
-        if self.room.mode != "TOURNAMENT" or not hasattr(self.room, 'tournament'):
-            return
-
-        eliminated = set()
-        current_players = list(self.room.players.all())
-        len_eliminated = 0
-        
-        for game in self.room.tournament.pong_games.filter(status='finished'):
-            logger.info(f"Scores du match {game.id}: Joueur1={game.player1_score}, Joueur2={game.player2_score}")
-            loser = game.player1 if game.player1_score < game.player2_score else game.player2
-            if loser and loser in current_players:
-                self.room.tournament.eliminated.add(loser)
-                len_eliminated += 1
-                logger.info(f"Joueurs éliminés du tournoi : {loser}")
-
-    @database_sync_to_async
     def clean_tournament(self):
         tournament = self.room.tournament
         for game in tournament.pong_games.filter(status='finished'):
@@ -721,6 +750,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def tournament_finished(self):
+        logger.debug(f"CACA {self.room.players.all()}, {self.room.tournament.eliminated.all()}")
         if len(self.room.players.all()) == len(self.room.tournament.eliminated.all()) + 1:
             # Récupérer le gagnant en excluant les perdants
             winner = next(player for player in self.room.players.all() if player not in self.room.tournament.eliminated.all())
@@ -745,13 +775,10 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     'winner_id': event['winner_id'],
                     'final_score': event['final_score']
                 }))
-                return
-
-            # Logique réservée à l'hôte
-            if self.room.mode == "TOURNAMENT":
-                await self.check_loser()
+                return                
 
             if self.room.state != 'LOBBY' and await self.all_game_finished():
+
                 await self.update_room_property('state', 'LOBBY')
                 await self.channel_layer.group_send(
                 self.room_group_name,
@@ -769,17 +796,19 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 'final_score': event['final_score']
             }))
 
-            await self.clean_tournament()
-            winner = await self.tournament_finished()
-            if winner:
-                await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'room_info',
-                    'message': f'{winner.username} win the tournament',
-                    'message_type': 'info',
-                    'timestamp': timezone.now().isoformat()
-                })
+            if self.room.mode == "TOURNAMENT":
+                # Corrigé avec un wrapper async pour l'opération de base de données
+                await self.add_eliminated_player(event['loser'])
+                winner = await self.tournament_finished()
+                if winner:
+                    await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'room_info',
+                        'message': f'{winner.username} win the tournament',
+                        'message_type': 'info',
+                        'timestamp': timezone.now().isoformat()
+                    })
 
             await self.update_room()
             
@@ -810,16 +839,11 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             self.room.settings = current_settings
             self.room.save()
             
-            logger.info(f"Settings updated - room: {self.room_id}, setting: {setting}, value: {value}")
+            #  logger.info(f"Settings updated - room: {self.room_id}, setting: {setting}, value: {value}")
             return True
         except Exception as e:
             logger.error(f"Error updating settings: {str(e)}")
             return False 
-
-    # @database_sync_to_async
-    # def get_room_player_ids(self):
-    #     """Récupère les IDs des joueurs dans la salle"""
-    #     return list(self.room.players.all().values_list('id', flat=True))
 
     def pair_players(self, player_ids: list, eliminated: list) -> list:
         """Group players into pairs for multiple concurrent games"""
@@ -883,3 +907,9 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             'message_type': event.get('message_type', 'info'),
             'timestamp': event.get('timestamp')
         }))
+
+    @database_sync_to_async
+    def add_eliminated_player(self, player):
+        """Ajoute un joueur éliminé au tournoi de manière thread-safe"""
+        logger.debug(f"groscaca: {player}")
+        self.room.tournament.eliminated.add(player)

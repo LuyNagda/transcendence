@@ -42,7 +42,7 @@ class JWTAuthMiddlewareInstance:
         cookies = {}
         if b'cookie' in headers:
             cookie_header = headers[b'cookie'].decode()
-            log.debug(f"Cookie header: {cookie_header}", extra={'user_id': 'N/A'})
+            # log.debug(f"Cookie header: {cookie_header}", extra={'user_id': 'N/A'})
             for cookie in cookie_header.split('; '):
                 if '=' in cookie:
                     key, value = cookie.split('=', 1)
@@ -50,7 +50,7 @@ class JWTAuthMiddlewareInstance:
         else:
             log.debug("No cookie header found", extra={'user_id': 'N/A'})
 
-        log.debug(f"Parsed cookies: {cookies}", extra={'user_id': 'N/A'})
+        # log.debug(f"Parsed cookies: {cookies}", extra={'user_id': 'N/A'})
 
         # Try to authenticate the user using the access token from cookies
         access_token = cookies.get('access_token')
