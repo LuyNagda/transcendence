@@ -49,13 +49,13 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             self.game_id = self.scope['url_route']['kwargs']['game_id']
             self.game_group_name = f'pong_game_{self.game_id}'
 
-            logger.info(f'Game WebSocket connection attempt - game_id: {self.game_id}, connection_state: {self.connection_state}', extra={
+            logger.info(f'[Game {self.game_id}] Game WebSocket connection attempt - connection_state: {self.connection_state}', extra={
                 'user_id': getattr(self.user, 'id', None)
             })
 
             # 1. Authentication check
             if not self.user or self.user.is_anonymous:
-                logger.warning(f"Unauthorized game connection attempt - game_id: {self.game_id}", extra={
+                logger.warning(f"[Game {self.game_id}] Unauthorized game connection attempt", extra={
                     'user_id': None
                 })
                 await self.close(code=4001)
@@ -78,7 +78,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 self.is_guest = self.user == self.game.player2 or self.game.player2_is_ai
 
                 if not self.is_host and not self.is_guest:
-                    logger.error(f"User not authorized for game - game_id: {self.game_id}, player1_id: {self.game.player1.id}, player2_id: {getattr(self.game.player2, 'id', None)}, is_ai: {self.game.player2_is_ai}", extra={
+                    logger.error(f"[Game {self.game_id}] User not authorized for game - player1_id: {self.game.player1.id}, player2_id: {getattr(self.game.player2, 'id', None)}, is_ai: {self.game.player2_is_ai}", extra={
                         'user_id': self.user.id
                     })
                     await self.close(code=4003)
@@ -86,7 +86,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
                 # 4. Check game status
                 if self.game.status != 'ongoing':
-                    logger.error(f"Game is not in ongoing state - game_id: {self.game_id}, status: {self.game.status}", extra={
+                    logger.error(f"[Game {self.game_id}] Game is not in ongoing state - status: {self.game.status}", extra={
                         'user_id': self.user.id
                     })
                     await self.close(code=4005)
@@ -120,7 +120,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         'is_ai_opponent': self.game.player2_is_ai
                     })
 
-                    logger.info(f"Game WebSocket connection accepted - game_id: {self.game_id}, is_host: {self.is_host}, connection_state: {self.connection_state}", extra={
+                    logger.info(f"[Game {self.game_id}] WebSocket connection accepted - is_host: {self.is_host}, connection_state: {self.connection_state}", extra={
                         'user_id': self.user.id
                     })
 
@@ -130,13 +130,13 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 })
                 await self.close(code=4004)
             except Exception as e:
-                logger.error(f"Error during game validation - error_type: {type(e).__name__}, error_message: {str(e)}, connection_state: {self.connection_state}, traceback: {traceback.format_exc()}", extra={
+                logger.error(f"[Game {self.game_id}] Error during game validation - error_type: {type(e).__name__}, error_message: {str(e)}, connection_state: {self.connection_state}, traceback: {traceback.format_exc()}", extra={
                     'user_id': self.user.id
                 })
                 await self.close(code=4002)
 
         except Exception as e:
-            logger.error(f"Critical error during connection - error_type: {type(e).__name__}, error_message: {str(e)}, connection_state: {getattr(self, 'connection_state', 'unknown')}, traceback: {traceback.format_exc()}", extra={
+            logger.error(f"[Game {self.game_id}] Critical error during connection - error_type: {type(e).__name__}, error_message: {str(e)}, connection_state: {getattr(self, 'connection_state', 'unknown')}, traceback: {traceback.format_exc()}", extra={
                 'user_id': getattr(self.user, 'id', None)
             })
             await self.close(code=4002)
@@ -183,12 +183,12 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 
                 # Validate signal types by role
                 if self.is_host and signal_type != 'offer':
-                    logger.warning(f"Host sent invalid signal type - expected 'offer'", extra={
+                    logger.warning(f"[Game {self.game_id}] Host sent invalid signal type - expected 'offer'", extra={
                         'user_id': self.user.id
                     })
                     return
                 elif not self.is_host and signal_type != 'answer':
-                    logger.warning(f"Guest sent invalid signal type - expected 'answer'", extra={
+                    logger.warning(f"[Game {self.game_id}] Guest sent invalid signal type - expected 'answer'", extra={
                         'user_id': self.user.id
                     })
                     return
@@ -207,7 +207,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 scores = data.get('scores', {})
                 player1_score = scores.get('left', 0)
                 player2_score = scores.get('right', 0)
-                logger.debug(f"Updating scores - game_id: {self.game_id}, scores: {player1_score}-{player2_score}", extra={
+                logger.debug(f"[Game {self.game_id}] Updating scores - {player1_score}-{player2_score}", extra={
                     'user_id': self.user.id
                 })
                 await self.update_game_state(player1_score, player2_score, 'ongoing')
@@ -223,7 +223,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 player1_score = scores.get('left', 0)
                 player2_score = scores.get('right', 0)
 
-                logger.info(f"Game finished - game_id: {self.game_id}, scores: {player1_score}-{player2_score}", extra={
+                logger.info(f"[Game {self.game_id}] Game finished - scores: {player1_score}-{player2_score}", extra={
                     'user_id': self.user.id
                 })
                 
@@ -276,16 +276,21 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
         # Don't send signal back to sender
         if sender_id != self.user.id:
-            logger.debug(f"Relaying WebRTC signal of type {event['signal']['type']} from user {sender_id}")
-            await self.send(text_data=json.dumps({
-                'type': 'webrtc_signal',
-                'signal': event['signal'],
-                'from_user': sender_id
-            }))
+            logger.debug(f"[Game {self.game_id}] Relaying WebRTC signal of type {event['signal']['type']} from user {sender_id}")
+            try:
+                await self.send(text_data=json.dumps({
+                    'type': 'webrtc_signal',
+                    'signal': event['signal'],
+                    'from_user': sender_id
+                }))
+            except Exception as e:
+                logger.warning(f"[Game {self.game_id}] Could not relay WebRTC signal: {str(e)}", extra={
+                    'user_id': getattr(self.user, 'id', None)
+                })
 
     async def disconnect(self, close_code):
         """Handles cleanup on connection close"""
-        logger.info(f"Game disconnection - game_id: {getattr(self, 'game_id', None)}, close_code: {close_code}", extra={
+        logger.info(f"[Game {self.game_id}] Game disconnection - close_code: {close_code}", extra={
             'user_id': getattr(self.user, 'id', None)
         })
         
@@ -309,7 +314,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                     await self.update_game_on_disconnect()
 
             except Exception as e:
-                logger.error(f"Error during disconnect cleanup - error: {str(e)}, traceback: {traceback.format_exc()}, game_id: {getattr(self, 'game_id', None)}", extra={
+                logger.error(f"[Game {self.game_id}] Error during disconnect cleanup - error: {str(e)}, traceback: {traceback.format_exc()}", extra={
                     'user_id': self.user.id
                 })
 
@@ -363,14 +368,19 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
     async def notify_player_ready(self, event):
         """Notifies clients about player connection status"""
-        await self.send(text_data=json.dumps({
-            'type': 'player_ready',
-            'user_id': event['user_id'],
-            'username': event['username'],
-            'is_host': event['is_host'],
-            'is_ai_opponent': event.get('is_ai_opponent', False),
-            'connection_state': self.connection_state
-        }))
+        try:
+            await self.send(text_data=json.dumps({
+                'type': 'player_ready',
+                'user_id': event['user_id'],
+                'username': event['username'],
+                'is_host': event['is_host'],
+                'is_ai_opponent': event.get('is_ai_opponent', False),
+                'connection_state': self.connection_state
+            }))
+        except Exception as e:
+            logger.warning(f"[Game {self.game_id}] Could not send player_ready notification: {str(e)}", extra={
+                'user_id': getattr(self.user, 'id', None)
+            })
 
     @database_sync_to_async
     def update_game_on_disconnect(self):
@@ -391,11 +401,16 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
     async def player_disconnected(self, event):
         """Broadcasts player disconnection to remaining clients"""
-        await self.send(text_data=json.dumps({
-            'type': 'player_disconnected',
-            'user_id': event['user_id'],
-            'is_host': event.get('is_host', False)
-        }))
+        try:
+            await self.send(text_data=json.dumps({
+                'type': 'player_disconnected',
+                'user_id': event['user_id'],
+                'is_host': event.get('is_host', False)
+            }))
+        except Exception as e:
+            logger.warning(f"[Game {self.game_id}] Could not send player_disconnected notification: {str(e)}", extra={
+                'user_id': getattr(self.user, 'id', None)
+            })
 
     async def player_ready(self, event):
         """Handles player_ready messages sent through the channel layer"""

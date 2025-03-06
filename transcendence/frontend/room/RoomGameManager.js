@@ -88,9 +88,12 @@ export class RoomGameManager {
 				throw new Error('Game canvas not found');
 
 			const roomState = store.getState('room');
+
+			logger.info(`[RoomGameManager] Initializing game ${gameId} with isHost=${isHost}, room mode=${roomState.mode}`);
+
 			const gameOptions = {
 				gameId: gameId,
-				isHost: roomState.mode === 'AI' || (roomState.owner && roomState.owner.id === store.getState('user').id),
+				isHost: roomState.mode === 'AI' ? true : isHost,
 				useWebGL: roomState.useWebGL,
 				settings: roomState.settings
 			};
