@@ -1,12 +1,72 @@
 import logger from '../logger.js';
 import { store } from '../state/store.js'
 import { aiActions } from '../state/aiState.js'
+import { connectionManager } from '../networking/ConnectionManager.js';
+
+// Function to initialize the AI WebSocket connection
+function initializeAiSocket() {
+    const aiConnectionGroup = connectionManager.createConnectionGroup('ai', {
+        main: {
+            type: 'websocket',
+            config: {
+                endpoint: '/ws/ai-training/',
+                options: {
+                    maxReconnectAttempts: 5,
+                    reconnectInterval: 1000,
+                    connectionTimeout: 10000
+                }
+            }
+        }
+    });
+
+    aiConnectionGroup.get('main').on('message', (data) => {
+        if (data.type === 'ai_training_started') {
+            store.dispatch({
+                domain: 'ai',
+                type: aiActions.START_TRAINING
+            });
+        } else if (data.type === 'ai_training_ended') {
+            store.dispatch({
+                domain: 'ai',
+                type: aiActions.END_TRAINING
+            });
+        }
+    });
+
+    aiConnectionGroup.get('main').on('close', () => {
+        logger.info('[AiManager] AI WebSocket connection closed');
+        // Attempt to reconnect after a delay
+        setTimeout(initializeAiSocket, 5000);
+    });
+
+    aiConnectionGroup.get('main').on('error', (error) => {
+        logger.error('[AiManager] AI WebSocket error:', error);
+    });
+
+    connectionManager.connectGroup('ai');
+}
+
+function sendTrainingStatusToServer(isTrainingInProgress) {
+    const aiConnection = connectionManager.getConnection('ai:main');
+    if (aiConnection && aiConnection.state.canSend) {
+        const messageType = isTrainingInProgress ? 'ai_training_started' : 'ai_training_ended';
+        aiConnection.send({ type: messageType });
+    } else {
+        logger.warn('[AiManager] Cannot send training status - WebSocket not ready');
+    }
+}
 
 // Function to handle training button state
 function updateTrainingButtonState(isTrainingInProgress) {
     const trainingButton = document.getElementById('train-ai-btn');
     if (trainingButton) {
         trainingButton.disabled = isTrainingInProgress;
+
+        if (isTrainingInProgress) {
+            trainingButton.innerText = 'Training in progress ...'
+        } else {
+            trainingButton.innerText = 'Start Training'
+        }
     }
 }
 
@@ -22,6 +82,7 @@ function startTraining() {
         domain: 'ai',
         type: aiActions.START_TRAINING
     });
+    sendTrainingStatusToServer(true);
 }
 
 function endTraining() {
@@ -29,10 +90,13 @@ function endTraining() {
         domain: 'ai',
         type: aiActions.END_TRAINING
     });
+    sendTrainingStatusToServer(false);
 }
 
 export async function initializeAiManager() {
     logger.info(`Initialization of AiManager...`);
+
+    initializeAiSocket();
 
     const trainButton = document.getElementById("train-ai-btn");
     const deleteButton = document.getElementById("delete-ai-btn");
@@ -207,8 +271,8 @@ export async function initializeAiManager() {
             // Update the log on error
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error deleting AI: ${error.message}`;
+        } finally {
+            enabled_buttons()
         }
-
-        enabled_buttons()
     });
 }

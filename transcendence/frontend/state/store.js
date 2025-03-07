@@ -609,7 +609,8 @@ class Store {
 			chat: initialChatState,
 			room: initialRoomState,
 			game: initialGameState,
-			ui: initialUIState
+			ui: initialUIState,
+			ai: initialAiState
 		};
 
 		// Clear localStorage
