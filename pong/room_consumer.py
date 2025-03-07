@@ -781,6 +781,8 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         Handle game finished event and update room state
         """
         try:
+            if self.room.mode == "TOURNAMENT":
+                await self.add_eliminated_player(event['loser'])
             # Vérifier si l'utilisateur courant est l'hôte de la salle
             if not await self.is_room_owner():
                 # Envoyer seulement la notification aux clients
@@ -794,14 +796,36 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             if self.room.state != 'LOBBY' and await self.all_game_finished():
 
                 await self.update_room_property('state', 'LOBBY')
-                await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'room_info',
-                    'message': 'Round finished',
-                    'message_type': 'info',
-                    'timestamp': timezone.now().isoformat()
-                })
+                
+                if self.room.mode == "TOURNAMENT":
+                    winner = await self.tournament_finished()
+                    if winner:
+                        await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'room_info',
+                            'message': f'{winner.username} win the tournament',
+                            'message_type': 'info',
+                            'timestamp': timezone.now().isoformat()
+                        })
+                    else:
+                        await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'room_info',
+                            'message': 'Round finished',
+                            'message_type': 'info',
+                            'timestamp': timezone.now().isoformat()
+                        })
+                else:
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'room_info',
+                            'message': 'Game finished',
+                            'message_type': 'info',
+                            'timestamp': timezone.now().isoformat()
+                        })
 
             # Send game finished notification to clients
             await self.send(text_data=json.dumps({
@@ -810,19 +834,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 'final_score': event['final_score']
             }))
 
-            if self.room.mode == "TOURNAMENT":
-                # Corrigé avec un wrapper async pour l'opération de base de données
-                await self.add_eliminated_player(event['loser'])
-                winner = await self.tournament_finished()
-                if winner:
-                    await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'room_info',
-                        'message': f'{winner.username} win the tournament',
-                        'message_type': 'info',
-                        'timestamp': timezone.now().isoformat()
-                    })
+            
 
             await self.update_room()
             
