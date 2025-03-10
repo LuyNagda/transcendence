@@ -1,6 +1,5 @@
 import os, json, multiprocessing, re, logging
 import numpy as np
-from django.core.files.storage import default_storage
 from ai.gamesimulation import train_normal
 
 logger = logging.getLogger(__name__)
@@ -295,8 +294,6 @@ def train_ai(save_file, training_params):
         for training_log, point, Ai_nb in training_results:
             log_score += training_log + "\n"
             Ai_Sample[Ai_nb].ai_score = point
-
-        logger.info(log_score)
 
         Save_Best_Ai(Ai_Sample, save_file)
         backup_file(save_file, j + 1)
