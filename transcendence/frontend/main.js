@@ -30,6 +30,7 @@ function waitForElement(selector, callback) {
 		logger.info(`[Waiting] waitForElement :`, selector);
 
 		if (document.querySelector(selector)) {
+			logger.info(`[Waiting end] Element is ready :`, selector);
             callback();
             obs.disconnect();  // Stop observing once the element is found
         }
