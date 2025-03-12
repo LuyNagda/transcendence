@@ -22,6 +22,8 @@ MAX_MAX_SCORE = 1000
 training_lock = threading.Lock()
 IN_TRAINING = False
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedWithCookie])
 def send_ai_to_front(request, ai_name):
     # Use Path or os.path to create a proper file path
     save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
@@ -43,7 +45,7 @@ def send_ai_to_front(request, ai_name):
     except json.JSONDecodeError:
         return JsonResponse({"error": "Failed to decode AI data"}, status=500)
 
-@api_view(['GET', 'POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def ai_manager(request):
     access_token = request.COOKIES.get('access_token')
@@ -121,6 +123,8 @@ def training(request):
         with training_lock:
             IN_TRAINING = False
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedWithCookie])
 def list_saved_ai(request):
     """
     View to list all saved AI files in the './saved_ai' directory.
@@ -151,7 +155,7 @@ def delete_saved_ai(request):
         data = json.loads(request.body)
         ai_name = data.get('ai_name', 'default')
 
-        invalid_ai = ["best_ai", "Hard", "Medium", "Easy"]
+        invalid_ai = ["Hard", "Medium", "Easy"]
         if ai_name in invalid_ai:
             return JsonResponse({"error": f"The file '{ai_name}' cannot be removed"}, safe=False, status=403)        
 
