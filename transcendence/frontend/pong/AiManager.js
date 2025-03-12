@@ -1,12 +1,84 @@
 import logger from '../logger.js';
 import { store } from '../state/store.js'
 import { aiActions } from '../state/aiState.js'
+import { connectionManager } from '../networking/ConnectionManager.js';
+
+// Function to initialize the AI WebSocket connection
+function initializeAiSocket() {
+    const aiConnectionGroup = connectionManager.createConnectionGroup('ai', {
+        main: {
+            type: 'websocket',
+            config: {
+                endpoint: '/ws/ai-training/',
+                options: {
+                    maxReconnectAttempts: 5,
+                    reconnectInterval: 1000,
+                    connectionTimeout: 10000
+                }
+            }
+        }
+    });
+
+    aiConnectionGroup.get('main').on('message', (data) => {
+        if (data.type === 'ai_training_started') {
+            store.dispatch({
+                domain: 'ai',
+                type: aiActions.START_TRAINING
+            });
+        } else if (data.type === 'ai_training_ended') {
+            store.dispatch({
+                domain: 'ai',
+                type: aiActions.END_TRAINING
+            });
+        } else if (data.type === 'ai_modified') {
+            logger.info('AiManager] ai_modified message received')
+            fetchSavedAIs()
+        }
+    });
+
+    aiConnectionGroup.get('main').on('close', () => {
+        logger.info('[AiManager] AI WebSocket connection closed');
+    });
+
+    aiConnectionGroup.get('main').on('error', (error) => {
+        logger.error('[AiManager] AI WebSocket error:', error);
+    });
+
+    connectionManager.connectGroup('ai');
+}
+
+function sendTrainingStatusToServer(isTrainingInProgress) {
+    const aiConnection = connectionManager.getConnection('ai:main');
+    if (aiConnection && aiConnection.state.canSend) {
+        const messageType = isTrainingInProgress ? 'ai_training_started' : 'ai_training_ended';
+        aiConnection.send({ type: messageType });
+    } else {
+        logger.warn('[AiManager] Cannot send training status - WebSocket not ready');
+    }
+}
 
 // Function to handle training button state
 function updateTrainingButtonState(isTrainingInProgress) {
     const trainingButton = document.getElementById('train-ai-btn');
     if (trainingButton) {
         trainingButton.disabled = isTrainingInProgress;
+
+        if (isTrainingInProgress) {
+            trainingButton.innerText = 'Training in progress ...'
+        } else {
+            trainingButton.innerText = 'Start Training'
+        }
+    }
+
+    const deleteButton = document.getElementById("delete-ai-btn");
+    if (deleteButton) {
+        deleteButton.disabled = isTrainingInProgress;
+
+        if (isTrainingInProgress) {
+            deleteButton.innerText = 'Server is busy ...'
+        } else {
+            deleteButton.innerText = 'Delete AI'
+        }
     }
 }
 
@@ -22,6 +94,7 @@ function startTraining() {
         domain: 'ai',
         type: aiActions.START_TRAINING
     });
+    sendTrainingStatusToServer(true);
 }
 
 function endTraining() {
@@ -29,10 +102,49 @@ function endTraining() {
         domain: 'ai',
         type: aiActions.END_TRAINING
     });
+    sendTrainingStatusToServer(false);
+}
+
+// Fetch saved AIs and populate the dropdown
+async function fetchSavedAIs() {
+    logger.info(`Fetching saved AIs...`);
+
+    const dropdown = document.getElementById("saved-ai-dropdown");
+    const managingLog = document.getElementById('managing-log');
+    managingLog.style.display = 'block';
+
+    try {
+        const response = await fetch('/ai/list-saved-ai', {
+            method: 'GET'
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.error || 'Fetching saved AIs failed');
+        }
+
+        const data = await response.json();
+        dropdown.innerHTML = '<option value="" disabled selected>Select AI to delete</option>';
+        const disabled_ai = ["Hard", "Medium", "Easy"];
+        data.saved_ai.forEach(ai => {
+            const option = document.createElement("option");
+            option.value = ai;
+            option.textContent = ai;
+            if (disabled_ai.includes(ai))
+                option.disabled = true;
+            dropdown.appendChild(option);
+            logger.info(`AIs fetched successfully`);
+        });
+    } catch (error) {
+        managingLog.className = 'alert alert-danger';
+        managingLog.innerText = `Error: ${error.message}`;
+    }
 }
 
 export async function initializeAiManager() {
     logger.info(`Initialization of AiManager...`);
+
+    initializeAiSocket();
 
     const trainButton = document.getElementById("train-ai-btn");
     const deleteButton = document.getElementById("delete-ai-btn");
@@ -44,50 +156,6 @@ export async function initializeAiManager() {
     await fetchSavedAIs();
 
     logger.info(`AiManager inatialized successfully`);
-
-    // Fetch saved AIs and populate the dropdown
-    async function fetchSavedAIs() {
-		logger.info(`Fetching saved AIs...`);
-
-        try {
-            const response = await fetch('/ai/list-saved-ai', {
-                method: 'GET'
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Fetching saved AIs failed');
-            }
-
-            const data = await response.json();
-            dropdown.innerHTML = '<option value="" disabled selected>Select AI to delete</option>';
-            const disabled_ai = ["Hard", "Medium", "Easy"];
-            data.saved_ai.forEach(ai => {
-                const option = document.createElement("option");
-                option.value = ai;
-                option.textContent = ai;
-                if (disabled_ai.includes(ai))
-                    option.disabled = true;
-                dropdown.appendChild(option);
-                logger.info(`AIs fetched successfully`);
-            });
-        } catch (error) {
-            managingLog.className = 'alert alert-danger';
-            managingLog.innerText = `Error: ${error.message}`;
-        }
-    }
-
-    // Disable all the page's buttons
-    function disabled_buttons() {
-        document.getElementById("delete-ai-btn").disabled = true;
-        document.getElementById("train-ai-btn").disabled = true;
-    }
-
-    // Enable all the page's buttons
-    function enabled_buttons() {
-        document.getElementById("delete-ai-btn").disabled = false;
-        document.getElementById("train-ai-btn").disabled = false;
-    }
 
     trainButton.addEventListener("click", async () => {
         startTraining();
@@ -155,9 +223,6 @@ export async function initializeAiManager() {
             managingLog.className = 'alert alert-success';
             managingLog.innerText = data.log || 'Training completed successfully.';
 
-            // Refresh the dropdown
-            fetchSavedAIs();
-
         } catch (error) {
             // Update the log on error
             managingLog.className = 'alert alert-danger';
@@ -169,12 +234,9 @@ export async function initializeAiManager() {
 
     // Handle Delete AI button click
     deleteButton.addEventListener("click", async () => {
-        disabled_buttons();
-
         const selectedAI = dropdown.value;
         if (!selectedAI) {
             alert("Please select an AI to delete!");
-            enabled_buttons();
             return;
         }
         managingLog.innerText = `Request for deleting AI '${selectedAI}'...`;
@@ -193,7 +255,6 @@ export async function initializeAiManager() {
             const data = await response.json();
 
             if (!response.ok) {
-                enabled_buttons();
                 throw new Error(data.error || 'Deleting saved AIs failed');
             }
 
@@ -201,14 +262,11 @@ export async function initializeAiManager() {
             managingLog.className = 'alert alert-success';
             managingLog.innerText = `AI successfully deleted: ${data.message}`;
 
-            // Refresh the dropdown
-            fetchSavedAIs();
         } catch (error) {
             // Update the log on error
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error deleting AI: ${error.message}`;
+        } finally {
         }
-
-        enabled_buttons()
     });
 }
