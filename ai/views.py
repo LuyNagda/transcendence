@@ -5,6 +5,8 @@ from django.conf import settings
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 # Constants for parameter validation
 MIN_GENERATIONS = 1
@@ -96,6 +98,13 @@ def training(request):
         save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
         log = ai.train_ai(save_file, training_params)
 
+        # Send notification via WebSocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            'ai_group',
+            {'type': 'ai_modified'}
+        )
+
         return JsonResponse({
             "status": "success",
             "log": log,
@@ -150,6 +159,13 @@ def delete_saved_ai(request):
 
         if os.path.exists(save_file):
             os.remove(save_file)
+
+            # Send notification via WebSocket
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                'ai_group',
+                {'type': 'ai_modified'}
+            )
             return JsonResponse({"message": f"The file '{ai_name}' has been removed"}, status=200)
         else:
             return JsonResponse({"error": f"The file '{ai_name}' does not exist"}, status=404)

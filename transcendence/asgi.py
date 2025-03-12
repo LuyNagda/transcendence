@@ -18,13 +18,15 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from authentication.middleware import JWTAuthMiddleware, WebSocketNotFoundMiddleware
 import chat.routing
 import pong.routing
+import ai.routing
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
     "websocket": WebSocketNotFoundMiddleware(JWTAuthMiddleware(
         URLRouter(
             chat.routing.websocket_urlpatterns +  
-            pong.routing.websocket_urlpatterns 
+            pong.routing.websocket_urlpatterns +
+			ai.routing.websocket_urlpatterns
         )
     )),
 })
