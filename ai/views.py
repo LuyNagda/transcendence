@@ -45,9 +45,15 @@ def send_ai_to_front(request, ai_name):
     except json.JSONDecodeError:
         return JsonResponse({"error": "Failed to decode AI data"}, status=500)
 
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def ai_manager(request):
+    if not request.body:
+        return JsonResponse({"error": "Request body is empty"}, status=400)
+    
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     user = request.user
@@ -69,6 +75,9 @@ def training(request):
         if request.method != 'POST':
             return JsonResponse({"error": "Only POST method is allowed"}, status=405)
 
+        if not request.body:
+            return JsonResponse({"error": "Request body is empty"}, status=400)
+        
         # Parse JSON body
         data = json.loads(request.body)
         ai_name = data.get('ai_name', 'default')
@@ -114,6 +123,7 @@ def training(request):
 
     except ValueError as e:
         return JsonResponse({"error": "Invalid parameter values"}, status=400)
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -147,10 +157,13 @@ def list_saved_ai(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def delete_saved_ai(request):
-    if request.method != 'POST':
-        return JsonResponse({"error": "Only POST method is allowed"}, status=405)
-
     try:
+        if request.method != 'POST':
+            return JsonResponse({"error": "Only POST method is allowed"}, status=405)
+
+        if not request.body:
+            return JsonResponse({"error": "Request body is empty"}, status=400)
+
         # Parse JSON body
         data = json.loads(request.body)
         ai_name = data.get('ai_name', 'default')
@@ -176,6 +189,7 @@ def delete_saved_ai(request):
     
     except ValueError as e:
         return JsonResponse({"error": "Invalid parameter values"}, status=400)
+
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
