@@ -178,3 +178,10 @@ def delete_saved_ai(request):
         return JsonResponse({"error": "Invalid parameter values"}, status=400)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedWithCookie])
+def get_training_status(request):
+    global IN_TRAINING
+    with training_lock:
+        return JsonResponse({"in_training": IN_TRAINING})

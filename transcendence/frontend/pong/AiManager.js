@@ -141,22 +141,59 @@ async function fetchSavedAIs() {
     }
 }
 
+async function fetchTrainingStatus() {
+    try {
+        logger.info('[AiManager] Fetching training\'s status');
+
+        // Get CSRF token
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        const response = await fetch('/ai/training-status/', {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Fetching training status failed');
+        }
+
+        const data = await response.json();
+
+        if (data.in_training) {
+            store.dispatch({
+                domain: 'ai',
+                type: aiActions.START_TRAINING
+            });
+        } else {
+            store.dispatch({
+                domain: 'ai',
+                type: aiActions.END_TRAINING
+            });
+        }
+
+        logger.info('[AiManager] Fetching training\'s status successed')
+    } catch (error) {
+        logger.error('[AiManager] Fetching training status failed', error)
+    }
+}
+
 export async function initializeAiManager() {
     logger.info(`Initialization of AiManager...`);
-
-    initializeAiSocket();
-
-    const trainButton = document.getElementById("train-ai-btn");
-    const deleteButton = document.getElementById("delete-ai-btn");
-    const dropdown = document.getElementById("saved-ai-dropdown");
     const managingLog = document.getElementById('managing-log');
     managingLog.style.display = 'block';
 
+    initializeAiSocket();
+    await fetchTrainingStatus();
+    
     // Initial fetch of saved AIs
     await fetchSavedAIs();
-
+    
     logger.info(`AiManager inatialized successfully`);
-
+    
+    const trainButton = document.getElementById("train-ai-btn");
     trainButton.addEventListener("click", async () => {
         startTraining();
 
@@ -233,6 +270,8 @@ export async function initializeAiManager() {
     });
 
     // Handle Delete AI button click
+    const deleteButton = document.getElementById("delete-ai-btn");
+    const dropdown = document.getElementById("saved-ai-dropdown");
     deleteButton.addEventListener("click", async () => {
         const selectedAI = dropdown.value;
         if (!selectedAI) {
