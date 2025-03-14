@@ -312,7 +312,10 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         }
                     )
                     
-                    await self.update_game_on_disconnect()
+                    # Ne mettre à jour que si le jeu est toujours en cours
+                    current_status = await self.get_current_game_status()
+                    if current_status == 'ongoing':
+                        await self.update_game_on_disconnect()
 
             except Exception as e:
                 logger.error(f"[Game {self.game_id}] Error during disconnect cleanup - error: {str(e)}, traceback: {traceback.format_exc()}", extra={
@@ -384,18 +387,23 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             })
 
     @database_sync_to_async
+    def get_current_game_status(self):
+        """Récupère le statut actuel du jeu depuis la base de données"""
+        return PongGame.objects.get(id=self.game_id).status
+
+    @database_sync_to_async
     def update_game_on_disconnect(self):
         """Handles game state updates on player disconnection"""
+        self.game.refresh_from_db()  # Actualise l'état depuis la base
         if self.game.status == 'ongoing':
             self.game.status = 'finished'
-            max_score = 11  # Default max score for games
+            max_score = 11
             if self.is_host:
                 self.game.player2_score = max_score
             else:
                 self.game.player1_score = max_score
             self.game.finished_at = timezone.now()
             self.game.save()
-
             if self.game.room:
                 self.game.room.state = 'LOBBY'
                 self.game.room.save()

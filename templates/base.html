@@ -14,13 +14,13 @@
     <!-- <script src="https://unpkg.com/htmx.org@1.6.1"></script> -->
 </head>
 
-<body class="d-flex flex-column min-vh-100" data-config-id="app-config">
+<body class="d-flex flex-column min-vh-100" data-config-id="app-config" aria-label="Main application content">
     {{ config|json_script:"app-config" }}
     {% if user.is_authenticated %}
-    <div hidden data-user-info='{"id": {{ user.id }}, "username": "{{ user.username }}"}'></div>
+    <div hidden data-user-info='{"id": {{ user.id }}, "username": "{{ user.username }}"}' aria-hidden="true"></div>
     {% endif %}
-    <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1050;"> </div>
-    <main class="flex-grow-1" id="content">
+    <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1050;" role="alert" aria-live="assertive" aria-atomic="true"></div>
+    <main class="flex-grow-1" id="content" role="main" aria-label="Main content">
         {% block content %}{% endblock %}
     </main>
     {% block footer %}

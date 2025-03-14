@@ -13,14 +13,14 @@
     <h1>Games History</h1>
 	<h3>Played: {{ total_games }} | Wins: {{ wins }} | Losses: {{ losses }} | Winrate: {{ winrate }} %</h3>
     <div>
-		<table id="table" class="table">
+		<table id="table" class="table" aria-label="Games history table">
 			<thead>
 			<tr>
-				<th>V/S</th>
-				<th>Your Score</th>
-				<th>Opponent Score</th>
-				<th>Created At</th>
-				<th>Finished At</th>
+				<th scope="col" aria-label="Opponent">V/S</th>
+				<th scope="col" aria-label="Your score">Your Score</th>
+				<th scope="col" aria-label="Opponent score">Opponent Score</th>
+				<th scope="col" aria-label="Game start time">Created At</th>
+				<th scope="col" aria-label="Game end time">Finished At</th>
 			</tr>
 			</thead>
 			<tbody>
@@ -61,13 +61,13 @@
     <h1>Tournament History</h1>
 	<h3>Played: {{ total_tournies_player }} | Wins: {{ total_wins_player }} | Losses: {{ total_losses_player }} | Winrate: {{ wr_tourny }} %</h3>
     <div>
-		<table id="table" class="table">
+		<table id="table" class="table" aria-label="Tournament history table">
 			<thead>
 			<tr>
-				<th>Tournament Name</th>
-				<th>Wins</th>
-				<th>Losses</th>
-				<th>Points</th>
+				<th scope="col" aria-label="Tournament name">Tournament Name</th>
+				<th scope="col" aria-label="Number of wins">Wins</th>
+				<th scope="col" aria-label="Number of losses">Losses</th>
+				<th scope="col" aria-label="Total points">Points</th>
 			</tr>
 			</thead>
 			<tbody>

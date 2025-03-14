@@ -463,7 +463,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     f"user_{game.player1.id}",
                     {
                         'type': 'room_info',
-                        'message': f'Match starting against {game.player2.username if game.player2 else "AI"}',
+                        'message': f'Match starting against {game.player2.nick_name if game.player2 else "AI"}' if self.room.mode == "TOURNAMENT" else f'Match starting against {game.player2.username if game.player2 else "AI"}',
                         'message_type': 'info',
                         'timestamp': timezone.now().isoformat()
                     }
@@ -475,7 +475,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                         f"user_{game.player2.id}",
                         {
                             'type': 'room_info',
-                            'message': f'Match starting against {game.player1.username}',
+                            'message': f'Match starting against {game.player1.nick_name}' if game.room.mode == "TOURNAMENT" else f'Match starting against {game.player1.username}',
                             'message_type': 'info',
                             'timestamp': timezone.now().isoformat()
                         }
@@ -560,7 +560,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 return []
             
             if len(player_pairs[0]) == 1 and len(player_pairs) == 1 and self.room.mode == 'TOURNAMENT':
-                logger.debug(f"{player_pairs[0][0].username} win the tournament")
+                logger.debug(f"{player_pairs[0][0].nick_name} win the tournament")
                 self.room.tournament.eliminated.clear()
                 return []
 
@@ -771,7 +771,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             # Nettoyer la liste des perdants
             self.room.tournament.eliminated.clear()
             # Afficher le gagnant
-            logger.debug(f"{winner.username} win the tournament")
+            logger.debug(f"{winner.nick_name} win the tournament")
             return winner
 
         return None
@@ -804,7 +804,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                         self.room_group_name,
                         {
                             'type': 'room_info',
-                            'message': f'{winner.username} win the tournament',
+                            'message': f'{winner.nick_name} win the tournament',
                             'message_type': 'info',
                             'timestamp': timezone.now().isoformat()
                         })

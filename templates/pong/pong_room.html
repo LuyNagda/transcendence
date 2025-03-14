@@ -8,17 +8,17 @@
 
 {% block modal %}{% include "modal.html" %}{% endblock %}
 
-<div id="pong-room" class="container x-auto my-4" data-domain="room">
+<div id="pong-room" class="container x-auto my-4" data-domain="room" aria-label="Pong game room">
     <div class="row">
         <div class="col-md-4">
-            <div id="room-state" class="mb-4">
+            <div id="room-state" class="mb-4" aria-label="Room status information">
                 {% include "pong/components/room_state.html" %}
             </div>
             {% include "pong/components/game_settings.html" %}
         </div>
         <div class="col-md-8">
-            <div id="dynamic-content">
-                <div id="mode-selection-container" class="mb-4" v-if="state === 'LOBBY'">
+            <div id="dynamic-content" aria-live="polite">
+                <div id="mode-selection-container" class="mb-4" v-if="state === 'LOBBY'" aria-label="Game mode selection">
                     {% include "pong/components/mode_selection.html" %}
                 </div>
                 {% include "pong/components/game.html" %}

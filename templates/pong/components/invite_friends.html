@@ -7,7 +7,8 @@
     <div class="form-group">
         <label for="friends" id="friends-label">Choose {% if mode == 'TOURNAMENT' %}friends{% else %}a friend{% endif %}</label>
         <select id="friends" name="friends" class="form-control" {% if mode == 'TOURNAMENT' %}multiple{% endif %}
-                aria-labelledby="friends-label" aria-describedby="friends-description">
+                aria-labelledby="friends-label" aria-describedby="friends-description"
+                aria-required="true" aria-multiselectable="{% if mode == 'TOURNAMENT' %}true{% else %}false{% endif %}">
             <!-- Users will be loaded here -->
         </select>
         <small id="friends-description" class="form-text text-muted">
@@ -19,5 +20,10 @@
         </small>
     </div>
     
-    <button type="submit" class="btn btn-primary mt-3" aria-label="Send invite to selected friend(s)">Invite</button>
+    <button type="submit" class="btn btn-primary mt-3" 
+            aria-label="Send invite to selected friend(s)"
+            aria-disabled="false" 
+            role="button">
+        Invite
+    </button>
 </form>

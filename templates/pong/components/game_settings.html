@@ -8,7 +8,8 @@
             <div class="mb-3">
                 <label for="paddleSpeed" class="form-label">Paddle Speed</label>
                 <input type="range" class="form-range" id="paddleSpeed" min="1" max="10" step="1"
-                    data-setting="paddleSpeed" v-model="settings.paddleSpeed" v-on:change="handleSettingChange">
+                    data-setting="paddleSpeed" v-model="settings.paddleSpeed" v-on:change="handleSettingChange"
+                    aria-label="Adjust paddle speed from slow to fast">
                 <div class="d-flex justify-content-between">
                     <span>Slow</span>
                     <span>Fast</span>
@@ -19,7 +20,8 @@
             <div class="mb-3">
                 <label for="ballSpeed" class="form-label">Ball Speed</label>
                 <input type="range" class="form-range" id="ballSpeed" min="1" max="10" step="1" data-setting="ballSpeed"
-                    v-model="settings.ballSpeed" v-on:change="handleSettingChange">
+                    v-model="settings.ballSpeed" v-on:change="handleSettingChange"
+                    aria-label="Adjust ball speed from slow to fast">
                 <div class="d-flex justify-content-between">
                     <span>Slow</span>
                     <span>Fast</span>
@@ -30,7 +32,8 @@
             <div class="mb-3">
                 <label for="paddleSize" class="form-label">Paddle Size</label>
                 <input type="range" class="form-range" id="paddleSize" min="1" max="10" step="1"
-                    data-setting="paddleSize" v-model="settings.paddleSize" v-on:change="handleSettingChange">
+                    data-setting="paddleSize" v-model="settings.paddleSize" v-on:change="handleSettingChange"
+                    aria-label="Adjust paddle size from small to large">
                 <div class="d-flex justify-content-between">
                     <span>Small</span>
                     <span>Large</span>
@@ -41,7 +44,7 @@
             <div class="mb-3">
                 <label for="maxScore" class="form-label">Points to Win</label>
                 <select class="form-select" id="maxScore" data-setting="maxScore" v-model="settings.maxScore"
-                    v-on:change="handleSettingChange">
+                    v-on:change="handleSettingChange" aria-label="Select points required to win the game">
                     <option value="5">5 Points</option>
                     <option value="11">11 Points</option>
                     <option value="21">21 Points</option>
@@ -52,7 +55,8 @@
             <div class="mb-3" v-if="mode === 'AI'">
                 <label for="aiDifficulty" class="form-label">AI Model</label>
                 <select class="form-select" id="aiDifficulty" data-setting="aiDifficulty"
-                    v-model="settings.aiDifficulty" v-on:change="handleSettingChange">
+                    v-model="settings.aiDifficulty" v-on:change="handleSettingChange"
+                    aria-label="Select AI difficulty level">
                     <option v-for="ai in availableAIs" :value="ai">[[ai]]</option>
                 </select>
             </div>
@@ -60,29 +64,32 @@
 
         <!-- Read-only settings display -->
         <div v-else>
-            <div class="mb-3">
+            <div class="mb-3" role="status" aria-live="polite">
                 <div class="text-muted mb-1">Paddle Speed</div>
                 <div class="progress">
                     <div class="progress-bar" role="progressbar" v-text="settings.paddleSpeed + '/10'"
-                        v-bind:style="getProgressBarStyle(settings.paddleSpeed, 'paddleSpeed')">
+                        v-bind:style="getProgressBarStyle(settings.paddleSpeed, 'paddleSpeed')"
+                        :aria-valuenow="settings.paddleSpeed" aria-valuemin="1" aria-valuemax="10">
                     </div>
                 </div>
             </div>
 
-            <div class="mb-3">
+            <div class="mb-3" role="status" aria-live="polite">
                 <div class="text-muted mb-1">Ball Speed</div>
                 <div class="progress">
                     <div class="progress-bar" role="progressbar" v-text="settings.ballSpeed + '/10'"
-                        v-bind:style="getProgressBarStyle(settings.ballSpeed, 'ballSpeed')">
+                        v-bind:style="getProgressBarStyle(settings.ballSpeed, 'ballSpeed')"
+                        :aria-valuenow="settings.ballSpeed" aria-valuemin="1" aria-valuemax="10">
                     </div>
                 </div>
             </div>
 
-            <div class="mb-3">
+            <div class="mb-3" role="status" aria-live="polite">
                 <div class="text-muted mb-1">Paddle Size</div>
                 <div class="progress">
                     <div class="progress-bar" role="progressbar" v-text="settings.paddleSize + '/10'"
-                        v-bind:style="getProgressBarStyle(settings.paddleSize, 'paddleSize')">
+                        v-bind:style="getProgressBarStyle(settings.paddleSize, 'paddleSize')"
+                        :aria-valuenow="settings.paddleSize" aria-valuemin="1" aria-valuemax="10">
                     </div>
                 </div>
             </div>
