@@ -25,10 +25,14 @@ IN_TRAINING = False
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def send_ai_to_front(request, ai_name):
-    # Use Path or os.path to create a proper file path
-    save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
+    try:
+        # Validate the ai_name
+        if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum():
+            raise ValueError("Invalid AI name. Only alphanumeric characters are allowed.")
+
+        # Use Path or os.path to create a proper file path
+        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
     
-    try: 
         # Open and load the JSON file
         with open(save_file, 'r') as load_file:
             ai_data_list = json.load(load_file)
@@ -45,9 +49,18 @@ def send_ai_to_front(request, ai_name):
     except json.JSONDecodeError:
         return JsonResponse({"error": "Failed to decode AI data"}, status=500)
 
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def ai_manager(request):
+    if not request.body:
+        return JsonResponse({"error": "Request body is empty"}, status=400)
+    
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
     user = request.user
@@ -60,18 +73,21 @@ def ai_manager(request):
 def training(request):
     global IN_TRAINING
 
-    with training_lock:
-        if (IN_TRAINING):
-            return JsonResponse({"error": "Server not available: training in progress"}, status=400)
-        IN_TRAINING = True
-
     try:
-        if request.method != 'POST':
-            return JsonResponse({"error": "Only POST method is allowed"}, status=405)
+        with training_lock:
+            if (IN_TRAINING):
+                return JsonResponse({"error": "Server not available: training in progress"}, status=400)
+            IN_TRAINING = True
 
+        if not request.body:
+            return JsonResponse({"error": "Request body is empty"}, status=400)
+        
         # Parse JSON body
         data = json.loads(request.body)
-        ai_name = data.get('ai_name', 'default')
+        ai_name = data.get('ai_name')
+        if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
+            raise ValueError("Invalid AI name. Only alphanumeric characters are allowed and a maximun of 100 characters")
+        
         nb_generation = int(data.get('nb_generation', 10))
         nb_species = int(data.get('nb_species', 50))
         time_limit = int(data.get('time_limit', 60))
@@ -113,7 +129,8 @@ def training(request):
         })
 
     except ValueError as e:
-        return JsonResponse({"error": "Invalid parameter values"}, status=400)
+        return JsonResponse({"error": str(e)}, status=400)
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -147,13 +164,16 @@ def list_saved_ai(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def delete_saved_ai(request):
-    if request.method != 'POST':
-        return JsonResponse({"error": "Only POST method is allowed"}, status=405)
-
     try:
+        if not request.body:
+            return JsonResponse({"error": "Request body is empty"}, status=400)
+
         # Parse JSON body
         data = json.loads(request.body)
-        ai_name = data.get('ai_name', 'default')
+        ai_name: str
+        ai_name = data.get('ai_name')
+        if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
+            raise ValueError("Invalid AI name. Only alphanumeric characters are allowed and a maximun of 100 characters")
 
         invalid_ai = ["Hard", "Medium", "Easy"]
         if ai_name in invalid_ai:
@@ -173,9 +193,13 @@ def delete_saved_ai(request):
             return JsonResponse({"message": f"The file '{ai_name}' has been removed"}, status=200)
         else:
             return JsonResponse({"error": f"The file '{ai_name}' does not exist"}, status=404)
+
+    except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
     
     except ValueError as e:
-        return JsonResponse({"error": "Invalid parameter values"}, status=400)
+        return JsonResponse({"error": str(e)}, status=400)
+
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
