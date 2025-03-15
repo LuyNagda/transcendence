@@ -71,7 +71,6 @@ class AI_ball:
         self.dx = ball.dx
         self.dy = ball.dy
 
-# Create paddles and ball
 class Paddle:
     def __init__(self, x, y, width, height):
         self.x = x
@@ -106,12 +105,11 @@ def reset_ball(ball):
     return ball
 
 def collides(ball, paddle):
-    if ball.bottom > paddle.top and ball.top < paddle.bottom and ball.left < paddle.right and ball.right > paddle.left:
-        return True
+    return (ball.bottom > paddle.top and ball.top < paddle.bottom and
+            ball.left < paddle.right and ball.right > paddle.left)
 
-    return False
 
-def updateBallAngle(ball, paddle):
+def update_ball_angle(ball, paddle):
     # Calculate the relative's position of the collision with the paddle
     relativeIntersectY = (paddle.y + (paddle.height / 2)) - ball.y
     normalizedRelativeIntersectionY = relativeIntersectY / (paddle.height / 2)
@@ -209,7 +207,7 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
             if ball.right < rightPaddle.right:
                 ball.right = rightPaddle.left
                 Ai_selected.ai_score += 1
-                ball = updateBallAngle(ball, rightPaddle)
+                ball = update_ball_angle(ball, rightPaddle)
 
         # Ball out of bounds
         if ball.right >= gameconfig.WIDTH:
