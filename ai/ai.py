@@ -256,7 +256,10 @@ def train_species_wrapper(args):
     """
     Ai_selected, Ai_nb, time_limit, max_score = args
     training_log = train_normal(Ai_selected, Ai_nb, time_limit, max_score)
+
+    print(training_log)
     logger.info(training_log)
+
     point = Ai_selected.ai_score
     return training_log, point, Ai_nb
 
@@ -275,7 +278,8 @@ def train_ai(save_file, training_params):
             f"\n        ========== Generation #{j} ===========\n"
             f"Max score = {max_score}\n\n"
         )
-        
+
+        print(log_header)
         logger.info(log_header)
         log += log_header
 
