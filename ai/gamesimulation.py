@@ -154,7 +154,8 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     while running:
         # Limit the game time to 'time_limit' theoretical minutes
         if time_limit != 0 and i > (time_limit * 60 * 60):
-            break
+            running = False
+            continue
         i += 1
 
         # Move the ball
