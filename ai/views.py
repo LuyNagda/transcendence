@@ -27,7 +27,7 @@ IN_TRAINING = False
 def send_ai_to_front(request, ai_name):
     try:
         # Validate the ai_name
-        if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum():
+        if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
             raise ValueError("Invalid AI name. Only alphanumeric characters are allowed.")
 
         # Use Path or os.path to create a proper file path
@@ -129,12 +129,12 @@ def training(request):
         })
 
     except ValueError as e:
-        return JsonResponse({"error": str(e)}, status=400)
+        return JsonResponse({"error": f"while training: {str(e)}"}, status=400)
 
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({"error": f"while training: {str(e)}"}, status=500)
 
     finally:
         with training_lock:
