@@ -46,8 +46,8 @@ def send_ai_to_front(request, ai_name):
     except FileNotFoundError:
         return JsonResponse({"error": f"No such AI found: {ai_name}"}, status=404)
     
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "Failed to decode AI data"}, status=500)
+    except json.JSONDecodeError as e:
+        return JsonResponse({"error": f"Failed to decode AI data: {str(e)}"}, status=500)
 
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400)
@@ -194,8 +194,8 @@ def delete_saved_ai(request):
         else:
             return JsonResponse({"error": f"The file '{ai_name}' does not exist"}, status=404)
 
-    except json.JSONDecodeError:
-            return JsonResponse({"error": "Invalid JSON"}, status=400)
+    except json.JSONDecodeError as e:
+            return JsonResponse({"error": f"Invalid JSON: {str(e)}"}, status=400)
     
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400)
