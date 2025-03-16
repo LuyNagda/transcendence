@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from . import ai
-import json, os, threading
+import json, os, threading, multiprocessing
 from django.conf import settings
 from django.shortcuts import render
 from rest_framework.decorators import api_view, permission_classes
@@ -72,6 +72,10 @@ def ai_manager(request):
 @permission_classes([IsAuthenticatedWithCookie])
 def training(request):
     global IN_TRAINING
+
+    # Verify if the server is powerfull enough
+    if multiprocessing.cpu_count() < 2:
+        return JsonResponse({"error": "Server not powerfull enough, please upgrade cpu count"}, status=400)
 
     try:
         with training_lock:
