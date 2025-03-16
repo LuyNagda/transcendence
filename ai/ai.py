@@ -10,6 +10,9 @@ NB_NEURONS_LAYER1 = 6
 NB_NEURONS_LAYER2 = 6
 NB_NEURONS_LAYER3 = 3
 
+WEIGHT_MUTATION_RATE = 0.1
+BIAS_MUTATION_RATE = 0.05
+
 np.random.seed()
 
 class Layer_Dense:
@@ -150,8 +153,63 @@ def Init_Ai(save_file, nb_species):
         Ai_Sample[i].ai_score = 0
 
     return Ai_Sample
-    
+
+def apply_mutation(layer):
+    """
+    Apply mutation to the weights and biases of a neural network layer.
+
+    Parameters:
+    layer (Layer_Dense): The layer to mutate.
+
+    Returns:
+    Layer_Dense: The mutated layer.
+
+    Raises:
+    Exception: If an error occurs during mutation.
+    """
+
+    try:
+        # Get weights' matrix shape
+        weight_shape = layer.weights.shape
+        # Generate a matrix with random value
+        random_values = np.random.random(weight_shape)
+        # Creat a boolean mask, true indicates the weight that will mutate
+        mutation_mask = random_values < WEIGHT_MUTATION_RATE
+        # Count the number of mutations
+        nb_mutations = np.sum(mutation_mask)
+        # Generate some mutation values
+        mutation_value = np.random.randn(nb_mutations) * 0.1
+        # Add the mutations to the weights specified byt the mutation mask
+        layer.weights[mutation_mask] += mutation_value
+
+        # Do the same for the biases
+        bias_shape = layer.biases.shape
+        random_values = np.random.random(bias_shape)
+        mutation_mask = random_values < BIAS_MUTATION_RATE
+        nb_mutations = np.sum(mutation_mask)
+        mutation_value = np.random.randn(nb_mutations) * 0.05
+        layer.biases[mutation_mask] += mutation_value
+
+    except FloatingPointError as e:
+        raise Exception(f"Numerical error during mutation: {e}")
+
+    except Exception as e:
+        raise Exception(f"An unexpected error occurred during mutation: {e}")
+
+    return layer
+
 def Crossover_mutation(Ai_Sample, nb_species):
+    """
+    Perform crossover and mutation on a population of AI samples.
+
+    Parameters:
+    Ai_Sample (list): The current population of AI samples.
+    nb_species (int): The target number of species in the population.
+
+    Returns:
+    None
+    """
+
     # Crossover and then mutation
     while (len(Ai_Sample) < nb_species - 5):
         # Choose 2 parent randomly from the 5 best performing AI and instance a child
@@ -166,59 +224,9 @@ def Crossover_mutation(Ai_Sample, nb_species):
         child.layer3.weights = (parent1.layer3.weights + parent2.layer3.weights) / 2
         child.layer3.biases = (parent1.layer3.biases + parent2.layer3.biases) / 2
 
-        # Mutation rate can be different for weights and biases
-        weight_mutation_rate = 0.1
-        bias_mutation_rate = 0.05
-
-        # Mutate weights
-        weight_shape = child.layer1.weights.shape
-        random_values = np.random.random(weight_shape)
-        mutation_mask = random_values < weight_mutation_rate
-        nb_mutations = np.sum(mutation_mask)
-        mutation_value = np.random.randn(nb_mutations) * 0.1
-        child.layer1.weights[mutation_mask] += mutation_value
-
-        # Mutate biases
-        bias_shape = child.layer1.biases.shape
-        random_values = np.random.random(bias_shape)
-        mutation_mask = random_values < bias_mutation_rate
-        nb_mutations = np.sum(mutation_mask)
-        mutation_value = np.random.randn(nb_mutations) * 0.05
-        child.layer1.biases[mutation_mask] += mutation_value
-
-        # Do the same for layer2
-        # Weights
-        weight_shape = child.layer2.weights.shape
-        random_values = np.random.random(weight_shape)
-        mutation_mask = random_values < weight_mutation_rate
-        nb_mutations = np.sum(mutation_mask)
-        mutation_value = np.random.randn(nb_mutations) * 0.1
-        child.layer2.weights[mutation_mask] += mutation_value
-
-        # Biases
-        bias_shape = child.layer2.biases.shape
-        random_values = np.random.random(bias_shape)
-        mutation_mask = random_values < bias_mutation_rate
-        nb_mutations = np.sum(mutation_mask)
-        mutation_value = np.random.randn(nb_mutations) * 0.05
-        child.layer2.biases[mutation_mask] += mutation_value
-
-        # Do the same for layer3
-        # Weights
-        weight_shape = child.layer3.weights.shape
-        random_values = np.random.random(weight_shape)
-        mutation_mask = random_values < weight_mutation_rate
-        nb_mutations = np.sum(mutation_mask)
-        mutation_value = np.random.randn(nb_mutations) * 0.1
-        child.layer3.weights[mutation_mask] += mutation_value
-
-        # Biases
-        bias_shape = child.layer3.biases.shape
-        random_values = np.random.random(bias_shape)
-        mutation_mask = random_values < bias_mutation_rate
-        nb_mutations = np.sum(mutation_mask)
-        mutation_value = np.random.randn(nb_mutations) * 0.05
-        child.layer3.biases[mutation_mask] += mutation_value
+        child.layer1 = apply_mutation(child.layer1)
+        child.layer2 = apply_mutation(child.layer2)
+        child.layer3 = apply_mutation(child.layer3)
 
         # Add this mutated child to the AI's list
         Ai_Sample.append(child)
@@ -284,7 +292,12 @@ def train_ai(save_file, training_params):
         logger.info(log_header)
         log += log_header
 
-        Ai_Sample = Init_Ai(save_file, nb_species)
+        try:
+            Ai_Sample = Init_Ai(save_file, nb_species)
+        
+        except Exception as e:
+            log += f"Error in Ai initialisation: {e}"
+            continue
 
         # Prepare arguments for parallel processing
         training_args = [(Ai_Sample[i], i, time_limit, max_score) for i in range(nb_species)]
