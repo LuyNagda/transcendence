@@ -243,7 +243,7 @@ def Save_Best_Ai(Ai_Sample, save_file):
         ai_data_list.append(Ai_Sample[i].to_dict())
     
     for i in range(5, len(Ai_Sample)):
-        if Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.90:
+        if Ai_Sample[i].ai_score > Ai_Sample[0].ai_score * 0.95:
             ai_data_list.append(Ai_Sample[i].to_dict())
         else:
             break
