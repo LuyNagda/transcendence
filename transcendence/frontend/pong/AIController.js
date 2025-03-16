@@ -210,7 +210,7 @@ export class AIController {
                 this.aiBall.y / GameRules.CANVAS_HEIGHT,
                 this.aiBall.dx,
                 this.aiBall.dy,
-                gameState.rightPaddle.y / GameRules.CANVAS_HEIGHT
+                (gameState.rightPaddle.y + (GameRules.BASE_PADDLE_HEIGHT / 2)) / GameRules.CANVAS_HEIGHT
             ]];
 
             let result = this.forward(X);
