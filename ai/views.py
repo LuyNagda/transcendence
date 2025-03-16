@@ -10,7 +10,7 @@ from asgiref.sync import async_to_sync
 
 # Constants for parameter validation
 MIN_GENERATIONS = 1
-MAX_GENERATIONS = 100
+MAX_GENERATIONS = 50
 MIN_SPECIES = 50
 MAX_SPECIES = 100
 MIN_TIME_LIMIT = 10
