@@ -98,7 +98,7 @@ def reset_ball(ball):
     ball.center = (gameconfig.WIDTH//2, gameconfig.HEIGHT//2)
     
     # Random angle
-    angle = random.uniform(-45, 45)
+    angle = random.uniform(-math.pi / 4, math.pi / 4)
     ball.dx = gameconfig.BALL_SPEED * math.cos(angle) * random.choice([-1, 1])
     ball.dy = gameconfig.BALL_SPEED * math.sin(angle)
 
@@ -133,11 +133,10 @@ def update_ball_position(ball, aiSelected, rightPaddle, height):
 
 def update_ball_angle(ball, paddle):
     # Calculate the relative's position of the collision with the paddle
-    relativeIntersectY = (paddle.y + (paddle.height / 2)) - ball.y
-    normalizedRelativeIntersectionY = relativeIntersectY / (paddle.height / 2)
+    relativeIntersectY = (ball.y - paddle.top) / paddle.height
 
     # Calculate the rebound's angle (max 45 degrees)
-    bounceAngle = normalizedRelativeIntersectionY * (math.pi / 4)
+    bounceAngle = (relativeIntersectY - 0.5) * math.pi
 
     # Update the ball's velocity
     ball.dx = gameconfig.BALL_SPEED * -math.cos(bounceAngle)
@@ -169,17 +168,18 @@ def train_normal(aiSelected, Ai_nb, time_limit, max_score):
 
     running = True
     left_score = 0
-    i = 0
-    j = 0
+    game_tick = 0
+    launch_ball = game_tick + gameconfig.BALL_LAUNCH_DELAY
+    wall_bounce = 0
     while running:
         # Limit the game time to 'time_limit' theoretical minutes
-        if time_limit != 0 and i > (time_limit * 60 * 60):
+        if time_limit != 0 and game_tick > (time_limit * 60 * 60):
             running = False
             continue
-        i += 1
+        game_tick += 1
 
         # Update the ai view
-        if i % 60 == 0:
+        if game_tick % 60 == 0:
             ai_ball.update(ball)
 
         # Move the right paddle
@@ -196,17 +196,18 @@ def train_normal(aiSelected, Ai_nb, time_limit, max_score):
                 if rightPaddle.bottom < gameconfig.HEIGHT:
                     rightPaddle.y += gameconfig.PADDLE_SPEED
 
-        ball, aiSelected = update_ball_position(ball, aiSelected, rightPaddle, gameconfig.HEIGHT)
+        if (game_tick >= launch_ball):
+            ball, aiSelected = update_ball_position(ball, aiSelected, rightPaddle, gameconfig.HEIGHT)
 
-        # Ball collision with left wall
+        # Ball collision with left wall: 1 in 2 bouce horizontally
         if ball.x <= 50:
             ball.left = 50
-            if j == 0:
-                angle = random.uniform(-45, 45)
-                j = 42
+            if wall_bounce == 0:
+                angle = random.uniform(-math.pi / 4, math.pi / 4)
+                wall_bounce = 42
             else:
                 angle = 0
-                j = 0
+                wall_bounce = 0
 
             ball.dx = abs(gameconfig.BALL_SPEED * math.cos(angle))
             ball.dy = gameconfig.BALL_SPEED * math.sin(angle)
@@ -215,10 +216,11 @@ def train_normal(aiSelected, Ai_nb, time_limit, max_score):
         if ball.right >= gameconfig.WIDTH:
             left_score += 1
             ball = reset_ball(ball)
+            launch_ball = game_tick + gameconfig.BALL_LAUNCH_DELAY
 
         # End the game
         if left_score >= max_score:
             running = False
-    
+
     species_log = f"The AI {Ai_nb} score is {aiSelected.ai_score:.1f}"
     return species_log

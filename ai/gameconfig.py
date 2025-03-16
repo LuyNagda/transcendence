@@ -17,6 +17,7 @@ PADDLE_SPEED = 50
 BALL_SPEED = 70
 BALL_SIZE = 10
 BALL_MIN_DY = 0.5
+BALL_LAUNCH_DELAY = 120
 
 GAME_CONF = {
     'nb_generation' : (1, int),
