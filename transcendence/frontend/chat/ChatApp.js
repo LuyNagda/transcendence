@@ -668,21 +668,29 @@ export default class ChatApp {
 		store.dispatch({
 			domain: 'chat',
 			type: chatActions.SET_SELECTED_USER,
-			payload: {
-				id: user.id,
-				username: user.username,
-				name: user.username,
-				blocked: user.blocked || false,
-				status: user.status || 'offline',
-				profile_picture: user.profile_picture || '',
-				online: user.status === 'online',
-				match: user.total_games,
-				win: user.total_wins,
-				lose: user.total_losses,
-				winrate: user.winrate
-			}
+			payload: user
 		});
 		this.loadMessageHistory(user.id);
+		// Persister l'état
+		localStorage.setItem('selectedChatUser', JSON.stringify(user));
+	}
+
+	init() {
+		// Restaurer l'état au chargement
+		const savedUser = localStorage.getItem('selectedChatUser');
+		if (savedUser) {
+			try {
+				const user = JSON.parse(savedUser);
+				store.dispatch({
+					domain: 'chat',
+					type: chatActions.SET_SELECTED_USER,
+					payload: user
+				});
+			} catch (e) {
+				logger.error('Error restoring selected user', e);
+			}
+		}
+		// ... existing init code ...
 	}
 
 	blockUser() {
