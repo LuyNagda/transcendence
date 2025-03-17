@@ -213,16 +213,16 @@ def Crossover_mutation(Ai_Sample, nb_species):
     # Crossover and then mutation
     while (len(Ai_Sample) < nb_species - 5):
         # Choose 2 parent randomly from the 5 best performing AI and instance a child
-        parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
+        parent = np.random.choice(Ai_Sample[:5])
         child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
 
         # Crossover for both weights and biases
-        child.layer1.weights = (parent1.layer1.weights + parent2.layer1.weights) / 2
-        child.layer1.biases = (parent1.layer1.biases + parent2.layer1.biases) / 2
-        child.layer2.weights = (parent1.layer2.weights + parent2.layer2.weights) / 2
-        child.layer2.biases = (parent1.layer2.biases + parent2.layer2.biases) / 2
-        child.layer3.weights = (parent1.layer3.weights + parent2.layer3.weights) / 2
-        child.layer3.biases = (parent1.layer3.biases + parent2.layer3.biases) / 2
+        child.layer1.weights = parent.layer1.weights
+        child.layer1.biases = parent.layer1.biases
+        child.layer2.weights = parent.layer2.weights
+        child.layer2.biases = parent.layer2.biases
+        child.layer3.weights = parent.layer3.weights
+        child.layer3.biases = parent.layer3.biases
 
         child.layer1 = apply_mutation(child.layer1)
         child.layer2 = apply_mutation(child.layer2)
