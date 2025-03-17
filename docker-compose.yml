@@ -154,4 +154,5 @@ networks:
 
 volumes:
   postgres_data:
+  letsencrypt:
   ssl_certs:
