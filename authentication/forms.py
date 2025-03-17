@@ -2,6 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from authentication.models import User
 
 CustomUser = get_user_model()
 
@@ -15,6 +16,14 @@ class CustomUserCreationForm(forms.ModelForm):
     class Meta:
         model = CustomUser
         fields = ('username', 'email', 'nick_name', 'password1', 'password2')
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError('Email is already in use.')
+        if "42lyon.fr" in email:
+            raise forms.ValidationError("Please login using the API")
+        return email
 
     def clean_password1(self):
         password1 = self.cleaned_data.get('password1')
