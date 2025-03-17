@@ -63,8 +63,8 @@ export class Canvas2DRenderer extends RendererInterface {
 		}
 
 		this._context.fillRect(
-			typeof paddle.x === 'number' ? (paddle.x - gameState.paddle.width) : 10,
-			typeof paddle.y === 'number' ? (paddle.y - gameState.paddle.height) : 10,
+			typeof paddle.x === 'number' ? (paddle.x - (paddle.width / 2)) : 10,
+			typeof paddle.y === 'number' ? (paddle.y - (paddle.height / 2)) : 10,
 			typeof paddle.width === 'number' ? paddle.width : 10,
 			typeof paddle.height === 'number' ? paddle.height : 50
 		);
