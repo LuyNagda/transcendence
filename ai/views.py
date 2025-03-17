@@ -58,8 +58,10 @@ def send_ai_to_front(request, ai_name):
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
 def ai_manager(request):
-    if not request.body:
-        return JsonResponse({"error": "Request body is empty"}, status=400)
+    if not request.COOKIES:
+        return JsonResponse({"error": "Request cookies is empty"}, status=400)
+    if not request.user:
+        return JsonResponse({"error": "Request user is empty"}, status=400)
     
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
