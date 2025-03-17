@@ -59,7 +59,7 @@ makemigrations-%:
 	$(call run_migrations,$*)
 
 migrate:
-	$(SRC_ENV) docker compose run --rm auth python manage.py migrate
+	$(SRC_ENV) docker compose run --rm transcendence python manage.py migrate
 	$(SRC_ENV) docker compose down
 
 db-update: makemigrations migrate
@@ -77,7 +77,7 @@ stop:
 	$(SRC_ENV) docker compose stop
 
 test: stop
-	$(SRC_ENV) docker compose --profile dev up --build auth-test
+	$(SRC_ENV) docker compose --profile dev up --build transcendence-test
 
 siege: stop daemon
 	$(MAKE) wait-for-healthy
@@ -120,6 +120,6 @@ endef
 define run_migrations
 	$(SRC_ENV) \
 	echo $(PWD) && \
-	container_id=$$(docker compose run --build --remove-orphans -d -v $(PWD):/host auth /bin/bash -c "chmod +x /app/makemigrations.sh && /app/makemigrations.sh $(if $(1),$(1))")
+	container_id=$$(docker compose run --build --remove-orphans -d -v $(PWD):/host transcendence /bin/bash -c "chmod +x /app/makemigrations.sh && /app/makemigrations.sh $(if $(1),$(1))")
 
 endef
