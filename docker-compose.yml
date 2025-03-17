@@ -1,12 +1,14 @@
 services:
-  auth:
+  transcendence:
+    container_name: transcendence
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
     volumes:
-      - ./media:/app/media
+      - media:/app/media
+      - static:/app/static
       - ssl_certs:/certs
     depends_on:
       db:
@@ -34,13 +36,13 @@ services:
       - RTC_TURN_CREDENTIAL=${RTC_TURN_CREDENTIAL}
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.auth.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.auth.entrypoints=websecure"
-      - "traefik.http.routers.auth.tls.certresolver=myresolver"
-      - "traefik.http.routers.auth-ws.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.auth-ws.entrypoints=websecure"
-      - "traefik.http.routers.auth-ws.tls.certresolver=myresolver"
-      - "traefik.http.services.auth.loadbalancer.server.port=8000"
+      - "traefik.http.routers.transcendence.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.transcendence.entrypoints=websecure"
+      - "traefik.http.routers.transcendence.tls.certresolver=myresolver"
+      - "traefik.http.routers.transcendence-ws.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.transcendence-ws.entrypoints=websecure"
+      - "traefik.http.routers.transcendence-ws.tls.certresolver=myresolver"
+      - "traefik.http.services.transcendence.loadbalancer.server.port=8000"
     develop:
       watch:
         - action: rebuild
@@ -61,7 +63,23 @@ services:
     networks:
       - app
 
-  auth-test:
+  nginx:
+    container_name: nginx
+    image: nginx
+    ports:
+      - "8080:80"
+    depends_on:
+      transcendence:
+        condition: service_healthy
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - static:/var/www/static
+      - media:/var/www/media
+    networks:
+      - app
+
+  transcendence-test:
+    container_name: transcendence-test
     build:
       context: .
       dockerfile: Dockerfile
@@ -90,6 +108,7 @@ services:
       - test
 
   db:
+    container_name: db
     image: postgres:13
     environment:
       - POSTGRES_DB=${DB_NAME}
@@ -156,3 +175,5 @@ volumes:
   postgres_data:
   letsencrypt:
   ssl_certs:
+  static:
+  media:
