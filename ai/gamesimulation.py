@@ -157,7 +157,6 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
 
     running = True
     left_score = 0
-    wall_bounce = 9
     i = 0
     while running:
         # Limit the game time to 'time_limit' theoretical minutes
@@ -203,13 +202,7 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         # Ball collision with left wall
         if ball.x <= 50:
             ball.left = 51
-            if wall_bounce != 0:
-                angle = random.uniform(-math.pi / 4, math.pi / 4)
-                wall_bounce -= 1
-            else:
-                angle = 0
-                wall_bounce = 9
-            
+            angle = random.uniform(-math.pi / 4, math.pi / 4)
             ball.dx = abs(gameconfig.BALL_SPEED * math.cos(angle))
             ball.dy = gameconfig.BALL_SPEED * math.sin(angle)
 
