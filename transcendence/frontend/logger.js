@@ -26,7 +26,7 @@ class Logger {
 			...defaultConfig,
 			...config,
 			currentLevel: LogLevel[config.logLevel || defaultConfig.logLevel],
-			debug: config.debug || global.DEBUG
+			debug: config.debug || false
 		};
 
 		if (this.config.debug) {
