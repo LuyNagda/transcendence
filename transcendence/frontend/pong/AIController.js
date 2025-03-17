@@ -214,7 +214,6 @@ export class AIController {
                 relative_paddle_y
             ]];
 
-            logger.info(`[AI DECISION]: relative_paddle_y: `, relative_paddle_y)
             let result = this.forward(X);
 
             let decision = result[0].indexOf(Math.max(...result[0]))
