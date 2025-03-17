@@ -249,8 +249,11 @@ export class PongPhysics {
     rightPaddle.y += rightPaddle.dy * dt;
 
     // Clamp paddle positions to canvas boundaries
-    leftPaddle.y = Math.max(0, Math.min(canvasHeight - leftPaddle.height, leftPaddle.y));
-    rightPaddle.y = Math.max(0, Math.min(canvasHeight - rightPaddle.height, rightPaddle.y));
+    leftPaddle.y = Math.max(leftPaddle.height / 2, 
+      Math.min(canvasHeight - (leftPaddle.height / 2), leftPaddle.y));
+
+    rightPaddle.y = Math.max(rightPaddle.height / 2, 
+       Math.min(canvasHeight - (rightPaddle.height / 2), rightPaddle.y));
   }
 
   /**
