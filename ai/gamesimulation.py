@@ -2,108 +2,108 @@ import random, math
 from . import gameconfig
 
 class Ball:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
+    def __init__(self, center_x, center_y):
+        self.center_x = center_x
+        self.center_y = center_y
         self.dx = 0
         self.dy = 0
         self.size = gameconfig.BALL_SIZE
-        self._center = (x, y)
-    
+        self._center = (center_x, center_y)
+
     @property
     def center(self):
         return self._center
-    
+
     @center.setter
     def center(self, value):
         self._center = value
-        self.x = value[0]
-        self.y = value[1]
-    
-    @property 
+        self.center_x = value[0]
+        self.center_y = value[1]
+
+    @property
     def top(self):
-        return self.y - self.size/2
-    
+        return self.center_y - self.size / 2
+
     @top.setter
     def top(self, value):
-        self.y = value + self.size/2
-        self._center = (self.x, self.y)
-    
+        self.center_y = value + self.size / 2
+        self._center = (self.center_x, self.center_y)
+
     @property
     def bottom(self):
-        return self.y + self.size/2
-    
+        return self.center_y + self.size / 2
+
     @bottom.setter
     def bottom(self, value):
-        self.y = value - self.size/2
-        self._center = (self.x, self.y)
-    
+        self.center_y = value - self.size / 2
+        self._center = (self.center_x, self.center_y)
+
     @property
     def left(self):
-        return self.x - self.size/2
-    
+        return self.center_x - self.size / 2
+
     @left.setter
     def left(self, value):
-        self.x = value + self.size/2
-        self._center = (self.x, self.y)
-    
+        self.center_x = value + self.size / 2
+        self._center = (self.center_x, self.center_y)
+
     @property
     def right(self):
-        return self.x + self.size/2
-    
+        return self.center_x + self.size / 2
+
     @right.setter
     def right(self, value):
-        self.x = value - self.size/2
-        self._center = (self.x, self.y)
+        self.center_x = value - self.size / 2
+        self._center = (self.center_x, self.center_y)
 
 class AI_ball:
-    x: float
-    y: float
+    center_x: float
+    center_y: float
     dx: float
     dy: float
 
     def __init__(self, ball):
-            self.update(ball)
+        self.update(ball)
 
     def update(self, ball):
-        self.x = ball.x
-        self.y = ball.y
+        self.center_x = ball.center_x
+        self.center_y = ball.center_y
         self.dx = ball.dx
         self.dy = ball.dy
 
 class Paddle:
-    def __init__(self, x, y, width, height):
-        self.x = x
-        self.y = y
+    def __init__(self, center_x, center_y, width, height):
+        self.center_x = center_x
+        self.center_y = center_y
         self.width = width
         self.height = height
-    
+
     @property
     def top(self):
-        return self.y - self.height / 2
+        return self.center_y - self.height / 2
 
     @top.setter
     def top(self, value):
-        self.y = value + self.height / 2
+        self.center_y = value + self.height / 2
 
     @property
     def bottom(self):
-        return self.y + self.height / 2
+        return self.center_y + self.height / 2
 
     @bottom.setter
     def bottom(self, value):
-        self.y = value - self.height / 2
+        self.center_y = value - self.height / 2
 
     @property
     def left(self):
-        return self.x - self.width / 2
+        return self.center_x - self.width / 2
 
     @property
     def right(self):
-        return self.x + self.width / 2
+        return self.center_x + self.width / 2
 
 def reset_ball(ball):
-    ball.center = (gameconfig.WIDTH//2, gameconfig.HEIGHT//2)
+    ball.center = (gameconfig.WIDTH // 2, gameconfig.HEIGHT // 2)
     
     # Random angle
     angle = random.uniform(-math.pi / 4, math.pi / 4)
@@ -113,13 +113,13 @@ def reset_ball(ball):
     return ball
 
 def collides(ball, paddle):
-    return (ball.bottom > paddle.top and ball.top < paddle.bottom and
-            ball.left < paddle.right and ball.right > paddle.left)
+    return (ball.bottom >= paddle.top and ball.top <= paddle.bottom and
+            ball.left <= paddle.right and ball.right >= paddle.left)
 
 
 def update_ball_angle(ball, paddle):
     # Calculate the relative intersection (-1 at bottom, 0 at center, 1 at top)
-    relativeIntersectY = (ball.y - paddle.y) / (paddle.height / 2)
+    relativeIntersectY = (ball.center_y - paddle.center_y) / (paddle.height / 2)
 
     # Clamp the value to prevent extreme values
     relativeIntersectY = max(-1, min(1, relativeIntersectY))
@@ -133,22 +133,19 @@ def update_ball_angle(ball, paddle):
 
     return ball
 
-def generate_random_number(low, high):
-    return random.randint(low, high)
-
 def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     # Initialize game objects
     rightPaddle = Paddle(
-        x = gameconfig.WIDTH - 60 - gameconfig.PADDLE_WIDTH,
-        y = gameconfig.HEIGHT//2 - gameconfig.PADDLE_HEIGHT//2,
+        center_x = gameconfig.WIDTH - 60,
+        center_y = gameconfig.HEIGHT // 2,
         width = gameconfig.PADDLE_WIDTH,
         height = gameconfig.PADDLE_HEIGHT
     )
 
     # Normal game loop
     ball = Ball(
-        x = gameconfig.WIDTH / 2,
-        y = gameconfig.HEIGHT / 2,
+        center_x = gameconfig.WIDTH // 2,
+        center_y = gameconfig.HEIGHT // 2,
     )
     ball = reset_ball(ball)
 
@@ -157,63 +154,59 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
 
     running = True
     left_score = 0
-    i = 0
+    game_tick = 0
     while running:
         # Limit the game time to 'time_limit' theoretical minutes
-        if time_limit != 0 and i > (time_limit * 60 * 60):
+        if time_limit != 0 and game_tick > (time_limit * 60 * 60):
             running = False
             continue
-        i += 1
+        game_tick += 1
 
         # Move the ball
-        ball.x += ball.dx
-        ball.y += ball.dy
+        ball.center_x += ball.dx
+        ball.center_y += ball.dy
 
         # Update the ai view
-        if i % 60 == 0:
+        if game_tick % 60 == 0:
             ai_ball.update(ball)
 
         # Move the right paddle
-        match (Ai_selected.decision(rightPaddle.y, ai_ball, gameconfig.HEIGHT)):
+        match (Ai_selected.decision(rightPaddle.center_y, ai_ball, gameconfig.HEIGHT)):
             case 0:
                 # Ai moves the paddle up
                 if rightPaddle.top > 0:
-                    rightPaddle.y -= gameconfig.PADDLE_SPEED
+                    rightPaddle.center_y -= gameconfig.PADDLE_SPEED
             case 1:
                 # Ai stay still
                 pass
             case 2:
                 # Ai moves the paddle down
                 if rightPaddle.bottom < gameconfig.HEIGHT:
-                    rightPaddle.y += gameconfig.PADDLE_SPEED
+                    rightPaddle.center_y += gameconfig.PADDLE_SPEED
 
         # Ball collision with top and bottom
         if ball.top <= 0:
             ball.top = 5
             ball.dy *= -1
-            if abs(ball.dy) < 1:
-                ball.dy = 1 if ball.dy > 0 else -1
         elif ball.bottom >= gameconfig.HEIGHT:
             ball.bottom = gameconfig.HEIGHT - 5
             ball.dy *= -1
-            if abs(ball.dy) < 1:
-                ball.dy = 1 if ball.dy > 0 else -1
 
         # Ball collision with left wall
-        if ball.x <= 50:
+        if ball.left <= 50:
             ball.left = 51
             angle = random.uniform(-math.pi / 4, math.pi / 4)
             ball.dx = abs(gameconfig.BALL_SPEED * math.cos(angle))
             ball.dy = gameconfig.BALL_SPEED * math.sin(angle)
 
         # Check if the ball is on the right side and moving right
-        if ball.x > gameconfig.WIDTH / 2 and ball.dx > 0:
+        if ball.center_x > gameconfig.WIDTH / 2 and ball.dx > 0:
             # Simulate step-wise movement to detect missed collisions
             steps = max(1, int(abs(ball.dx)))  # Ensure at least 1 step
 
             for _ in range(steps):
-                ball.x += ball.dx / steps  # Move in smaller increments
-                ball.y += ball.dy / steps  
+                ball.center_x += ball.dx / steps  # Move in smaller increments
+                ball.center_y += ball.dy / steps  
 
                 if collides(ball, rightPaddle):  # Check collision at each step
                     Ai_selected.ai_score += 1
@@ -222,8 +215,8 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
                     break  # Stop further movement after collision
         else:
             # Normal movement when ball is not on the right side or moving left
-            ball.x += ball.dx
-            ball.y += ball.dy
+            ball.center_x += ball.dx
+            ball.center_y += ball.dy
 
         # Ball out of bounds
         if ball.right >= gameconfig.WIDTH:
