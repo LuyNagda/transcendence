@@ -6,7 +6,7 @@
 #    By: agaley <agaley@student.42lyon.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/12/15 15:51:13 by agaley            #+#    #+#              #
-#    Updated: 2024/06/27 15:34:58 by agaley           ###   ########lyon.fr    #
+#    Updated: 2025/03/17 12:04:42 by agaley           ###   ########.fr        #
 #                                                                              #
 # **************************************************************************** #
 
@@ -29,7 +29,8 @@ VENV = .venv
 PYTHON = $(VENV)/bin/python
 PIP = $(VENV)/bin/pip
 
-all: dev
+all:
+	$(SRC_ENV) docker compose --profile dev up --build
 
 $(NAME):
 
@@ -76,7 +77,7 @@ stop:
 	$(SRC_ENV) docker compose stop
 
 test: stop
-	$(SRC_ENV) docker compose up --build auth-test
+	$(SRC_ENV) docker compose --profile dev up --build auth-test
 
 siege: stop daemon
 	$(MAKE) wait-for-healthy
