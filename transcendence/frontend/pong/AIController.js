@@ -205,13 +205,12 @@ export class AIController {
 
         try {
             // Normalize inputs for the neural network
-            const relative_paddle_y = (gameState.rightPaddle.y + (GameRules.BASE_PADDLE_HEIGHT / 2)) / GameRules.CANVAS_HEIGHT
             let X = [[
                 this.aiBall.x / GameRules.CANVAS_WIDTH,
                 this.aiBall.y / GameRules.CANVAS_HEIGHT,
-                this.aiBall.dx / GameRules.SETTINGS_SCHEMA.paddleSpeed.default,
-                this.aiBall.dy / GameRules.SETTINGS_SCHEMA.paddleSpeed.default,
-                relative_paddle_y
+                this.aiBall.dx / GameRules.CANVAS_WIDTH,
+                this.aiBall.dy / GameRules.CANVAS_HEIGHT,
+                gameState.rightPaddle.y  / GameRules.CANVAS_HEIGHT
             ]];
 
             let result = this.forward(X);
