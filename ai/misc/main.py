@@ -18,7 +18,7 @@ def main():
         'nb_generation': 1000000000,
         'nb_species': 50,
         'time_limit': 0,
-        'max_score': 10000
+        'max_score': 5000
     }
 
     train_ai(save_file, training_params)
