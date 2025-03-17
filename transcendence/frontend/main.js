@@ -8,35 +8,24 @@ import { initializeAiManager } from './pong/AiManager.js';
 import Room from './room/Room.js';
 import ChatApp from './chat/ChatApp.js';
 
-function _initializeErrorHandling() {
-	window.onerror = function (message, source, lineno, colno, error) {
-		logger.error(`[Global error]`, { message, source, lineno, colno, error });
-		return false;
-	};
-
-	window.addEventListener('unhandledrejection', function (event) {
-		logger.error(`[Global error] Unhandled promise rejection:`, event.reason);
-	});
-}
-
 function waitForElement(selector, callback) {
-    const element = document.querySelector(selector);
-    if (element) {
-        callback();  // If the element already exists, run the callback immediately
-        return;
-    }
+	const element = document.querySelector(selector);
+	if (element) {
+		callback();  // If the element already exists, run the callback immediately
+		return;
+	}
 
-    const observer = new MutationObserver((mutations, obs) => {
+	const observer = new MutationObserver((mutations, obs) => {
 		logger.info(`[Waiting] waitForElement :`, selector);
 
 		if (document.querySelector(selector)) {
 			logger.info(`[Waiting end] Element is ready :`, selector);
-            callback();
-            obs.disconnect();  // Stop observing once the element is found
-        }
-    });
+			callback();
+			obs.disconnect();  // Stop observing once the element is found
+		}
+	});
 
-    observer.observe(document.body, { childList: true, subtree: true });
+	observer.observe(document.body, { childList: true, subtree: true });
 }
 
 async function initializeApp() {
@@ -49,9 +38,7 @@ async function initializeApp() {
 		const config = JSON.parse(configElement.textContent);
 		logger.initialize(config);
 		logger.info(`[Main] Starting application initialization`);
-		
-		_initializeErrorHandling();
-		
+
 		store.initialize();
 		store.dispatch({
 			domain: 'config',
@@ -60,13 +47,13 @@ async function initializeApp() {
 		});
 
 		connectionManager.initialize();
-		
+
 		jaiPasVu.use(uiPlugin);
 		jaiPasVu.use(htmxPlugin);
 		jaiPasVu.initialize();
-		
+
 		await ChatApp.initialize();
-		
+
 		// Use the function to wait for #saved-ai-dropdown
 		waitForElement("#saved-ai-dropdown", initializeAiManager);
 
