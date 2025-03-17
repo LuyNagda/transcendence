@@ -205,21 +205,24 @@ export class AIController {
 
         try {
             // Normalize inputs for the neural network
+            const relative_paddle_y = (gameState.rightPaddle.y + (GameRules.BASE_PADDLE_HEIGHT / 2)) / GameRules.CANVAS_HEIGHT
             let X = [[
                 this.aiBall.x / GameRules.CANVAS_WIDTH,
                 this.aiBall.y / GameRules.CANVAS_HEIGHT,
-                this.aiBall.dx,
-                this.aiBall.dy,
-                (gameState.rightPaddle.y + (GameRules.BASE_PADDLE_HEIGHT / 2)) / GameRules.CANVAS_HEIGHT
+                this.aiBall.dx / GameRules.SETTINGS_SCHEMA.paddleSpeed.default,
+                this.aiBall.dy / GameRules.SETTINGS_SCHEMA.paddleSpeed.default,
+                relative_paddle_y
             ]];
 
+            logger.info(`[AI DECISION]: relative_paddle_y: `, relative_paddle_y)
             let result = this.forward(X);
 
+            let decision = result[0].indexOf(Math.max(...result[0]))
             // Map neural network output to paddle movement:
             // 0 = move up
             // 1 = stay still
             // 2 = move down
-            return result[0].indexOf(Math.max(...result[0]));
+            return decision;
         }
         catch (error) {
             logger.error('Error in AI decision making:', error);
