@@ -87,7 +87,7 @@ services:
     networks:
       - app
     profiles:
-      - dev
+      - test
 
   db:
     image: postgres:13
