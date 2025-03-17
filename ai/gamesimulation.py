@@ -202,12 +202,12 @@ def train_normal(aiSelected, Ai_nb, time_limit, max_score):
         # Ball collision with left wall: 1 in 2 bouce horizontally
         if ball.x <= 50:
             ball.left = 50
-            if wall_bounce == 0:
+            if wall_bounce != 0:
                 angle = random.uniform(-math.pi / 4, math.pi / 4)
-                wall_bounce = 42
+                wall_bounce -= 1
             else:
                 angle = 0
-                wall_bounce = 0
+                wall_bounce = 3
 
             ball.dx = abs(gameconfig.BALL_SPEED * math.cos(angle))
             ball.dy = gameconfig.BALL_SPEED * math.sin(angle)
