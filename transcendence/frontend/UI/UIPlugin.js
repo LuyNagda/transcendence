@@ -15,7 +15,7 @@ export const AlertTypes = {
 export const uiPlugin = {
 	name: 'ui',
 	app: null,
-	
+
 
 	install(app) {
 		this.app = app;
@@ -98,7 +98,7 @@ export const uiPlugin = {
 			applyFontSize: (fontSize) => this._applyFontSizeToDOM(fontSize),
 			showModal(options) {
 				const modalId = `modal-${Date.now()}`;
-				
+
 				store.dispatch({
 					domain: 'ui',
 					type: actions.ui.SHOW_MODAL,
@@ -155,7 +155,7 @@ export const uiPlugin = {
 					logger.error('[UI] Friend request choice:', friendId, choice);
 					return;
 				}
-				
+
 				ChatApp.sendMessage({
 					type: 'friend_request_choice',
 					friend_id: friendId,
@@ -170,6 +170,13 @@ export const uiPlugin = {
 				if (state.fontSize) this._applyFontSizeToDOM(state.fontSize);
 				this.app.registerData('ui', state);
 			}
+		});
+
+		// Instead of htmx:afterSwap, listen for htmx:afterSettle to ensure final DOM state:
+		app.on('htmx:afterSettle', () => {
+			const uiState = store.getState('ui');
+			if (uiState?.fontSize)
+				this._applyFontSizeToDOM(uiState.fontSize);
 		});
 
 		// Subscribe to specific UI state changes
@@ -318,9 +325,9 @@ export const uiPlugin = {
 					[UI_FONT_SIZE.LARGE]: '1.25rem'
 				},
 				h: {
-					[UI_FONT_SIZE.SMALL]: '0.9rem',
-					[UI_FONT_SIZE.MEDIUM]: '1.1rem',
-					[UI_FONT_SIZE.LARGE]: '1.2rem'
+					[UI_FONT_SIZE.SMALL]: '1.5rem',
+					[UI_FONT_SIZE.MEDIUM]: '2rem',
+					[UI_FONT_SIZE.LARGE]: '2.5rem'
 				}
 			};
 

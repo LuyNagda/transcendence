@@ -144,6 +144,10 @@ export const htmxPlugin = {
 			app.emit('htmx:afterSwap', event);
 		});
 
+		document.body.addEventListener('htmx:afterSettle', (event) => {
+			app.emit('htmx:afterSettle', event);
+		});
+
 		document.body.addEventListener('htmx:responseError', (event) => {
 			logger.error('HTMX response error:', event.detail);
 			app.emit('htmx:error', event);
