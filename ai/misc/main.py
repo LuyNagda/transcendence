@@ -7,17 +7,18 @@ sys.path.insert(0, project_root)
 from ai.ai import train_ai
 
 def main():
-    if (len(sys.argv) != 3):
-        print(len(sys.argv))
+    if (len(sys.argv) == 2):
+        save_file = sys.argv[1]
+    elif (len(sys.argv) == 3):
+        save_file = sys.argv[2]
+    else:
         return print("Please provide a saved AI!")
-    
-    save_file = sys.argv[2]
 
     training_params = {
-        'nb_generation': 100,
+        'nb_generation': 1000000000,
         'nb_species': 50,
-        'time_limit': 240,
-        'max_score': 10000000
+        'time_limit': 0,
+        'max_score': 10000
     }
 
     train_ai(save_file, training_params)
