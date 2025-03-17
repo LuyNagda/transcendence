@@ -78,24 +78,14 @@ class Neuron_Network:
         return self.output
     
     def decision(self, paddle_y, ball, height):
-        ball_relative_x = ball.x / height
-        ball_relative_y = ball.y / height
+        ball_relative_x = ball.center_x / height
+        ball_relative_y = ball.center_y / height
         paddle_relative_y = paddle_y / height
 
         X = [ball_relative_x, ball_relative_y, ball.dx, ball.dy, paddle_relative_y]
         response = self.forward(X)
 
         return np.argmax(response)
-
-    def decision_left(self, paddle_y, ball, height):
-        ball_relative_x = 1 - ball.x / height
-        ball_relative_y = ball.y / height
-        paddle_relative_y = ball.dy, paddle_y / height
-
-        X = [ball_relative_x, ball_relative_y, ball.dx * -1, paddle_relative_y]
-        response = np.argmax(self.forward(X))
-
-        return response
     
     def __lt__(self, other):
         return ((self.ai_score) < (other.ai_score))
