@@ -320,7 +320,7 @@ export class AIInput {
 		const paddle = physicsState.rightPaddle; // Assuming AI controls right paddle
 
 		// Calculate paddle center
-		const paddleCenter = paddle.y + paddle.height / 2;
+		const paddleCenter = paddle.y;
 
 		// Only move if the ball is moving towards the AI paddle
 		if (ball.dx > 0) {
