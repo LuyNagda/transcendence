@@ -291,31 +291,84 @@ export class WebGLRenderer extends RendererInterface {
 		// Draw paddles with glow
 		this._drawWithBloom(() => {
 			// Left paddle
-			this._bufferContext.fillRect(
-				gameState.leftPaddle.x * scaleX,
-				gameState.leftPaddle.y * scaleY,
-				gameState.leftPaddle.width * scaleX,
-				gameState.leftPaddle.height * scaleY
-			);
+			if (gameState.leftPaddle &&
+				typeof gameState.leftPaddle.x === 'number' &&
+				typeof gameState.leftPaddle.y === 'number' &&
+				typeof gameState.leftPaddle.width === 'number' &&
+				typeof gameState.leftPaddle.height === 'number') {
+				this._bufferContext.fillRect(
+					gameState.leftPaddle.x * scaleX,
+					gameState.leftPaddle.y * scaleY,
+					gameState.leftPaddle.width * scaleX,
+					gameState.leftPaddle.height * scaleY
+				);
+			} else if (gameState.leftPaddle) {
+				logger.warn('Left paddle has invalid properties');
+			}
 
 			// Right paddle
-			this._bufferContext.fillRect(
-				gameState.rightPaddle.x * scaleX,
-				gameState.rightPaddle.y * scaleY,
-				gameState.rightPaddle.width * scaleX,
-				gameState.rightPaddle.height * scaleY
-			);
+			if (gameState.rightPaddle &&
+				typeof gameState.rightPaddle.x === 'number' &&
+				typeof gameState.rightPaddle.y === 'number' &&
+				typeof gameState.rightPaddle.width === 'number' &&
+				typeof gameState.rightPaddle.height === 'number') {
+				this._bufferContext.fillRect(
+					gameState.rightPaddle.x * scaleX,
+					gameState.rightPaddle.y * scaleY,
+					gameState.rightPaddle.width * scaleX,
+					gameState.rightPaddle.height * scaleY
+				);
+			} else if (gameState.rightPaddle) {
+				logger.warn('Right paddle has invalid properties');
+			}
 		});
 
 		// Draw ball with stronger glow
 		this._bufferContext.shadowBlur = 8;
 		this._drawWithBloom(() => {
-			this._bufferContext.fillRect(
+			if (!gameState.ball) {
+				logger.warn('Cannot draw ball: ball object is null or undefined');
+				return;
+			}
+
+			// Validate ball properties
+			if (typeof gameState.ball.x !== 'number' || typeof gameState.ball.y !== 'number' || typeof gameState.ball.radius !== 'number') {
+				logger.warn('Ball has invalid properties:', {
+					x: gameState.ball.x,
+					y: gameState.ball.y,
+					radius: gameState.ball.radius,
+					type_x: typeof gameState.ball.x,
+					type_y: typeof gameState.ball.y,
+					type_radius: typeof gameState.ball.radius
+				});
+				// Use default values if properties are invalid
+				const x = typeof gameState.ball.x === 'number' ? gameState.ball.x : this._bufferW / (2 * scaleX);
+				const y = typeof gameState.ball.y === 'number' ? gameState.ball.y : this._bufferH / (2 * scaleY);
+				const radius = typeof gameState.ball.radius === 'number' ? gameState.ball.radius : 5;
+
+				// Draw with default values
+				this._bufferContext.beginPath();
+				this._bufferContext.arc(
+					x * scaleX,
+					y * scaleY,
+					radius * Math.min(scaleX, scaleY),
+					0,
+					Math.PI * 2
+				);
+				this._bufferContext.fill();
+				return;
+			}
+
+			// Draw ball as circle
+			this._bufferContext.beginPath();
+			this._bufferContext.arc(
 				gameState.ball.x * scaleX,
 				gameState.ball.y * scaleY,
-				gameState.ball.width * scaleX,
-				gameState.ball.height * scaleY
+				gameState.ball.radius * Math.min(scaleX, scaleY),
+				0,
+				Math.PI * 2
 			);
+			this._bufferContext.fill();
 		});
 
 		// Reset context properties
@@ -327,17 +380,21 @@ export class WebGLRenderer extends RendererInterface {
 		this._bufferContext.textAlign = 'center';
 
 		this._drawWithBloom(() => {
-			this._bufferContext.fillText(
-				gameState.scores.left,
-				this._bufferW / 4,
-				50
-			);
+			if (gameState.scores && typeof gameState.scores.left !== 'undefined' && typeof gameState.scores.right !== 'undefined') {
+				this._bufferContext.fillText(
+					gameState.scores.left,
+					this._bufferW / 4,
+					50
+				);
 
-			this._bufferContext.fillText(
-				gameState.scores.right,
-				(3 * this._bufferW) / 4,
-				50
-			);
+				this._bufferContext.fillText(
+					gameState.scores.right,
+					(3 * this._bufferW) / 4,
+					50
+				);
+			} else {
+				logger.debug('Scores not available for rendering');
+			}
 		});
 
 		// Update WebGL texture

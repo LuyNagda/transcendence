@@ -87,6 +87,14 @@ export class RoomUIManager {
 				logger.debug('Handling mode change:', event.target.value);
 				this._callHandler('modeChange', event);
 			},
+			handleWebGLToggle: (event) => {
+				if (!event || !event.target) {
+					logger.error('Invalid WebGL toggle event:', event);
+					return;
+				}
+				logger.debug('Handling WebGL toggle:', event.target.checked);
+				this.handleWebGLToggle(event);
+			},
 			getProgressBarStyle: (value, settingType) => {
 				const getColorForPaddleSettings = (value) => {
 					if (value >= 7) return '#28a745';  // Green
