@@ -56,8 +56,7 @@ export class SettingsManager {
 	}
 
 	getInitialPaddlePositions() {
-		const paddleHeight = this.getPaddleHeight();
-		const centerY = GameRules.CANVAS_HEIGHT / 2 - paddleHeight / 2;
+		const centerY = GameRules.CANVAS_HEIGHT / 2;
 
 		return {
 			left: {
