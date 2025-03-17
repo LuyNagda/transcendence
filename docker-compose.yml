@@ -4,8 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
     volumes:
       - media:/app/media
       - static:/app/static
@@ -34,15 +32,6 @@ services:
       - RTC_TURN_URL_2=${RTC_TURN_URL_2}
       - RTC_TURN_USERNAME=${RTC_TURN_USERNAME}
       - RTC_TURN_CREDENTIAL=${RTC_TURN_CREDENTIAL}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.transcendence.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.transcendence.entrypoints=websecure"
-      - "traefik.http.routers.transcendence.tls.certresolver=myresolver"
-      - "traefik.http.routers.transcendence-ws.rule=Host(`${DOMAIN}`)"
-      - "traefik.http.routers.transcendence-ws.entrypoints=websecure"
-      - "traefik.http.routers.transcendence-ws.tls.certresolver=myresolver"
-      - "traefik.http.services.transcendence.loadbalancer.server.port=8000"
     develop:
       watch:
         - action: rebuild
@@ -75,6 +64,15 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - static:/var/www/static
       - media:/var/www/media
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.transcendence.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.transcendence.entrypoints=websecure"
+      - "traefik.http.routers.transcendence.tls.certresolver=myresolver"
+      - "traefik.http.routers.transcendence-ws.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.transcendence-ws.entrypoints=websecure"
+      - "traefik.http.routers.transcendence-ws.tls.certresolver=myresolver"
+      - "traefik.http.services.transcendence.loadbalancer.server.port=8000"
     networks:
       - app
 
