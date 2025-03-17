@@ -53,6 +53,21 @@ class Neuron_Network:
         self.ai_score = 0
         self.sample_gen = 0
 
+    def __copy__(self):
+        """Copy constructor to create a new instance with the same weights and biases."""
+        new_network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
+        
+        new_network.layer1.weights = self.layer1.weights.copy()
+        new_network.layer1.biases = self.layer1.biases.copy()
+        new_network.layer2.weights = self.layer2.weights.copy()
+        new_network.layer2.biases = self.layer2.biases.copy()
+        new_network.layer3.weights = self.layer3.weights.copy()
+        new_network.layer3.biases = self.layer3.biases.copy()
+        
+        new_network.ai_score = self.ai_score
+        new_network.sample_gen = self.sample_gen
+        return new_network
+
     def forward(self, inputs):
         self.output = self.layer1.forward(inputs)
         self.output = self.activation1.forward(self.output)
@@ -129,8 +144,8 @@ def Init_Ai(save_file, nb_species):
                 network.load_from_dict(Saved_Ai_dict)
                 Ai_Sample.append(network)
 
-        # Mix weights of the 5 best performing AIs
-        Crossover_mutation(Ai_Sample, nb_species)
+        # Mutate weights of the 5 best performing AIs
+        Mutation(Ai_Sample, nb_species)
         
         # Add random AIs to reach 'nb_species'
         remaining = nb_species - len(Ai_Sample)
@@ -198,9 +213,9 @@ def apply_mutation(layer):
 
     return layer
 
-def Crossover_mutation(Ai_Sample, nb_species):
+def Mutation(Ai_Sample, nb_species):
     """
-    Perform crossover and mutation on a population of AI samples.
+    Perform mutation on a population of AI samples.
 
     Parameters:
     Ai_Sample (list): The current population of AI samples.
@@ -210,20 +225,15 @@ def Crossover_mutation(Ai_Sample, nb_species):
     None
     """
 
-    # Crossover and then mutation
-    while (len(Ai_Sample) < nb_species - 5):
-        # Choose 2 parent randomly from the 5 best performing AI and instance a child
+    # Mutation
+    while (len(Ai_Sample) < nb_species - 10):
+        # Select a random parent from the top 5 performers
         parent = np.random.choice(Ai_Sample[:5])
-        child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
 
-        # Crossover for both weights and biases
-        child.layer1.weights = parent.layer1.weights
-        child.layer1.biases = parent.layer1.biases
-        child.layer2.weights = parent.layer2.weights
-        child.layer2.biases = parent.layer2.biases
-        child.layer3.weights = parent.layer3.weights
-        child.layer3.biases = parent.layer3.biases
+        # Create a mutated child using the copy constructor
+        child = parent.__copy__()
 
+        # Mutate for both weights and biases
         child.layer1 = apply_mutation(child.layer1)
         child.layer2 = apply_mutation(child.layer2)
         child.layer3 = apply_mutation(child.layer3)
@@ -303,7 +313,7 @@ def train_ai(save_file, training_params):
         training_args = [(Ai_Sample[i], i, time_limit, max_score) for i in range(nb_species)]
 
         # Use half of available CPU cores
-        nb_core = max(1, multiprocessing.cpu_count() // 2)
+        nb_core = max(1, multiprocessing.cpu_count() - 2)
         with multiprocessing.Pool(processes=(nb_core)) as pool:
             training_results = pool.map(train_species_wrapper, training_args)
 
