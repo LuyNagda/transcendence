@@ -243,6 +243,8 @@ export class WebGLRenderer extends RendererInterface {
 			const newTime = performance.now();
 			currentTime = newTime;
 
+			if (!this._regl) return;
+
 			this._regl.poll();
 			this._spriteTexture.subimage(this._bufferContext, 0, 0);
 			this._quadCommand({
