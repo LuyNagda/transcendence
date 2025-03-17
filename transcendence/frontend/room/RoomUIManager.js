@@ -132,16 +132,6 @@ export class RoomUIManager {
 		// Update the UI through JaiPasVu's reactivity
 		jaiPasVu.registerData('room', {
 			...state,
-			mappedPlayers: function () {
-				const players = state.players || [];
-				const currentUserId = store.getState('user').id;
-				return players.map(player => ({
-					...player,
-					isCurrentUser: player.id === currentUserId,
-					isOwner: player.id === state.owner?.id,
-					canBeKicked: player.id !== state.owner?.id && state.owner?.id === currentUserId
-				}));
-			},
 			availableSlots: function () {
 				return Math.max(0, state.maxPlayers - (state.players?.length || 0));
 			},
@@ -204,45 +194,6 @@ export class RoomUIManager {
 				return date.toLocaleTimeString();
 			}
 		});
-	}
-
-	_getComputedProps() {
-		return {
-			mappedPlayers: function (state) {
-				const players = state.players || [];
-				const currentUserId = store.getState('user').id;
-				return players.map(player => ({
-					...player,
-					isCurrentUser: player.id === currentUserId,
-					isOwner: player.id === state.owner?.id,
-					canBeKicked: player.id !== state.owner?.id && state.owner?.id === currentUserId
-				}));
-			},
-			availableSlots: function (state) {
-				return Math.max(0, state.maxPlayers - (state.players?.length || 0));
-			},
-			isOwner: function (state) {
-				return state.owner?.id === store.getState('user').id;
-			},
-			isLobbyState: function (state) {
-				return state.state === RoomStates.LOBBY;
-			},
-			buttonText: function (state) {
-				return state.state === RoomStates.LOBBY ? 'Start Game' : 'Game in Progress';
-			},
-			startGameInProgress: function (state) {
-				return state.state !== RoomStates.LOBBY;
-			},
-			gameContainerClass: function (state) {
-				return {
-					'game-container': true,
-					'loading': state.isLoading,
-					'error': state.error,
-					'lobby': state.state === RoomStates.LOBBY,
-					'playing': state.state === RoomStates.PLAYING
-				};
-			}
-		};
 	}
 
 	_toggleInviteModal() {

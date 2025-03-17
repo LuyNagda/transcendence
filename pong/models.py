@@ -131,15 +131,16 @@ class PongRoom(models.Model):
             'state': self.state,
             'owner': {
                 'id': self.owner.id,
-                'username': self.owner.username
+                'username': self.owner.nick_name
             } if self.owner else None,
-            'players': [{
+            'players': sorted([{
                 'id': player.id,
-                'username': player.username
-            } for player in self.players.all()],
+                'username': player.nick_name,
+                'isOwner': player.id == self.owner.id if self.owner else False,
+            } for player in self.players.all()], key=lambda x: x['id']),
             'pendingInvitations': [{
                 'id': user.id,
-                'username': user.username
+                'username': user.nick_name
             } for user in self.pending_invitations.all()],
             'maxPlayers': self.max_players,
             'settings': self.settings,

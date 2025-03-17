@@ -72,15 +72,15 @@ export const htmxPlugin = {
 		});
 
 		app.navigate = (path, options = {}) => {
-            const link = document.createElement('a');
-            link.href = path;
-            link.setAttribute('hx-get', path);
-            link.setAttribute('hx-target', '#content');
-            link.setAttribute('hx-push-url', 'true');
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        };
+			const link = document.createElement('a');
+			link.href = path;
+			link.setAttribute('hx-get', path);
+			link.setAttribute('hx-target', '#content');
+			link.setAttribute('hx-push-url', 'true');
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+		};
 	},
 
 	/**
@@ -107,28 +107,19 @@ export const htmxPlugin = {
 
 		document.body.addEventListener('htmx:beforeRequest', (event) => {
 			// const target = event.detail.elt;
-			// const domain = target.getAttribute('data-domain') || 'global';
 
 			app.emit('htmx:beforeRequest', event);
 		});
 
 		document.body.addEventListener('htmx:afterRequest', (event) => {
 			// const target = event.detail.elt;
-			// const domain = target.getAttribute('data-domain') || 'global';
 
 			app.emit('htmx:afterRequest', event);
 		});
 
 		document.body.addEventListener('htmx:beforeSwap', (event) => {
-			const target = event.detail.target;
-			if (target) {
-				// Preserve UI state before swap
-				const uiState = store.getState('ui');
-				if (uiState) {
-					sessionStorage.setItem('ui_state', JSON.stringify(uiState));
-				}
-				app.cleanup(target);
-			}
+			// const target = event.detail.target;
+
 			app.emit('htmx:beforeSwap', event);
 		});
 
@@ -136,18 +127,6 @@ export const htmxPlugin = {
 			logger.info('[HTMXPlugin] afterSwap event:', event);
 			const target = event.detail.target;
 			if (target) {
-				// Restore UI state after swap
-				const savedUiState = sessionStorage.getItem('ui_state');
-				if (savedUiState) {
-					const uiState = JSON.parse(savedUiState);
-					store.dispatch({
-						domain: 'ui',
-						type: actions.ui.INITIALIZE,
-						payload: uiState
-					});
-					sessionStorage.removeItem('ui_state');
-				}
-
 				// First process state updates from server
 				this._processStateUpdates(app, event.detail);
 
@@ -163,25 +142,6 @@ export const htmxPlugin = {
 				});
 			}
 			app.emit('htmx:afterSwap', event);
-		});
-
-		// Add mutation observer to handle dynamically added HTMX elements
-		const observer = new MutationObserver((mutations) => {
-			mutations.forEach(mutation => {
-				mutation.addedNodes.forEach(node => {
-					if (node.nodeType === 1) { // Element node
-						if (node.hasAttribute('hx-get') || node.hasAttribute('hx-post')) {
-							app.compileElement(node);
-							htmx.process(node);
-						}
-					}
-				});
-			});
-		});
-
-		observer.observe(document.body, {
-			childList: true,
-			subtree: true
 		});
 
 		document.body.addEventListener('htmx:responseError', (event) => {

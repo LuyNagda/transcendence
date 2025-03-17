@@ -74,17 +74,6 @@ describe('Pong Room Templates', () => {
 				owner: { id: 1 },
 				currentUser: { id: 1 },
 				state: 'LOBBY',
-				// Include computed properties as functions in the data object
-				mappedPlayers: function () {
-					const players = this.players || [];
-					const currentUserId = this.currentUser?.id;
-					return players.map(player => ({
-						...player,
-						isCurrentUser: player.id === currentUserId,
-						isOwner: player.id === this.owner?.id,
-						canBeKicked: player.id !== this.owner?.id && this.owner?.id === currentUserId
-					}));
-				},
 				isOwner: function () {
 					return this.owner?.id === this.currentUser?.id;
 				},
@@ -132,28 +121,15 @@ describe('Pong Room Templates', () => {
 				currentUser: { id: 1 }
 			});
 
-			// Register computed properties
-			factory.jaiPasVu.registerComputed('room', {
-				mappedPlayers: (state) => {
-					return state.players.map(player => ({
-						...player,
-						isCurrentUser: player.id === state.currentUser?.id,
-						isOwner: player.id === state.owner?.id,
-						canBeKicked: player.id !== state.owner?.id && state.owner?.id === state.currentUser?.id
-					}));
-				}
-			});
-
 			factory.updateAll();
 
 			// Check that the pending invitations section exists
-			const pendingSection = factory.query('div[aria-live="polite"] h6');
+			const pendingSection = factory.query('#pending-invitations');
 			expect(pendingSection).toBeTruthy();
-			expect(pendingSection.textContent).toBe('Pending Invitations');
 			expect(factory.exists('.badge.bg-warning')).toBeTruthy();
 
 			// Check that the list item for the invitation exists with correct binding
-			const invitationSpan = factory.query('.list-group-item > span[v-text="invitation.username"]');
+			const invitationSpan = factory.query('.list-group-item > span');
 			expect(invitationSpan).toBeTruthy();
 		});
 	});
@@ -239,16 +215,6 @@ describe('Pong Room Templates', () => {
 				currentUser: { id: 1 },
 				pendingInvitations: [],
 				error: null,
-				mappedPlayers: function () {
-					const players = this.players || [];
-					const currentUserId = this.currentUser?.id;
-					return players.map(player => ({
-						...player,
-						isCurrentUser: player.id === currentUserId,
-						isOwner: player.id === this.owner?.id,
-						canBeKicked: player.id !== this.owner?.id && this.owner?.id === currentUserId
-					}));
-				},
 				isOwner: function () {
 					return this.owner?.id === this.currentUser?.id;
 				},
@@ -304,17 +270,7 @@ describe('Pong Room Templates', () => {
 				pendingInvitations: [],
 				error: null,
 				isOwner: (state) => state.owner?.id === state.currentUser?.id,
-				isLobbyState: (state) => state.state === 'LOBBY',
-				mappedPlayers: (state) => {
-					const players = state.players || [];
-					const currentUserId = state.currentUser?.id;
-					return players.map(player => ({
-						...player,
-						isCurrentUser: player.id === currentUserId,
-						isOwner: player.id === state.owner?.id,
-						canBeKicked: player.id !== state.owner?.id && state.owner?.id === currentUserId
-					}));
-				}
+				isLobbyState: (state) => state.state === 'LOBBY'
 			});
 
 			expect(factory.exists('#mode-selection-container')).toBeTruthy();

@@ -141,7 +141,6 @@ class JaiPasVu {
         this.domains = new Map();
         this.updateQueue = new Set();
         this.updateScheduled = false;
-        this.observers = new Map();
         this.plugins = new Map();
         this.hooks = {
             beforeMount: new Set(),
@@ -442,32 +441,6 @@ class JaiPasVu {
         });
     }
 
-    /**
-     * Subscribes to state changes in a specific domain
-     * @param {string} domain - Domain identifier
-     * @param {Function} callback - Callback function receiving updated state
-     * @returns {Function} Unsubscribe function
-     * 
-     * @deprecated Use store.subscribe instead
-     */
-    subscribe(domain, callback) {
-        if (!this.observers.has(domain)) {
-            this.observers.set(domain, new Set());
-        }
-        this.observers.get(domain).add(callback);
-
-        // Return unsubscribe function
-        return () => this.unsubscribe(domain, callback);
-    }
-
-    // Unsubscribe from domain changes
-    unsubscribe(domain, callback) {
-        const observers = this.observers.get(domain);
-        if (observers) {
-            observers.delete(callback);
-        }
-    }
-
     // Schedule UI updates
     scheduleUpdate(domain) {
         this.updateQueue.add(domain);
@@ -485,29 +458,11 @@ class JaiPasVu {
             this.updateQueue.forEach(domain => {
                 const elements = document.querySelectorAll(`[data-domain="${domain}"]`);
                 elements.forEach(el => this.updateElement(el, domain));
-                this.notifyObservers(domain);
             });
             this.emit('updated');
         } finally {
             this.updateQueue.clear();
             this.updateScheduled = false;
-        }
-    }
-
-    /**
-     * Notify observers of data changes for a domain
-     */
-    notifyObservers(domain) {
-        const observers = this.observers.get(domain);
-        if (observers) {
-            const state = this.domains.get(domain)?.state;
-            observers.forEach(observer => {
-                try {
-                    observer(state);
-                } catch (error) {
-                    logger.error(`[JaiPasVu] Error in observer for domain ${domain}:`, error);
-                }
-            });
         }
     }
 
@@ -908,7 +863,7 @@ class JaiPasVu {
                 const prop = attr.name.split(':')[1];
                 const expression = attr.value;
 
-				logger.debug(`[JaiPasVu] Processing v-bind: ${prop} with value: ${expression}`);
+                logger.debug(`[JaiPasVu] Processing v-bind: ${prop} with value: ${expression}`);
 
                 const effect = () => {
                     try {
@@ -918,14 +873,14 @@ class JaiPasVu {
                         if (typeof value === 'boolean' && (propertyName in el || prop in el)) {
                             // Use the mapped property name if it exists on the element, or fall back to the original prop name
                             const targetProp = (propertyName in el) ? propertyName : prop;
-							el.removeAttribute(':' + prop);
+                            el.removeAttribute(':' + prop);
                             el[targetProp] = value;
                         } else if (prop === 'style' && typeof value === 'object') {
-							el.removeAttribute(':style');
+                            el.removeAttribute(':style');
                             Object.assign(el.style, value);
                         } else {
-							logger.debug(`[JaiPasVu] Setting attribute: ${prop} with value: ${value}`);
-							el.removeAttribute(':' + prop);
+                            logger.debug(`[JaiPasVu] Setting attribute: ${prop} with value: ${value}`);
+                            el.removeAttribute(':' + prop);
                             el.setAttribute(prop, value);
                         }
                     } finally {
@@ -1025,7 +980,7 @@ class JaiPasVu {
                 const effect = () => {
                     try {
                         ReactiveEffect.push(effect);
-						logger.debug(`[JaiPasVu] Processing attribute: ${attr.name} with value: ${attr.value}`);
+                        logger.debug(`[JaiPasVu] Processing attribute: ${attr.name} with value: ${attr.value}`);
                         const newValue = attr.value.replace(/\[\[(.*?)\]\]/g, (_, exp) => {
                             return this.evaluateExpression(exp.trim(), context);
                         });

@@ -377,10 +377,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         if self.room is None:
             return None
         room_data = self.room.serialize()
-        room_data['currentUser'] = {
-            'id': self.user.id,
-            'username': self.user.username,
-        }
         return room_data
 
     async def update_room(self, event=None):

@@ -6,17 +6,16 @@
             <span v-text="maxPlayers" aria-live="polite"></span>)
         </h6>
 
-        <ul class="list-group mb-3" role="list" aria-labelledby="players-list-heading">
-            <li v-for="player in mappedPlayers"
-                class="list-group-item d-flex justify-content-between align-items-center" role="listitem"
-                aria-label="Player [[player.username]]">
+        <ul class="list-group mb-3" role="list" aria-labelledby="players-list-heading" v-if="players.length > 0">
+            <li v-for="player in players" class="list-group-item d-flex justify-content-between align-items-center"
+                role="listitem" aria-label="Player [[player.username]]">
                 <span>[[player.username]]</span>
                 <div>
                     <span v-if="[[player.isOwner]]" class="badge bg-info rounded-pill me-2"
                         aria-label="Room owner">Owner</span>
-                    <span v-if="[[player.isCurrentUser]]" class="badge bg-primary rounded-pill me-2"
+                    <span v-if="[[player.id === currentUser.id]]" class="badge bg-primary rounded-pill me-2"
                         aria-label="Your player">You</span>
-                    <button v-if="[[player.canBeKicked]]" class="btn btn-danger btn-sm"
+                    <button v-if="[[!player.isOwner && currentUser.id === owner.id]]" class="btn btn-danger btn-sm"
                         v-on:click="kickPlayer([[player.id]])" aria-label="Kick player [[player.username]]">
                         Kick
                     </button>
@@ -28,17 +27,17 @@
             </li>
         </ul>
 
-        <div v-if="pendingInvitations && pendingInvitations.length > 0" aria-live="polite">
+        <div id="pending-invitations" v-if="pendingInvitations && pendingInvitations.length > 0" aria-live="polite">
             <h6>Pending Invitations</h6>
             <ul class="list-group mb-3">
                 <li v-for="invitation in pendingInvitations"
                     class="list-group-item d-flex justify-content-between align-items-center" role="listitem"
                     aria-label="Pending invitation for [[invitation.username]]">
-                    <span v-text="invitation.username"></span>
+                    <span>[[invitation.username]]</span>
                     <div>
                         <span class="badge bg-warning rounded-pill me-2" aria-label="Invitation pending">Pending</span>
                         <button v-if="[[isOwner]]" class="btn btn-danger btn-sm"
-                            v-on:click="cancelInvitation([[invitation.id]])" 
+                            v-on:click="cancelInvitation([[invitation.id]])"
                             aria-label="Cancel invitation for [[invitation.username]]">
                             Cancel
                         </button>
