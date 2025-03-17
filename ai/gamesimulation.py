@@ -171,7 +171,7 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
             ai_ball.update(ball)
 
         # Move the right paddle
-        match (Ai_selected.decision(rightPaddle.center_y, ai_ball, gameconfig.HEIGHT)):
+        match (Ai_selected.decision(rightPaddle.center_y, ai_ball, gameconfig.HEIGHT, gameconfig.WIDTH)):
             case 0:
                 # Ai moves the paddle up
                 if rightPaddle.top > 0:
