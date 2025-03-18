@@ -177,6 +177,106 @@ export class KeyboardInput {
 }
 
 /**
+ * KeyboardInputGuest
+ * 
+ * Input provider for keyboard controls for a guest in 1vs1 local
+ */
+export class KeyboardInputGuest {
+	/**
+	 * Creates a new KeyboardInputGuest instance
+	 * @param {Object} options - Configuration options
+	 * @param {Object} options.keyMap - Key mapping configuration
+	 */
+	constructor(options = {}) {
+		this.callback = null;
+		this.keyStates = { up: false, down: false };
+		this.keyMap = options.keyMap || {
+			up: 'ArrowUp',
+			down: 'ArrowDown'
+		};
+		this.keyDownHandler = null;
+		this.keyUpHandler = null;
+	}
+
+	/**
+	 * Initialize the keyboard input
+	 * @param {Function} callback - Callback function for input events
+	 */
+	initialize(callback) {
+		this.callback = callback;
+
+		// Set up event listeners
+		this.keyDownHandler = this.handleKeyDown.bind(this);
+		this.keyUpHandler = this.handleKeyUp.bind(this);
+
+		window.addEventListener('keydown', this.keyDownHandler);
+		window.addEventListener('keyup', this.keyUpHandler);
+
+		logger.info('Keyboard input Guest initialized');
+	}
+
+	/**
+	 * Handle key down events
+	 * @param {KeyboardEvent} event - The keyboard event
+	 */
+	handleKeyDown(event) {
+		this.updateKeyState(event.key, true);
+	}
+
+	/**
+	 * Handle key up events
+	 * @param {KeyboardEvent} event - The keyboard event
+	 */
+	handleKeyUp(event) {
+		this.updateKeyState(event.key, false);
+	}
+
+	/**
+	 * Update key state and send input if changed
+	 * @param {string} key - The key that was pressed/released
+	 * @param {boolean} isPressed - Whether the key is pressed
+	 */
+	updateKeyState(key, isPressed) {
+		// Update key state based on pressed keys
+		let stateChanged = false;
+
+		if (key === this.keyMap.up && this.keyStates.up !== isPressed) {
+			this.keyStates.up = isPressed;
+			stateChanged = true;
+		} else if (key === this.keyMap.down && this.keyStates.down !== isPressed) {
+			this.keyStates.down = isPressed;
+			stateChanged = true;
+		}
+		
+		// Only send update if state changed
+		if (stateChanged && this.callback) {
+			let direction = 0;
+			if (this.keyStates.up) direction -= 1;
+			if (this.keyStates.down) direction += 1;
+
+			this.callback({
+			direction,
+			intensity: 1.0
+			});
+		}
+	}
+
+	/**
+	 * Clean up resources
+	 */
+	cleanup() {
+		window.removeEventListener('keydown', this.keyDownHandler);
+		window.removeEventListener('keyup', this.keyUpHandler);
+
+		this.keyDownHandler = null;
+		this.keyUpHandler = null;
+		this.callback = null;
+
+		logger.info('Keyboard input Guest cleaned up');
+	}
+}
+  
+/**
  * NetworkInput
  * 
  * Input provider for network-based controls.
