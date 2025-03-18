@@ -117,4 +117,19 @@
 	--bs-form-invalid-color: #ff4500;
 	--bs-form-invalid-border-color: #ff4500;
 	--bs-btn-close-color: var(--bs-light);
-  }
+}
+
+[data-bs-theme=light] .btn-close {
+    filter: none;
+    opacity: 0.5;
+}
+
+[data-bs-theme=dark] .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+    opacity: 0.7;
+}
+
+[data-bs-theme=high-contrast] .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+    opacity: 0.8;
+}
