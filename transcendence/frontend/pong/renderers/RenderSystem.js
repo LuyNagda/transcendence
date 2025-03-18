@@ -152,10 +152,10 @@ export class RenderSystem {
 		transformedState.rightPaddle = tempPaddle;
 
 		if (transformedState.leftPaddle)
-			transformedState.leftPaddle.x = canvasWidth - transformedState.leftPaddle.x - transformedState.leftPaddle.width;
+			transformedState.leftPaddle.x = canvasWidth - transformedState.leftPaddle.x;
 
 		if (transformedState.rightPaddle)
-			transformedState.rightPaddle.x = canvasWidth - transformedState.rightPaddle.x - transformedState.rightPaddle.width;
+			transformedState.rightPaddle.x = canvasWidth - transformedState.rightPaddle.x;
 
 		if (transformedMetadata && transformedMetadata.scores) {
 			const tempScore = transformedMetadata.scores.left;
