@@ -13,12 +13,9 @@
 </head>
 
 <body class="d-flex flex-column min-vh-100" data-config-id="app-config" aria-label="Main application content">
+    {% if not request.htmx %}
     {{ config|json_script:"app-config" }}
-    {% if user.is_authenticated %}
-    <div hidden data-user-info='{"id": {{ user.id }}, "username": "{{ user.username }}"}' aria-hidden="true"></div>
     {% endif %}
-    <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1050;"
-        role="alert" aria-live="assertive" aria-atomic="true"></div>
     <main class="flex-grow-1" id="content" role="main" aria-label="Main content">
         {% block content %}{% endblock %}
     </main>
@@ -29,12 +26,14 @@
     {% endblock %}
 
     {% block chat %}
-    {% if user.is_authenticated %}
+    {% if user.is_authenticated and not request.htmx %}
     {% render_chat %}
     {% endif %}
     {% endblock %}
 </body>
 
+{% if not request.htmx %}
 <script type="module" src="{% static 'main.js' %}"></script>
+{% endif %}
 
 </html>
