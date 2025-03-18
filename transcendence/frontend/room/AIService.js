@@ -16,7 +16,7 @@ export class AIService {
 		} catch (error) {
 			logger.error('Error loading AI models:', error);
 			// Return default models if fetch fails
-			const defaultAIs = ['Easy', 'Medium', 'Hard'];
+			const defaultAIs = ['Marvin'];
 			await this.updateStoreWithAvailableAIs(defaultAIs);
 			return {
 				saved_ai: defaultAIs

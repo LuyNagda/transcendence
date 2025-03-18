@@ -652,7 +652,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                         'ballSpeed': 6,
                         'paddleSpeed': 6,
                         'maxScore': 11,
-                        'aiDifficulty': 'Medium'
+                        'aiDifficulty': 'Marvin'
                     } if value == 'RANKED' else {
                         'ballSpeed': 5,
                         'paddleSpeed': 5,

@@ -131,7 +131,7 @@ export default class GameDirector {
 			if (this.isAiGame) {
 				// In AI mode, player controls left paddle, AI controls right paddle
 				logger.info('[GameDirector] Setting up AI game: keyboard for left paddle, AI for right paddle');
-				inputSystem.registerInput('right', new AIInput(this.eventEmitter, this.settings?.aiDifficulty || 'medium'));
+				inputSystem.registerInput('right', new AIInput(this.eventEmitter, this.settings?.aiDifficulty || 'Marvin'));
 			} else {
 				// In LOCAL VS mode, player controls left paddle, guest player controls right paddle
 				logger.info('[GameDirector] Setting up Local VS game: keyboard key "w" and "s" for left paddle, "arrow-up" and "arrow-down" for right paddle');

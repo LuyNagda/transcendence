@@ -91,6 +91,8 @@ def training(request):
         # Parse JSON body
         data = json.loads(request.body)
         ai_name = data.get('ai_name')
+        if ai_name == 'Marvin':
+            raise PermissionError("Marvin: Access denied. Not that it matters... Nothing ever does.")
         if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
             raise ValueError("Invalid AI name. Only alphanumeric characters are allowed and a maximun of 100 characters")
         
@@ -137,6 +139,9 @@ def training(request):
     except ValueError as e:
         return JsonResponse({"error": f"while training: {str(e)}"}, status=400)
 
+    except PermissionError as e:
+        return JsonResponse({"error": f"{str(e)}"}, status=403)
+
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -181,7 +186,7 @@ def delete_saved_ai(request):
         if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
             raise ValueError("Invalid AI name. Only alphanumeric characters are allowed and a maximun of 100 characters")
 
-        invalid_ai = ["Hard", "Medium", "Easy"]
+        invalid_ai = ["Marvin"]
         if ai_name in invalid_ai:
             return JsonResponse({"error": f"The file '{ai_name}' cannot be removed"}, safe=False, status=403)        
 

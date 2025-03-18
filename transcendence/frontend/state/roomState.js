@@ -38,7 +38,7 @@ export const initialRoomState = {
 	createdAt: '',
 	createdBy: 0,
 	pendingInvitations: [],
-	availableAIs: ['Easy', 'Medium', 'Hard'],
+	availableAIs: ['Marvin'],
 	lastUpdate: null
 };
 

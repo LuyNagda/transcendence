@@ -125,7 +125,7 @@ async function fetchSavedAIs() {
 
         const data = await response.json();
         dropdown.innerHTML = '<option value="" disabled selected>Select AI to delete</option>';
-        const disabled_ai = ["Hard", "Medium", "Easy"];
+        const disabled_ai = ["Marvin"];
         data.saved_ai.forEach(ai => {
             const option = document.createElement("option");
             option.value = ai;

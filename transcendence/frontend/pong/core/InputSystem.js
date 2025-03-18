@@ -342,7 +342,7 @@ export class AIInput {
 	 * @param {EventEmitter} eventEmitter - The event emitter for communication
 	 * @param {string} difficulty - AI difficulty level
 	 */
-	constructor(eventEmitter, difficulty = 'medium') {
+	constructor(eventEmitter, difficulty = 'Marvin') {
 		this.eventEmitter = eventEmitter;
 		this.difficulty = difficulty;
 		this.callback = null;

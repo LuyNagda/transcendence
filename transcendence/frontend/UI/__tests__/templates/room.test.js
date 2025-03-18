@@ -146,7 +146,7 @@ describe('Pong Room Templates', () => {
 					ballSpeed: 7,
 					paddleSize: 4,
 					maxScore: 11,
-					aiDifficulty: 'MEDIUM'
+					aiDifficulty: 'Marvin'
 				},
 				gameStarted: false,
 				owner: { id: 1 },

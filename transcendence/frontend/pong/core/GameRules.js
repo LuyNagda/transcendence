@@ -13,9 +13,7 @@ export class GameRules {
 	static BASE_BALL_SPEED = 70;
 
 	static DIFFICULTY_LEVELS = {
-		EASY: 'Easy',
-		MEDIUM: 'Medium',
-		HARD: 'Hard'
+		Marvin: 'Marvin'
 	};
 
 	static SETTINGS_SCHEMA = {
@@ -45,7 +43,7 @@ export class GameRules {
 		},
 		aiDifficulty: {
 			type: 'string',
-			default: 'Medium',
+			default: 'Marvin',
 			optional: true
 		}
 	};
