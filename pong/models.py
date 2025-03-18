@@ -11,6 +11,7 @@ class PongGame(models.Model):
     player1 = models.ForeignKey(User, related_name='player1_games', on_delete=models.CASCADE, null=True, blank=True)
     player2 = models.ForeignKey(User, related_name='player2_games', on_delete=models.CASCADE, null=True, blank=True)
     player2_is_ai = models.BooleanField(default=False)
+    player2_is_guest = models.BooleanField(default=False)
     player1_score = models.IntegerField(default=0)
     player2_score = models.IntegerField(default=0)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.ONGOING)
@@ -23,7 +24,10 @@ class PongGame(models.Model):
     def get_state(self):
         return {
             'player1': self.player1.username if self.player1 else 'Unknown',
-            'player2': self.player2.username if self.player2 else 'AI',
+            'player2': (self.player2.username if self.player2 else
+                        'AI' if self.player2_is_ai else
+                        'Guest' if self.player2_is_guest else
+                        'Unknown'),
             'score_player1': self.player1_score,
             'score_player2': self.player2_score,
             'status': self.status,
@@ -32,6 +36,7 @@ class PongGame(models.Model):
 class PongRoom(models.Model):
     class Mode(models.TextChoices):
         AI = 'AI', 'AI Mode'
+        LOCAL = 'LOCAL', 'Local Mode'
         CLASSIC = 'CLASSIC', 'Classic Mode'
         RANKED = 'RANKED', 'Ranked Mode'
         TOURNAMENT = 'TOURNAMENT', 'Tournament Mode'
@@ -71,8 +76,12 @@ class PongRoom(models.Model):
         return self.mode == self.Mode.AI
 
     @property
+    def is_local(self):
+        return self.mode == self.Mode.LOCAL
+
+    @property
     def max_players(self):
-        if self.mode == self.Mode.AI:
+        if self.mode == self.Mode.AI or self.mode == self.Mode.LOCAL:
             return 1
         elif self.mode == self.Mode.TOURNAMENT:
             return 8
@@ -83,6 +92,7 @@ class PongRoom(models.Model):
     def can_start_game(self):
         return self.state == self.State.LOBBY and (
             (self.player_count == 1 and self.mode == self.Mode.AI) or
+            (self.player_count == 1 and self.mode == self.Mode.LOCAL) or
             (self.player_count == 2 and self.mode == self.Mode.CLASSIC) or
             (self.player_count == 2 and self.mode == self.Mode.RANKED) or
             (self.player_count >= 3 and self.mode == self.Mode.TOURNAMENT)

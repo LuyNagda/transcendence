@@ -93,7 +93,7 @@ export class RoomGameManager {
 
 			const gameOptions = {
 				gameId: gameId,
-				isHost: roomState.mode === 'AI' ? true : isHost,
+				isHost: roomState.mode === 'AI' || roomState.mode === 'LOCAL' ? true : isHost,
 				useWebGL: roomState.useWebGL,
 				settings: roomState.settings
 			};

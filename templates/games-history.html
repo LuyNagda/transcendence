@@ -27,8 +27,10 @@
 			{% for games in games_history %}
 			<tr>
 				<td>
-					{% if not games.player1 or not games.player2 %}
+					{% if not games.player1 or not games.player2 and games.player2_is_ai%}
 						AI
+					{% elif not games.player1 or not games.player2%}
+						Guest
 					{% elif games.player1 != request.user %}
 						{{ games.player1.username }}
 					{% else %}

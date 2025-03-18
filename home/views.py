@@ -79,6 +79,14 @@ def games_history(request):
         models.Q(player1=player) | 
         models.Q(player2=player)
 	).order_by('-created_at')[:5]
+
+    # Dynamically creat a list with all of PongGame's attributes, and add the attribute 'player2_is_ai'
+    games_history_list = []
+    for game in games_history:
+        game_dict = {field.name: getattr(game, field.name) for field in PongGame._meta.fields}
+        game_dict['player2_is_ai'] = game.player2_is_ai
+        games_history_list.append(game_dict)
+
     tournament_played_by_player = Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player)
     player_rankings = []
     total_tournies_player = total_tournies_played(player)
@@ -95,7 +103,7 @@ def games_history(request):
     losses = total_losses(player)
     wr = winrate(player)
     context = {
-        'games_history': games_history,
+        'games_history': games_history_list,
         'player_rankings': player_rankings,
         'total_games': total_games,
         'wins': wins,

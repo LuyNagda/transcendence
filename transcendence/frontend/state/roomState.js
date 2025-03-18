@@ -17,6 +17,7 @@ export const roomActions = {
 
 export const RoomModes = {
 	AI: 'AI',
+	LOCAL: 'LOCAL',
 	CLASSIC: 'CLASSIC',
 	RANKED: 'RANKED',
 	TOURNAMENT: 'TOURNAMENT'

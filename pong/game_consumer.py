@@ -75,10 +75,10 @@ class PongGameConsumer(AsyncWebsocketConsumer):
 
                 # 3. Determine and validate role (host/guest)
                 self.is_host = self.user == self.game.player1
-                self.is_guest = self.user == self.game.player2 or self.game.player2_is_ai
+                self.is_guest = self.user == self.game.player2 or self.game.player2_is_ai or self.game.player2_is_guest
 
                 if not self.is_host and not self.is_guest:
-                    logger.error(f"[Game {self.game_id}] User not authorized for game - player1_id: {self.game.player1.id}, player2_id: {getattr(self.game.player2, 'id', None)}, is_ai: {self.game.player2_is_ai}", extra={
+                    logger.error(f"[Game {self.game_id}] User not authorized for game - player1_id: {self.game.player1.id}, player2_id: {getattr(self.game.player2, 'id', None)}, is_ai: {self.game.player2_is_ai}, is_local: {self.game.player2_is_guest}", extra={
                         'user_id': self.user.id
                     })
                     await self.close(code=4003)
@@ -109,7 +109,8 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         'state': game_state,
                         'is_host': self.is_host,
                         'connection_state': self.connection_state,
-                        'is_ai_game': self.game.player2_is_ai
+                        'is_ai_game': self.game.player2_is_ai,
+                        'is_local_game': self.game.player2_is_guest
                     }))
                     
                     # 7. Notify other players about connection
@@ -117,7 +118,8 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         'user_id': self.user.id,
                         'username': self.user.username,
                         'is_host': self.is_host,
-                        'is_ai_opponent': self.game.player2_is_ai
+                        'is_ai_opponent': self.game.player2_is_ai,
+                        'is_guest_opponent': self.game.player2_is_guest
                     })
 
                     logger.info(f"[Game {self.game_id}] WebSocket connection accepted - is_host: {self.is_host}, connection_state: {self.connection_state}", extra={
@@ -161,12 +163,13 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         'type': 'player_ready',
                         'user_id': data.get('user_id'),
                         'is_host': self.is_host,
-                        'is_ai_opponent': getattr(self.game, 'player2_is_ai', False)
+                        'is_ai_opponent': getattr(self.game, 'player2_is_ai', False),
+                        'is_guest_opponent': getattr(self.game, 'player2_is_guest', False)
                     }
                 )
                 return
             
-            elif message_type == 'webrtc_signal' and not self.game.player2_is_ai:
+            elif message_type == 'webrtc_signal' and not self.game.player2_is_ai and not self.game.player2_is_guest:
                 signal_type = data.get('signal', {}).get('type')
                 
                 # Handle ICE candidates
@@ -342,9 +345,12 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             },
             'player2': {
                 'id': self.game.player2.id if self.game.player2 else None,
-                'username': self.game.player2.username if self.game.player2 else 'AI',
-                'is_connected': not self.game.player2_is_ai,
+                'username': (self.game.player2.username if self.game.player2 else
+                             'AI' if self.game.player2_is_ai else
+                             'Guest'),
+                'is_connected': not self.game.player2_is_ai or not self.game.player2_is_guest,
                 'is_ai': self.game.player2_is_ai,
+                'is_guest': self.game.player2_is_guest,
                 'is_host': False
             },
             'scores': {
@@ -352,7 +358,8 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                 'right': self.game.player2_score
             },
             'status': self.game.status,
-            'is_ai_game': self.game.player2_is_ai
+            'is_ai_game': self.game.player2_is_ai,
+            'is_local_game': self.game.player2_is_guest
         }
     
     @database_sync_to_async

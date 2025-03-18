@@ -138,7 +138,7 @@ def invite_friends(request, room_id):
 def get_max_players_for_mode(mode):
     if mode == 'TOURNAMENT':
         return 8  # Or maximum players for tournament mode
-    elif mode == 'AI':
+    elif mode == 'AI' or mode == 'LOCAL':
         return 1
     else:
         return 2  # For CLASSIC and RANKED modes

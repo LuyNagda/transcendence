@@ -325,6 +325,13 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     })
                     return False, "Cannot join AI mode room", 4005
 
+                # For LOCAL mode, only allow the owner
+                if self.room.mode == 'LOCAL' and self.user != self.room.owner:
+                    logger.error(f"Cannot add user to LOCAL room: Not the owner - room_id: {self.room_id}", extra={
+                        'user_id': self.user.id
+                    })
+                    return False, "Cannot join AI mode room", 4005
+
                 if self.room.state == 'PLAYING':
                     logger.error(f"Cannot add user to room: Game in progress - room_id: {self.room_id}", extra={
                         'user_id': self.user.id
@@ -465,8 +472,8 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-                # Message pour le joueur 2 (si existe et n'est pas une IA)
-                if game.player2 and not game.player2_is_ai:
+                # Message pour le joueur 2 (si existe et n'est pas une IA ou un guest)
+                if game.player2 and not game.player2_is_ai and not game.player2_is_guest:
                     await self.channel_layer.group_send(
                         f"user_{game.player2.id}",
                         {
@@ -483,6 +490,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                         'game_id': game.id,
                         'player1_id': game.player1.id,
                         'is_ai_game': game.player2_is_ai,
+                        'is_local_game': game.player2_is_guest,
                         'settings': settings,
                         'tournament_id': tournament.id if tournament else None
                     }
@@ -513,6 +521,11 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             if self.room.mode == 'AI':
                 if self.room.players.count() < 1:
                     logger.error("No players in AI mode room")
+                    return False, "No players in room"
+            # For Local mode, we only need one player (the owner)
+            elif self.room.mode == 'LOCAL':
+                if self.room.players.count() < 1:
+                    logger.error("No players in LOCAL mode room")
                     return False, "No players in room"
             else:
                 # For non-AI modes, we need at least 2 players
@@ -569,6 +582,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                         player1=pair[0],
                         player2=pair[1] if len(pair) > 1 else None,
                         player2_is_ai=self.room.mode == 'AI',
+                        player2_is_guest=self.room.mode == 'LOCAL',
                         status='ongoing'
                     ))
                     logger.info(f"Jeu créé : {games[-1].id}")
@@ -590,6 +604,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             'game_id': event_data.get('game_id'),
             'player1_id': event_data.get('player1_id'),
             'is_ai_game': event_data.get('is_ai_game', False),
+            'is_local_game': event_data.get('is_local_game', False),
             'settings': event_data.get('settings', {})
         }
         

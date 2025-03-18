@@ -181,7 +181,7 @@ export default class Room {
 	 */
 	_createConnectionConfig(mode) {
 		const config = {
-			enableGameConnection: mode !== RoomModes.AI,
+			enableGameConnection: mode !== RoomModes.AI && mode !== RoomModes.LOCAL,
 			wsConfig: {
 				maxReconnectAttempts: 5,
 				reconnectInterval: 1000,
@@ -321,7 +321,9 @@ export default class Room {
 		});
 
 		// Check if we need to reinitialize connections
-		const needsReconnection = (currentMode === RoomModes.AI) !== (newMode === RoomModes.AI);
+		const isCurrentModeLocal = currentMode === RoomModes.AI || currentMode === RoomModes.LOCAL;
+		const isNewModeLocal = newMode === RoomModes.AI || newMode === RoomModes.LOCAL;
+		const needsReconnection = isCurrentModeLocal !== isNewModeLocal;
 		if (needsReconnection) {
 			logger.info('[Room] Mode change requires connection reinitialization');
 
@@ -493,7 +495,8 @@ export default class Room {
 			let errorMessage = 'Failed to start game';
 			let errorCode = 'GAME_CREATE_ERROR';
 
-			if (roomState.mode !== RoomModes.AI && roomState.players.length < 2) {
+			if ((roomState.mode !== RoomModes.AI || roomState.mode !== RoomModes.LOCAL)
+				&& roomState.players.length < 2) {
 				errorMessage = 'Cannot start game: Not enough players';
 				errorCode = 'PLAYER_COUNT_ERROR';
 			} else if (error.message.includes('validation')) {
