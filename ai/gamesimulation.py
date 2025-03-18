@@ -223,6 +223,10 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
             left_score += 1
             ball = reset_ball(ball)
 
+        # Eliminate bad AI
+        if (left_score == max_score / 2 and Ai_selected.ai_score < left_score / 2):
+            running = False
+
         # End the game
         if left_score >= max_score:
             running = False
