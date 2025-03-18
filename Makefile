@@ -38,11 +38,11 @@ run: daemon
 	@make logs
 
 daemon:
-	npm run build && \
+	pnpm run build && \
 	$(SRC_ENV) docker compose --profile prod up --build -d
 
 dev:
-	npm run dev & \
+	pnpm run dev & \
 	$(SRC_ENV) docker compose --profile dev up --build --watch
 
 $(VENV)/bin/activate: requirements.txt
