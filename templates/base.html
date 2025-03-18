@@ -10,8 +10,6 @@
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
     <link href="{% static 'vendor.css' %}" rel="stylesheet">
     <link href="{% static 'high-contrast.css' %}" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- <script src="https://unpkg.com/htmx.org@1.6.1"></script> -->
 </head>
 
 <body class="d-flex flex-column min-vh-100" data-config-id="app-config" aria-label="Main application content">
@@ -19,7 +17,8 @@
     {% if user.is_authenticated %}
     <div hidden data-user-info='{"id": {{ user.id }}, "username": "{{ user.username }}"}' aria-hidden="true"></div>
     {% endif %}
-    <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1050;" role="alert" aria-live="assertive" aria-atomic="true"></div>
+    <div id="toast-container" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1050;"
+        role="alert" aria-live="assertive" aria-atomic="true"></div>
     <main class="flex-grow-1" id="content" role="main" aria-label="Main content">
         {% block content %}{% endblock %}
     </main>
