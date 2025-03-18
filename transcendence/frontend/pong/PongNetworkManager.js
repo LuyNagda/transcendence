@@ -13,12 +13,13 @@ export class PongNetworkManager {
 	 * @param {boolean} isHost - Whether this client is the host
 	 * @param {boolean} isLocalGame - Whether this is a local/AI game
 	 */
-	constructor(eventEmitter, gameId, currentUser, isHost, isLocalGame = false) {
+	constructor(eventEmitter, gameId, currentUser, isHost, isLocalGame = false, isAiGame = false) {
 		this._eventEmitter = eventEmitter;
 		this._gameId = gameId;
 		this._currentUser = currentUser;
 		this._isHost = isHost;
 		this._isLocalGame = isLocalGame;
+		this._isAiGame = isAiGame;
 		this._connectionState = ConnectionState.DISCONNECTED.name;
 		this._connections = null;
 		this._messageQueue = [];

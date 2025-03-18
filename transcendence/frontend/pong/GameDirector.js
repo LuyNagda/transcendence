@@ -1,7 +1,7 @@
 import { store, actions } from '../state/store.js';
 import { EventEmitter } from '../networking/EventEmitter.js';
 import { PongPhysics } from './core/PongState.js';
-import { InputSystem, KeyboardInput, NetworkInput, AIInput } from './core/InputSystem.js';
+import { InputSystem, KeyboardInput, KeyboardInputGuest, NetworkInput, AIInput } from './core/InputSystem.js';
 import { RenderSystem } from './renderers/RenderSystem.js';
 import { PongNetworkManager } from './PongNetworkManager.js';
 import { GameRules } from './core/GameRules.js';
@@ -27,7 +27,9 @@ export default class GameDirector {
 		this.animationFrameId = null;
 
 		this.currentUser = store.getState('user');
-		this.isLocalGame = store.getState('room')?.mode === 'AI';
+		this.isLocalGame = store.getState('room')?.mode === 'AI' ||
+							store.getState('room')?.mode === 'LOCAL';
+		this.isAiGame = store.getState('room')?.mode === 'AI';
 
 		const { isValid, settings: validatedSettings } = GameRules.validateSettings(options.settings || {});
 		if (!isValid) {
@@ -42,6 +44,7 @@ export default class GameDirector {
 			username: this.currentUser.username,
 			isHost: this.isHost,
 			isLocalGame: this.isLocalGame,
+			isAiGame: this.isAiGame,
 			settings: this.settings
 		});
 
@@ -55,8 +58,11 @@ export default class GameDirector {
 	 */
 	async initializeGame(canvas) {
 		try {
-			logger.info('[GameDirector] Initializing game with mode:', this.isLocalGame ? 'AI' : (this.isHost ? 'host' : 'guest'));
-
+			if (this.isAiGame) {
+				logger.info('[GameDirector] Initializing game with mode:', this.isLocalGame ? 'AI' : (this.isHost ? 'host' : 'guest'));
+			} else {
+				logger.info('[GameDirector] Initializing game with mode:', this.isLocalGame ? 'LOCAL' : (this.isHost ? 'host' : 'guest'));
+			}
 			if (canvas.width !== GameRules.CANVAS_WIDTH || canvas.height !== GameRules.CANVAS_HEIGHT) {
 				canvas.width = GameRules.CANVAS_WIDTH;
 				canvas.height = GameRules.CANVAS_HEIGHT;
@@ -67,7 +73,8 @@ export default class GameDirector {
 				this.gameId,
 				this.currentUser,
 				this.isHost,
-				this.isLocalGame
+				this.isLocalGame,
+				this.isAiGame
 			));
 
 			const networkSystem = this.components.get('networkSystem');
@@ -83,6 +90,7 @@ export default class GameDirector {
 				this.useWebGL,
 				this.isHost,
 				this.isLocalGame
+				// this.isAigame
 			));
 
 			this._setupEventHandlers();
@@ -117,10 +125,18 @@ export default class GameDirector {
 		}
 
 		if (this.isLocalGame) {
-			// In AI mode, player controls left paddle, AI controls right paddle
-			logger.info('[GameDirector] Setting up AI game: keyboard for left paddle, AI for right paddle');
+			logger.info('[GameDirector] Setting up local game');
 			inputSystem.registerInput('left', new KeyboardInput());
-			inputSystem.registerInput('right', new AIInput(this.eventEmitter, this.settings?.aiDifficulty || 'medium'));
+			
+			if (this.isAiGame) {
+				// In AI mode, player controls left paddle, AI controls right paddle
+				logger.info('[GameDirector] Setting up AI game: keyboard for left paddle, AI for right paddle');
+				inputSystem.registerInput('right', new AIInput(this.eventEmitter, this.settings?.aiDifficulty || 'medium'));
+			} else {
+				// In LOCAL VS mode, player controls left paddle, guest player controls right paddle
+				logger.info('[GameDirector] Setting up Local VS game: keyboard key "w" and "s" for left paddle, "arrow-up" and "arrow-down" for right paddle');
+				inputSystem.registerInput('right', new KeyboardInputGuest());
+			}
 		} else {
 			// In multiplayer mode
 			const networkSystem = this.components.get('networkSystem');
@@ -208,6 +224,7 @@ export default class GameDirector {
 		logger.info('[GameDirector] Setting up game loop with state:', {
 			isHost: this.isHost,
 			isLocalGame: this.isLocalGame,
+			isAiGame: this.isAiGame,
 			gameStatus: state.physicsState?.gameStatus || 'unknown'
 		});
 
