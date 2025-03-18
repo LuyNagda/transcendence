@@ -277,20 +277,20 @@ export class PongPhysics {
     // Ball collision with left paddle
     // Check both current and previous positions to catch fast-moving balls
     if (ball.dx < 0 && // Only check when ball is moving left
-      ((ball.x - ball.radius <= leftPaddle.x + leftPaddle.width && // Current position
-        ball.x + ball.radius >= leftPaddle.x - leftPaddle.width &&
-        ball.y - ball.radius <= leftPaddle.y + leftPaddle.height &&
-        ball.y + ball.radius >= leftPaddle.y - leftPaddle.height) ||
-        (ball.prevX - ball.radius <= leftPaddle.x + leftPaddle.width && // Previous position  (crossed through)
-          ball.prevX + ball.radius >= leftPaddle.x - leftPaddle.width &&
-          ball.prevY - ball.radius <= leftPaddle.y + leftPaddle.height &&
-          ball.prevY + ball.radius >= leftPaddle.y - leftPaddle.height))) {
+      ((ball.x - ball.radius <= leftPaddle.x + (leftPaddle.width / 2) && // Current position
+        ball.x + ball.radius >= leftPaddle.x - (leftPaddle.width / 2) &&
+        ball.y - ball.radius <= leftPaddle.y + (leftPaddle.height / 2) &&
+        ball.y + ball.radius >= leftPaddle.y - (leftPaddle.height / 2)) ||
+        (ball.prevX - ball.radius <= leftPaddle.x + (leftPaddle.width / 2) && // Previous position  (crossed through)
+          ball.prevX + ball.radius >= leftPaddle.x - (leftPaddle.width / 2) &&
+          ball.prevY - ball.radius <= leftPaddle.y + (leftPaddle.height / 2) &&
+          ball.prevY + ball.radius >= leftPaddle.y - (leftPaddle.height / 2)))) {
 
       // Calculate normalized hit position (-0.5 to 0.5)
       const hitPosition = (ball.y - leftPaddle.y) / leftPaddle.height;
 
       // Reposition ball to avoid getting stuck
-      ball.x = leftPaddle.x + leftPaddle.width + ball.radius;
+      ball.x = leftPaddle.x + (leftPaddle.width / 2) + ball.radius;
 
       this._reflectBall(hitPosition, 'left');
     }
@@ -298,20 +298,20 @@ export class PongPhysics {
     // Ball collision with right paddle
     // Check both current and previous positions to catch fast-moving balls
     if (ball.dx > 0 && // Only check when ball is moving right
-      ((ball.x + ball.radius >= rightPaddle.x - rightPaddle.width && // Current position
-        ball.x - ball.radius <= rightPaddle.x + rightPaddle.width &&
-        ball.y + ball.radius >= rightPaddle.y - rightPaddle.height &&
-        ball.y - ball.radius <= rightPaddle.y + rightPaddle.height) ||
-        (ball.prevX + ball.radius >= rightPaddle.x - rightPaddle.width && // Previous position  (crossed through)
-          ball.prevX - ball.radius <= rightPaddle.x + rightPaddle.width &&
-          ball.prevY + ball.radius >= rightPaddle.y - rightPaddle.height &&
-          ball.prevY - ball.radius <= rightPaddle.y + rightPaddle.height))) {
+      ((ball.x + ball.radius >= rightPaddle.x - (rightPaddle.width / 2) && // Current position
+        ball.x - ball.radius <= rightPaddle.x + (rightPaddle.width / 2) &&
+        ball.y + ball.radius >= rightPaddle.y - (rightPaddle.height / 2) &&
+        ball.y - ball.radius <= rightPaddle.y + (rightPaddle.height / 2)) ||
+        (ball.prevX + ball.radius >= rightPaddle.x - (rightPaddle.width / 2) && // Previous position  (crossed through)
+          ball.prevX - ball.radius <= rightPaddle.x + (rightPaddle.width / 2) &&
+          ball.prevY + ball.radius >= rightPaddle.y - (rightPaddle.height / 2) &&
+          ball.prevY - ball.radius <= rightPaddle.y + (rightPaddle.height / 2)))) {
 
       // Calculate normalized hit position (-0.5 to 0.5)
       const hitPosition = (ball.y - rightPaddle.y ) / rightPaddle.height;
 
       // Reposition ball to avoid getting stuck
-      ball.x = rightPaddle.x - rightPaddle.width - ball.radius;
+      ball.x = rightPaddle.x - (rightPaddle.width / 2) - ball.radius;
 
       this._reflectBall(hitPosition, 'right');
     }
