@@ -7,11 +7,11 @@ from authentication.models import User
 CustomUser = get_user_model()
 
 class CustomUserCreationForm(forms.ModelForm):
-    username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username', 'class': 'form-control'}))
-    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email', 'class': 'form-control'}))
-    nick_name = forms.CharField(label='Tournament Alias', max_length=10, widget=forms.TextInput(attrs={'placeholder': 'Tournament Alias', 'class': 'form-control'}))
-    password1 = forms.CharField(label='Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control'}))
-    password2 = forms.CharField(label='Confirm Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control'}))
+    username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username', 'class': 'form-control', 'autocomplete': 'username'}))
+    email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email', 'class': 'form-control', 'autocomplete': 'email'}))
+    nick_name = forms.CharField(label='Tournament Alias', max_length=10, widget=forms.TextInput(attrs={'placeholder': 'Tournament Alias', 'class': 'form-control', 'autocomplete': 'nickname'}))
+    password1 = forms.CharField(label='Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control', 'autocomplete': 'new-password'}))
+    password2 = forms.CharField(label='Confirm Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control', 'autocomplete': 'new-password'}))
 
     class Meta:
         model = CustomUser
@@ -48,8 +48,8 @@ class CustomUserCreationForm(forms.ModelForm):
         return user
 
 class LoginForm(forms.Form):
-    username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username', 'class': 'form-control'}))
-    password = forms.CharField(label='Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control'}))
+    username = forms.CharField(label='Username', max_length=30, widget=forms.TextInput(attrs={'placeholder': 'Username', 'class': 'form-control', 'autocomplete': 'username'}))
+    password = forms.CharField(label='Password', widget=forms.PasswordInput(attrs={'placeholder': 'Password', 'class': 'form-control', 'autocomplete': 'current-password'}))
 class ForgotPasswordForm(forms.Form):
     email = forms.EmailField(label='Email', widget=forms.EmailInput(attrs={'placeholder': 'Email', 'class': 'form-control'}))
 
