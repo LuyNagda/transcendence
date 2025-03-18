@@ -60,6 +60,8 @@ def register(request):
 		form = CustomUserCreationForm(request.POST)
 		if form.is_valid():
 			user = form.save()
+			user.is_42_user = False
+			user.save()
 			logger.info(f"New user registered: {user.username}", extra={'user_id': user.id})
 			messages.success(request, 'Registration successful. You can now log in.')
 			response = JsonResponse({"message": "Registration successful."}, status=status.HTTP_200_OK)
@@ -306,8 +308,17 @@ def authenticate_api(request, access_token):
 
     if response.status_code == 200:
         user_data = response.json()
-        user, created = User.objects.get_or_create(username=user_data['login'], email=user_data['email'])
+        username = user_data['login'] + '_42'
+        if username in User.objects.values_list('username', flat=True):
+            if User.objects.get(username=username).is_42_user:
+                user = User.objects.get(username=username)
+            else:
+                messages.error(request, 'User already exists.')
+                return None
+        elif username not in User.objects.values_list('username', flat=True):
+            user, created = User.objects.create(username=username, email=user_data['email'], is_42_user=True)
         return user
+    messages.error(request, 'Invalid access token.')
     return None
 
 @api_view(['GET', 'POST'])
@@ -341,7 +352,6 @@ def oauth_callback(request):
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 return response
             else:
-                messages.error(request, 'Invalid access token.')
                 if request.headers.get('HX-Request') == 'true':    
                     response = JsonResponse({"message": "Invalid access token."}, status=status.HTTP_400_BAD_REQUEST)
                     response['HX-Location'] = '/login'
