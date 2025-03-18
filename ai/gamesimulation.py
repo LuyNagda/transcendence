@@ -116,7 +116,6 @@ def collides(ball, paddle):
     return (ball.bottom >= paddle.top and ball.top <= paddle.bottom and
             ball.left <= paddle.right and ball.right >= paddle.left)
 
-
 def update_ball_angle(ball, paddle):
     # Calculate the relative intersection (-1 at bottom, 0 at center, 1 at top)
     relativeIntersectY = (ball.center_y - paddle.center_y) / (paddle.height / 2)
@@ -132,6 +131,13 @@ def update_ball_angle(ball, paddle):
     ball.dy = gameconfig.BALL_SPEED * math.sin(bounceAngle)
 
     return ball
+
+def ai_bonus_score(ball, rightPaddle, Ai_selected, bonus_score):
+    dist = abs(ball.center_y - rightPaddle.center_y) / gameconfig.HEIGHT
+
+    if dist < 0.05:
+        bonus_score = 1 - dist
+        Ai_selected.ai_score += bonus_score
 
 def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     # Initialize game objects
@@ -151,6 +157,7 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
 
     # Update AI's target position
     ai_ball = AI_ball(ball)
+    bonus_score = 0
 
     running = True
     left_score = 0
@@ -221,11 +228,18 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         # Ball out of bounds
         if ball.right >= gameconfig.WIDTH:
             left_score += 1
+            ai_bonus_score(ball, rightPaddle, Ai_selected, bonus_score)
             ball = reset_ball(ball)
+
+        # Eliminate bad AI
+        if (left_score == max_score / 4 and Ai_selected.ai_score < left_score / 6):
+            species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f} \t\tbut fail (less than {left_score / 6:.1f} with a bonus of {bonus_score})"
+            Ai_selected.ai_score = 0
+            return species_log
 
         # End the game
         if left_score >= max_score:
             running = False
     
-    species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f}"
+    species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f}with a bonus of {bonus_score:.1f}"
     return species_log

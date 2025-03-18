@@ -218,7 +218,7 @@ def Mutation(Ai_Sample, nb_species):
     """
 
     # Mutation
-    while (len(Ai_Sample) < nb_species - 10):
+    while (len(Ai_Sample) < nb_species - 5):
         # Select a random parent from the top 5 performers
         parent = np.random.choice(Ai_Sample[:5])
 
@@ -236,6 +236,10 @@ def Mutation(Ai_Sample, nb_species):
 def Save_Best_Ai(Ai_Sample, save_file):
     # Sort AI from the best performer to the least one
     Ai_Sample.sort(reverse=True)
+
+    if (Ai_Sample[0].ai_score == 0):
+        print("Save aborted: no competent AI find")
+        return
 
     # Create the directory if it doesn't exist
     os.makedirs(os.path.dirname(save_file), exist_ok=True)
