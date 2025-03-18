@@ -297,8 +297,8 @@ export class WebGLRenderer extends RendererInterface {
 				typeof gameState.leftPaddle.width === 'number' &&
 				typeof gameState.leftPaddle.height === 'number') {
 				this._bufferContext.fillRect(
-					gameState.leftPaddle.x * scaleX,
-					gameState.leftPaddle.y * scaleY,
+					(gameState.leftPaddle.x - (gameState.leftPaddle.width / 2)) * scaleX,
+					(gameState.leftPaddle.y - (gameState.leftPaddle.height / 2)) * scaleY,
 					gameState.leftPaddle.width * scaleX,
 					gameState.leftPaddle.height * scaleY
 				);
@@ -313,8 +313,8 @@ export class WebGLRenderer extends RendererInterface {
 				typeof gameState.rightPaddle.width === 'number' &&
 				typeof gameState.rightPaddle.height === 'number') {
 				this._bufferContext.fillRect(
-					gameState.rightPaddle.x * scaleX,
-					gameState.rightPaddle.y * scaleY,
+					(gameState.rightPaddle.x - (gameState.rightPaddle.width / 2)) * scaleX,
+					(gameState.rightPaddle.y - (gameState.rightPaddle.height / 2)) * scaleY,
 					gameState.rightPaddle.width * scaleX,
 					gameState.rightPaddle.height * scaleY
 				);
