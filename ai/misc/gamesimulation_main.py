@@ -154,7 +154,6 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     running = True
     left_score = 0
     game_tick = 0
-    
     while running:
         # Limit the game time to 'time_limit' theoretical minutes
         if time_limit != 0 and game_tick > (time_limit * 60 * 60):
@@ -162,8 +161,8 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
             continue
 
         # Move the ball
-        ball.center_x += ball.dx * gameconfig.DT
-        ball.center_y += ball.dy * gameconfig.DT
+        ball.center_x += ball.dx
+        ball.center_y += ball.dy
 
         # Update the ai view
         if game_tick % 60 == 0:
@@ -172,15 +171,16 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         # Move the right paddle
         match (Ai_selected.decision(rightPaddle.center_y, ai_ball, gameconfig.HEIGHT, gameconfig.WIDTH)):
             case 0:
-                rightPaddle.center_y -= gameconfig.PADDLE_SPEED * gameconfig.DT
-                if rightPaddle.top <= 0:
-                    rightPaddle.top = 0
+                # Ai moves the paddle up
+                if rightPaddle.top > 0:
+                    rightPaddle.center_y -= gameconfig.PADDLE_SPEED
             case 1:
+                # Ai stay still
                 pass
             case 2:
-                rightPaddle.center_y += gameconfig.PADDLE_SPEED * gameconfig.DT
-                if rightPaddle.bottom >= gameconfig.HEIGHT:
-                    rightPaddle.bottom = gameconfig.HEIGHT
+                # Ai moves the paddle down
+                if rightPaddle.bottom < gameconfig.HEIGHT:
+                    rightPaddle.center_y += gameconfig.PADDLE_SPEED
 
         # Ball collision with top and bottom
         if ball.top <= 0:
@@ -197,11 +197,20 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
             ball.dx = abs(gameconfig.BALL_SPEED * math.cos(angle))
             ball.dy = gameconfig.BALL_SPEED * math.sin(angle)
 
-        # Ball collision with AI's paddles
-        if collides(ball, rightPaddle):
-            Ai_selected.ai_score += 1
-            ball = update_ball_angle(ball, rightPaddle)
-            ball.right = rightPaddle.left
+        # Check if the ball is on the right side and moving right
+        if ball.center_x > gameconfig.WIDTH / 2 and ball.dx > 0:
+            # Simulate step-wise movement to detect missed collisions
+            steps = max(1, int(abs(ball.dx)))  # Ensure at least 1 step
+
+            for _ in range(steps):
+                ball.center_x += ball.dx / steps  # Move in smaller increments
+                ball.center_y += ball.dy / steps  
+
+                if collides(ball, rightPaddle):  # Check collision at each step
+                    Ai_selected.ai_score += 1
+                    ball = update_ball_angle(ball, rightPaddle)
+                    ball.right = rightPaddle.left  # Ensure correct positioning after bounce
+                    break  # Stop further movement after collision
 
         # Ball out of bounds
         if ball.right >= gameconfig.WIDTH:
@@ -214,5 +223,5 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
 
         game_tick += 1
     
-    species_log = f"The AI {Ai_nb} \tscore is {Ai_selected.ai_score:.1f}"
+    species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f}"
     return species_log
