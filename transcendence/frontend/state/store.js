@@ -465,6 +465,27 @@ class Store {
 	}
 
 	/**
+	 * Persists UI state to localStorage.
+	 * 
+	 * @private
+	 * @param {Object} uiState - UI state to persist
+	 */
+	_persistUIState(uiState) {
+		if (!uiState) return;
+
+		// Validate theme before persisting
+		if (uiState.theme && typeof uiState.theme === 'string') {
+			localStorage.setItem('themeLocal', uiState.theme);
+		}
+
+		// Validate fontSize before persisting
+		if (uiState.fontSize && typeof uiState.fontSize === 'string' &&
+			Object.values(UI_FONT_SIZE).includes(uiState.fontSize)) {
+			localStorage.setItem('sizeLocal', uiState.fontSize);
+		}
+	}
+
+	/**
 	 * Persists entire state to localStorage.
 	 * 
 	 * @private
@@ -473,8 +494,11 @@ class Store {
 		try {
 			// Convert Sets to arrays and exclude game state
 			const stateToStore = Object.entries(this.state).reduce((acc, [domain, state]) => {
-				// Skip game and user state
-				if (domain === 'game' || domain === 'user' || domain === 'ai' || domain === 'config') return acc;
+				// Skip game state and handle special cases
+				if (domain === 'game') return acc;
+				if (domain === 'ui') {
+					this._persistUIState(state);
+				}
 
 				// Handle Set conversions
 				const processedState = this._processStateForStorage(domain, state);
@@ -527,6 +551,8 @@ class Store {
 			this.state = {
 				...this.state,
 				...processedState,
+				game: initialGameState, // Always use fresh game state
+				ui: { ...processedState.ui, ...this._loadUIState() } // Merge UI state
 			};
 		} catch (error) {
 			logger.error(`[Store] Failed to load persisted state:`, error);
@@ -549,6 +575,22 @@ class Store {
 			};
 		}
 		return state;
+	}
+
+	/**
+	 * Loads UI state from localStorage.
+	 * 
+	 * @private
+	 * @returns {Object} UI state
+	 */
+	_loadUIState() {
+		const theme = localStorage.getItem('themeLocal');
+		const fontSize = localStorage.getItem('sizeLocal');
+
+		return {
+			theme: theme && Object.values(UI_THEME).includes(theme) ? theme : UI_THEME.LIGHT,
+			fontSize: fontSize && Object.values(UI_FONT_SIZE).includes(fontSize) ? fontSize : UI_FONT_SIZE.SMALL
+		};
 	}
 
 	/**
