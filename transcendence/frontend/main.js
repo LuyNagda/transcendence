@@ -18,8 +18,10 @@ function loadAiManager() {
 	// Then init when page transition to /pong/room/id and destroy when transitioning away
 	jaiPasVu.on('htmx:pushedIntoHistory', (path) => {
 		if (path.includes('/ai/')) {
-			initializeAiManager()
-			fetchTrainingStatus()
+			setTimeout(() => {
+				initializeAiManager()
+				fetchTrainingStatus()
+			}, 250);
 		}
 	});
 }
