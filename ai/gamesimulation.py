@@ -241,5 +241,5 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         if left_score >= max_score:
             running = False
     
-    species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f}with a bonus of {bonus_score:.1f}"
+    species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f} with a bonus of {bonus_score:.1f}"
     return species_log
