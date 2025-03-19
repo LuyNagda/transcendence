@@ -208,8 +208,8 @@ export class AIController {
             let X = [[
                 this.aiBall.x / GameRules.CANVAS_WIDTH,
                 this.aiBall.y / GameRules.CANVAS_HEIGHT,
-                this.aiBall.dx / GameRules.CANVAS_WIDTH,
-                this.aiBall.dy / GameRules.CANVAS_HEIGHT,
+                this.aiBall.dx,
+                this.aiBall.dy,
                 gameState.rightPaddle.y  / GameRules.CANVAS_HEIGHT
             ]];
 

@@ -80,11 +80,9 @@ class Neuron_Network:
     def decision(self, paddle_y, ball, height, width):
         ball_relative_x = ball.center_x / width
         ball_relative_y = ball.center_y / height
-        ball_relative_dx = ball.dx / width
-        ball_relative_dy = ball.dy / height
         paddle_relative_y = paddle_y / height
 
-        X = [ball_relative_x, ball_relative_y, ball_relative_dx, ball_relative_dy, paddle_relative_y]
+        X = [ball_relative_x, ball_relative_y, ball.dx, ball.dy, paddle_relative_y]
         response = self.forward(X)
 
         return np.argmax(response)
