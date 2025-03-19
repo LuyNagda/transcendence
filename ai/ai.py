@@ -315,7 +315,7 @@ def train_ai(save_file, training_params):
         training_args = [(Ai_Sample[i], i, time_limit, max_score) for i in range(nb_species)]
 
         # Use half of available CPU cores
-        nb_core = max(1, multiprocessing.cpu_count() - 2)
+        nb_core = max(1, multiprocessing.cpu_count() // 2)
         with multiprocessing.Pool(processes=(nb_core)) as pool:
             training_results = pool.map(train_species_wrapper, training_args)
 
