@@ -13,7 +13,7 @@
                 <h1>42Pong</h1>
                 <h3>Experience the iconic Pong Game</h3>
                 <button class="btn btn-primary btn-lg my-3" hx-get="{% url 'pong' %}" hx-target="#content"
-                    hx-swap="innerHTML" hx-push-url="true" aria-label="Start the Pong Game">
+                    hx-swap="outerHTML" hx-push-url="true" aria-label="Start the Pong Game">
                     Start
                 </button>
             </div>
