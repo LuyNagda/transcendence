@@ -18,16 +18,14 @@
     {% endif %}
     <main class="flex-grow-1" id="content" role="main" aria-label="Main content">
         {% block content %}{% endblock %}
+
+        {% block chat %}
+        {% render_chat %}
+        {% endblock %}
     </main>
     {% block footer %}
     {% if not request.htmx %}
     {% include "footer.html" %}
-    {% endif %}
-    {% endblock %}
-
-    {% block chat %}
-    {% if user.is_authenticated and not request.htmx %}
-    {% render_chat %}
     {% endif %}
     {% endblock %}
 </body>
