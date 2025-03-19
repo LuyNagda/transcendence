@@ -38,7 +38,6 @@ run: daemon
 	@make logs
 
 daemon:
-	pnpm run build && \
 	$(SRC_ENV) docker compose --profile prod up --build -d
 
 dev:
@@ -67,9 +66,6 @@ db-update: makemigrations migrate
 db-clean:
 	$(SRC_ENV) docker compose down -v
 
-rebuild:
-	$(SRC_ENV) BUILD_TYPE=dev docker compose --profile dev build
-
 logs:
 	$(SRC_ENV) docker compose logs -f
 
@@ -77,15 +73,8 @@ stop:
 	$(SRC_ENV) docker compose stop
 
 test: stop
-	$(SRC_ENV) docker compose --profile dev up --build transcendence-test
+	$(SRC_ENV) docker compose --profile test up --build transcendence-test
 
-siege: stop daemon
-	$(MAKE) wait-for-healthy
-	echo "init" > siege.log
-	docker compose up siege
-	# make logs
-	@make clean
-	cat siege.log
 
 docker-stop:
 	$(SRC_ENV) docker compose down
@@ -102,20 +91,12 @@ clean: docker-stop docker-clean
 fclean: db-clean clean docker-fclean
 
 re: fclean all
-debug_re: fclean debug
 
-.PHONY: all clean fclean re debug debug_re
+.PHONY: all clean fclean re
 .PHONY: env test run daemon dev logs stop
 .PHONY: docker-stop docker-fclean run_tests
 .PHONY: makemigrations makemigrations-% migrate db-update
 
-define wait-for-healthy
-	$(SRC_ENV) \
-	while [ "$$(docker inspect --format='{{.State.Health.Status}}' $$container_id)" != "healthy" ]; do \
-		echo "Waiting for container $$container_id to become healthy..."; \
-		sleep 1; \
-	done
-endef
 
 define run_migrations
 	$(SRC_ENV) \
