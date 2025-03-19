@@ -1,5 +1,4 @@
 {% load static %}
-{% load chat_tags %}
 <!DOCTYPE html>
 <html lang="en">
 
@@ -18,16 +17,15 @@
     {% endif %}
     <main class="flex-grow-1" id="content" role="main" aria-label="Main content">
         {% block content %}{% endblock %}
+        {% block chat %}
+        {% include "chat.html" %}
+        {% endblock %}
     </main>
 
     {% block footer %}
     {% if not request.htmx %}
     {% include "footer.html" %}
     {% endif %}
-    {% endblock %}
-
-    {% block chat %}
-    {% render_chat %}
     {% endblock %}
 </body>
 

@@ -141,6 +141,7 @@ export const htmxPlugin = {
 					app.compileElement(el);
 				});
 			}
+			app.scheduleUpdate('chat');
 			app.emit('htmx:afterSwap', event);
 		});
 
