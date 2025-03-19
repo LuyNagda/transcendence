@@ -58,31 +58,6 @@
 			</tbody>
 		</table>
     </div>
-    <br/><br/><br/>
-    <br/><br/><br/>
-    <h1>Tournament History</h1>
-	<h3>Played: {{ total_tournies_player }} | Wins: {{ total_wins_player }} | Losses: {{ total_losses_player }} | Winrate: {{ wr_tourny }} %</h3>
-    <div>
-		<table id="table" class="table" aria-label="Tournament history table">
-			<thead>
-			<tr>
-				<th scope="col" aria-label="Tournament name">Tournament Name</th>
-				<th scope="col" aria-label="Number of wins">Wins</th>
-				<th scope="col" aria-label="Number of losses">Losses</th>
-				<th scope="col" aria-label="Total points">Points</th>
-			</tr>
-			</thead>
-			<tbody>
-                {% for tourny in player_rankings %}
-                <tr>
-                    <td>{{ tourny.tournament.name }}</td>
-                    <td>{{ tourny.stats.wins }}</td>
-                    <td>{{ tourny.stats.losses }}</td>
-                    <td>{{ tourny.stats.points }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-		</table>
-    </div>
+</div>
 
 {% endblock %}
