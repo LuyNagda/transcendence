@@ -3,47 +3,43 @@
 {% block title %}Pong Game{% endblock %}
 
 {% block content %}
+
 {% block navbar %}{% include "ui.html" %}{% endblock %}
 
-{% block modal %}{% include "modal.html" %}{% endblock %}
-
-<div id="pong-container">
-    <div id="index" class="container x-auto my-4">
-        <header class="text-center mb-5">
-            <h1>Welcome to Pong Game</h1>
-            <p>Play Pong in real-time against other players!</p>
-        </header>
-        <main>
-            <section id="about" class="my-5" aria-labelledby="about-heading">
-                <h2 id="about-heading">About the Game</h2>
-                <p>Pong is a 2D table tennis game. The goal is to score points by sending the ball into the opponent's
-                    side.</p>
-            </section>
-            <section id="features" class="my-5" aria-labelledby="features-heading">
-                <h3 id="features-heading">Features</h3>
-                <ul class="list-group" aria-label="Game features">
-                    <li class="list-group-item">Real-time play against other players</li>
-                    <li class="list-group-item">Tournaments and matchmaking</li>
-                    <li class="list-group-item">Live chat</li>
-                    <li class="list-group-item">Game statistics</li>
-                </ul>
-            </section>
-            <section class="text-center my-5" aria-label="Game actions">
-				{% if room == 'created' %}
-				<button id="enter-room-btn" hx-get="{% url 'pong_room' room_id=room_id %}" hx-target="#content"
-					hx-swap="innerHTML" hx-push-url="true" class="btn btn-primary" aria-label="Enter game room">
-					Enter Room
-				</button>
-				{% else %}
-                <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#content" hx-swap="innerHTML"
-                    class="btn btn-primary" aria-label="Create new game room">
-                    Start a Game
-                </button>
-				{% endif %}
-            </section>
-            <br><br><br><br>
-        </main>
-    </div>
+<div class="container x-auto my-4" id="content">
+	<div class="text-center mb-5">
+		<h2>Welcome to Pong Game</h2>
+		<p>Play Pong in real-time against other players!</p>
+	</div>
+	<div>
+		<section id="about" class="my-5" aria-labelledby="about-heading">
+			<h2 id="about-heading">About the Game</h2>
+			<p>Pong is a 2D table tennis game. The goal is to score points by sending the ball into the opponent's
+				side.</p>
+		</section>
+		<section id="features" class="my-5" aria-labelledby="features-heading">
+			<h3 id="features-heading">Features</h3>
+			<ul class="list-group" aria-label="Game features">
+				<li class="list-group-item">Real-time play against other players</li>
+				<li class="list-group-item">Tournaments and matchmaking</li>
+				<li class="list-group-item">Live chat</li>
+				<li class="list-group-item">Game statistics</li>
+			</ul>
+		</section>
+		<section class="text-center my-5" aria-label="Game actions">
+			{% if room == 'created' %}
+			<button id="enter-room-btn" hx-get="{% url 'pong_room' room_id=room_id %}" hx-target="#content"
+				hx-swap="outerHTML" hx-push-url="true" class="btn btn-primary" aria-label="Enter game room">
+				Enter Room
+			</button>
+			{% else %}
+			<button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#content" hx-swap="outerHTML"
+				class="btn btn-primary" aria-label="Create new game room">
+				Start a Game
+			</button>
+			{% endif %}
+		</section>
+	</div>
 </div>
 
 {% endblock %}

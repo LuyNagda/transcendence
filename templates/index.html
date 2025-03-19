@@ -6,14 +6,14 @@
 
 {% block navbar %}{% include "ui.html" %}{% endblock %}
 
-<div id="index" class="container x-auto my-4" role="main">
+<div class="container x-auto my-4" id="content">
     <div class="mt-5 mb-4">
         <div class="d-flex flex-column flex-md-row justify-content-center">
             <div class="col d-flex flex-column justify-content-center align-items-start">
                 <h1>42Pong</h1>
                 <h3>Experience the iconic Pong Game</h3>
                 <button class="btn btn-primary btn-lg my-3" hx-get="{% url 'pong' %}" hx-target="#content"
-                    hx-swap="innerHTML" hx-push-url="true" aria-label="Start the Pong Game">
+					hx-swap="outerHTML" hx-push-url="true" aria-label="Start the Pong Game">
                     Start
                 </button>
             </div>
