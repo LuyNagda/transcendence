@@ -10,7 +10,7 @@ from asgiref.sync import async_to_sync
 
 # Constants for parameter validation
 MIN_GENERATIONS = 1
-MAX_GENERATIONS = 50
+MAX_GENERATIONS = 10
 MIN_SPECIES = 50
 MAX_SPECIES = 100
 MIN_TIME_LIMIT = 10
@@ -215,7 +215,6 @@ def delete_saved_ai(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticatedWithCookie])
 def get_training_status(request):
     global IN_TRAINING
     with training_lock:

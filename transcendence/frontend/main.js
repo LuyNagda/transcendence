@@ -4,28 +4,26 @@ import { htmxPlugin } from './UI/HTMXPlugin.js';
 import { uiPlugin } from './UI/UIPlugin.js';
 import { store } from './state/store.js';
 import { connectionManager } from './networking/ConnectionManager.js';
-import { initializeAiManager } from './pong/AiManager.js';
+import { initializeAiManager, fetchTrainingStatus } from './pong/AiManager.js';
 import Room from './room/Room.js';
 import ChatApp from './chat/ChatApp.js';
 
-function waitForElement(selector, callback) {
-	const element = document.querySelector(selector);
-	if (element) {
-		callback();  // If the element already exists, run the callback immediately
-		return;
+function loadAiManager() {
+	// First init when loading a room from the path
+	if (window.location.pathname.includes('/ai/')) {
+		initializeAiManager()
+		fetchTrainingStatus()
 	}
 
-	const observer = new MutationObserver((mutations, obs) => {
-		logger.info(`[Waiting] waitForElement :`, selector);
-
-		if (document.querySelector(selector)) {
-			logger.info(`[Waiting end] Element is ready :`, selector);
-			callback();
-			obs.disconnect();  // Stop observing once the element is found
+	// Then init when page transition to /pong/room/id and destroy when transitioning away
+	jaiPasVu.on('htmx:pushedIntoHistory', (path) => {
+		if (path.includes('/ai/')) {
+			setTimeout(() => {
+				initializeAiManager()
+				fetchTrainingStatus()
+			}, 250);
 		}
 	});
-
-	observer.observe(document.body, { childList: true, subtree: true });
 }
 
 async function initializeApp() {
@@ -53,10 +51,7 @@ async function initializeApp() {
 		jaiPasVu.initialize();
 
 		await ChatApp.initialize();
-
-		// Use the function to wait for #saved-ai-dropdown
-		waitForElement("#saved-ai-dropdown", initializeAiManager);
-
+		loadAiManager();
 		Room.initialize();
 
 		logger.info(`[Main] Application initialized successfully`);

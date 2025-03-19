@@ -80,11 +80,9 @@ class Neuron_Network:
     def decision(self, paddle_y, ball, height, width):
         ball_relative_x = ball.center_x / width
         ball_relative_y = ball.center_y / height
-        ball_relative_dx = ball.dx / width
-        ball_relative_dy = ball.dy / height
         paddle_relative_y = paddle_y / height
 
-        X = [ball_relative_x, ball_relative_y, ball_relative_dx, ball_relative_dy, paddle_relative_y]
+        X = [ball_relative_x, ball_relative_y, ball.dx, ball.dy, paddle_relative_y]
         response = self.forward(X)
 
         return np.argmax(response)
@@ -137,7 +135,7 @@ def Init_Ai(save_file, nb_species):
                 Ai_Sample.append(network)
 
         # Mutate weights of the 5 best performing AIs
-        Mutation(Ai_Sample, nb_species)
+        Crossover_mutation(Ai_Sample, nb_species)
         
         # Add random AIs to reach 'nb_species'
         remaining = nb_species - len(Ai_Sample)
@@ -205,9 +203,9 @@ def apply_mutation(layer):
 
     return layer
 
-def Mutation(Ai_Sample, nb_species):
+def Crossover_mutation(Ai_Sample, nb_species):
     """
-    Perform mutation on a population of AI samples.
+    Perform crossover and mutation on a population of AI samples.
 
     Parameters:
     Ai_Sample (list): The current population of AI samples.
@@ -217,13 +215,19 @@ def Mutation(Ai_Sample, nb_species):
     None
     """
 
-    # Mutation
+    # Crossover & Mutation
     while (len(Ai_Sample) < nb_species - 5):
-        # Select a random parent from the top 5 performers
-        parent = np.random.choice(Ai_Sample[:5])
+        # Select 2 parent randomly from the 5 best performing AI and instance a child
+        parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
+        child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
 
-        # Create a mutated child using the copy constructor
-        child = parent.__copy__()
+        # Crossover for both weights and biases
+        child.layer1.weights = (parent1.layer1.weights + parent2.layer1.weights) / 2
+        child.layer1.biases = (parent1.layer1.biases + parent2.layer1.biases) / 2
+        child.layer2.weights = (parent1.layer2.weights + parent2.layer2.weights) / 2
+        child.layer2.biases = (parent1.layer2.biases + parent2.layer2.biases) / 2
+        child.layer3.weights = (parent1.layer3.weights + parent2.layer3.weights) / 2
+        child.layer3.biases = (parent1.layer3.biases + parent2.layer3.biases) / 2
 
         # Mutate for both weights and biases
         child.layer1 = apply_mutation(child.layer1)
@@ -309,7 +313,7 @@ def train_ai(save_file, training_params):
         training_args = [(Ai_Sample[i], i, time_limit, max_score) for i in range(nb_species)]
 
         # Use half of available CPU cores
-        nb_core = max(1, multiprocessing.cpu_count() - 2)
+        nb_core = max(1, multiprocessing.cpu_count() // 2)
         with multiprocessing.Pool(processes=(nb_core)) as pool:
             training_results = pool.map(train_species_wrapper, training_args)
 

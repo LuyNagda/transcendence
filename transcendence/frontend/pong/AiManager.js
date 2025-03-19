@@ -31,7 +31,7 @@ function initializeAiSocket() {
                 type: aiActions.END_TRAINING
             });
         } else if (data.type === 'ai_modified') {
-            logger.info('AiManager] ai_modified message received')
+            logger.info('[AiManager] ai_modified message received')
             fetchSavedAIs()
         }
     });
@@ -59,26 +59,23 @@ function sendTrainingStatusToServer(isTrainingInProgress) {
 
 // Function to handle training button state
 function updateTrainingButtonState(isTrainingInProgress) {
+    logger.info('[AiManager] Updating button state:', isTrainingInProgress);
+
     const trainingButton = document.getElementById('train-ai-btn');
+    const deleteButton = document.getElementById('delete-ai-btn');
+
     if (trainingButton) {
         trainingButton.disabled = isTrainingInProgress;
-
-        if (isTrainingInProgress) {
-            trainingButton.innerText = 'Training in progress ...'
-        } else {
-            trainingButton.innerText = 'Start Training'
-        }
+        trainingButton.innerText = isTrainingInProgress ? 'Training in progress ...' : 'Start Training';
+    } else {
+        logger.warn('[AiManager] Training button not found!');
     }
 
-    const deleteButton = document.getElementById("delete-ai-btn");
     if (deleteButton) {
         deleteButton.disabled = isTrainingInProgress;
-
-        if (isTrainingInProgress) {
-            deleteButton.innerText = 'Server is busy ...'
-        } else {
-            deleteButton.innerText = 'Delete AI'
-        }
+        deleteButton.innerText = isTrainingInProgress ? 'Server is busy ...' : 'Delete AI';
+    } else {
+        logger.warn('[AiManager] Delete button not found!');
     }
 }
 
@@ -141,26 +138,23 @@ async function fetchSavedAIs() {
     }
 }
 
-async function fetchTrainingStatus() {
+export async function fetchTrainingStatus() {
     try {
         logger.info('[AiManager] Fetching training\'s status');
 
-        // Get CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
         const response = await fetch('/ai/training-status/', {
             method: 'GET',
             headers: {
-                'X-CSRFToken': csrfToken,
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
             }
         });
-
         if (!response.ok) {
             throw new Error('Fetching training status failed');
         }
-
         const data = await response.json();
+
+        logger.info('[AiManager] received status', data)
 
         if (data.in_training) {
             store.dispatch({
@@ -174,19 +168,25 @@ async function fetchTrainingStatus() {
             });
         }
 
+        updateTrainingButtonState(store.getState().ai.trainingInProgress)
+
         logger.info('[AiManager] Fetching training\'s status successed')
     } catch (error) {
         logger.error('[AiManager] Fetching training status failed', error)
     }
 }
 
+let glob_aiIsInit = false;
+
 export async function initializeAiManager() {
+    if (glob_aiIsInit) return;
+
+    glob_aiIsInit = true;
     logger.info(`Initialization of AiManager...`);
     const managingLog = document.getElementById('managing-log');
     managingLog.style.display = 'block';
 
     initializeAiSocket();
-    await fetchTrainingStatus();
     
     // Initial fetch of saved AIs
     await fetchSavedAIs();
