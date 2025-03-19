@@ -159,7 +159,6 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         if time_limit != 0 and game_tick > (time_limit * 60 * 60):
             running = False
             continue
-        game_tick += 1
 
         # Move the ball
         ball.center_x += ball.dx
@@ -221,6 +220,8 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         # End the game
         if left_score >= max_score:
             running = False
+
+        game_tick += 1
     
     species_log = f"The AI {Ai_nb} score is {Ai_selected.ai_score:.1f}"
     return species_log
