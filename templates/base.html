@@ -19,6 +19,7 @@
     <main class="flex-grow-1" id="content" role="main" aria-label="Main content">
         {% block content %}{% endblock %}
     </main>
+
     {% block footer %}
     {% if not request.htmx %}
     {% include "footer.html" %}
@@ -26,9 +27,7 @@
     {% endblock %}
 
     {% block chat %}
-    {% if user.is_authenticated and not request.htmx %}
     {% render_chat %}
-    {% endif %}
     {% endblock %}
 </body>
 
