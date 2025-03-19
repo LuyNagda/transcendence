@@ -247,7 +247,7 @@ export class KeyboardInputGuest {
 			this.keyStates.down = isPressed;
 			stateChanged = true;
 		}
-		
+
 		// Only send update if state changed
 		if (stateChanged && this.callback) {
 			let direction = 0;
@@ -255,8 +255,8 @@ export class KeyboardInputGuest {
 			if (this.keyStates.down) direction += 1;
 
 			this.callback({
-			direction,
-			intensity: 1.0
+				direction,
+				intensity: 1.0
 			});
 		}
 	}
@@ -275,7 +275,7 @@ export class KeyboardInputGuest {
 		logger.info('Keyboard input Guest cleaned up');
 	}
 }
-  
+
 /**
  * NetworkInput
  * 
@@ -363,7 +363,8 @@ export class AIInput {
 			logger.info(`Loading AI model with difficulty: ${this.difficulty}`);
 
 			// Initialize the AIController with the specified difficulty
-			this.aiController = await AIController.init(this.difficulty);
+			this.aiController = new AIController();
+			await this.aiController.init(this.difficulty);
 
 			// Register for physics updates to make decisions
 			this.physicsHandler = this.makePrediction.bind(this);

@@ -28,7 +28,7 @@ export default class GameDirector {
 
 		this.currentUser = store.getState('user');
 		this.isLocalGame = store.getState('room')?.mode === 'AI' ||
-							store.getState('room')?.mode === 'LOCAL';
+			store.getState('room')?.mode === 'LOCAL';
 		this.isAiGame = store.getState('room')?.mode === 'AI';
 
 		const { isValid, settings: validatedSettings } = GameRules.validateSettings(options.settings || {});
@@ -127,7 +127,7 @@ export default class GameDirector {
 		if (this.isLocalGame) {
 			logger.info('[GameDirector] Setting up local game');
 			inputSystem.registerInput('left', new KeyboardInput());
-			
+
 			if (this.isAiGame) {
 				// In AI mode, player controls left paddle, AI controls right paddle
 				logger.info('[GameDirector] Setting up AI game: keyboard for left paddle, AI for right paddle');
@@ -323,6 +323,7 @@ export default class GameDirector {
 	_registerComponent(name, component) {
 		this.components.set(name, component);
 		if (typeof component.initialize === 'function') {
+			logger.info('[GameDirector] Component : ', name)
 			component.initialize();
 		}
 	}

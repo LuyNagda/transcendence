@@ -106,13 +106,8 @@ class Activation_SoftMax {
  */
 
 export class AIController {
-    static #instance = null;
 
     constructor() {
-        if (AIController.#instance) {
-            return AIController.#instance;
-        }
-
         logger.info('Initializing AIController');
         this.layer1 = null;
         this.layer2 = null;
@@ -122,26 +117,9 @@ export class AIController {
         this.activation3 = null;
         this.aiBall = null;
         this.lastBallUpdate = 0;
-
-        AIController.#instance = this;
     }
 
-    static getInstance() {
-        if (!AIController.#instance) {
-            AIController.#instance = new AIController();
-        }
-        return AIController.#instance;
-    }
-
-    static async init(difficulty) {
-        const instance = AIController.getInstance();
-        if (!instance.layer1) { // Only initialize if not already initialized
-            await instance._initialize(difficulty);
-        }
-        return instance;
-    }
-
-    async _initialize(difficulty) {
+    async init(difficulty) {
         try {
             logger.info(`Initializing AI with difficulty: ${difficulty}`);
             // Update the URL format to match the backend endpoint
@@ -210,7 +188,7 @@ export class AIController {
                 this.aiBall.y / GameRules.CANVAS_HEIGHT,
                 this.aiBall.dx,
                 this.aiBall.dy,
-                gameState.rightPaddle.y  / GameRules.CANVAS_HEIGHT
+                gameState.rightPaddle.y / GameRules.CANVAS_HEIGHT
             ]];
 
             let result = this.forward(X);

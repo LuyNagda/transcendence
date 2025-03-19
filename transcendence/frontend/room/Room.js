@@ -644,16 +644,21 @@ export default class Room {
 		try {
 			this._isDestroyed = true;
 
+			logger.info('[Room] Destroyed 1 ');
+
 			// Clean up managers in specific order
 			if (this._gameManager) {
+				logger.info('[Room] Destroyed 2');
 				this._gameManager.destroy();
 				this._gameManager = null;
 			}
 			if (this._uiManager) {
+				logger.info('[Room] Destroyed 3 ');
 				this._uiManager.destroy();
 				this._uiManager = null;
 			}
 			if (this._connectionManager) {
+				logger.info('[Room] Destroyed 4');
 				this._connectionManager.destroy();
 				this._connectionManager = null;
 			}
