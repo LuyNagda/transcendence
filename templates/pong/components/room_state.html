@@ -78,7 +78,7 @@
             <span>Start</span>
         </button>
         <button id="leaveGameBtn" class="btn btn-danger" hx-get="{% url 'pong' %}" hx-target="#content"
-            hx-swap="innerHTML" hx-push-url="true" aria-label="Leave the game">
+            hx-swap="outerHTML" hx-push-url="true" aria-label="Leave the game">
             Leave
         </button>
     </div>
