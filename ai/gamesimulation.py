@@ -150,7 +150,6 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
 
     # Update AI's target position
     ai_ball = AI_ball(ball)
-    bonus_score = 0
 
     running = True
     left_score = 0
@@ -213,10 +212,6 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
                     ball = update_ball_angle(ball, rightPaddle)
                     ball.right = rightPaddle.left  # Ensure correct positioning after bounce
                     break  # Stop further movement after collision
-        else:
-            # Normal movement when ball is not on the right side or moving left
-            ball.center_x += ball.dx
-            ball.center_y += ball.dy
 
         # Ball out of bounds
         if ball.right >= gameconfig.WIDTH:
