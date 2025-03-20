@@ -195,20 +195,26 @@ export async function initializeAiManager() {
     
     const trainButton = document.getElementById("train-ai-btn");
     trainButton.addEventListener("click", async () => {
-        startTraining();
-
         // Get and validate AI name
         const aiName = document.getElementById('ai_name').value.trim();
         if (!aiName) {
             alert('AI Name is required.');
             return;
         }
-
+        
         // Validate AI name format
         if (!/^[a-zA-Z0-9_-]+$/.test(aiName)) {
             alert('AI Name can only contain letters, numbers, underscores, and hyphens.');
             return;
         }
+
+        // Dispatch to the store
+        startTraining();
+        
+        // Show loading state
+        managingLog.className = 'alert alert-info';
+        managingLog.style.display = 'block';
+        managingLog.innerText = `Starting training for AI '${aiName}'...`;
 
         // Get and validate other parameters
         const nbGeneration = document.getElementById('nb_generation').value;
@@ -222,27 +228,13 @@ export async function initializeAiManager() {
             nb_species: nbSpecies,
             time_limit: timeLimit,
             max_score: maxScore,
-        };
-
-        // Get CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        if (!csrfToken) {
-            managingLog.className = 'alert alert-danger';
-            managingLog.innerText = 'CSRF token not found. Make sure {% csrf_token %} is included in your template.';
-            return;
-        }
-
-        // Show loading state
-        managingLog.className = 'alert alert-info';
-        managingLog.style.display = 'block';
-        managingLog.innerText = `Starting training for AI '${aiName}'...`;
+        };    
 
         try {
             // Make the request
             const response = await fetch(`/ai/train/`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': csrfToken,
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
                 },
@@ -265,6 +257,7 @@ export async function initializeAiManager() {
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error: ${error.message}`;
         } finally {
+            // Dispatch to the store
             endTraining();
         }
     });
@@ -305,7 +298,6 @@ export async function initializeAiManager() {
             // Update the log on error
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error deleting AI: ${error.message}`;
-        } finally {
         }
     });
 }
