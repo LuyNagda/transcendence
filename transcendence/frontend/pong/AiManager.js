@@ -92,6 +92,20 @@ function updateManagingLog(data) {
     }
 }
 
+// Append log to the UI
+function updateManagingLog(data) {
+    const managingLog = document.getElementById("managing-log");
+
+    // If the log message indicates the start of training, clear the log
+    if (data.content.startsWith("Start of ")) {
+        managingLog.innerText = "AI manager's log: "; // Clear previous logs
+    }
+
+    if (managingLog) {
+        managingLog.innerText += data.content + "\n";
+    }
+}
+
 // Fetch saved AIs and populate the dropdown
 async function fetchSavedAIs() {
     logger.info(`Fetching saved AIs...`);
@@ -204,7 +218,6 @@ export async function initializeAiManager() {
         // Show loading state
         managingLog.className = 'alert alert-info';
         managingLog.style.display = 'block';
-        managingLog.innerText = `Starting training for AI '${aiName}'...`;
 
         // Show loading state
         managingLog.className = 'alert alert-info';
