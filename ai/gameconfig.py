@@ -24,6 +24,9 @@ BALL_SPEED_STD = 5
 BALL_SPEED = BALL_SPEED_BASE * BALL_SPEED_STD
 BALL_SIZE = 10
 
+# 60 game_tick per second
+DT = 1 / 60
+
 GAME_CONF = {
     'nb_generation' : (1, int),
     'nb_species' : (50, int),

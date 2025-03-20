@@ -1,4 +1,4 @@
-import random, math
+import random, math, pygame
 from . import gameconfig
 
 class Ball:
@@ -133,6 +133,19 @@ def update_ball_angle(ball, paddle):
     return ball
 
 def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
+    # Initialize Pygame
+    pygame.init()
+    clock = pygame.time.Clock()
+
+
+    # Set up display
+    win = pygame.display.set_mode((gameconfig.WIDTH, gameconfig.HEIGHT))
+    pygame.display.set_caption("Game Simulation")
+
+    # Define colors
+    WHITE = (255, 255, 255)
+    BLACK = (0, 0, 0)
+
     # Initialize game objects
     rightPaddle = Paddle(
         center_x = gameconfig.WIDTH - 60,
@@ -156,14 +169,19 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
     game_tick = 0
     
     while running:
+        dt = clock.tick(60) / 1000
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
         # Limit the game time to 'time_limit' theoretical minutes
         if time_limit != 0 and game_tick > (time_limit * 60 * 60):
             running = False
             continue
 
         # Move the ball
-        ball.center_x += ball.dx * gameconfig.DT
-        ball.center_y += ball.dy * gameconfig.DT
+        ball.center_x += ball.dx * dt
+        ball.center_y += ball.dy * dt
 
         # Update the ai view
         if game_tick % 60 == 0:
@@ -172,13 +190,13 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         # Move the right paddle
         match (Ai_selected.decision(rightPaddle.center_y, ai_ball, gameconfig.HEIGHT, gameconfig.WIDTH)):
             case 0:
-                rightPaddle.center_y -= gameconfig.PADDLE_SPEED * gameconfig.DT
+                rightPaddle.center_y -= gameconfig.PADDLE_SPEED * dt
                 if rightPaddle.top <= 0:
                     rightPaddle.top = 0
             case 1:
                 pass
             case 2:
-                rightPaddle.center_y += gameconfig.PADDLE_SPEED * gameconfig.DT
+                rightPaddle.center_y += gameconfig.PADDLE_SPEED * dt
                 if rightPaddle.bottom >= gameconfig.HEIGHT:
                     rightPaddle.bottom = gameconfig.HEIGHT
 
@@ -211,6 +229,13 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         # End the game
         if left_score >= max_score:
             running = False
+
+        # Draw everything
+        win.fill(BLACK)
+        pygame.draw.circle(win, WHITE, (ball.center_x, ball.center_y), ball.size / 2)
+        pygame.draw.rect(win, WHITE, (rightPaddle.center_x - rightPaddle.width / 2, rightPaddle.center_y - rightPaddle.height / 2, rightPaddle.width, rightPaddle.height))
+        pygame.draw.rect(win, WHITE, (50 - rightPaddle.width, 0, rightPaddle.width, gameconfig.HEIGHT))
+        pygame.display.flip()
 
         game_tick += 1
     
