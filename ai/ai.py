@@ -294,7 +294,9 @@ def train_ai(ai_name, save_file, training_params):
     for j in range(nb_generation):
         log_header = ""
         log_header += (
-            f"\n        ========== Generation #{j} ===========\n"
+            f"\n        ========== Generation {j + 1} / {nb_generation} ===========\n"
+            f"Number of species = {nb_species}\n"
+            f"Time limit = {time_limit}\n"
             f"Max score = {max_score}\n\n"
         )
 

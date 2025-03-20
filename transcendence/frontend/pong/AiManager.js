@@ -111,7 +111,7 @@ function updateManagingLog(data) {
 
     // If the log message indicates the start of training, clear the log
     if (data.content.startsWith("Start of ")) {
-        managingLog.innerText = "AI manager's log: "; // Clear previous logs
+        managingLog.innerText = "AI manager's log:\n"; // Clear previous logs
     }
 
     if (managingLog) {
