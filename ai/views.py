@@ -13,10 +13,10 @@ MIN_GENERATIONS = 1
 MAX_GENERATIONS = 10
 MIN_SPECIES = 50
 MAX_SPECIES = 100
-MIN_TIME_LIMIT = 10
-MAX_TIME_LIMIT = 120
-MIN_MAX_SCORE = 100
-MAX_MAX_SCORE = 1000
+MIN_TIME_LIMIT = 5
+MAX_TIME_LIMIT = 60
+MIN_MAX_SCORE = 50
+MAX_MAX_SCORE = 500
 
 # Use a lock to ensure thread safety
 training_lock = threading.Lock()
@@ -96,10 +96,10 @@ def training(request):
         if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
             raise ValueError("Invalid AI name. Only alphanumeric characters are allowed and a maximun of 100 characters")
         
-        nb_generation = int(data.get('nb_generation', 10))
+        nb_generation = int(data.get('nb_generation', 1))
         nb_species = int(data.get('nb_species', 50))
-        time_limit = int(data.get('time_limit', 60))
-        max_score = int(data.get('max_score', 100))
+        time_limit = int(data.get('time_limit', 5))
+        max_score = int(data.get('max_score', 5))
 
         # Prepare the parameters as an object (dictionary)
         training_params = {
