@@ -17,7 +17,7 @@ def main():
     training_params = {
         'nb_generation': 1000000000,
         'nb_species': 100,
-        'time_limit': 1000,
+        'time_limit': 240,
         'max_score': 10000
     }
 
