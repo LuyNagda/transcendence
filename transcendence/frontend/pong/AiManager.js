@@ -33,6 +33,9 @@ function initializeAiSocket() {
         } else if (data.type === 'ai_modified') {
             logger.info('[AiManager] ai_modified message received')
             fetchSavedAIs()
+        } else if (data.type === 'ai_training_log') {
+            logger.info("[AI Training Log]:", data.content);
+            updateManagingLog(data)
         }
     });
 
@@ -100,6 +103,20 @@ function endTraining() {
         type: aiActions.END_TRAINING
     });
     sendTrainingStatusToServer(false);
+}
+
+// Append log to the UI
+function updateManagingLog(data) {
+    const managingLog = document.getElementById("managing-log");
+
+    // If the log message indicates the start of training, clear the log
+    if (data.content.startsWith("Start of ")) {
+        managingLog.innerText = "AI manager's log: "; // Clear previous logs
+    }
+
+    if (managingLog) {
+        managingLog.innerText += data.content + "\n";
+    }
 }
 
 // Fetch saved AIs and populate the dropdown
@@ -214,7 +231,6 @@ export async function initializeAiManager() {
         // Show loading state
         managingLog.className = 'alert alert-info';
         managingLog.style.display = 'block';
-        managingLog.innerText = `Starting training for AI '${aiName}'...`;
 
         // Get and validate other parameters
         const nbGeneration = document.getElementById('nb_generation').value;
@@ -247,10 +263,6 @@ export async function initializeAiManager() {
             if (!response.ok) {
                 throw new Error(data.error || 'Training failed');
             }
-
-            // Update the log on success
-            managingLog.className = 'alert alert-success';
-            managingLog.innerText = data.log || 'Training completed successfully.';
 
         } catch (error) {
             // Update the log on error

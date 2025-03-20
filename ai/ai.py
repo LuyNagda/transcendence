@@ -1,7 +1,8 @@
 import os, json, multiprocessing, logging
 import numpy as np
 from ai.gamesimulation import train_normal
-from ai.misc.backup import backup_file
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -276,15 +277,14 @@ def train_species_wrapper(args):
     Ai_selected, Ai_nb, time_limit, max_score = args
     training_log = train_normal(Ai_selected, Ai_nb, time_limit, max_score)
 
-    print(training_log)
     logger.info(training_log)
 
     point = Ai_selected.ai_score
     return training_log, point, Ai_nb
 
-def train_ai(save_file, training_params):
+def train_ai(ai_name, save_file, training_params):
     Ai_Sample = []
-    log = ""
+    send_training_update(f"Start of {ai_name}'s training")
 
     nb_generation = training_params.get('nb_generation')
     nb_species = training_params.get('nb_species')
@@ -298,15 +298,16 @@ def train_ai(save_file, training_params):
             f"Max score = {max_score}\n\n"
         )
 
-        print(log_header)
         logger.info(log_header)
-        log += log_header
+        send_training_update(log_header)
 
         try:
             Ai_Sample = Init_Ai(save_file, nb_species)
         
         except Exception as e:
-            log += f"Error in Ai initialisation: {e}"
+            error = f"Error in Ai initialisation: {e}"
+            send_training_update(error)
+            logger.error(error)
             continue
 
         # Prepare arguments for parallel processing
@@ -317,17 +318,11 @@ def train_ai(save_file, training_params):
         with multiprocessing.Pool(processes=(nb_core)) as pool:
             training_results = pool.map(train_species_wrapper, training_args)
 
-        log_score = ""
-
         for training_log, point, Ai_nb in training_results:
-            log_score += training_log + "\n"
+            send_training_update(training_log)
             Ai_Sample[Ai_nb].ai_score = point
 
         Save_Best_Ai(Ai_Sample, save_file)
-        backup_file(save_file, j + 1)
-        log += log_score
-    
-    return log
 
 def load_Ai(save_file):
     with open(save_file, 'r') as imp:
@@ -340,3 +335,14 @@ def load_Ai(save_file):
         # Load the network data from the saved Ai dictionary
         network.load_from_dict(ai_dict)
         return network
+
+def send_training_update(log_message):
+    """Send AI training log updates to all users via WebSocket."""
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "ai_group",
+        {
+            "type": "ai_training_log",
+            "message": log_message
+        }
+    )

@@ -71,3 +71,15 @@ class AIConsumer(AsyncWebsocketConsumer):
         
         except Exception as e:
             log.error(f'[AIConsumer]: failed to send modification notification: {str(e)}')
+
+    async def ai_training_log(self, event):
+            """Handles AI training log messages and sends them to all users."""
+            try:
+                message = event['message']
+                await self.send(text_data=json.dumps({
+                    "type": "ai_training_log",
+                    "content": message
+                }))
+            
+            except Exception as e:
+                log.error(f'[AIConsumer]: failed to send AI training log: {str(e)}')

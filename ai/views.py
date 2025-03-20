@@ -122,7 +122,7 @@ def training(request):
 
         # Create the full path
         save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
-        log = ai.train_ai(save_file, training_params)
+        ai.train_ai(ai_name, save_file, training_params)
 
         # Send notification via WebSocket
         channel_layer = get_channel_layer()
@@ -132,8 +132,7 @@ def training(request):
         )
 
         return JsonResponse({
-            "status": "success",
-            "log": log,
+            "status": "success"
         })
 
     except ValueError as e:
