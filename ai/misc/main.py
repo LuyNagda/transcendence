@@ -17,8 +17,8 @@ def main():
     training_params = {
         'nb_generation': 1000000000,
         'nb_species': 100,
-        'time_limit': 60,
-        'max_score': 500000000
+        'time_limit': 240,
+        'max_score': 10000
     }
 
     train_ai(save_file, training_params)
