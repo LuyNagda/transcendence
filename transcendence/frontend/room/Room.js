@@ -43,6 +43,13 @@ export default class Room {
 					payload: null
 				});
 
+				// Destroy existing instance if it exists
+				if (Room._instance) {
+					Room._instance.destroy();
+					Room._instance = null;
+				}
+
+				// Create new instance and initialize
 				Room._instance = new Room(roomId);
 				Room._instance._initializeRoomApp();
 			} else {
@@ -50,6 +57,32 @@ export default class Room {
 					Room._instance.destroy();
 					Room._instance = null;
 				}
+			}
+		});
+
+		// Add handler for history pop state
+		window.addEventListener('popstate', (event) => {
+			const path = window.location.pathname;
+			logger.info('[Room] popstate event detected:', path);
+			if (path.includes('/pong/room/')) {
+				const roomId = path.replace('/pong/room/', '').replace('/', '');
+
+				// Clear any existing room state before initialization
+				store.dispatch({
+					domain: 'room',
+					type: actions.room.CLEAR_ROOM,
+					payload: null
+				});
+
+				// Destroy existing instance if it exists
+				if (Room._instance) {
+					Room._instance.destroy();
+					Room._instance = null;
+				}
+
+				// Create new instance and initialize
+				Room._instance = new Room(roomId);
+				Room._instance._initializeRoomApp();
 			}
 		});
 	}

@@ -70,13 +70,15 @@
                 </div>
             </div>
         </div>
+
+
     </div>
 
     <div class="card-footer d-flex justify-content-between">
-        <button id="startGameBtn" v-if="[[owner.id === currentUser.id]]" v-on:click="startGame" type="button"
-            class="btn btn-primary" :disabled="!canStartGame" aria-label="Start the game">
-            <span>Start</span>
-        </button>
+		<button id="startGameBtn" v-if="canStartGame && owner.id === currentUser.id" v-on:click="startGame" type="button"
+			class="btn btn-primary" aria-label="Start the game">
+			<span>Start</span>
+		</button>
         <button id="leaveGameBtn" class="btn btn-danger" hx-get="{% url 'pong' %}" hx-target="#content"
             hx-swap="outerHTML" hx-push-url="true" aria-label="Leave the game">
             Leave
