@@ -83,17 +83,6 @@ def training(request):
         return JsonResponse({"error": "Request body is empty"}, status=400)
 
     try:
-        with training_lock:
-            if (IN_TRAINING):
-                return JsonResponse({"error": "Server not available: training in progress"}, status=400)
-            IN_TRAINING = True
-        
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            'ai_group',
-            {'type': 'ai_training_started'}
-        )
-        
         # Parse JSON body
         data = json.loads(request.body)
         ai_name = data.get('ai_name')
@@ -125,6 +114,18 @@ def training(request):
             raise ValueError(f"Time limit must be between {MIN_TIME_LIMIT} and {MAX_TIME_LIMIT} minutes")
         if not (MIN_MAX_SCORE <= max_score <= MAX_MAX_SCORE):
             raise ValueError(f"Max score must be between {MIN_MAX_SCORE} and {MAX_MAX_SCORE}")
+
+        with training_lock:
+            if (IN_TRAINING):
+                return JsonResponse({"error": "Server not available: training in progress"}, status=400)
+            IN_TRAINING = True
+        
+        # Send notification to user
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            'ai_group',
+            {'type': 'ai_training_started'}
+        )
 
         # Create the full path
         save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
