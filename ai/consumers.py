@@ -62,7 +62,30 @@ class AIConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             log.error(f'[AIConsumer]: failed to broadcast ai\'s status: {str(e)}')
 
+    async def ai_training_started(self, event):
+        """Handles the 'ai_training_started' event."""
+        try:
+            # Send the notification to the WebSocket
+            await self.send(text_data=json.dumps({
+                "type": "ai_training_started"
+            }))
+
+        except Exception as e:
+            log.error(f'[AIConsumer]: failed to send ai_training_started notification: {str(e)}')
+
+    async def ai_training_ended(self, event):
+        """Handles the 'ai_training_ended' event."""
+        try:
+            # Send the notification to the WebSocket
+            await self.send(text_data=json.dumps({
+                "type": "ai_training_ended"
+            }))
+
+        except Exception as e:
+            log.error(f'[AIConsumer]: failed to send ai_training_ended notification: {str(e)}')
+
     async def ai_modified(self, event):
+        """Handles the 'ai_modified' event."""
         try:
             # Send the notification to the WebSocket
             await self.send(text_data=json.dumps({
@@ -70,7 +93,7 @@ class AIConsumer(AsyncWebsocketConsumer):
             }))
         
         except Exception as e:
-            log.error(f'[AIConsumer]: failed to send modification notification: {str(e)}')
+            log.error(f'[AIConsumer]: failed to send ai_modified notification: {str(e)}')
 
     async def ai_training_log(self, event):
             """Handles AI training log messages and sends them to all users."""
