@@ -88,6 +88,12 @@ def training(request):
                 return JsonResponse({"error": "Server not available: training in progress"}, status=400)
             IN_TRAINING = True
         
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            'ai_group',
+            {'type': 'ai_training_started'}
+        )
+        
         # Parse JSON body
         data = json.loads(request.body)
         ai_name = data.get('ai_name')
@@ -122,18 +128,31 @@ def training(request):
 
         # Create the full path
         save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
-        ai.train_ai(ai_name, save_file, training_params)
 
-        # Send notification via WebSocket
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            'ai_group',
-            {'type': 'ai_modified'}
-        )
+        def train_and_release():
+            global IN_TRAINING
+            try:
+                ai.train_ai(ai_name, save_file, training_params)
+            finally:
+                with training_lock:
+                    IN_TRAINING = False
 
-        return JsonResponse({
-            "status": "success"
-        })
+                # Send notification via WebSocket
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    'ai_group',
+                    {'type': 'ai_training_ended'}
+                )
+                async_to_sync(channel_layer.group_send)(
+                    'ai_group',
+                    {'type': 'ai_modified'}
+                )
+
+        # Train the ai in the background to avoid Django to timeout
+        thread = threading.Thread(target=train_and_release, daemon=True)
+        thread.start()
+
+        return JsonResponse({"status": "success"}, status=200)
 
     except ValueError as e:
         return JsonResponse({"error": f"training request: {str(e)}"}, status=400)
@@ -145,10 +164,6 @@ def training(request):
         import traceback
         traceback.print_exc()
         return JsonResponse({"error": f"training request: {str(e)}"}, status=500)
-
-    finally:
-        with training_lock:
-            IN_TRAINING = False
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])

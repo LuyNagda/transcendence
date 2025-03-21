@@ -50,16 +50,6 @@ function initializeAiSocket() {
     connectionManager.connectGroup('ai');
 }
 
-function sendTrainingStatusToServer(isTrainingInProgress) {
-    const aiConnection = connectionManager.getConnection('ai:main');
-    if (aiConnection && aiConnection.state.canSend) {
-        const messageType = isTrainingInProgress ? 'ai_training_started' : 'ai_training_ended';
-        aiConnection.send({ type: messageType });
-    } else {
-        logger.warn('[AiManager] Cannot send training status - WebSocket not ready');
-    }
-}
-
 // Function to handle training button state
 function updateTrainingButtonState(isTrainingInProgress) {
     logger.info('[AiManager] Updating button state:', isTrainingInProgress);
@@ -87,23 +77,6 @@ store.subscribe('ai', (aiState) => {
     const isTrainingInProgress = aiState.trainingInProgress;
     updateTrainingButtonState(isTrainingInProgress);
 });
-
-// Dispatch actions when training starts and ends
-function startTraining() {
-    store.dispatch({
-        domain: 'ai',
-        type: aiActions.START_TRAINING
-    });
-    sendTrainingStatusToServer(true);
-}
-
-function endTraining() {
-    store.dispatch({
-        domain: 'ai',
-        type: aiActions.END_TRAINING
-    });
-    sendTrainingStatusToServer(false);
-}
 
 // Append log to the UI
 function updateManagingLog(data) {
@@ -225,9 +198,6 @@ export async function initializeAiManager() {
             return;
         }
 
-        // Dispatch to the store
-        startTraining();
-        
         // Show loading state
         managingLog.className = 'alert alert-info';
         managingLog.style.display = 'block';
@@ -268,9 +238,6 @@ export async function initializeAiManager() {
             // Update the log on error
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error: ${error.message}`;
-        } finally {
-            // Dispatch to the store
-            endTraining();
         }
     });
 

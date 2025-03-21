@@ -333,6 +333,8 @@ def train_ai(ai_name, save_file, training_params):
 
         Save_Best_Ai(Ai_Sample, save_file)
 
+    send_training_update(f"\nEnd of {ai_name}'s training\n")
+
 def load_Ai(save_file):
     with open(save_file, 'r') as imp:
         # Load first AI from JSON
