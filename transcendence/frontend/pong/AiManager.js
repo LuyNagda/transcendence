@@ -244,22 +244,22 @@ export async function initializeAiManager() {
         const timeLimit = document.getElementById('time_limit').value;
         const maxScore = document.getElementById('max_score').value;
 
-        // Define limits
-        const limits = {
-            nbGeneration: { min: 1, max: 10, name: "Number of Generations" },
-            nbSpecies: { min: 50, max: 100, name: "Number of Species" },
-            timeLimit: { min: 5, max: 60, name: "Simulated Time Limit" },
-            maxScore: { min: 50, max: 500, name: "Max Score" }
-        };
+        // List of inputs and their limits
+        const fields = [
+            { id: 'nb_generation', min: 1, max: 10, name: "Number of Generations" },
+            { id: 'nb_species', min: 50, max: 100, name: "Number of Species" },
+            { id: 'time_limit', min: 5, max: 60, name: "Simulated Time Limit" },
+            { id: 'max_score', min: 50, max: 500, name: "Max Score" }
+        ];
 
-        // Validate values
-        for (const [key, { min, max, name }] of Object.entries(limits)) {
-            if (isNaN(eval(key)) || eval(key) < min || eval(key) > max) {
+        // Validate each field
+        for (const { id, min, max, name } of fields) {
+            const value = Number(document.getElementById(id).value);
+            if (!Number.isFinite(value) || value < min || value > max) {
                 alert(`${name} must be between ${min} and ${max}.`);
                 return;
             }
         }
-
         const params = {
             ai_name: aiName,
             nb_generation: nbGeneration,
