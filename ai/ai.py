@@ -267,20 +267,10 @@ def Save_Best_Ai(Ai_Sample, save_file):
     # Clean the list
     Ai_Sample.clear()
 
-def train_species_wrapper(args):
-    """
-    Wrapper function to unpack arguments for train_normal
-    
-    :param args: Tuple (Ai_selected, Ai_nb)
-    :return: Training result or log
-    """
-    Ai_selected, Ai_nb, time_limit, max_score = args
-    training_log = train_normal(Ai_selected, Ai_nb, time_limit, max_score)
+def train_process(Ai_selected, Ai_nb, time_limit, max_score, result_queue):
+    ai_score = train_normal(Ai_selected, Ai_nb, time_limit, max_score)
 
-    logger.info(training_log)
-
-    point = Ai_selected.ai_score
-    return training_log, point, Ai_nb
+    result_queue.put((Ai_nb, ai_score))
 
 def train_ai(ai_name, save_file, training_params):
     Ai_Sample = []
@@ -292,12 +282,11 @@ def train_ai(ai_name, save_file, training_params):
     max_score = training_params.get('max_score')
 
     for j in range(nb_generation):
-        log_header = ""
-        log_header += (
+        log_header = (
             f"\n        ========== Generation {j + 1} / {nb_generation} ===========\n"
             f"Number of species = {nb_species}\n"
             f"Time limit = {time_limit}\n"
-            f"Max score = {max_score}\n\n"
+            f"Max score = {max_score}\n"
         )
 
         logger.info(log_header)
@@ -312,17 +301,35 @@ def train_ai(ai_name, save_file, training_params):
             logger.error(error)
             continue
 
-        # Prepare arguments for parallel processing
-        training_args = [(Ai_Sample[i], i, time_limit, max_score) for i in range(nb_species)]
+        processes = []
+        # Queue to store results
+        result_queue = multiprocessing.Queue()
 
-        # Use half of available CPU cores
-        nb_core = max(1, multiprocessing.cpu_count() // 2)
-        with multiprocessing.Pool(processes=(nb_core)) as pool:
-            training_results = pool.map(train_species_wrapper, training_args)
+        for Ai_nb in range(nb_species):
+            # Create a new process
+            process = multiprocessing.Process(target=train_process, args=(Ai_Sample[Ai_nb], Ai_nb, time_limit, max_score, result_queue))
+            process.start()
+            processes.append((Ai_nb, process, result_queue))
 
-        for training_log, point, Ai_nb in training_results:
-            send_training_update(training_log)
-            Ai_Sample[Ai_nb].ai_score = point
+        for Ai_nb, process, result_queue in processes:
+            # Set timeout for each process
+            process.join(timeout=100)
+
+            if process.is_alive():
+                send_training_update(f"⚠️ AI {Ai_nb} timed out and was skipped. Score = {Ai_Sample[Ai_nb].ai_score}")
+                process.terminate()  # Kill the process if it is stuck
+                process.join()
+            else:
+                try:
+                    returned_Ai_nb, ai_score = result_queue.get_nowait()
+                    Ai_Sample[returned_Ai_nb].ai_score = ai_score
+
+                    logger.info(f"[train_process] AI {returned_Ai_nb}: \t{ai_score}")
+                    send_training_update(f"The AI {returned_Ai_nb} \tscore is {ai_score}")
+
+                except Exception as e:
+                    logger.error(f"⚠️ AI {Ai_nb} failed to return a result: {e}")
+                    send_training_update(f"⚠️ AI {Ai_nb} failed to return a result")
 
         Save_Best_Ai(Ai_Sample, save_file)
 

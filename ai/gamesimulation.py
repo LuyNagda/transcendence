@@ -214,5 +214,4 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
 
         game_tick += 1
     
-    species_log = f"The AI {Ai_nb} \tscore is {Ai_selected.ai_score:.1f}"
-    return species_log
+    return Ai_selected.ai_score
