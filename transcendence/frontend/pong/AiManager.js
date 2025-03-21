@@ -212,9 +212,6 @@ export async function initializeAiManager() {
             return;
         }
 
-        // Dispatch to the store
-        startTraining();
-        
         // Show loading state
         managingLog.className = 'alert alert-info';
         managingLog.style.display = 'block';
