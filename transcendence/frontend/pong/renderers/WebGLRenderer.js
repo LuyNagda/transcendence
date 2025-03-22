@@ -33,38 +33,72 @@ export class WebGLRenderer extends RendererInterface {
 			return false;
 		}
 
-		// Bind context handlers with proper fallbacks
-		const handleContextLost = (event) => {
+		this._handleContextLost = (event) => {
 			event.preventDefault();
-			if (this._contextHandlers.onContextLost) {
+			if (this._contextHandlers.onContextLost)
 				this._contextHandlers.onContextLost(event);
-			}
+			logger.warn('WebGL context lost');
 		};
 
-		const handleContextRestored = (event) => {
-			if (this._contextHandlers.onContextRestored) {
+		this._handleContextRestored = (event) => {
+			if (this._contextHandlers.onContextRestored)
 				this._contextHandlers.onContextRestored(event);
+			logger.info('WebGL context restored - reinitializing renderer');
+			this._setupBufferCanvas();
+			try {
+				this._setupREGL();
+				this._createSpriteTexture();
+				this._createQuadCommand();
+				this._startWebGLLoop();
+			} catch (error) {
+				logger.error('Failed to reinitialize WebGL after context restored:', error);
 			}
 		};
 
-		this._canvas.addEventListener('webglcontextlost', handleContextLost);
-		this._canvas.addEventListener('webglcontextrestored', handleContextRestored);
+		this._canvas.addEventListener('webglcontextlost', this._handleContextLost);
+		this._canvas.addEventListener('webglcontextrestored', this._handleContextRestored);
 
 		try {
-			const gl = this._canvas.getContext('webgl') || this._canvas.getContext('experimental-webgl');
+			const contextOptions = [
+				{ contextType: 'webgl2', options: { failIfMajorPerformanceCaveat: false } },
+				{ contextType: 'webgl', options: { failIfMajorPerformanceCaveat: false } },
+			];
+
+			let gl = null;
+			for (const { contextType, options } of contextOptions) {
+				try {
+					gl = this._canvas.getContext(contextType, options);
+					if (gl) {
+						logger.info(`Created ${contextType} context successfully`);
+						break;
+					}
+				} catch (e) {
+					logger.warn(`Failed to get ${contextType} context:`, e);
+				}
+			}
+
 			if (!gl) {
-				logger.error('WebGL context could not be obtained');
+				logger.error('Could not create a WebGL context, rendering impossible');
 				return false;
 			}
 
 			this._setupBufferCanvas();
-			this._setupREGL();
+
+			try {
+				this._setupREGL();
+			} catch (reglError) {
+				logger.error('REGL initialization failed:', reglError);
+				return false;
+			}
+
 			this._createSpriteTexture();
 			this._createQuadCommand();
 			this._startWebGLLoop();
+
+			logger.info('WebGL renderer initialized successfully');
 			return true;
 		} catch (error) {
-			logger.error('WebGL initialization failed:', error.name, error.message);
+			logger.error('WebGL initialization failed:', error);
 			return false;
 		}
 	}
@@ -83,24 +117,29 @@ export class WebGLRenderer extends RendererInterface {
 	_setupREGL() {
 		try {
 			const regl = require('regl');
-			this._regl = regl({
-				canvas: this._canvas,
-				attributes: {
-					antialias: true,
-					alpha: false,
-					preserveDrawingBuffer: true
-				},
-				onDone: (err, reglInstance) => {
-					if (err) {
-						logger.error('Error creating REGL instance:', err);
-						throw err;
-					}
-					this._regl = reglInstance;
-				}
+
+			const gl = this._canvas.getContext('webgl2', {
+				antialias: true,
+				alpha: false,
+				failIfMajorPerformanceCaveat: false
 			});
+
+			if (!gl)
+				throw new Error('Could not get WebGL context for REGL');
+
+			try {
+				this._regl = regl({
+					gl: gl,
+					optionalExtensions: ['oes_texture_float', 'oes_texture_half_float', 'webgl_color_buffer_float']
+				});
+				logger.info('REGL initialized successfully');
+			} catch (reglError) {
+				logger.error('REGL creation error:', reglError);
+				throw reglError;
+			}
 		} catch (error) {
 			logger.error('Failed to initialize REGL:', error);
-			throw new Error('REGL initialization failed: ' + (error.message || 'Unknown error'));
+			throw error;
 		}
 	}
 
@@ -258,7 +297,7 @@ export class WebGLRenderer extends RendererInterface {
 		rafBody();
 	}
 
-	render(gameState) {
+	render(gameState, gameMetadata, deltaTime) {
 		// Clear buffer
 		this._bufferContext.fillStyle = '#000';
 		this._bufferContext.fillRect(0, 0, this._bufferW, this._bufferH);
@@ -382,15 +421,16 @@ export class WebGLRenderer extends RendererInterface {
 		this._bufferContext.textAlign = 'center';
 
 		this._drawWithBloom(() => {
-			if (gameState.scores && typeof gameState.scores.left !== 'undefined' && typeof gameState.scores.right !== 'undefined') {
+			const scores = (gameMetadata && gameMetadata.scores) || gameState.scores;
+			if (scores && typeof scores.left !== 'undefined' && typeof scores.right !== 'undefined') {
 				this._bufferContext.fillText(
-					gameState.scores.left,
+					scores.left,
 					this._bufferW / 4,
 					50
 				);
 
 				this._bufferContext.fillText(
-					gameState.scores.right,
+					scores.right,
 					(3 * this._bufferW) / 4,
 					50
 				);
@@ -435,6 +475,12 @@ export class WebGLRenderer extends RendererInterface {
 			this._regl.destroy();
 			this._regl = null;
 		}
+
+		if (this._canvas) {
+			this._canvas.removeEventListener('webglcontextlost', this._handleContextLost);
+			this._canvas.removeEventListener('webglcontextrestored', this._handleContextRestored);
+		}
+
 		this._quadCommand = null;
 		this._spriteTexture = null;
 		this._bufferCanvas = null;

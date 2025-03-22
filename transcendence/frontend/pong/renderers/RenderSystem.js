@@ -1,6 +1,7 @@
 import logger from '../../logger.js';
 import { WebGLRenderer } from './WebGLRenderer.js';
 import { Canvas2DRenderer } from './CanvasRenderer.js';
+import { WebGLDetector } from './WebGLDetector.js';
 import { store } from '../../state/store.js';
 
 export class RenderSystem {
@@ -42,12 +43,25 @@ export class RenderSystem {
 		logger.info('Initializing render system');
 
 		try {
+			if (this.useWebGL) {
+				if (!WebGLDetector.isWebGLSupported()) {
+					logger.warn('WebGL not supported by browser, falling back to Canvas2D renderer');
+					this.useWebGL = false;
+				}
+			}
+
 			this.renderer = this.useWebGL
 				? new WebGLRenderer(this.canvas)
 				: new Canvas2DRenderer(this.canvas);
 
 			const initialized = this.renderer.initialize();
 			if (!initialized) {
+				if (this.useWebGL) {
+					logger.warn('WebGL renderer initialization failed, falling back to Canvas2D');
+					this.useWebGL = false;
+					this.renderer = new Canvas2DRenderer(this.canvas);
+					return this.renderer.initialize();
+				}
 				logger.error('Failed to initialize renderer');
 				return false;
 			}
@@ -58,6 +72,24 @@ export class RenderSystem {
 			return true;
 		} catch (error) {
 			logger.error('Error initializing render system:', error);
+
+			if (this.useWebGL) {
+				logger.warn('Falling back to Canvas2D after error');
+				this.useWebGL = false;
+				try {
+					this.renderer = new Canvas2DRenderer(this.canvas);
+					const initialized = this.renderer.initialize();
+					if (initialized) {
+						this.eventEmitter.on('physicsUpdated', this.onPhysicsUpdated);
+						store.subscribe('game', this.updateGameMetadata.bind(this));
+						this.startRenderLoop();
+						return true;
+					}
+				} catch (fallbackError) {
+					logger.error('Error in Canvas2D fallback:', fallbackError);
+				}
+			}
+
 			return false;
 		}
 	}
@@ -214,6 +246,20 @@ export class RenderSystem {
 		}
 
 		try {
+			const parentNode = this.canvas.parentNode;
+			const oldCanvas = this.canvas;
+			const newCanvas = document.createElement('canvas');
+
+			newCanvas.width = oldCanvas.width;
+			newCanvas.height = oldCanvas.height;
+			newCanvas.id = oldCanvas.id;
+			newCanvas.className = oldCanvas.className;
+
+			if (parentNode)
+				parentNode.replaceChild(newCanvas, oldCanvas);
+
+			this.canvas = newCanvas;
+
 			this.renderer = this.useWebGL
 				? new WebGLRenderer(this.canvas)
 				: new Canvas2DRenderer(this.canvas);
