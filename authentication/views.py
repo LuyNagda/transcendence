@@ -205,7 +205,12 @@ def forgot_password(request):
                         form = ResetPasswordForm(user, request.POST)
                         if form.is_valid():
                             form.save()
-                            return render(request, 'login.html', {'form': LoginForm()})
+                            if request.headers.get('HX-Request') == 'true':
+                                response = JsonResponse({"message": "Password change successful."}, status=status.HTTP_200_OK)
+                                response['HX-Location'] = '/login'
+                            else:
+                                response = redirect('/login')
+                            return response
                     else:
                         form = ResetPasswordForm(user)
                     return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token})
