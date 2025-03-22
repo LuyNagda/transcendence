@@ -13,10 +13,10 @@ MIN_GENERATIONS = 1
 MAX_GENERATIONS = 10
 MIN_SPECIES = 50
 MAX_SPECIES = 100
-MIN_TIME_LIMIT = 10
-MAX_TIME_LIMIT = 120
-MIN_MAX_SCORE = 100
-MAX_MAX_SCORE = 1000
+MIN_TIME_LIMIT = 5
+MAX_TIME_LIMIT = 60
+MIN_MAX_SCORE = 50
+MAX_MAX_SCORE = 500
 
 # Use a lock to ensure thread safety
 training_lock = threading.Lock()
@@ -79,15 +79,10 @@ def training(request):
     if multiprocessing.cpu_count() < 2:
         return JsonResponse({"error": "Server not powerfull enough, please upgrade cpu count"}, status=400)
 
-    try:
-        with training_lock:
-            if (IN_TRAINING):
-                return JsonResponse({"error": "Server not available: training in progress"}, status=400)
-            IN_TRAINING = True
+    if not request.body:
+        return JsonResponse({"error": "Request body is empty"}, status=400)
 
-        if not request.body:
-            return JsonResponse({"error": "Request body is empty"}, status=400)
-        
+    try:
         # Parse JSON body
         data = json.loads(request.body)
         ai_name = data.get('ai_name')
@@ -96,10 +91,10 @@ def training(request):
         if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
             raise ValueError("Invalid AI name. Only alphanumeric characters are allowed and a maximun of 100 characters")
         
-        nb_generation = int(data.get('nb_generation', 10))
+        nb_generation = int(data.get('nb_generation', 1))
         nb_species = int(data.get('nb_species', 50))
-        time_limit = int(data.get('time_limit', 60))
-        max_score = int(data.get('max_score', 100))
+        time_limit = int(data.get('time_limit', 5))
+        max_score = int(data.get('max_score', 5))
 
         # Prepare the parameters as an object (dictionary)
         training_params = {
@@ -112,44 +107,64 @@ def training(request):
 
         # Validate parameters
         if not (MIN_GENERATIONS <= nb_generation <= MAX_GENERATIONS):
-            return JsonResponse({"error": f"Number of generations must be between {MIN_GENERATIONS} and {MAX_GENERATIONS}"}, status=400)
+            raise ValueError(f"Number of generations must be between {MIN_GENERATIONS} and {MAX_GENERATIONS}")
         if not (MIN_SPECIES <= nb_species <= MAX_SPECIES):
-            return JsonResponse({"error": f"Number of species must be between {MIN_SPECIES} and {MAX_SPECIES}"}, status=400)
+            raise ValueError(f"Number of species must be between {MIN_SPECIES} and {MAX_SPECIES}")
         if not (MIN_TIME_LIMIT <= time_limit <= MAX_TIME_LIMIT):
-            return JsonResponse({"error": f"Time limit must be between {MIN_TIME_LIMIT} and {MAX_TIME_LIMIT} minutes"}, status=400)
+            raise ValueError(f"Time limit must be between {MIN_TIME_LIMIT} and {MAX_TIME_LIMIT} minutes")
         if not (MIN_MAX_SCORE <= max_score <= MAX_MAX_SCORE):
-            return JsonResponse({"error": f"Max score must be between {MIN_MAX_SCORE} and {MAX_MAX_SCORE}"}, status=400)
+            raise ValueError(f"Max score must be between {MIN_MAX_SCORE} and {MAX_MAX_SCORE}")
 
-        # Create the full path
-        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
-        log = ai.train_ai(save_file, training_params)
-
-        # Send notification via WebSocket
+        with training_lock:
+            if (IN_TRAINING):
+                return JsonResponse({"error": "Server not available: training in progress"}, status=400)
+            IN_TRAINING = True
+        
+        # Send notification to user
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             'ai_group',
-            {'type': 'ai_modified'}
+            {'type': 'ai_training_started'}
         )
 
-        return JsonResponse({
-            "status": "success",
-            "log": log,
-        })
+        # Create the full path
+        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
+
+        def train_and_release():
+            global IN_TRAINING
+            try:
+                ai.train_ai(ai_name, save_file, training_params)
+            finally:
+                with training_lock:
+                    IN_TRAINING = False
+
+                # Send notification via WebSocket
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    'ai_group',
+                    {'type': 'ai_training_ended'}
+                )
+                async_to_sync(channel_layer.group_send)(
+                    'ai_group',
+                    {'type': 'ai_modified'}
+                )
+
+        # Train the ai in the background to avoid Django to timeout
+        thread = threading.Thread(target=train_and_release, daemon=True)
+        thread.start()
+
+        return JsonResponse({"status": "success"}, status=200)
 
     except ValueError as e:
-        return JsonResponse({"error": f"while training: {str(e)}"}, status=400)
+        return JsonResponse({"error": f"training request: {str(e)}"}, status=400)
 
     except PermissionError as e:
-        return JsonResponse({"error": f"{str(e)}"}, status=403)
+        return JsonResponse({"error": f"training request: {str(e)}"}, status=403)
 
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return JsonResponse({"error": f"while training: {str(e)}"}, status=500)
-
-    finally:
-        with training_lock:
-            IN_TRAINING = False
+        return JsonResponse({"error": f"training request: {str(e)}"}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -188,7 +203,7 @@ def delete_saved_ai(request):
 
         invalid_ai = ["Marvin"]
         if ai_name in invalid_ai:
-            return JsonResponse({"error": f"The file '{ai_name}' cannot be removed"}, safe=False, status=403)        
+            raise PermissionError(f"The file '{ai_name}' cannot be removed")        
 
         save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
 
@@ -211,10 +226,14 @@ def delete_saved_ai(request):
     except ValueError as e:
         return JsonResponse({"error": str(e)}, status=400)
 
+    except PermissionError as e:
+        return JsonResponse({"error": str(e)}, status=403)
+
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticatedWithCookie])
 def get_training_status(request):
     global IN_TRAINING
     with training_lock:

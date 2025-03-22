@@ -1,7 +1,8 @@
 import os, json, multiprocessing, logging
 import numpy as np
 from ai.gamesimulation import train_normal
-from ai.misc.backup import backup_file
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 logger = logging.getLogger(__name__)
 
@@ -266,25 +267,14 @@ def Save_Best_Ai(Ai_Sample, save_file):
     # Clean the list
     Ai_Sample.clear()
 
-def train_species_wrapper(args):
-    """
-    Wrapper function to unpack arguments for train_normal
-    
-    :param args: Tuple (Ai_selected, Ai_nb)
-    :return: Training result or log
-    """
-    Ai_selected, Ai_nb, time_limit, max_score = args
-    training_log = train_normal(Ai_selected, Ai_nb, time_limit, max_score)
+def train_process(Ai_selected, Ai_nb, time_limit, max_score, result_queue):
+    ai_score = train_normal(Ai_selected, Ai_nb, time_limit, max_score)
 
-    print(training_log)
-    logger.info(training_log)
+    result_queue.put((Ai_nb, ai_score))
 
-    point = Ai_selected.ai_score
-    return training_log, point, Ai_nb
-
-def train_ai(save_file, training_params):
+def train_ai(ai_name, save_file, training_params):
     Ai_Sample = []
-    log = ""
+    send_training_update(f"Start of {ai_name}'s training")
 
     nb_generation = training_params.get('nb_generation')
     nb_species = training_params.get('nb_species')
@@ -292,42 +282,58 @@ def train_ai(save_file, training_params):
     max_score = training_params.get('max_score')
 
     for j in range(nb_generation):
-        log_header = ""
-        log_header += (
-            f"\n        ========== Generation #{j} ===========\n"
-            f"Max score = {max_score}\n\n"
+        log_header = (
+            f"\n        ========== Generation {j + 1} / {nb_generation} ===========\n"
+            f"Number of species = {nb_species}\n"
+            f"Time limit = {time_limit}\n"
+            f"Max score = {max_score}\n"
         )
 
-        print(log_header)
         logger.info(log_header)
-        log += log_header
+        send_training_update(log_header)
 
         try:
             Ai_Sample = Init_Ai(save_file, nb_species)
         
         except Exception as e:
-            log += f"Error in Ai initialisation: {e}"
+            error = f"Error in Ai initialisation: {e}"
+            send_training_update(error)
+            logger.error(error)
             continue
 
-        # Prepare arguments for parallel processing
-        training_args = [(Ai_Sample[i], i, time_limit, max_score) for i in range(nb_species)]
+        processes = []
+        # Queue to store results
+        result_queue = multiprocessing.Queue()
 
-        # Use half of available CPU cores
-        nb_core = max(1, multiprocessing.cpu_count() // 2)
-        with multiprocessing.Pool(processes=(nb_core)) as pool:
-            training_results = pool.map(train_species_wrapper, training_args)
+        for Ai_nb in range(nb_species):
+            # Create a new process
+            process = multiprocessing.Process(target=train_process, args=(Ai_Sample[Ai_nb], Ai_nb, time_limit, max_score, result_queue))
+            process.start()
+            processes.append((Ai_nb, process, result_queue))
 
-        log_score = ""
+        for Ai_nb, process, result_queue in processes:
+            # Set timeout for each process
+            process.join(timeout=100)
 
-        for training_log, point, Ai_nb in training_results:
-            log_score += training_log + "\n"
-            Ai_Sample[Ai_nb].ai_score = point
+            if process.is_alive():
+                send_training_update(f"⚠️ AI {Ai_nb} timed out and was skipped. Score = {Ai_Sample[Ai_nb].ai_score}")
+                process.terminate()  # Kill the process if it is stuck
+                process.join()
+            else:
+                try:
+                    returned_Ai_nb, ai_score = result_queue.get_nowait()
+                    Ai_Sample[returned_Ai_nb].ai_score = ai_score
+
+                    logger.info(f"[train_process] AI {returned_Ai_nb}: \t{ai_score}")
+                    send_training_update(f"The AI {returned_Ai_nb} \tscore is {ai_score}")
+
+                except Exception as e:
+                    logger.error(f"⚠️ AI {Ai_nb} failed to return a result: {e}")
+                    send_training_update(f"⚠️ AI {Ai_nb} failed to return a result")
 
         Save_Best_Ai(Ai_Sample, save_file)
-        backup_file(save_file, j + 1)
-        log += log_score
-    
-    return log
+
+    send_training_update(f"\nEnd of {ai_name}'s training\n")
 
 def load_Ai(save_file):
     with open(save_file, 'r') as imp:
@@ -340,3 +346,14 @@ def load_Ai(save_file):
         # Load the network data from the saved Ai dictionary
         network.load_from_dict(ai_dict)
         return network
+
+def send_training_update(log_message):
+    """Send AI training log updates to all users via WebSocket."""
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "ai_group",
+        {
+            "type": "ai_training_log",
+            "message": log_message
+        }
+    )
