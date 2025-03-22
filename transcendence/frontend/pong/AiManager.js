@@ -92,20 +92,6 @@ function updateManagingLog(data) {
     }
 }
 
-// Append log to the UI
-function updateManagingLog(data) {
-    const managingLog = document.getElementById("managing-log");
-
-    // If the log message indicates the start of training, clear the log
-    if (data.content.startsWith("Start of ")) {
-        managingLog.innerText = "AI manager's log:\n"; // Clear previous logs
-    }
-
-    if (managingLog) {
-        managingLog.innerText += data.content + "\n";
-    }
-}
-
 // Fetch saved AIs and populate the dropdown
 async function fetchSavedAIs() {
     logger.info(`Fetching saved AIs...`);
@@ -216,10 +202,6 @@ export async function initializeAiManager() {
         managingLog.className = 'alert alert-info';
         managingLog.style.display = 'block';
 
-        // Show loading state
-        managingLog.className = 'alert alert-info';
-        managingLog.style.display = 'block';
-
         
         // List of inputs and their limits
         const fields = [
@@ -244,22 +226,6 @@ export async function initializeAiManager() {
         const timeLimit = document.getElementById('time_limit').value;
         const maxScore = document.getElementById('max_score').value;
 
-        // List of inputs and their limits
-        const fields = [
-            { id: 'nb_generation', min: 1, max: 10, name: "Number of Generations" },
-            { id: 'nb_species', min: 50, max: 100, name: "Number of Species" },
-            { id: 'time_limit', min: 5, max: 60, name: "Simulated Time Limit" },
-            { id: 'max_score', min: 50, max: 500, name: "Max Score" }
-        ];
-
-        // Validate each field
-        for (const { id, min, max, name } of fields) {
-            const value = Number(document.getElementById(id).value);
-            if (!Number.isFinite(value) || value < min || value > max) {
-                alert(`${name} must be between ${min} and ${max}.`);
-                return;
-            }
-        }
         const params = {
             ai_name: aiName,
             nb_generation: nbGeneration,
