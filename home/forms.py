@@ -1,6 +1,7 @@
 from django import forms
 from authentication.models import User
 from django.contrib.auth.forms import PasswordChangeForm
+from django.core.exceptions import ValidationError
 
 class ProfileForm(forms.Form):
     name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly', 'placeholder': 'user', 'autocomplete': 'username'}))
@@ -19,6 +20,12 @@ class ProfileForm(forms.Form):
         self.fields['email'].initial = user.email
         self.fields['date_of_birth'].initial = user.date_of_birth
         self.fields['bio'].initial = user.bio
+
+    def clean_profile_picture(self):
+        profile_picture = self.cleaned_data.get('profile_picture')
+        if profile_picture and profile_picture.size > 512 * 1024:  # 512 KB limit
+            raise ValidationError("Profile picture size cannot exceed 512 KB.")
+        return profile_picture
 
     def save(self, commit=True):
         user = User.objects.get(username=self.cleaned_data['name'])
