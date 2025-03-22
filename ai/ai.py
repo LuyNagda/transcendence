@@ -36,12 +36,19 @@ class Activation_ReLU:
 # Transform the inputs into probabilities
 class Activation_SoftMax:
     def forward(self, inputs):
-        # Protect from overflow. In case of batch inputs, keeps it in the rigth format
-        exp_values = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))
+        try:
+            # Force overflow errors to be raised
+            np.seterr(over='raise')
 
-        probabilities = exp_values / np.sum(exp_values, axis=1, keepdims=True)
-        self.output = probabilities
-        return self.output
+            # Protect from overflow. In case of batch inputs, keeps it in the rigth format
+            exp_values = np.exp(inputs - np.max(inputs, axis=1, keepdims=True))
+
+            probabilities = exp_values / np.sum(exp_values, axis=1, keepdims=True)
+            self.output = probabilities
+            return self.output
+
+        except FloatingPointError as e:
+            raise OverflowError(f"Overflow detected in softmax computation: {e}")
 
 class Neuron_Network:
     def __init__(self, nb_inputs, nb_layer1_neurons, nb_layer2_neurons, nb_layer3_neurons):
@@ -175,6 +182,9 @@ def apply_mutation(layer):
     """
 
     try:
+        # Force overflow errors to be raised
+        np.seterr(over='raise')
+
         # Get weights' matrix shape
         weight_shape = layer.weights.shape
         # Generate a matrix with random value
@@ -197,6 +207,9 @@ def apply_mutation(layer):
         layer.biases[mutation_mask] += mutation_value
 
     except FloatingPointError as e:
+        raise OverflowError(f"Numerical error during mutation: {e}")
+
+    except FloatingPointError as e:
         raise Exception(f"Numerical error during mutation: {e}")
 
     except Exception as e:
@@ -215,28 +228,34 @@ def Crossover_mutation(Ai_Sample, nb_species):
     Returns:
     None
     """
+    try:
+        # Force overflow errors to be raised
+        np.seterr(over='raise')
 
-    # Crossover & Mutation
-    while (len(Ai_Sample) < nb_species - 5):
-        # Select 2 parent randomly from the 5 best performing AI and instance a child
-        parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
-        child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
+        # Crossover & Mutation
+        while (len(Ai_Sample) < nb_species - 5):
+            # Select 2 parent randomly from the 5 best performing AI and instance a child
+            parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
+            child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
 
-        # Crossover for both weights and biases
-        child.layer1.weights = (parent1.layer1.weights + parent2.layer1.weights) / 2
-        child.layer1.biases = (parent1.layer1.biases + parent2.layer1.biases) / 2
-        child.layer2.weights = (parent1.layer2.weights + parent2.layer2.weights) / 2
-        child.layer2.biases = (parent1.layer2.biases + parent2.layer2.biases) / 2
-        child.layer3.weights = (parent1.layer3.weights + parent2.layer3.weights) / 2
-        child.layer3.biases = (parent1.layer3.biases + parent2.layer3.biases) / 2
+            # Crossover for both weights and biases
+            child.layer1.weights = np.clip((parent1.layer1.weights + parent2.layer1.weights) / 2, -1e6, 1e6)
+            child.layer1.biases = np.clip((parent1.layer1.biases + parent2.layer1.biases) / 2, -1e6, 1e6)
+            child.layer2.weights = np.clip((parent1.layer2.weights + parent2.layer2.weights) / 2, -1e6, 1e6)
+            child.layer2.biases = np.clip((parent1.layer2.biases + parent2.layer2.biases) / 2, -1e6, 1e6)
+            child.layer3.weights = np.clip((parent1.layer3.weights + parent2.layer3.weights) / 2, -1e6, 1e6)
+            child.layer3.biases = np.clip((parent1.layer3.biases + parent2.layer3.biases) / 2, -1e6, 1e6)
 
-        # Mutate for both weights and biases
-        child.layer1 = apply_mutation(child.layer1)
-        child.layer2 = apply_mutation(child.layer2)
-        child.layer3 = apply_mutation(child.layer3)
+            # Mutate for both weights and biases
+            child.layer1 = apply_mutation(child.layer1)
+            child.layer2 = apply_mutation(child.layer2)
+            child.layer3 = apply_mutation(child.layer3)
 
-        # Add this mutated child to the AI's list
-        Ai_Sample.append(child)
+            # Add this mutated child to the AI's list
+            Ai_Sample.append(child)
+    
+    except FloatingPointError as e:
+        raise OverflowError(f"Overflow detected during crossover: {e}")
 
 def Save_Best_Ai(Ai_Sample, save_file):
     # Sort AI from the best performer to the least one
@@ -333,6 +352,7 @@ def train_ai(ai_name, save_file, training_params):
 
         Save_Best_Ai(Ai_Sample, save_file)
 
+    logger.info(f"End of {ai_name}'s training\n")
     send_training_update(f"\nEnd of {ai_name}'s training\n")
 
 def load_Ai(save_file):
