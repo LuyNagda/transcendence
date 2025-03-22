@@ -40,7 +40,8 @@ function initializeAiSocket() {
     });
 
     aiConnectionGroup.get('main').on('close', () => {
-        logger.info('[AiManager] AI WebSocket connection closed');
+        logger.warn('[AiManager] WebSocket disconnected, retrying...');
+        setTimeout(() => connectionManager.connectGroup('ai'), 5000);
     });
 
     aiConnectionGroup.get('main').on('error', (error) => {
