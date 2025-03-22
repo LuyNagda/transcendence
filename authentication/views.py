@@ -194,54 +194,57 @@ def logout_view(request):
 def forgot_password(request):
     uid = request.GET.get('uid')
     token = request.GET.get('token')
-    if uid and token:
-        # Handle password reset logic
-        try:
-            pk_uid = force_str(urlsafe_base64_decode(uid))
-            user = User.objects.get(pk=pk_uid)
-            if default_token_generator.check_token(user, token):
-                if request.method == 'POST':
-                    form = ResetPasswordForm(user, request.POST)
-                    if form.is_valid():
-                        form.save()
-                        return render(request, 'login.html', {'form': LoginForm()})
+    try:
+        if uid and token:
+            # Handle password reset logic
+            try:
+                pk_uid = force_str(urlsafe_base64_decode(uid))
+                user = User.objects.get(pk=pk_uid)
+                if default_token_generator.check_token(user, token):
+                    if request.method == 'POST':
+                        form = ResetPasswordForm(user, request.POST)
+                        if form.is_valid():
+                            form.save()
+                            return render(request, 'login.html', {'form': LoginForm()})
+                    else:
+                        form = ResetPasswordForm(user)
+                    return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token})
                 else:
-                    form = ResetPasswordForm(user)
-                return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token})
-            else:
-                messages.error(request, 'Invalid token.')
+                    messages.error(request, 'Invalid token.')
+                    return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token, 'messages': messages})
+            except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+                messages.error(request, 'Invalid password reset link')
                 return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token, 'messages': messages})
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            messages.error(request, 'Invalid password reset link')
-            return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token, 'messages': messages})
-    if request.method == 'POST':
-        form = ForgotPasswordForm(request.POST)
-        if form.is_valid():
-            email = form.cleaned_data['email']
-            users = User.objects.filter(email=email)
-            if users.exists():
-                for user in users:
-                    token = default_token_generator.make_token(user)
-                    uid = urlsafe_base64_encode(force_bytes(user.pk))
-                    site_name = get_current_site(request).name
-                    domain = 'localhost:8000'
-                    protocol = 'http'
-                    subject = render_to_string('password-reset-subject.txt', {'site_name': site_name})
-                    message = render_to_string('password-reset-email.html', {
-                        'user': user,
-                        'protocol': protocol,
-                        'domain': domain,
-                        'uid': uid,
-                        'token': token,
-                    })
-                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
-            else:
-                messages.error(request, 'No user with this email address.')
+        if request.method == 'POST':
+            form = ForgotPasswordForm(request.POST)
+            if form.is_valid():
+                email = form.cleaned_data['email']
+                users = User.objects.filter(email=email)
+                if users.exists():
+                    for user in users:
+                        token = default_token_generator.make_token(user)
+                        uid = urlsafe_base64_encode(force_bytes(user.pk))
+                        site_name = get_current_site(request).name
+                        domain = 'localhost:8080'
+                        protocol = 'http'
+                        subject = render_to_string('password-reset-subject.txt', {'site_name': site_name})
+                        message = render_to_string('password-reset-email.html', {
+                            'user': user,
+                            'protocol': protocol,
+                            'domain': domain,
+                            'uid': uid,
+                            'token': token,
+                        })
+                        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+                else:
+                    messages.error(request, 'No user with this email address.')
 
-            return render(request, 'password-reset-done.html')
-    else:
-        form = ForgotPasswordForm()
-    return render(request, 'forgot-password.html', {'form': form})
+                return render(request, 'password-reset-done.html')
+        else:
+            form = ForgotPasswordForm()
+        return render(request, 'forgot-password.html', {'form': form})
+    except:
+        return render(request, 'forgot-password.html', {'form': ForgotPasswordForm()})
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
