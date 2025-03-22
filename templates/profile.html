@@ -31,8 +31,8 @@
 				<button class="btn btn-primary" type="submit" aria-label="Save profile changes">Save</button>
 			</div>
 			<div class="col">
-				<img src="{{ user.profile_picture.url }}" class="img-thumbnail" style="width: 200px"
-					alt="Profile picture of {{ user.username }}">
+				<img id="profile-picture-img" src="{{ user.profile_picture.url }}" class="img-thumbnail" style="width: 200px"
+                    alt="Profile picture of {{ user.username }}">
 			</div>
 		</div>
 	</form>
@@ -46,5 +46,29 @@
 	</div>
 	{% endif %}
 </div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelector("#profile-form form").addEventListener("submit", function (event) {
+        event.preventDefault();  // Prevent default HTMX behavior
 
+        let form = event.target;
+        let formData = new FormData(form);  // ✅ Capture files
+
+        fetch(form.action, {
+            method: "POST",
+            body: formData,  // ✅ Send as FormData
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"  // ✅ Let Django know it's an AJAX request
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.profile_picture_url) {
+                document.querySelector("#profile-picture-img").src = data.profile_picture_url;  // ✅ Update image in UI
+            }
+        })
+        .catch(error => console.error("Error:", error));
+    });
+});
+</script>
 {% endblock %}

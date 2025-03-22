@@ -25,8 +25,9 @@ def profile(request):
         if form.is_valid():
             form.save()
             messages.success(request, 'Profile updated successfully.')
-            context = {'user': user, 'form': form, 'access_token': access_token, 'refresh_token': refresh_token}
-            return render(request, 'profile.html', context)
+            response = JsonResponse({'message': 'Profile updated successfully.', 'profile_picture_url': user.profile_picture.url if user.profile_picture else None})
+            response['HX-Location'] = '/profile'
+            return response
         else:
             messages.error(request, 'Profile not updated. Please correct the errors.')
     else:
