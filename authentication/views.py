@@ -309,6 +309,8 @@ def authenticate_api(request, access_token):
     if response.status_code == 200:
         user_data = response.json()
         username = user_data['login'] + '_42'
+        logger.info(f'LALALA {user_data}')
+        nickname = user_data['first_name']
         if username in User.objects.values_list('username', flat=True):
             if User.objects.get(username=username).is_42_user:
                 user = User.objects.get(username=username)
@@ -316,7 +318,7 @@ def authenticate_api(request, access_token):
                 messages.error(request, 'User already exists.')
                 return None
         elif username not in User.objects.values_list('username', flat=True):
-            user, created = User.objects.create(username=username, email=user_data['email'], is_42_user=True)
+            user, created = User.objects.get_or_create(username=username, email=user_data['email'], nick_name=nickname, is_42_user=True)
         return user
     messages.error(request, 'Invalid access token.')
     return None
