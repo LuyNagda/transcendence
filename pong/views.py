@@ -9,7 +9,6 @@ from channels.layers import get_channel_layer
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 from .models import PongGame, PongRoom
-from utils.htmx import with_state_update
 from rest_framework.response import Response
 from django.urls import reverse
 
@@ -144,14 +143,10 @@ def pong_room_state(request, room_id):
         room_data = room.serialize()
         room_data['currentUser'] = request.user.player_data
         
-        # Create response with room state in HX-Trigger
-        response = render(request, 'pong/components/room_state.html', {
+        return render(request, 'pong/components/room_state.html', {
             'room_id': room_id,
             'pongRoom': json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
         })
-        
-        # Add state update using the new mechanism
-        return with_state_update(response, 'room', room_data)
         
     except Exception as e:
         logger.error(f"Error getting room state: {str(e)}")
