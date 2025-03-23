@@ -123,7 +123,7 @@ def login_view(request):
                 messages.error(request, 'Invalid username or password.')
                 return render(request, 'login.html', {'form': form})
         else:
-            logger.warning("Invalid form submission during login", extra={'user_id': user.id})
+            logger.warning("Invalid form submission during login")
             messages.error(request, 'Invalid form submission.')
     else:
         form = LoginForm()

@@ -101,7 +101,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'authentication.decorators.IsAuthenticatedWithCookie',
     ),
-    'EXCEPTION_HANDLER': 'transcendence.exceptions.custom_exception_handler',
+    # 'EXCEPTION_HANDLER': 'transcendence.exceptions.custom_exception_handler',
 }
 
 SIMPLE_JWT = {
