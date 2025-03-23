@@ -11,7 +11,9 @@ from django.shortcuts import render, redirect
 from .forms import CustomUserCreationForm, LoginForm, ForgotPasswordForm, ResetPasswordForm, OTPForm, TWOFAForm
 from django.contrib import messages
 from .models import User
+from jwt.exceptions import ExpiredSignatureError, DecodeError, InvalidTokenError
 from .utils import generate_otp
+from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.decorators import api_view, permission_classes
 from .decorators import IsAuthenticatedWithCookie
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -328,6 +330,22 @@ def authenticate_api(request, access_token):
         return user
     messages.error(request, 'Invalid access token.')
     return None
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def check_user(request):
+    token = request.COOKIES.get('access_token')
+    if not token:
+        return JsonResponse({"id": None, "isAuthenticated": False}, status=status.HTTP_200_OK)
+    try:
+        # Validate the token
+        access_token = AccessToken(token)
+        user_id = access_token['user_id']
+        user = User.objects.get(id=user_id)
+        return JsonResponse({"id": user.id, "isAuthenticated": True}, status=status.HTTP_200_OK)
+    except (ExpiredSignatureError, DecodeError, InvalidTokenError, User.DoesNotExist):
+        return JsonResponse({"id": None, "isAuthenticated": False}, status=status.HTTP_200_OK)
+
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
