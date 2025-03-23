@@ -1,8 +1,7 @@
 from django import forms
 from authentication.models import User
 from django.contrib.auth.forms import PasswordChangeForm
-from PIL import Image
-import io
+from django.core.exceptions import ValidationError
 
 class ProfileForm(forms.Form):
     name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly', 'placeholder': 'user', 'autocomplete': 'username'}))
@@ -30,36 +29,8 @@ class ProfileForm(forms.Form):
 
     def clean_profile_picture(self):
         profile_picture = self.cleaned_data.get('profile_picture')
-        if profile_picture:
-            if profile_picture.size > 1024 * 1024:  # 1024 KB limit
-                raise forms.ValidationError("Image is too large (1024kB Max)")
-            
-            # Crop image to square
-            img = Image.open(profile_picture)
-            width, height = img.size
-            
-            # Get the smaller dimension
-            min_dim = min(width, height)
-            
-            # Calculate cropping coordinates
-            left = (width - min_dim) / 2
-            top = (height - min_dim) / 2
-            right = (width + min_dim) / 2
-            bottom = (height + min_dim) / 2
-            
-            # Crop and resize
-            img = img.crop((left, top, right, bottom))
-            img = img.resize((300, 300))
-            
-            # Save cropped image to memory
-            output = io.BytesIO()
-            img.save(output, format='PNG')
-            output.seek(0)
-            
-            # Replace original file with cropped version
-            profile_picture.file = output
-            profile_picture.size = output.getbuffer().nbytes
-            
+        if profile_picture and profile_picture.size > 512 * 1024:  # 512 KB limit
+            raise ValidationError("Profile picture size cannot exceed 512 KB.")
         return profile_picture
 
     def save(self, commit=True):
