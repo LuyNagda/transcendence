@@ -187,6 +187,13 @@ export class RoomConnectionManager {
 			return;
 		}
 
+		const normalCloseCodes = [1000, 1001]; // 1000: Normal closure, 1001: Going away (e.g., page reload)
+
+		if (normalCloseCodes.includes(event.code)) {
+			logger.debug(`[RoomConnectionManager] Normal WebSocket closure (code: ${event.code})`);
+			return;
+		}
+
 		if (!this._isInitialized) {
 			let errorMessage;
 			let errorCode = event.code;
