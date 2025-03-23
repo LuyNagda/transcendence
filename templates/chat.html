@@ -30,7 +30,7 @@
                     <li v-for="user in users" aria-label="User item">
                         <div class="d-flex align-items-center p-2" v-on:click="selectUser([[ user.id ]])"
                             role="button" aria-label="Select user to chat with">
-                            <img :src="user.profile_picture" class="rounded-circle me-2" style="max-width: 25px;" 
+                            <img :src="user.profile_picture" class="rounded-circle me-2" style="width: 25px; height: 25px; object-fit: cover;" 
                                 alt="User profile picture">
                             <span class="user-name flex-grow-1" aria-live="polite">[[ user.username ]]</span>
                             <span class="status-icon" aria-live="polite">[[ user.statusIcon ]]</span>
