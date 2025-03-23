@@ -2,6 +2,7 @@ from django import forms
 from authentication.models import User
 from django.contrib.auth.forms import PasswordChangeForm
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 class ProfileForm(forms.Form):
     name = forms.CharField(max_length=30, widget=forms.TextInput(attrs={'class': 'form-control', 'readonly': 'readonly', 'placeholder': 'user', 'autocomplete': 'username'}))
@@ -22,17 +23,25 @@ class ProfileForm(forms.Form):
         self.fields['date_of_birth'].initial = user.date_of_birth
         self.fields['bio'].initial = user.bio
 
-    def check_for_duplicates(self):
+    def clean_email(self):
         email = self.cleaned_data.get('email')
-        if User.objects.filter(email=email).exclude(username=self.instance.username).exists():
+        if email and User.objects.filter(email=email).exclude(username=self.cleaned_data['name']).exists():
             raise forms.ValidationError('Email is already in use.')
-        return
+        return email
 
-    def check_bio_length(self):
+    def clean_date_of_birth(self):
+        dob = self.cleaned_data.get('date_of_birth')
+        if dob and dob > timezone.now().date():
+            raise forms.ValidationError('Date of birth cannot be in the future.')
+        if dob and dob > timezone.now().date() - timezone.timedelta(days=365 * 16):
+            raise forms.ValidationError('Date of birth cannot be less than 16 years')
+        return dob
+
+    def clean_bio(self):
         bio = self.cleaned_data.get('bio')
-        if len(bio) > 500:
+        if bio and len(bio) > 500:
             raise forms.ValidationError('Bio cannot exceed 500 characters.')
-        return
+        return bio
 
     def clean_name(self):
         if self.cleaned_data['name'] != self.instance.username:
