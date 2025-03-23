@@ -25,6 +25,8 @@ class ProfileForm(forms.Form):
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
+        if email and User.objects.filter(email=email).exclude(username=self.instance.username).exists():
+            raise forms.ValidationError('Email is already in use.')
         return email
 
     def clean_date_of_birth(self):
@@ -42,9 +44,10 @@ class ProfileForm(forms.Form):
         return bio
 
     def clean_name(self):
-        if self.cleaned_data['name'] != self.instance.username:
+        name = self.cleaned_data.get('name')
+        if name and name != self.instance.username:
             raise forms.ValidationError("Cannot change username.")
-        return self.cleaned_data['name']
+        return name
 
     def clean_profile_picture(self):
         profile_picture = self.cleaned_data.get('profile_picture')
