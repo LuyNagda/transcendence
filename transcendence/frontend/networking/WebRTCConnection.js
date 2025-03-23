@@ -2,6 +2,131 @@ import logger from '../logger';
 import { BaseConnection, ConnectionState } from './BaseConnection';
 
 /**
+ * Handles ICE candidate processing for WebRTC connections
+ */
+class IceManager {
+	constructor(peer, onIceRestart) {
+		this._peer = peer;
+		this._pendingCandidates = [];
+		this._hasRemoteDescription = false;
+		this._onIceRestart = onIceRestart;
+		this._iceConnectionTimeout = null;
+		this._iceGatheringComplete = false;
+	}
+
+	handleIceCandidate(event) {
+		if (event.candidate) {
+			logger.debug('ICE candidate generated');
+			return {
+				type: 'candidate',
+				candidate: event.candidate
+			};
+		} else {
+			logger.debug('ICE gathering complete');
+			this._iceGatheringComplete = true;
+			return { type: 'iceGatheringComplete' };
+		}
+	}
+
+	handleIceConnectionStateChange() {
+		const state = this._peer.iceConnectionState;
+		logger.debug(`ICE connection state changed to: ${state}`);
+
+		if (state === 'connected' || state === 'completed') {
+			this.clearTimeout();
+			logger.info(`WebRTC ICE connection established in state: ${state}`);
+		} else if (state === 'failed') {
+			logger.warn("ICE connection failed. Attempting ICE restart.");
+			this._onIceRestart();
+		} else if (state === 'disconnected') {
+			logger.warn("ICE connection disconnected. Setting recovery timeout.");
+			this.clearTimeout();
+			this._iceConnectionTimeout = setTimeout(() => {
+				if (this._peer && this._peer.iceConnectionState === 'disconnected')
+					this._onIceRestart();
+			}, 5000);
+		}
+
+		return state;
+	}
+
+	async addIceCandidate(candidate) {
+		if (!this._peer) return;
+
+		try {
+			if (this._hasRemoteDescription) {
+				logger.debug('Adding ICE candidate immediately');
+				await this._peer.addIceCandidate(new RTCIceCandidate(candidate));
+			} else {
+				logger.debug('Remote description not set, queueing ICE candidate');
+				this._pendingCandidates.push(candidate);
+			}
+		} catch (error) {
+			logger.error('Error adding ICE candidate:', error);
+			this._pendingCandidates.push(candidate);
+		}
+	}
+
+	setHasRemoteDescription(value) {
+		this._hasRemoteDescription = value;
+		if (value) {
+			this.processPendingCandidates();
+		}
+	}
+
+	async processPendingCandidates() {
+		if (!this._hasRemoteDescription || !this._peer) {
+			return;
+		}
+
+		const candidates = [...this._pendingCandidates];
+		this._pendingCandidates = [];
+
+		logger.debug(`Processing ${candidates.length} pending candidates`);
+
+		for (const candidate of candidates) {
+			try {
+				await this._peer.addIceCandidate(new RTCIceCandidate(candidate));
+				logger.debug('Successfully added ICE candidate');
+			} catch (error) {
+				logger.warn('Error adding ICE candidate:', error);
+				if (this._peer &&
+					this._peer.connectionState !== 'connected' &&
+					this._peer.connectionState !== 'completed' &&
+					this._peer.connectionState !== 'closed' &&
+					this._peer.connectionState !== 'failed') {
+					this._pendingCandidates.push(candidate);
+				}
+			}
+		}
+	}
+
+	setIceConnectionTimeout() {
+		this.clearTimeout();
+		this._iceConnectionTimeout = setTimeout(() => {
+			if (this._peer && this._peer.iceConnectionState !== 'connected' &&
+				this._peer.iceConnectionState !== 'completed') {
+				logger.warn('ICE connection timeout - connection taking too long');
+				return { type: 'iceTimeout' };
+			}
+		}, 30000);
+	}
+
+	clearTimeout() {
+		if (this._iceConnectionTimeout) {
+			clearTimeout(this._iceConnectionTimeout);
+			this._iceConnectionTimeout = null;
+		}
+	}
+
+	cleanup() {
+		this.clearTimeout();
+		this._pendingCandidates = [];
+		this._peer = null;
+	}
+}
+
+/**
  * WebRTC connection implementation.
  * Handles peer connections, data channels, and ICE candidate negotiation.
  */
@@ -11,49 +136,49 @@ export class WebRTCConnection extends BaseConnection {
 		this._config = config;
 		this._peer = null;
 		this._dataChannel = null;
-		this._iceGatheringComplete = false;
-		this._hasReceivedAnswer = false;
-		this._pendingCandidates = [];
-		this._hasRemoteDescription = false;
 		this._isNegotiating = false;
-		this._negotiationQueue = Promise.resolve(); // Add negotiation queue
-		this._iceCandidateQueue = [];
-		this._iceConnectionTimeout = null;
+		this._negotiationQueue = Promise.resolve();
+		this._iceManager = null;
 
 		logger.info('[WebRTCConnection] constructor', config);
 
 		// Set up listener for ICE restart requests
-		this.on('iceRestartNeeded', async () => {
-			logger.debug(`[WebRTCConnection] ICE restart needed for ${name}`);
-			if (this._config.isHost && this._peer && this._peer.signalingState !== 'closed') {
-				try {
-					// Create a new offer with ICE restart
-					const offerOptions = { iceRestart: true };
-					const offer = await this._peer.createOffer(offerOptions);
-					await this._peer.setLocalDescription(offer);
+		this.on('iceRestartNeeded', this._handleIceRestartNeeded.bind(this));
+	}
 
-					// Signal the new offer
-					this.emit('signal', {
-						type: 'offer',
-						sdp: offer.sdp,
-						iceRestart: true
-					});
+	/**
+	 * Handles ICE restart requests
+	 * @private
+	 */
+	async _handleIceRestartNeeded() {
+		logger.debug(`[WebRTCConnection] ICE restart needed for ${this._name}`);
 
-					logger.debug(`[WebRTCConnection] ICE restart offer created and sent for ${name}`);
+		if (this._config.isHost && this._peer && this._peer.signalingState !== 'closed') {
+			try {
+				// Create a new offer with ICE restart
+				const offerOptions = { iceRestart: true };
+				const offer = await this._peer.createOffer(offerOptions);
+				await this._peer.setLocalDescription(offer);
 
-					// Reset the ICE timeout
-					this._setIceConnectionTimeout();
-				} catch (error) {
-					logger.error(`[WebRTCConnection] Error during ICE restart for ${name}:`, error);
-				}
-			} else if (!this._config.isHost) {
-				// For guests, emit a signal to request ICE restart from host
+				// Signal the new offer
 				this.emit('signal', {
-					type: 'iceRestart'
+					type: 'offer',
+					sdp: offer.sdp,
+					iceRestart: true
 				});
-				logger.debug(`[WebRTCConnection] ICE restart requested from host for ${name}`);
+
+				logger.debug(`[WebRTCConnection] ICE restart offer created and sent for ${this._name}`);
+				this._iceManager.setIceConnectionTimeout();
+			} catch (error) {
+				logger.error(`[WebRTCConnection] Error during ICE restart for ${this._name}:`, error);
 			}
-		});
+		} else if (!this._config.isHost) {
+			// For guests, emit a signal to request ICE restart from host
+			this.emit('signal', {
+				type: 'iceRestart'
+			});
+			logger.debug(`[WebRTCConnection] ICE restart requested from host for ${this._name}`);
+		}
 	}
 
 	/**
@@ -65,6 +190,7 @@ export class WebRTCConnection extends BaseConnection {
 		this.state = ConnectionState.CONNECTING;
 		try {
 			this._peer = new RTCPeerConnection(this._config);
+			this._iceManager = new IceManager(this._peer, () => this.emit('iceRestartNeeded'));
 			this._setupPeerHandlers();
 
 			if (this._config.isHost) {
@@ -78,36 +204,13 @@ export class WebRTCConnection extends BaseConnection {
 			}
 
 			this.state = ConnectionState.SIGNALING;
-
-			// Set a timeout for ICE connection establishment
-			this._setIceConnectionTimeout();
+			this._iceManager.setIceConnectionTimeout();
 
 			return Promise.resolve();
 		} catch (error) {
 			this._handleError(error);
 			return Promise.reject(error);
 		}
-	}
-
-	/**
-	 * Sets a timeout for ICE connection establishment
-	 * @private
-	 */
-	_setIceConnectionTimeout() {
-		// Clear any existing timeout
-		if (this._iceConnectionTimeout) {
-			clearTimeout(this._iceConnectionTimeout);
-		}
-
-		// Set a new timeout (30 seconds is typical for ICE negotiation)
-		this._iceConnectionTimeout = setTimeout(() => {
-			if (this._peer && this._peer.iceConnectionState !== 'connected' &&
-				this._peer.iceConnectionState !== 'completed') {
-				logger.warn('ICE connection timeout - connection taking too long');
-				this.emit('iceTimeout');
-				// Don't disconnect here, just notify - the application can decide what to do
-			}
-		}, 30000);
 	}
 
 	/**
@@ -155,56 +258,27 @@ export class WebRTCConnection extends BaseConnection {
 	 */
 	_setupPeerHandlers() {
 		this._peer.onicecandidate = (event) => {
-			if (event.candidate) {
-				logger.debug(`${this._config.isHost ? 'Host' : 'Guest'}: ICE candidate generated`);
-				this.emit('signal', {
-					type: 'candidate',
-					candidate: event.candidate
-				});
-			} else {
-				// Null candidate means ICE gathering is complete
-				logger.debug('ICE gathering complete');
-				this._iceGatheringComplete = true;
+			const result = this._iceManager.handleIceCandidate(event);
+			if (result.type === 'candidate') {
+				this.emit('signal', result);
+			} else if (result.type === 'iceGatheringComplete') {
 				this.emit('iceGatheringComplete');
 			}
 		};
 
 		this._peer.oniceconnectionstatechange = () => {
-			logger.debug(`ICE connection state changed to: ${this._peer.iceConnectionState}`);
-			this.emit('iceConnectionStateChange', this._peer.iceConnectionState);
+			const state = this._iceManager.handleIceConnectionStateChange();
+			this.emit('iceConnectionStateChange', state);
 
-			if (this._peer.iceConnectionState === 'connected' ||
-				this._peer.iceConnectionState === 'completed') {
-				// Clear the ICE timeout when connected
-				if (this._iceConnectionTimeout) {
-					clearTimeout(this._iceConnectionTimeout);
-					this._iceConnectionTimeout = null;
-				}
-				logger.info(`WebRTC ICE connection established in state: ${this._peer.iceConnectionState}`);
-			} else if (this._peer.iceConnectionState === 'failed') {
-				logger.warn("ICE connection failed. Attempting ICE restart.");
-				this.emit('iceRestartNeeded');
-			} else if (this._peer.iceConnectionState === 'disconnected') {
-				logger.warn("ICE connection disconnected. Setting recovery timeout.");
-				if (this._iceConnectionTimeout) {
-					clearTimeout(this._iceConnectionTimeout);
-				}
-				this._iceConnectionTimeout = setTimeout(() => {
-					if (this._peer && this._peer.iceConnectionState === 'disconnected')
-						this.emit('iceRestartNeeded');
-				}, 5000);
+			if (state === 'iceTimeout') {
+				this.emit('iceTimeout');
 			}
 		};
 
 		this._peer.onconnectionstatechange = () => {
 			logger.debug(`Connection state changed to: ${this._peer.connectionState}`);
 			if (this._peer.connectionState === 'connected') {
-				// Process any pending ICE candidates
-				while (this._pendingCandidates.length > 0) {
-					const candidate = this._pendingCandidates.shift();
-					this._peer.addIceCandidate(new RTCIceCandidate(candidate))
-						.catch(error => logger.error('Error adding pending ICE candidate:', error));
-				}
+				this._iceManager.processPendingCandidates();
 				this.state = ConnectionState.CONNECTED;
 				this.processQueue();
 				logger.info("WebRTC peer connection fully established!");
@@ -221,11 +295,7 @@ export class WebRTCConnection extends BaseConnection {
 			logger.debug(`Signaling state changed to: ${this._peer.signalingState}`);
 			if (this._peer.signalingState === 'stable') {
 				this._isNegotiating = false;
-
-				if (this._hasRemoteDescription && this._pendingCandidates.length > 0) {
-					logger.debug("Signaling state is stable, processing pending ICE candidates");
-					this._processPendingCandidates();
-				}
+				this._iceManager.processPendingCandidates();
 			}
 		};
 
@@ -286,22 +356,6 @@ export class WebRTCConnection extends BaseConnection {
 	}
 
 	/**
-	 * Creates and sets local offer for WebRTC connection
-	 */
-	async createOffer() {
-		if (!this._peer || !this._config.isHost) return null;
-
-		try {
-			const offer = await this._peer.createOffer();
-			await this._peer.setLocalDescription(offer);
-			return offer;
-		} catch (error) {
-			this._handleError(error);
-			return null;
-		}
-	}
-
-	/**
 	 * Handles incoming WebRTC offer
 	 * @param {RTCSessionDescriptionInit} offer - WebRTC offer
 	 */
@@ -319,12 +373,7 @@ export class WebRTCConnection extends BaseConnection {
 			}
 
 			await this._peer.setRemoteDescription(new RTCSessionDescription(offer));
-			this._hasRemoteDescription = true;
-
-			// Process any pending ICE candidates now that we have the remote description
-			if (this._pendingCandidates.length > 0) {
-				await this._processPendingCandidates();
-			}
+			this._iceManager.setHasRemoteDescription(true);
 
 			logger.debug('Guest: Remote description set, creating answer');
 
@@ -360,13 +409,7 @@ export class WebRTCConnection extends BaseConnection {
 		try {
 			logger.debug('Host: Setting remote description from answer');
 			await this._peer.setRemoteDescription(new RTCSessionDescription(answer));
-			this._hasRemoteDescription = true;
-			this._hasReceivedAnswer = true;
-
-			// Process any pending ICE candidates now that we have the remote description
-			if (this._pendingCandidates.length > 0) {
-				await this._processPendingCandidates();
-			}
+			this._iceManager.setHasRemoteDescription(true);
 
 			logger.debug('Host: Remote description set, connection should be establishing');
 		} catch (error) {
@@ -376,64 +419,12 @@ export class WebRTCConnection extends BaseConnection {
 	}
 
 	/**
-	 * Processes queued ICE candidates
-	 * @private
-	 */
-	async _processPendingCandidates() {
-		if (!this._hasRemoteDescription) {
-			logger.debug('Cannot process candidates without remote description');
-			return;
-		}
-
-		if (!this._peer || this._peer.connectionState === 'closed') {
-			logger.debug('Cannot process candidates - peer connection is closed or null');
-			return;
-		}
-
-		const candidates = [...this._pendingCandidates];
-		this._pendingCandidates = [];
-
-		logger.debug(`Processing ${candidates.length} pending candidates`);
-
-		for (const candidate of candidates) {
-			try {
-				await this._peer.addIceCandidate(new RTCIceCandidate(candidate));
-				logger.debug('Successfully added ICE candidate');
-			} catch (error) {
-				logger.warn('Error adding ICE candidate:', error);
-
-				// In case of failure, requeue candidate if connection is still in progress
-				if (this._peer &&
-					this._peer.connectionState !== 'connected' &&
-					this._peer.connectionState !== 'completed' &&
-					this._peer.connectionState !== 'closed' &&
-					this._peer.connectionState !== 'failed') {
-					this._pendingCandidates.push(candidate);
-				}
-			}
-		}
-	}
-
-	/**
 	 * Handles incoming ICE candidate
 	 * @param {RTCIceCandidateInit} candidate - ICE candidate
 	 */
 	async addIceCandidate(candidate) {
-		if (!this._peer) return;
-
-		try {
-			if (this._hasRemoteDescription) {
-				logger.debug('Adding ICE candidate immediately');
-				await this._peer.addIceCandidate(new RTCIceCandidate(candidate));
-			} else {
-				logger.debug('Remote description not set, queueing ICE candidate');
-				this._pendingCandidates.push(candidate);
-				logger.debug(`Total pending candidates: ${this._pendingCandidates.length}`);
-			}
-		} catch (error) {
-			logger.error('Error adding ICE candidate:', error);
-			this._pendingCandidates.push(candidate);
-		}
+		if (!this._peer || !this._iceManager) return;
+		await this._iceManager.addIceCandidate(candidate);
 	}
 
 	/**
@@ -465,10 +456,9 @@ export class WebRTCConnection extends BaseConnection {
 	disconnect() {
 		if (!this._state.canDisconnect) return;
 
-		// Clear any pending timeouts
-		if (this._iceConnectionTimeout) {
-			clearTimeout(this._iceConnectionTimeout);
-			this._iceConnectionTimeout = null;
+		if (this._iceManager) {
+			this._iceManager.cleanup();
+			this._iceManager = null;
 		}
 
 		if (this._dataChannel) {
