@@ -25,8 +25,6 @@ class ProfileForm(forms.Form):
 
     def clean_email(self):
         email = self.cleaned_data.get('email')
-        if email and User.objects.filter(email=email).exclude(username=self.cleaned_data['name']).exists():
-            raise forms.ValidationError('Email is already in use.')
         return email
 
     def clean_date_of_birth(self):
@@ -53,6 +51,16 @@ class ProfileForm(forms.Form):
         if profile_picture and profile_picture.size > 512 * 1024:  # 512 KB limit
             raise ValidationError("Profile picture size cannot exceed 512 KB.")
         return profile_picture
+
+    def clean(self):
+        cleaned_data = super().clean()
+        email = cleaned_data.get('email')
+        name = cleaned_data.get('name')
+        
+        if email and name and User.objects.filter(email=email).exclude(username=name).exists():
+            self.add_error('email', 'Email is already in use.')
+        
+        return cleaned_data
 
     def save(self, commit=True):
         if not self.instance:
