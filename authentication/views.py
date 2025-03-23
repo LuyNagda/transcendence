@@ -12,6 +12,7 @@ from .forms import CustomUserCreationForm, LoginForm, ForgotPasswordForm, ResetP
 from django.contrib import messages
 from .models import User
 from .utils import generate_otp
+import json
 from rest_framework.decorators import api_view, permission_classes
 from .decorators import IsAuthenticatedWithCookie
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -358,6 +359,16 @@ def oauth_callback(request):
                 refresh_token = str(refresh)
                 # Optionally set tokens in cookies
                 response = redirect('/index')
+                new_trigger = {
+                    'stateUpdate': {
+                        'domain': 'user',
+                        'state': {
+                            'id': user.id,
+                            'isAuthenticated': request.user.is_authenticated
+                        }
+                    }
+                }
+                response['HX-Trigger'] = json.dumps(new_trigger)
                 response.set_cookie('access_token', access_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME').total_seconds()))
                 response.set_cookie('refresh_token', refresh_token, httponly=True, samesite='Lax', max_age=int(settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME').total_seconds()))
                 return response
