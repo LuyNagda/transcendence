@@ -18,13 +18,6 @@ User = get_user_model()
 # Configure the logger
 logger = logging.getLogger(__name__)
 
-DEFAULT_RANKED_SETTINGS = {
-    'ballSpeed': 6,
-    'paddleSpeed': 6,
-    'paddleSize': 5,
-    'maxScore': 11,
-}
-
 def validate_settings(settings):
     """Validate game settings and return sanitized values"""
     validated = {}
@@ -141,7 +134,7 @@ def get_max_players_for_mode(mode):
     elif mode == 'AI' or mode == 'LOCAL':
         return 1
     else:
-        return 2  # For CLASSIC and RANKED modes
+        return 2  # For CLASSIC modes
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
