@@ -63,7 +63,6 @@ def change_password(request):
         form = MyPasswordChangeForm(user=request.user, data=request.POST)
         if form.is_valid():
             user = form.save()
-            login(request, user)
             messages.success(request, 'Password changed successfully.')
             context = {'user': user, 'form': form, 'access_token': access_token, 'refresh_token': refresh_token}
             return render(request, 'change-password.html', context)

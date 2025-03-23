@@ -40,7 +40,6 @@ def already_logged_in(request):
 
 	users = User.objects.all()  
 	blocked_users = request.user.blocked_users.all() if hasattr(request.user, 'blocked_users') else []
-	login(request, User.objects.get(username=user))
 	context = {
 	'user': User.objects.get(username=user),
 	'access_token': access_token,
@@ -290,7 +289,6 @@ def otp(request):
                 user = User.objects.get(otp=otp)
                 user.otp = None
                 user.save()
-                login(request, user)
                 refresh = RefreshToken.for_user(user)
                 access_token = str(refresh.access_token)
                 refresh_token = str(refresh)
