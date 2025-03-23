@@ -22,6 +22,18 @@ class ProfileForm(forms.Form):
         self.fields['date_of_birth'].initial = user.date_of_birth
         self.fields['bio'].initial = user.bio
 
+    def check_for_duplicates(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exclude(username=self.instance.username).exists():
+            raise forms.ValidationError('Email is already in use.')
+        return
+
+    def check_bio_length(self):
+        bio = self.cleaned_data.get('bio')
+        if len(bio) > 500:
+            raise forms.ValidationError('Bio cannot exceed 500 characters.')
+        return
+
     def clean_name(self):
         if self.cleaned_data['name'] != self.instance.username:
             raise forms.ValidationError("Cannot change username.")
