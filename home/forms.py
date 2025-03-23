@@ -23,6 +23,11 @@ class ProfileForm(forms.Form):
         self.fields['date_of_birth'].initial = user.date_of_birth
         self.fields['bio'].initial = user.bio
 
+    def clean_name(self):
+        if self.cleaned_data['name'] != self.instance.username:
+            raise forms.ValidationError("Cannot change username.")
+        return self.cleaned_data['name']
+
     def clean_profile_picture(self):
         profile_picture = self.cleaned_data.get('profile_picture')
         if profile_picture:
