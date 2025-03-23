@@ -54,7 +54,6 @@ urlpatterns = [
     path('enable-2fa/', enable_2fa, name='enable-2fa'),
     path('change-password', change_password, name='change-password'),
     path('chat/', include('chat.urls')),
-    path('users/', include('users.urls')),
     path('pong/', include('pong.urls')),
     path('set-password', set_password, name='set-password'),
     path('callback', oauth_callback, name='callback'),
