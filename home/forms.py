@@ -1,7 +1,6 @@
 from django import forms
 from authentication.models import User
 from django.contrib.auth.forms import PasswordChangeForm
-from django.core.exceptions import ValidationError
 from PIL import Image
 import io
 
@@ -28,7 +27,7 @@ class ProfileForm(forms.Form):
         profile_picture = self.cleaned_data.get('profile_picture')
         if profile_picture:
             if profile_picture.size > 1024 * 1024:  # 1024 KB limit
-                raise ValidationError("Image is too large (1024kB Max)")
+                raise forms.ValidationError("Image is too large (1024kB Max)")
             
             # Crop image to square
             img = Image.open(profile_picture)
