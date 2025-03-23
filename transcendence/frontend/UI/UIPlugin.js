@@ -337,7 +337,7 @@ export const uiPlugin = {
 
 			document.querySelectorAll('.btn, .form-control').forEach(el =>
 				el.style.fontSize = fontSizeMap.base[fontSize]);
-			document.querySelectorAll('h2, h3, h4, h5').forEach(el =>
+			document.querySelectorAll('h1, h2, h3, h4, h5').forEach(el =>
 				el.style.fontSize = fontSizeMap.h[fontSize]);
 
 			logger.debug('Font size applied to DOM:', { fontSize });
