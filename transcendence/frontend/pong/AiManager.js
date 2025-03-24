@@ -81,15 +81,27 @@ store.subscribe('ai', (aiState) => {
 
 // Append log to the UI
 function updateManagingLog(data) {
+    // Check if data and data.content exist
+    if (!data || !data.content) {
+        logger.warn('[AiManager] Invalid log data received');
+        return;
+    }
+
     const managingLog = document.getElementById("managing-log");
     
-    if (managingLog) {
-        // If the log message indicates the start of training, clear the log
-        if (data.content.startsWith("Start of ")) {
-            managingLog.innerText = "AI manager's log:\n"; // Clear previous logs
-        }
-        managingLog.innerText += data.content + "\n";
+    if (!managingLog) {
+        logger.warn('[AiManager] Managing log element not found. Cannot update log:', data.content);
+        return;
     }
+
+    // Ensure the log is visible
+    managingLog.style.display = 'block';
+
+    // If the log message indicates the start of training, clear the log
+    if (data.content.startsWith("Start of ")) {
+        managingLog.innerText = "AI manager's log:\n"; // Clear previous logs
+    }
+    managingLog.innerText += data.content + "\n";
 }
 
 // Fetch saved AIs and populate the dropdown
