@@ -82,13 +82,12 @@ store.subscribe('ai', (aiState) => {
 // Append log to the UI
 function updateManagingLog(data) {
     const managingLog = document.getElementById("managing-log");
-
-    // If the log message indicates the start of training, clear the log
-    if (data.content.startsWith("Start of ")) {
-        managingLog.innerText = "AI manager's log:\n"; // Clear previous logs
-    }
-
+    
     if (managingLog) {
+        // If the log message indicates the start of training, clear the log
+        if (data.content.startsWith("Start of ")) {
+            managingLog.innerText = "AI manager's log:\n"; // Clear previous logs
+        }
         managingLog.innerText += data.content + "\n";
     }
 }
@@ -99,6 +98,12 @@ async function fetchSavedAIs() {
 
     const dropdown = document.getElementById("saved-ai-dropdown");
     const managingLog = document.getElementById('managing-log');
+    
+    if (!managingLog || !dropdown) {
+        logger.warn('[AiManager] Dropdown &/or ManagingLog not found!');
+        return
+    }
+
     managingLog.style.display = 'block';
 
     try {
@@ -175,7 +180,10 @@ export async function initializeAiManager() {
     glob_aiIsInit = true;
     logger.info(`Initialization of AiManager...`);
     const managingLog = document.getElementById('managing-log');
-    managingLog.style.display = 'block';
+
+    if (managingLog) {
+        managingLog.style.display = 'block';
+    }
 
     initializeAiSocket();
     
