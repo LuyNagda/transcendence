@@ -8,27 +8,42 @@ import { getCookie } from '../utils.js';
 import { uiActions } from '../state/uiState.js';
 export default class ChatApp {
 	static #instance = null;
+    // Store reference to subscription removers
+    static #userSubscription = null;
 
 	static async initialize() {
-		if (store.getState('user').status === USER_STATUS.ONLINE) {
+		// Set up initial instance if user is online
+        if (store.getState('user').status === USER_STATUS.ONLINE) {
+            ChatApp.#instance = new ChatApp();
+            await ChatApp.#instance._setupConnection();
+        }
+        
+        // Create a single user subscription
+        ChatApp.#userSubscription = store.subscribe('user', async (state) => {
+            if (state.status === USER_STATUS.OFFLINE) {
+                if (ChatApp.#instance) {
+                    ChatApp.#instance.destroy();
+                    ChatApp.#instance = null;
+                }
+            } else if (state.status === USER_STATUS.ONLINE) {
+                if (!ChatApp.#instance) {
+                    ChatApp.#instance = new ChatApp();
+                    await ChatApp.#instance._setupConnection();
+                }
+            }
+        });
+
+        window.addEventListener('popstate', async () => {
+            logger.info("[ChatApp] Popstate");
+            if (ChatApp.#instance) {
+                ChatApp.#instance.destroy();
+                ChatApp.#instance = null;
+            }
 			ChatApp.#instance = new ChatApp();
 			await ChatApp.#instance._setupConnection();
-		}
-		store.subscribe('user', async (state) => {
-			if (state.status === USER_STATUS.OFFLINE) {
-				if (ChatApp.#instance) {
-					ChatApp.#instance.destroy();
-					ChatApp.#instance = null;
-				}
-			} else if (state.status === USER_STATUS.ONLINE) {
-				if (!ChatApp.#instance) {
-					ChatApp.#instance = new ChatApp();
-					await ChatApp.#instance._setupConnection();
-				}
-			}
-		});
+        });
 	}
-
+		
 	constructor() {
 		this._connection = null;
 		this._isChatOpen = false;
