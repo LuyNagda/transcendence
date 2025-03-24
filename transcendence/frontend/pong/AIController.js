@@ -126,6 +126,14 @@ export class AIController {
             const response = await fetch(`/ai/get-ai/${difficulty}`);
             if (!response.ok)
                 throw new Error(`Failed to fetch AI data: ${response.status}`);
+
+            // Check if a fallback occurred
+            const fallbackAI = response.headers.get('X-Fallback-AI');
+            
+            if (fallbackAI) {
+                logger.warn(`Requested AI '${difficulty}' not found. Loaded default AI: ${fallbackAI}`);
+            }
+
             const setup = await response.json();
             if (!setup || !setup.layer1 || !setup.layer1.weights
                 || !setup.layer2 || !setup.layer2.weights

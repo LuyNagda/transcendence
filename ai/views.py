@@ -38,14 +38,25 @@ def send_ai_to_front(request, ai_name):
             ai_data_list = json.load(load_file)
         
         if not ai_data_list:
-            return JsonResponse({"error": "No AI data found"}, status=404)
+            raise FileNotFoundError
         
         # Return the first AI
         return JsonResponse(ai_data_list[0])
     
     except FileNotFoundError:
-        return JsonResponse({"error": f"No such AI found: {ai_name}"}, status=404)
-    
+        # If file not found, load Marvin
+        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai/Marvin'
+        with open(save_file, 'r') as load_file:
+            default_Marvin = json.load(load_file)
+
+        if not default_Marvin:
+            return JsonResponse({"error": f"No AI found"}, status=404)
+        else:
+            # Return the Marvin's AI with custom headers
+            response = JsonResponse(default_Marvin[0])
+            response['X-Fallback-AI'] = 'Marvin'
+            return response
+
     except json.JSONDecodeError as e:
         return JsonResponse({"error": f"Failed to decode AI data: {str(e)}"}, status=500)
 
