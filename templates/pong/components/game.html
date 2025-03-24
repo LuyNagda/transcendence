@@ -6,6 +6,20 @@
             <canvas width="858" height="525" id="game"></canvas>
         </div>
     </div>
+    
+    <!-- Mobile controls -->
+    <div id="mobile-controls" class="d-flex justify-content-around my-2 w-100">
+        <button id="paddle-up" class="paddle-control" aria-label="Move paddle up">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+        </button>
+        <button id="paddle-down" class="paddle-control" aria-label="Move paddle down">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+        </button>
+    </div>
 </div>
 
 <style>
@@ -19,6 +33,8 @@
         margin: 20px 0;
         border-radius: 10px;
         overflow: hidden;
+        flex-direction: column;
+        position: relative;
     }
 
     /* Arcade cabinet styling */
@@ -53,4 +69,99 @@
         font-family: 'PongScore';
         src: url('{% static "fonts/pong-score.ttf" %}');
     }
+    
+    .paddle-control {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.2);
+        border: 2px solid #444;
+        color: white;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        user-select: none;
+        touch-action: manipulation;
+    }
+
+    .paddle-control:active {
+        background-color: rgba(255, 255, 255, 0.4);
+        transform: scale(0.95);
+    }
+    
+    /* Only show mobile controls on touch devices/small screens */
+    @media (hover: none), (max-width: 768px) {
+        #mobile-controls {
+            display: flex;
+        }
+    }
 </style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const paddleUpBtn = document.getElementById('paddle-up');
+        const paddleDownBtn = document.getElementById('paddle-down');
+        
+        // Helper function to simulate keyboard events
+        function simulateKey(key, type) {
+            const event = new KeyboardEvent(type, {
+                key: key,
+                code: key === 'w' ? 'KeyW' : 'KeyS',
+                bubbles: true,
+                cancelable: true
+            });
+            window.dispatchEvent(event);
+        }
+        
+        // Handle touch/mouse events for Up button
+        ['touchstart', 'mousedown'].forEach(evt => {
+            paddleUpBtn.addEventListener(evt, function(e) {
+                e.preventDefault();
+                simulateKey('w', 'keydown');
+            });
+        });
+        
+        ['touchend', 'mouseup'].forEach(evt => {
+            paddleUpBtn.addEventListener(evt, function(e) {
+                e.preventDefault();
+                simulateKey('w', 'keyup');
+            });
+        });
+        
+        // Handle touch/mouse events for Down button
+        ['touchstart', 'mousedown'].forEach(evt => {
+            paddleDownBtn.addEventListener(evt, function(e) {
+                e.preventDefault();
+                simulateKey('s', 'keydown');
+            });
+        });
+        
+        ['touchend', 'mouseup'].forEach(evt => {
+            paddleDownBtn.addEventListener(evt, function(e) {
+                e.preventDefault();
+                simulateKey('s', 'keyup');
+            });
+        });
+        
+        // Handle touchcancel event
+        ['touchcancel'].forEach(evt => {
+            paddleUpBtn.addEventListener(evt, function(e) {
+                simulateKey('w', 'keyup');
+            });
+            
+            paddleDownBtn.addEventListener(evt, function(e) {
+                simulateKey('s', 'keyup');
+            });
+        });
+        
+        // Prevent leaving touch if finger moves outside button
+        ['touchend', 'touchcancel'].forEach(evt => {
+            document.addEventListener(evt, function() {
+                simulateKey('w', 'keyup');
+                simulateKey('s', 'keyup');
+            });
+        });
+    });
+</script>
