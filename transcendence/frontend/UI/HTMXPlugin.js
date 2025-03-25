@@ -108,7 +108,6 @@ export const htmxPlugin = {
 		document.addEventListener('popstate', async () => {
 			jaiPasVu.scheduleUpdate('chat');
 			jaiPasVu.scheduleUpdate('ui');
-			jaiPasVu.scheduleUpdate('pop');
 		});
 
 		document.body.addEventListener('htmx:beforeRequest', (event) => {
