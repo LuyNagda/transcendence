@@ -24,5 +24,9 @@ def global_context(request):
                 'baseUrl': getattr(settings, 'API_BASE_URL', ''),
                 'timeout': getattr(settings, 'API_TIMEOUT', 5000),
             },
+            
+            'game': {
+                'physicsWebSocketTransport': getattr(settings, 'PONG_TRANSPORT_WS', False),
+            },
         }
     }
