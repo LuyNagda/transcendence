@@ -8,7 +8,7 @@
     </div>
     
     <!-- Mobile controls -->
-    <div id="mobile-controls" class="d-flex justify-content-around my-2 w-100">
+    <div id="mobile-controls" class="justify-content-around my-2 w-100">
         <button id="paddle-up" class="paddle-control" aria-label="Move paddle up">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="18 15 12 9 6 15"></polyline>
@@ -91,6 +91,11 @@
         transform: scale(0.95);
     }
     
+    /* Hide mobile controls by default */
+    #mobile-controls {
+        display: none;
+    }
+
     /* Only show mobile controls on touch devices/small screens */
     @media (hover: none), (max-width: 768px) {
         #mobile-controls {

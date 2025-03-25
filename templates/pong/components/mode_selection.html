@@ -12,7 +12,7 @@
             </small>
         </div>
 
-        <div v-if="[[owner.id === currentUser.id && state === 'LOBBY']]" class="form-group mb-3" role="group"
+        <div v-if="owner.id === currentUser.id && state === 'LOBBY'" class="form-group mb-3" role="group"
             aria-labelledby="game-mode-label">
             <label for="game-mode" id="game-mode-label">Game Mode</label>
             <select id="game-mode" name="mode" class="form-control" v-model="mode" v-on:change="handleModeChange"
