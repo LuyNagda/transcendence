@@ -32,16 +32,6 @@ export default class ChatApp {
                 }
             }
         });
-
-        window.addEventListener('popstate', async () => {
-            logger.info("[ChatApp] Popstate");
-            if (ChatApp.#instance) {
-                ChatApp.#instance.destroy();
-                ChatApp.#instance = null;
-            }
-			ChatApp.#instance = new ChatApp();
-			await ChatApp.#instance._setupConnection();
-        });
 	}
 		
 	constructor() {
