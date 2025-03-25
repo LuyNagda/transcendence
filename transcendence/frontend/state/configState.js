@@ -11,6 +11,9 @@ export const initialConfigState = {
 	api: {
 		baseUrl: '',
 		timeout: 5000,
+	},
+	game: {
+		physicsWebSocketTransport: false, // WebRTC by default
 	}
 };
 
@@ -30,4 +33,5 @@ export const configValidators = {
 	logLevel: (value) => typeof value === 'string',
 	rtc: (value) => typeof value === 'object' && value !== null,
 	api: (value) => typeof value === 'object' && value !== null,
+	game: (value) => typeof value === 'object' && value !== null,
 };

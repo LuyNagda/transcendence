@@ -29,6 +29,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
     - WebRTC signaling between players
     - Game state updates and notifications
     - Player disconnection cleanup
+    - Direct physics state transport via WebSocket when WebRTC is disabled
     """
 
     async def connect(self):
@@ -151,6 +152,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
         - player_ready: Player connection notification
         - webrtc_signal: WebRTC signaling (offer/answer/candidate)
         - game_complete: Game completion (host only)
+        - physics_update: Physics state updates (when WebRTC disabled)
         """
         try:
             data = json.loads(text_data)
@@ -167,6 +169,36 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         'is_guest_opponent': getattr(self.game, 'player2_is_guest', False)
                     }
                 )
+                return
+
+            # Physics update messages - relay to other player when WebRTC is disabled
+            elif message_type == 'physics_update':
+                # Only relays physics updates from host to client (host is authoritative)
+                if self.is_host and not self.game.player2_is_ai and not self.game.player2_is_guest:
+                    await self.channel_layer.group_send(
+                        self.game_group_name,
+                        {
+                            'type': 'relay_physics_update',
+                            'state': data.get('state'),
+                            'from_user': self.user.id
+                        }
+                    )
+                return
+            
+            # Paddle input messages via WebSocket when WebRTC is disabled
+            elif message_type in ['paddle_move', 'paddle_stop'] and not self.game.player2_is_ai and not self.game.player2_is_guest:
+                # Only relay from guest to host (client input to server)
+                if not self.is_host:
+                    await self.channel_layer.group_send(
+                        self.game_group_name,
+                        {
+                            'type': 'relay_paddle_input',
+                            'input_type': message_type,
+                            'direction': data.get('direction', 0),
+                            'intensity': data.get('intensity', 1.0),
+                            'from_user': self.user.id
+                        }
+                    )
                 return
             
             elif message_type == 'webrtc_signal' and not self.game.player2_is_ai and not self.game.player2_is_guest:
@@ -264,6 +296,40 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             logger.error(f'Game error: {str(e)}, data: {text_data}', extra={
                 'user_id': self.user.id
             })        
+
+    async def relay_physics_update(self, event):
+        """Relays physics update from host to guest players (WebSocket transport mode)"""
+        sender_id = event['from_user']
+        
+        # Only relay from host to guest
+        if sender_id == self.game.player1.id and not self.is_host:
+            try:
+                await self.send(text_data=json.dumps({
+                    'type': 'physics_update',
+                    'state': event['state']
+                }))
+            except Exception as e:
+                logger.warning(f"[Game {self.game_id}] Could not relay physics update: {str(e)}", extra={
+                    'user_id': getattr(self.user, 'id', None)
+                })
+
+    async def relay_paddle_input(self, event):
+        """Relays paddle input from guest to host (WebSocket transport mode)"""
+        sender_id = event['from_user']
+        
+        # Only relay from guest to host
+        if self.is_host and sender_id != self.user.id:
+            try:
+                # Send input to host - format matches the expected input in physics engine
+                await self.send(text_data=json.dumps({
+                    'type': event['input_type'],
+                    'direction': event['direction'],
+                    'intensity': event['intensity']
+                }))
+            except Exception as e:
+                logger.warning(f"[Game {self.game_id}] Could not relay paddle input: {str(e)}", extra={
+                    'user_id': getattr(self.user, 'id', None)
+                })
 
     async def relay_webrtc_signal(self, event):
         """Relays WebRTC signals between valid players"""
