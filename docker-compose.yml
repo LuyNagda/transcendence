@@ -57,6 +57,7 @@ services:
     image: nginx
     ports:
       - "8080:80"
+      - "8443:443"
     depends_on:
       transcendence:
         condition: service_healthy
