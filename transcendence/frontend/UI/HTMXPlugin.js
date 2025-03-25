@@ -105,9 +105,9 @@ export const htmxPlugin = {
 			app.emit('htmx:pushedIntoHistory', event.detail.path);
 		});
 
-		document.addEventListener('popstate', async () => {
-			jaiPasVu.scheduleUpdate('chat');
-			jaiPasVu.scheduleUpdate('ui');
+		window.addEventListener('popstate', async () => {
+			app.scheduleUpdate('chat');
+			app.scheduleUpdate('ui');
 		});
 
 		document.body.addEventListener('htmx:beforeRequest', (event) => {

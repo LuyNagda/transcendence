@@ -5,11 +5,6 @@
         aria-labelledby="chatCanvasLabel">
         <div class="offcanvas-header">
             <h4 id="chatCanvasLabel" class="offcanvas-title">Chat</h4>
-            <span id="unreadBadge" class="mb-2 ms-2 p-1 badge rounded-pill bg-danger"
-                :style="{ display: unreadCount > 0 ? 'inline' : 'none' }" aria-live="polite" aria-label="Unread messages count">
-                [[ unreadCount ]]
-                <span class="visually-hidden">Unread messages</span>
-            </span>
 			<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
         </div>
         <div class="row offcanvas-body">
