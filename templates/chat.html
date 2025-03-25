@@ -71,7 +71,8 @@
                         aria-labelledby="chatHeading">
                         <h4 id="chatFormHeading" class="visually-hidden">Chat Form</h4>
                         <input type="text" class="form-control me-1" id="chat-message-input"
-							v-model="messageInput"
+                            v-model="messageInput"
+							maxlength="300"
                             :disabled="selectedUser && selectedUser.blocked"
                             :placeholder="selectedUser && selectedUser.blocked ? 'You have blocked this user' : 'Type your message...'"
                             aria-label="Message input">

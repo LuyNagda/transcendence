@@ -399,6 +399,11 @@ export default class ChatApp {
 		const currentUserId = store.getState('user').id;
 		if (!currentUserId) return;
 
+		if (message.length > 300) {
+			alert(`Message too long (${message.length}/300 characters)`);
+			return;
+		}
+
 		const messageId = ++this._lastMessageId;
 		const timestamp = Date.now();
 
