@@ -105,9 +105,12 @@
 </style>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    // Extract the initialization logic into its own function
+    function initMobileControls() {
         const paddleUpBtn = document.getElementById('paddle-up');
         const paddleDownBtn = document.getElementById('paddle-down');
+        
+        if (!paddleUpBtn || !paddleDownBtn) return; // Exit if elements aren't loaded yet
         
         // Helper function to simulate keyboard events
         function simulateKey(key, type) {
@@ -128,6 +131,7 @@
             });
         });
         
+        // Rest of your existing event handlers...
         ['touchend', 'mouseup'].forEach(evt => {
             paddleUpBtn.addEventListener(evt, function(e) {
                 e.preventDefault();
@@ -168,5 +172,17 @@
                 simulateKey('s', 'keyup');
             });
         });
-    });
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', initMobileControls);
+    
+    // Initialize after HTMX swaps content
+    document.addEventListener('htmx:afterSwap', initMobileControls);
+    
+    // Also initialize after HTMX completes an AJAX request
+    document.addEventListener('htmx:afterRequest', initMobileControls);
+    
+    // For good measure, initialize on window load too
+    window.addEventListener('load', initMobileControls);
 </script>
