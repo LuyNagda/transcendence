@@ -140,7 +140,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             if not message_type:
                 raise KeyError('type')
             if message_type == 'chat_message':
-                message_content = data['message', {}].get('content', '')
+                message_content = data.get('message', {}).get('content', '')
                 if (len(message_content) > 300):
                     message_content = message_content[:300]
                     data['message']['content'] = message_content
