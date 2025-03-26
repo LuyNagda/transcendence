@@ -231,8 +231,8 @@ def forgot_password(request):
                         token = default_token_generator.make_token(user)
                         uid = urlsafe_base64_encode(force_bytes(user.pk))
                         site_name = get_current_site(request).name
-                        domain = 'localhost:8080'
-                        protocol = 'http'
+                        domain = f'{settings.DOMAIN}:8443'
+                        protocol = 'https'
                         subject = render_to_string('password-reset-subject.txt', {'site_name': site_name})
                         message = render_to_string('password-reset-email.html', {
                             'user': user,
