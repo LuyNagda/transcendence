@@ -39,7 +39,6 @@ def profile(request):
 @permission_classes([IsAuthenticatedWithCookie])
 def settings_view(request):
     user = User.objects.get(username=request.user.username)
-    logger.info("inside settings view", user)
     return render(request, 'settings.html', {'user': user})
 
 @api_view(['POST'])
