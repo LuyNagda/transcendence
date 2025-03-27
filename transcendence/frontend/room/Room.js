@@ -222,12 +222,6 @@ export default class Room {
 			}
 		};
 
-		// Add WebRTC configuration if needed
-		if (config.enableGameConnection) {
-			config.rtcConfig = {
-			};
-		}
-
 		return config;
 	}
 

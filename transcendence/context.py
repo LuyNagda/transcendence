@@ -10,15 +10,6 @@ def global_context(request):
             'debug': getattr(settings, 'DEBUG', False),
             'logLevel': getattr(settings, 'LOG_LEVEL', 'DEBUG'),
             
-            # WebRTC config
-            'rtc': {
-                'stunUrl': getattr(settings, 'RTC_STUN_URL', ''),
-                'turnUrl1': getattr(settings, 'RTC_TURN_URL_1', ''),
-                'turnUrl2': getattr(settings, 'RTC_TURN_URL_2', ''),
-                'turnUsername': getattr(settings, 'RTC_TURN_USERNAME', ''),
-                'turnCredential': getattr(settings, 'RTC_TURN_CREDENTIAL', ''),
-            },
-            
             # Add other global configs here
             'api': {
                 'baseUrl': getattr(settings, 'API_BASE_URL', ''),
