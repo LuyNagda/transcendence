@@ -6,7 +6,6 @@ import { RenderSystem } from './renderers/RenderSystem.js';
 import { PongNetworkManager } from './PongNetworkManager.js';
 import { GameRules } from './core/GameRules.js';
 import { RoomErrorCodes } from '../room/RoomConnectionManager.js';
-import { WebGLDetector } from './renderers/WebGLDetector.js';
 import logger from '../logger.js';
 
 export default class GameDirector {
@@ -15,13 +14,11 @@ export default class GameDirector {
 	 * @param {Object} options - Configuration options
 	 * @param {string} options.gameId - The ID of the game
 	 * @param {boolean} options.isHost - Whether this client is the host
-	 * @param {boolean} options.useWebGL - Whether to use WebGL for rendering
 	 * @param {Object} options.settings - Game settings
 	 */
 	constructor(options) {
 		this.gameId = options.gameId;
 		this.isHost = options.isHost || false;
-		this.useWebGL = options.useWebGL !== undefined ? options.useWebGL : true;
 		this.eventEmitter = new EventEmitter();
 		this.components = new Map();
 		this.gameFinished = false;
@@ -85,17 +82,9 @@ export default class GameDirector {
 			pongPhysics.isHost = this.isHost; // Set host flag for state synchronization
 			this._registerComponent('state', pongPhysics);
 			this._registerComponent('inputSystem', new InputSystem(this.eventEmitter));
-
-			let useWebGL = this.useWebGL;
-			if (useWebGL && !WebGLDetector.isWebGLSupported()) {
-				logger.warn('[GameDirector] WebGL not supported by browser, falling back to Canvas2D');
-				useWebGL = false;
-			}
-
 			this._registerComponent('renderSystem', new RenderSystem(
 				this.eventEmitter,
 				canvas,
-				useWebGL,
 				this.isHost,
 				this.isLocalGame
 			));

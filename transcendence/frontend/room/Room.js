@@ -238,7 +238,6 @@ export default class Room {
 		this._uiManager.setKickPlayerHandler((playerId) => this.kickPlayer(playerId));
 		this._uiManager.setCancelInvitationHandler((invitationId) => this.cancelInvitation(invitationId));
 		this._uiManager.setModeChangeHandler((event) => this.handleModeChange(event));
-		this._uiManager.setWebGLToggleHandler((useWebGL) => this.handleWebGLToggle(useWebGL));
 
 		// Set up game event handlers
 		this._gameManager.on('game_failure', (error) => {
@@ -657,19 +656,6 @@ export default class Room {
 				message: data.message,
 				variant: data.message_type
 			}
-		});
-	}
-
-	handleWebGLToggle(useWebGL) {
-		logger.info('[Room] Handling WebGL toggle:', useWebGL);
-
-		if (this._gameManager)
-			this._gameManager.setUseWebGL(useWebGL);
-
-		store.dispatch({
-			domain: 'room',
-			type: actions.room.TOGGLE_WEBGL,
-			payload: { useWebGL }
 		});
 	}
 
