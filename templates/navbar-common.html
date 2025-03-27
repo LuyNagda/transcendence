@@ -78,19 +78,19 @@
 		</span>
 	</a>
 	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown">
-		<li v-if="theme !== 'light'">
+		<li>
 			<a class="dropdown-item" href="#" data-theme="light" v-on:click="updateTheme">
 				Light
 				<span class="visually-hidden">Switch to light theme</span>
 			</a>
 		</li>
-		<li v-if="theme !== 'dark'">
+		<li>
 			<a class="dropdown-item" href="#" data-theme="dark" v-on:click="updateTheme">
 				Dark
 				<span class="visually-hidden">Switch to dark theme</span>
 			</a>
 		</li>
-		<li v-if="theme !== 'high-contrast'">
+		<li>
 			<a class="dropdown-item" href="#" data-theme="high-contrast" v-on:click="updateTheme">
 				High Contrast
 				<span class="visually-hidden">Switch to high contrast theme</span>
@@ -114,19 +114,19 @@
 		<span class="visually-hidden" v-text="'Current font size: ' + fontSize"></span>
 	</a>
 	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="fontSizeDropdown" v-cloak>
-		<li v-if="fontSize !== 'small'">
+		<li>
 			<a class="dropdown-item" href="#" data-size="small" v-on:click="updateFontSize">
 				Small
 				<span class="visually-hidden">Switch to small font size</span>
 			</a>
 		</li>
-		<li v-if="fontSize !== 'medium'">
+		<li>
 			<a class="dropdown-item" href="#" data-size="medium" v-on:click="updateFontSize">
 				Medium
 				<span class="visually-hidden">Switch to medium font size</span>
 			</a>
 		</li>
-		<li v-if="fontSize !== 'large'">
+		<li>
 			<a class="dropdown-item" href="#" data-size="large" v-on:click="updateFontSize">
 				Large
 				<span class="visually-hidden">Switch to large font size</span>

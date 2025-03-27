@@ -7,32 +7,28 @@
             <h4 id="chatCanvasLabel" class="offcanvas-title">Chat</h4>
 			<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
         </div>
-        <div class="row offcanvas-body">
-            <div class="col-4 user-list" role="navigation" aria-labelledby="userListHeading">
-                <ul class="rounded bg-dark-subtle m-0 p-2" style="list-style-type: none;" aria-label="User list">
-					<li class="d-flex align-items-center justify-content-center">
-						<div class="input-group mb-2">
-							<input id="friend-input" type="text" class="form-control" v-model="friendInput" placeholder="Add Friend" aria-label="Input field to add a friend">
-							<button class="btn btn-success d-flex align-items-center justify-content-center py-0" type="button" id="button-addon2" v-on:click="handleFormSubmitFriendRequest"
-								aria-label="Send friend request">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-plus-fill" viewBox="0 0 16 16">
-									<path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/>
-									<path fill-rule="evenodd" d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5"/>
-								</svg>
-							</button>
-						</div>
+        <div class="row offcanvas-body ps-4">
+            <div class="rounded bg-dark-subtle col-4 user-list py-3" role="navigation" aria-labelledby="userListHeading">
+				<div class="input-group mb-2">
+					<input id="friend-input" type="text" class="form-control" v-model="friendInput" placeholder="Add Friend" aria-label="Input field to add a friend">
+					<button class="btn btn-success d-flex align-items-center justify-content-center py-0" type="button" id="button-addon2" v-on:click="handleFormSubmitFriendRequest"
+						aria-label="Send friend request">
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-plus-fill" viewBox="0 0 16 16">
+							<path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/>
+							<path fill-rule="evenodd" d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5"/>
+						</svg>
+					</button>
+				</div>
+				<ul aria-label="User Item" class="list-group ps-0">
+					<li tabindex="0" class="list-group-item d-flex align-items-center p-2" v-on:click="selectUser([[ user.id ]])"
+						aria-label="Select user to chat with" v-for="user in users" aria-label="User item">
+						<img :src="user.profile_picture" class="rounded-circle me-2" style="width: 25px; height: 25px; object-fit: cover;" 
+							alt="User profile picture">
+						<span class="user-name flex-grow-1" aria-live="polite">[[ user.username ]]</span>
+						<span class="status-icon" aria-live="polite">[[ user.statusIcon ]]</span>
 					</li>
-                    <li v-for="user in users" aria-label="User item">
-                        <div class="d-flex align-items-center p-2" v-on:click="selectUser([[ user.id ]])"
-                            role="button" aria-label="Select user to chat with">
-                            <img :src="user.profile_picture" class="rounded-circle me-2" style="width: 25px; height: 25px; object-fit: cover;" 
-                                alt="User profile picture">
-                            <span class="user-name flex-grow-1" aria-live="polite">[[ user.username ]]</span>
-                            <span class="status-icon" aria-live="polite">[[ user.statusIcon ]]</span>
-                        </div>
-                    </li>
-                </ul>
-            </div>
+				</ul>
+			</div>
             <div v-if="selectedUser" class="col-8 chat-messages" role="region" aria-labelledby="chatHeading">
 				<div class="rounded p-3 mb-2 d-flex justify-content-between align-items-center" 
 				     v-if="selectedUser" 
