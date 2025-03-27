@@ -90,8 +90,8 @@ export class KeyboardInput {
 		this.callback = null;
 		this.keyStates = { up: false, down: false };
 		this.keyMap = options.keyMap || {
-			up: 'w',
-			down: 's'
+			up: ['w', 'W'],
+			down: ['s', 'S']
 		};
 		this.keyDownHandler = null;
 		this.keyUpHandler = null;
@@ -139,10 +139,10 @@ export class KeyboardInput {
 		// Update key state based on pressed keys
 		let stateChanged = false;
 
-		if (key === this.keyMap.up && this.keyStates.up !== isPressed) {
+		if (this.keyMap.up.includes(key) && this.keyStates.up !== isPressed) {
 			this.keyStates.up = isPressed;
 			stateChanged = true;
-		} else if (key === this.keyMap.down && this.keyStates.down !== isPressed) {
+		} else if (this.keyMap.down.includes(key) && this.keyStates.down !== isPressed) {
 			this.keyStates.down = isPressed;
 			stateChanged = true;
 		}
