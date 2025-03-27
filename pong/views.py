@@ -59,11 +59,14 @@ def create_pong_room(request):
             mode=PongRoom.Mode.CLASSIC
         )
         room.players.add(request.user)
-        logger.info(f"Room created with ID {room_id} by user {request.user.username}")
-        return render(request, 'pong/pong.html', {'room_id': room_id, 'room': 'created'})
+        logger.info(f"New room {room_id} created by {request.user.username}")
+        response = JsonResponse({'message': 'room creation success', 'room_id': room_id})
+        response['HX-Location'] = 'room/' + room_id + '/'
+        return response
+    
     except Exception as e:
-        logger.error(f"Error creating room for user {request.user.username} : {str(e)}")
-        return JsonResponse({'status': 'error'})
+        logger.error(f"Error handling room for {request.user.username}: {str(e)}")
+        return JsonResponse({'status': 'error'}, status=500)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])

@@ -30,9 +30,10 @@ export default class Room {
 			Room._instance._initializeRoomApp();
 		}
 
-		// Then init when page transition to /pong/room/id and destroy when transitioning away
-		jaiPasVu.on('htmx:pushedIntoHistory', (path) => {
-			logger.info('[Room] Static initialize: htmx:pushedIntoHistory :', path);
+		jaiPasVu.on('htmx:afterOnLoad', (event) => {
+			logger.info('[Room] Static initialize: htmx:afterOnLoad:', event);
+			const path = event.detail.pathInfo.responsePath;
+
 			if (path.includes('/pong/room/')) {
 				const roomId = path.replace('/pong/room/', '').replace('/', '');
 
@@ -43,20 +44,9 @@ export default class Room {
 					payload: null
 				});
 
-				// Destroy existing instance if it exists
-				if (Room._instance) {
-					Room._instance.destroy();
-					Room._instance = null;
-				}
-
 				// Create new instance and initialize
 				Room._instance = new Room(roomId);
 				Room._instance._initializeRoomApp();
-			} else {
-				if (Room._instance) {
-					Room._instance.destroy();
-					Room._instance = null;
-				}
 			}
 		});
 

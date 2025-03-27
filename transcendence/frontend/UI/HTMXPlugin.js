@@ -110,6 +110,11 @@ export const htmxPlugin = {
 			app.scheduleUpdate('ui');
 		});
 
+		document.body.addEventListener('htmx:afterOnLoad', (event) => {
+			// const target = event.detail.elt;
+			app.emit('htmx:afterOnLoad', event);
+		});
+
 		document.body.addEventListener('htmx:beforeRequest', (event) => {
 			// const target = event.detail.elt;
 
