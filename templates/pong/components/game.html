@@ -33,14 +33,12 @@
 </style>
 
 <script>
-    // Extract the initialization logic into its own function
     function initMobileControls() {
         const paddleUpBtn = document.getElementById('paddle-up');
         const paddleDownBtn = document.getElementById('paddle-down');
         
         if (!paddleUpBtn || !paddleDownBtn) return; // Exit if elements aren't loaded yet
         
-        // Helper function to simulate keyboard events
         function simulateKey(key, type) {
             const event = new KeyboardEvent(type, {
                 key: key,
@@ -51,7 +49,6 @@
             window.dispatchEvent(event);
         }
         
-        // Handle touch/mouse events for Up button
         ['touchstart', 'mousedown'].forEach(evt => {
             paddleUpBtn.addEventListener(evt, function(e) {
                 e.preventDefault();
@@ -59,7 +56,6 @@
             });
         });
         
-        // Rest of your existing event handlers...
         ['touchend', 'mouseup'].forEach(evt => {
             paddleUpBtn.addEventListener(evt, function(e) {
                 e.preventDefault();
@@ -67,7 +63,6 @@
             });
         });
         
-        // Handle touch/mouse events for Down button
         ['touchstart', 'mousedown'].forEach(evt => {
             paddleDownBtn.addEventListener(evt, function(e) {
                 e.preventDefault();
@@ -82,7 +77,6 @@
             });
         });
         
-        // Handle touchcancel event
         ['touchcancel'].forEach(evt => {
             paddleUpBtn.addEventListener(evt, function(e) {
                 simulateKey('w', 'keyup');
@@ -93,7 +87,6 @@
             });
         });
         
-        // Prevent leaving touch if finger moves outside button
         ['touchend', 'touchcancel'].forEach(evt => {
             document.addEventListener(evt, function() {
                 simulateKey('w', 'keyup');
@@ -102,15 +95,11 @@
         });
     }
 
-    // Initialize on page load
     document.addEventListener('DOMContentLoaded', initMobileControls);
     
-    // Initialize after HTMX swaps content
     document.addEventListener('htmx:afterSwap', initMobileControls);
     
-    // Also initialize after HTMX completes an AJAX request
     document.addEventListener('htmx:afterRequest', initMobileControls);
     
-    // For good measure, initialize on window load too
     window.addEventListener('load', initMobileControls);
 </script>
