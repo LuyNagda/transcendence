@@ -28,18 +28,6 @@ def validate_settings(settings):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
-def pong_view(request):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
-    users = User.objects.exclude(email=request.user.email)
-    return render(request, 'pong/pong.html', {
-        'users': users,
-        'access_token': access_token, 
-        'refresh_token': refresh_token
-    })
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticatedWithCookie])
 def game_history(request):
     access_token = request.COOKIES.get('access_token')
     refresh_token = request.COOKIES.get('refresh_token')
@@ -60,7 +48,7 @@ def create_pong_room(request):
         )
         room.players.add(request.user)
         logger.info(f"Room created with ID {room_id} by user {request.user.username}")
-        return render(request, 'pong/pong.html', {'room_id': room_id, 'room': 'created'})
+        return render(request, 'index.html', {'room_id': room_id, 'room': 'created'})
     except Exception as e:
         logger.error(f"Error creating room for user {request.user.username} : {str(e)}")
         return JsonResponse({'status': 'error'})
