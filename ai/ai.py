@@ -6,8 +6,8 @@ from ai.misc.backup import backup_file
 logger = logging.getLogger(__name__)
 
 NB_INPUTS = 5
-NB_NEURONS_LAYER1 = 6
-NB_NEURONS_LAYER2 = 6
+NB_NEURONS_LAYER1 = 8
+NB_NEURONS_LAYER2 = 8
 NB_NEURONS_LAYER3 = 3
 
 WEIGHT_MUTATION_RATE = 0.1
