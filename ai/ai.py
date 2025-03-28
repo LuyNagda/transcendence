@@ -59,7 +59,6 @@ class Neuron_Network:
         self.layer3 = Layer_Dense(nb_layer2_neurons, nb_layer3_neurons)
         self.activation3 = Activation_SoftMax()
         self.ai_score = 0
-        self.sample_gen = 0
 
     def __copy__(self):
         """Copy constructor to create a new instance with the same weights and biases."""
@@ -73,7 +72,6 @@ class Neuron_Network:
         new_network.layer3.biases = self.layer3.biases.copy()
         
         new_network.ai_score = self.ai_score
-        new_network.sample_gen = self.sample_gen
         return new_network
 
     def forward(self, inputs):
