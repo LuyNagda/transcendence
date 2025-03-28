@@ -564,4 +564,4 @@ class ChatHandler:
 
     async def handle_unselect_user(self, event: Dict[str, Any]) -> None:
         """Handle incoming unselect user message from channel layer"""
-        await MessageSender.send_message(self, event)
+        await self.send_response.send_message(self, event)
