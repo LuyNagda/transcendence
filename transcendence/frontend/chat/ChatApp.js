@@ -317,7 +317,7 @@ export default class ChatApp {
 					// 		type: 'success'
 					// 	}
 					// });
-					alert(data.data.message);
+					// alert(data.data.message);
 				}
 				else {
 					// store.dispatch({
@@ -729,12 +729,15 @@ export default class ChatApp {
 	}
 
 	removeFriend() {
-		const userId = store.getState('chat').selectedUser.id;
-		logger.debug('[ChatApp] Removing friend with ID:', userId);
-		this._sendMessage({
-			type: 'remove_friend',
-			friend_id: userId
-		});
+		let userConfirmed = confirm("Are you sure you remove your friend?");
+		if (userConfirmed) {
+			const userId = store.getState('chat').selectedUser.id;
+			logger.debug('[ChatApp] Removing friend with ID:', userId);
+			this._sendMessage({
+				type: 'remove_friend',
+				friend_id: userId
+			});
+		}
 	}
 
 	viewProfile() {

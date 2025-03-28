@@ -199,11 +199,11 @@ class ChatHandler:
             await self.send_friend_request(current_user, friend)
             log.info(f'Adding friend request')
             await self.refresh_friends(friend)
-            await self.send_response('friend_request', success=True, data={'friend': friend.chat_user, 'message': 'Friend request sended'})
+            await self.send_response('friend_request', success=True, data={'friend': friend.chat_user, 'message': 'If the user exist, the friend request will be sent'})
 
         except User.DoesNotExist:
             log.info(f'Friend not found: {friend_username}')
-            await self.send_response('friend_request', success=False, error='User not found')
+            await self.send_response('friend_request', success=False, error='If the user exist, the friend request will be sent')
 
         except Exception as e:
             log.error(f'Error handling friend request: {str(e)} - User: {self.consumer.user.id}')
@@ -243,7 +243,7 @@ class ChatHandler:
             
         except User.DoesNotExist:
             log.info(f'Friend not found: {friend_id}')
-            await self.send_response('friend_request_choice', success=False, error='User not found')
+            await self.send_response('friend_request_choice', success=False, error='If the user exist, the friend request will be sent')
 
         except Exception as e:
             log.error(f'Error handling friend request choice: {str(e)}')
