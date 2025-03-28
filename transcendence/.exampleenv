@@ -18,14 +18,3 @@ DOMAIN=localhost
 FT_CLIENT_ID=
 FT_CLIENT_SECRET=
 FT_REDIRECT_URI=https://localhost:8080/callback
-
-# WebRTC Configuration
-RTC_STUN_URL=stun:127.0.0.1:3478
-RTC_TURN_URL_1=turn:127.0.0.1:3478
-RTC_TURN_URL_2=turn:127.0.0.1:5349
-RTC_TURN_USERNAME=transcendence
-RTC_TURN_CREDENTIAL=transcendence123
-
-# "True" to use WebSocket for game physics (more compatible but higher latency)
-# "False" to use WebRTC for game physics (lower latency but may have compatibility issues)
-PONG_TRANSPORT_WS=True

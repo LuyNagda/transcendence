@@ -100,7 +100,6 @@ export class RoomGameManager {
 			const gameOptions = {
 				gameId: gameId,
 				isHost: roomState.mode === 'AI' || roomState.mode === 'LOCAL' ? true : isHost,
-				useWebGL: roomState.useWebGL,
 				settings: roomState.settings
 			};
 
@@ -161,16 +160,6 @@ export class RoomGameManager {
 					ctx.clearRect(0, 0, canvas.width, canvas.height);
 					ctx.fillStyle = '#000';
 					ctx.fillRect(0, 0, canvas.width, canvas.height);
-				}
-
-				try {
-					const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
-					if (gl) {
-						gl.clearColor(0.0, 0.0, 0.0, 1.0);
-						gl.clear(gl.COLOR_BUFFER_BIT);
-					}
-				} catch (e) {
-					logger.warn('[RoomGameManager] Error resetting WebGL context:', e);
 				}
 			}
 		} catch (e) {

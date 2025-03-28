@@ -57,7 +57,7 @@ export class RoomConnectionManager {
 	 * @private
 	 */
 	_setupConnections() {
-		// Create a connection group for the room with main WebSocket and optional game WebRTC
+		// Create a connection group for the room with main WebSocket
 		const connections = {
 			main: {
 				type: 'websocket',
