@@ -6,39 +6,44 @@
 
 {% block navbar %}{% include "ui.html" %}{% endblock %}
 
-<div id="pong-room" class="container x-auto my-4" data-domain="room" aria-label="Pong game room">
-	<div class="offcanvas offcanvas-end" tabindex="-1" id="room-status" aria-label="Room status information">
-		<div class="offcanvas-header">
-			<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
-        </div>
-		<div class="offcanvas-body">
-			<div id="room-state" class="mb-4" aria-label="Room status information">
-				{% include "pong/components/room_state.html" %}
+<div id="pong-room" class="container d-flex flex-column align-items-center justify-content-center" 
+     style="min-height: calc(100vh - 128px);" 
+     data-domain="room" 
+     aria-label="Pong game room">
+	<div class="w-100 d-flex justify-content-center">
+		<div class="offcanvas offcanvas-end" tabindex="-1" id="room-status" aria-label="Room status information">
+			<div class="offcanvas-header">
+				<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
 			</div>
-			{% include "pong/components/game_settings.html" %}
+			<div class="offcanvas-body">
+				<div id="room-state" class="mb-4" aria-label="Room status information">
+					{% include "pong/components/room_state.html" %}
+				</div>
+				{% include "pong/components/game_settings.html" %}
+			</div>
+		</div>
+		<div id="dynamic-content" class="text-center" aria-live="polite">
+			{% include "pong/components/game.html" %}
 		</div>
 	</div>
-	<div id="dynamic-content" aria-live="polite">
-		{% include "pong/components/game.html" %}
-	</div>
-	<div class="card-footer d-flex justify-content-around">
-		<button id="leaveGameBtn" class="btn btn-danger" hx-get="{% url 'pong' %}" hx-target="#content"
+	<div class="card-footer d-flex flex-row justify-content-around flex-nowrap gap-2 w-100">
+		<button id="leaveGameBtn" class="btn btn-danger flex-shrink-0" hx-get="{% url 'pong' %}" hx-target="#content"
 			hx-swap="outerHTML" hx-push-url="true" aria-label="Leave the game">
 			Leave
 		</button>
 		<button id="startGameBtn" v-if="canStartGame && owner.id === currentUser.id" v-on:click="startGame" type="button"
-			class="btn btn-lg btn-primary" aria-label="Start the game">
+			class="btn btn-lg btn-primary flex-shrink-0" aria-label="Start the game">
 			<span>Start</span>
 		</button>
 		<button id="startGameBtn" v-else v-on:click="startGame" type="button"
-			class="btn btn-lg btn-primary-disabled disabled" aria-label="Start the game">
+			class="btn btn-lg btn-primary-disabled disabled flex-shrink-0" aria-label="Start the game">
 			<span>Start</span>
 		</button>
 		<button class="btn btn-lg btn-secondary" data-bs-toggle="offcanvas" href="#room-status" role="button" aria-controls="Room Status Offcanvas Button">
 			Dashboard
 		</button>
-    </div>
-	<div v-if="error" :class="'alert alert-' + errorType + ' mt-3'" role="alert" aria-live="assertive">
+	</div>
+	<div v-if="error" :class="'alert alert-' + errorType + ' mt-4 flex-nowrap gap-2 w-100'" role="alert" aria-live="assertive">
 		<div class="d-flex align-items-center">
 			<i class="fas fa-exclamation-circle me-2"></i>
 			<div>

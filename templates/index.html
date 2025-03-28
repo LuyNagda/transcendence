@@ -6,10 +6,10 @@
 
 {% block navbar %}{% include "ui.html" %}{% endblock %}
 
-<div id="index" class="container x-auto my-4" role="main">
-    <div class="mt-5 mb-4">
-        <div class="d-flex flex-column flex-md-row justify-content-center">
-            <div class="col d-flex flex-column justify-content-center align-items-start">
+<div id="index" class="container d-flex align-items-center justify-content-center" style="min-height: calc(100vh - 128px);" role="main">
+    <div class="my-0 w-100 pt-md-3 pt-1">
+        <div class="d-flex flex-column flex-md-row justify-content-center align-items-center">
+            <div class="col d-flex flex-column justify-content-center align-items-start me-4">
                 <h1 class="h1 fw-bold">42Pong</h1>
                 <h3 class="h3">Experience the iconic Pong Game</h3>
                 <button class="btn btn-primary btn-lg my-3" hx-get="{% url 'pong' %}" hx-target="#content"
@@ -17,7 +17,7 @@
                     Start
                 </button>
             </div>
-            <div class="d-flex flex-column justify-content-center col">
+            <div class="d-flex flex-column justify-content-center col ms-4">
                 <video autoplay muted loop id="pong_gameplay" alt="Pong Gameplay Video" class="rounded"
                     aria-label="Pong gameplay video demonstrating the game">
                     <source src="../media/video/pong_gameplay.mp4" type="video/mp4">
