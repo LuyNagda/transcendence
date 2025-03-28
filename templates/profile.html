@@ -8,67 +8,94 @@
 
 <div class="container x-auto my-4" id="profile-form">
 	<h1 class="h1 fw-bold" id="profile-heading">Profile</h1>
-	<form method="post" hx-post="{% url 'profile' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true"
-		enctype="multipart/form-data" aria-labelledby="profileHeading">
-		<div class="row">
-			<div class="col">
-				{% csrf_token %}
-				{% for field in form %}
-				<div class="form-floating my-3">
-					{{ field }}
-					<label for="{{ field.id_for_label }}">{{ field.label }}</label>
-					{% if field.errors %}
-					<div class="alert alert-danger my-1" role="alert">
-						<ul class="m-0 p-0" style="list-style-type: none;">
-							{% for error in field.errors %}
-							<li>{{ error }}</li>
-							{% endfor %}
-						</ul>
-					</div>
-					{% endif %}
+	<div class="row">
+		<div class="col">
+			{% csrf_token %}
+			{% for field in form %}
+			<div class="form-floating my-3">
+				{{ field }}
+				<label for="{{ field.id_for_label }}">{{ field.label }}</label>
+				{% if field.errors %}
+				<div class="alert alert-danger my-1" role="alert">
+					<ul class="m-0 p-0" style="list-style-type: none;">
+						{% for error in field.errors %}
+						<li>{{ error }}</li>
+						{% endfor %}
+					</ul>
 				</div>
-				{% endfor %}
-				<button class="btn btn-primary" type="submit" aria-label="Save profile changes">Save</button>
+				{% endif %}
 			</div>
-			<div class="col">
-				<img id="profile-picture-img" src="{{ user.profile_picture.url }}" class="img-thumbnail" style="width: 200px; height: 200px; object-fit: cover;"
-                    alt="Profile picture of {{ user.username }}">
-			</div>
+			{% endfor %}
 		</div>
-	</form>
-	{% if messages %}
-	<div role="alert" aria-live="polite">
-		{% for message in messages %}
-		<div class="alert alert-{{ message.tags }} my-2">
-			<p class="m-0">{{ message }}</p>
+		<div class="col">
+			<img id="profile-picture-img" src="{{ user.profile_picture.url }}" class="img-thumbnail"
+				style="width: 200px; height: 200px; object-fit: cover;" alt="Profile picture of {{ user.username }}">
 		</div>
-		{% endfor %}
 	</div>
-	{% endif %}
+	<div id="message-container"></div>
 </div>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-    document.querySelector("#profile-form form").addEventListener("submit", function (event) {
-        event.preventDefault();
+    let messageContainer = document.querySelector("#message-container");
 
-        let form = event.target;
-        let formData = new FormData(form);
+    function showMessage(type, message) {
+        messageContainer.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    }
 
-        fetch(form.action, {
+    function sendUpdate(fieldName, fieldValue) {
+        let formData = new FormData();
+        formData.append("field", fieldName);
+        formData.append("value", fieldValue);
+        formData.append("csrfmiddlewaretoken", document.querySelector("input[name=csrfmiddlewaretoken]").value);
+
+        fetch("{% url 'profile' %}", {  // Use Django URL
             method: "POST",
             body: formData,
-            headers: {
-                "X-Requested-With": "XMLHttpRequest" 
-            }
+            headers: { "X-Requested-With": "XMLHttpRequest" }
         })
         .then(response => response.json())
         .then(data => {
-            if (data.profile_picture_url) {
+            if (data.success) {
+                showMessage("success", "Profile updated successfully.");
+            } else {
+                showMessage("danger", data.error || "An error occurred.");
+            }
+        })
+        .catch(error => console.error("Error:", error));
+    }
+
+    // Attach event listener to all input fields except the file input
+    document.querySelectorAll("#profile-form input:not([type='file'])").forEach(field => {
+        field.addEventListener("change", function () {
+            sendUpdate(field.name, field.value);
+        });
+    });
+
+    // Handle file upload separately
+    document.querySelector("#profile-form input[type='file']").addEventListener("change", function (event) {
+        let fileInput = event.target;
+        let formData = new FormData();
+        formData.append("profile_picture", fileInput.files[0]);
+        formData.append("csrfmiddlewaretoken", document.querySelector("input[name=csrfmiddlewaretoken]").value);
+
+        fetch("{% url 'profile' %}", { 
+            method: "POST",
+            body: formData,
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showMessage("success", "Profile picture updated successfully.");
                 document.querySelector("#profile-picture-img").src = data.profile_picture_url;
+            } else {
+                showMessage("danger", data.error || "An error occurred.");
             }
         })
         .catch(error => console.error("Error:", error));
     });
 });
 </script>
+
 {% endblock %}
