@@ -28,22 +28,41 @@
 		<div class="setting-module rounded bg-dark-subtle p-3">
 			<h3 class="h3 mb-3">2FA</h3>
 			<div class="d-flex justify-center">
-				<form id="2fa-form" hx-post="{% url 'enable-2fa' %}" hx-target="#settings">
-					{% csrf_token %}
-					<div class="me-2 d-flex align-items-center gap-2">
-						<button type="submit" class="btn {% if user.twofa %}btn-danger{% else %}btn-success{% endif %}"
-							aria-label="Toggle Two-Factor Authentication">
-							{% if user.twofa %}
-							Disable
-							{% else %}
-							Enable
-							{% endif %}
-						</button>
-					</div>
-				</form>
+				<div class="me-2 d-flex align-items-center gap-2">
+					<button id="2fa-button" class="btn {% if user.twofa %}btn-danger{% else %}btn-success{% endif %}"
+						aria-label="Toggle Two-Factor Authentication">
+						{% if user.twofa %}
+						Disable
+						{% else %}
+						Enable
+						{% endif %}
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
 </div>
+<script>
+	document.addEventListener("DOMContentLoaded", function () {
+    const twoFaButton = document.getElementById("2fa-button");
 
+    twoFaButton.addEventListener("click", function () {
+        fetch("{% url 'enable-2fa' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",  // Ensure CSRF protection
+                "Content-Type": "application/json",
+            },
+            credentials: "same-origin",
+        })
+        .then(response => response.json())
+        .then(data => {
+            twoFaButton.classList.toggle("btn-danger", data.twofa);
+            twoFaButton.classList.toggle("btn-success", !data.twofa);
+            twoFaButton.textContent = data.twofa ? "Disable" : "Enable";
+        })
+        .catch(error => console.error("Error:", error));
+    });
+	});
+</script>
 {% endblock %}
