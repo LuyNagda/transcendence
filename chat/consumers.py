@@ -1,6 +1,7 @@
 import json
 import logging
-from typing import Optional, Dict, Any, List, Set, Union, cast
+from typing import Optional, Dict, Any, List, Set, Union
+from django.contrib.auth.models import AbstractUser
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.layers import BaseChannelLayer
 from channels.db import database_sync_to_async
@@ -42,7 +43,7 @@ class MessageSender:
         }
     
     @staticmethod
-    def status_update(user_data: Union[Dict, User]) -> Dict[str, Any]:
+    def status_update(user_data: Union[Dict, AbstractUser]) -> Dict[str, Any]:
         """Creates a status update message"""
         # Handle both dict and User model cases
         if isinstance(user_data, dict):
@@ -92,7 +93,7 @@ class MessageSender:
         await cls.send_message(consumer, cls.error(error_msg))
 
 class ChatConsumer(AsyncWebsocketConsumer):
-    user: Optional[User]
+    user: Optional[AbstractUser]
     handler: ChatHandler
     user_group_name: str
     channel_layer: BaseChannelLayer
