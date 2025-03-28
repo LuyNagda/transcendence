@@ -10,5 +10,4 @@ transcendence/static/*
 !transcendence/static/saved_ai/
 !transcendence/static/favicon.ico
 node_modules
-ai/myenv/
 coverage/
