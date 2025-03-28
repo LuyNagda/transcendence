@@ -8,7 +8,7 @@
 {% block navbar %}{% include "navbar-login.html" %}{% endblock %}
 
 <div class="container x-auto my-4" id="login-form" role="region" aria-labelledby="login-form-heading">
-	<h1 id="login-form-heading">Login</h1>
+	<h1 class="h1 fw-bold" id="login-form-heading">Login</h1>
 	<form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="/index" enctype="multipart/form-data" aria-labelledby="login-form-heading">
 		{% csrf_token %}
 		{% for field in form %}

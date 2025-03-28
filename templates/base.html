@@ -27,10 +27,10 @@
     {% include "footer.html" %}
     {% endif %}
     {% endblock %}
-</body>
 
-{% if not request.htmx %}
-<script type="module" src="{% static 'main.js' %}"></script>
-{% endif %}
+	{% if not request.htmx %}
+		<script type="module" src="{% static 'main.js' %}"></script>
+	{% endif %}
+</body>
 
 </html>

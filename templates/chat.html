@@ -1,10 +1,10 @@
 {% load static %}
 {% block content %}
 <div id="chat-app" data-domain="chat" aria-label="Chat application">
-    <div class="offcanvas offcanvas-start" data-bs-backdrop="static" tabindex="-1" id="chatCanvas"
+    <div class="offcanvas offcanvas-start" tabindex="-1" id="chatCanvas"
         aria-labelledby="chatCanvasLabel">
         <div class="offcanvas-header">
-            <h4 id="chatCanvasLabel" class="offcanvas-title">Chat</h4>
+            <h4 id="chatCanvasLabel" class="h4 offcanvas-title">Chat</h4>
 			<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
         </div>
         <div class="row offcanvas-body ps-4">
@@ -21,7 +21,7 @@
 				</div>
 				<ul aria-label="User Item" class="list-group ps-0">
 					<li tabindex="0" class="list-group-item d-flex align-items-center p-2" v-on:click="selectUser([[ user.id ]])"
-						aria-label="Select user to chat with" v-for="user in users" aria-label="User item">
+						aria-label="Select user to chat with" v-for="user in users">
 						<img :src="user.profile_picture" class="rounded-circle me-2" style="width: 25px; height: 25px; object-fit: cover;" 
 							alt="User profile picture">
 						<span class="user-name flex-grow-1" aria-live="polite">[[ user.username ]]</span>
@@ -29,21 +29,20 @@
 					</li>
 				</ul>
 			</div>
-            <div v-if="selectedUser" class="col-8 chat-messages" role="region" aria-labelledby="chatHeading">
-				<div class="rounded p-3 mb-2 d-flex justify-content-between align-items-center" 
-				     v-if="selectedUser" 
-				     style="background-color: var(--bs-dark-bg-subtle);" 
-				     aria-label="Selected user information">
+			<div v-if="selectedUser" class="col-8 chat-messages" role="region" aria-labelledby="chatHeading">
+				<div class="rounded p-3 mb-2 d-flex bg-dark-subtle justify-content-between align-items-center" 
+					v-if="selectedUser" 
+					aria-label="Selected user information">
 					<div class="d-flex flex-column align-items-center ms-4">
 						<img :src="selectedUser.profile_picture" class="rounded-circle" style="width: 100px; height: 100px; object-fit: cover;">
-						<p class="h4 mb-0" v-text="selectedUser.username"></p>
+						<p class="h4 mb-0 fw-bold" v-text="selectedUser.username"></p>
 					</div>
 					<div class="d-flex flex-column text-start me-4">
-						<p class="mb-1">Match: [[ selectedUser.total_games ]]</p>
-						<p class="mb-1">Win: [[ selectedUser.total_wins ]]</p>
-						<p class="mb-1">Lose: [[ selectedUser.total_losses ]]</p>
-						<p class="mb-1">Winrate: [[ selectedUser.winrate ]]%</p>
-					</div>	
+						<p class="mb-1" v-text="'Match: ' + selectedUser.total_games"></p>
+						<p class="mb-1" v-text="'Win: ' + selectedUser.total_wins"></p>
+						<p class="mb-1" v-text="'Lose: ' + selectedUser.total_losses"></p>
+						<p class="mb-1" v-text="'Winrate ' + selectedUser.winrate + ' %'"></p>
+					</div>
 				</div>
                 <div class="rounded p-3 chat-bubble-container" style="background-color: var(--bs-dark-bg-subtle);"
                     id="message-history" aria-live="polite" aria-label="Chat message history">
@@ -60,7 +59,7 @@
                 <div id="chat-form-div">
                     <div id="chat-form" class="d-flex mt-2"
                         aria-labelledby="chatHeading">
-                        <h4 id="chatFormHeading" class="visually-hidden">Chat Form</h4>
+                        <h4 id="chatFormHeading" class="h4 visually-hidden">Chat Form</h4>
                         <input type="text" class="form-control me-1" id="chat-message-input"
                             v-model="messageInput"
 							maxlength="300"
@@ -95,7 +94,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+		</div>
     </div>
 </div>
 

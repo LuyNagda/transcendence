@@ -7,7 +7,7 @@
 {% block navbar %}{% include "navbar-login.html" %}{% endblock %}
 
 <div class="container x-auto my-4" id="registration-form">
-	<h1 id="registrationHeading">Register</h1>
+	<h1 class="h1 fw-bold" id="registrationHeading">Register</h1>
 	<form method="post" hx-post="{% url 'register' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" enctype="multipart/form-data" aria-labelledby="registrationHeading">
 		{% csrf_token %}
 		{% for field in form %}

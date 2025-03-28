@@ -1,4 +1,4 @@
-<h2 id="invite-heading">Invite {% if mode == 'TOURNAMENT' %}Friends{% else %}a Friend{% endif %}</h2>
+<h2 class="h2" id="invite-heading">Invite {% if mode == 'TOURNAMENT' %}Friends{% else %}a Friend{% endif %}</h2>
 <form id="invite-form" method="post" action="{% url 'invite_friends' room_id=room.room_id %}" 
       hx-post="{% url 'invite_friends' room_id=room.room_id %}" hx-target="#dynamic-content" 
       hx-swap="innerHTML" hx-push-url="true" aria-labelledby="invite-heading">

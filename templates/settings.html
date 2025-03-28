@@ -7,42 +7,42 @@
 {% block navbar %}{% include "ui.html" %}{% endblock %}
 
 <div class="container x-auto my-4" id="settings" role="region" aria-labelledby="settingsHeading">
-	<h1 id="settings-heading">Settings</h1>
-	<div class="m-0 pt-3">
-		<h3 id="accountHeading">Account</h3>
-		<ul class="m-0 p-0" style="list-style-type: none;">
-			{% if user.password is not None %}
-			<li>
-				<button class="btn btn-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content"
-					hx-swap="outerHTML" hx-push-url="true" aria-label="Change Password">Change Password</button>
-			</li>
-			{% else %}
-			<li>
-				<button class="btn btn-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content"
-					hx-swap="outerHTML" hx-push-url="true" aria-label="Set Password">Set Password</button>
-			</li>
-			{% endif %}
-			<br>
-			<h2>Two-Factor Authentication <span
-					class="badge {% if user.twofa %}bg-success{% else %}bg-secondary{% endif %}">
-					{{ user.twofa|yesno:"Enabled,Disabled" }}
-				</span></h2>
-			<li>
+	<h1 class="h1 fw-bold mb-1" id="settings-heading">Settings</h1>
+	<div class="d-flex m-0 pt-3">
+		<div class="rounded bg-dark-subtle p-3 me-4">
+			<h3 class="h3 mb-3" id="accountHeading">Account</h3>
+			<ul class="m-0 p-0" style="list-style-type: none;">
+				{% if user.password is not None %}
+				<li>
+					<button class="btn btn-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content"
+						hx-swap="outerHTML" hx-push-url="true" aria-label="Change Password">Change Password</button>
+				</li>
+				{% else %}
+				<li>
+					<button class="btn btn-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content"
+						hx-swap="outerHTML" hx-push-url="true" aria-label="Set Password">Set Password</button>
+				</li>
+				{% endif %}
+			</ul>
+		</div>
+		<div class="rounded bg-dark-subtle p-3">
+			<h3 class="h3 mb-3">2FA</h3>
+			<div class="d-flex justify-center">
 				<form id="2fa-form" hx-post="{% url 'enable-2fa' %}" hx-target="#settings">
 					{% csrf_token %}
-					<div class="d-flex align-items-center gap-2">
+					<div class="me-2 d-flex align-items-center gap-2">
 						<button type="submit" class="btn {% if user.twofa %}btn-danger{% else %}btn-success{% endif %}"
 							aria-label="Toggle Two-Factor Authentication">
 							{% if user.twofa %}
-							Disable 2FA
+							Disable
 							{% else %}
-							Enable 2FA
+							Enable
 							{% endif %}
 						</button>
 					</div>
 				</form>
-			</li>
-		</ul>
+			</div>
+		</div>
 	</div>
 </div>
 
