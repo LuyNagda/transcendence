@@ -4,8 +4,8 @@
     <div class="card-body">
 		<div v-if="owner.id === currentUser.id && state === 'LOBBY'" class="form-group mb-3" role="group"
             aria-labelledby="game-mode-label">
-            <label for="game-mode" id="game-mode-label">Game Mode</label>
-            <select id="game-mode" name="mode" class="form-control" v-model="mode" v-on:change="handleModeChange"
+            <label for="game-mode" id="game-mode-label" class="form-label">Game Mode</label>
+            <select id="game-mode" name="mode" class="form-select" v-model="mode" v-on:change="handleModeChange"
                 aria-labelledby="game-mode-label" aria-describedby="game-mode-description"
                 :disabled="owner.id !== currentUser.id" role="combobox" aria-haspopup="listbox">
                 <option value="AI" role="option">AI Mode</option>
@@ -13,6 +13,7 @@
                 <option value="CLASSIC" role="option">Classic Mode</option>
                 <option value="TOURNAMENT" role="option">Tournament Mode</option>
             </select>
+
         </div>
         <!-- Settings form for room owner -->
         <form id="settings-form" v-if="isOwner && isLobbyState">
