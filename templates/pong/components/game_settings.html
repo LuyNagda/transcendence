@@ -69,7 +69,7 @@
                 <select class="form-select" id="aiDifficulty" data-setting="aiDifficulty"
                     v-model="settings.aiDifficulty" v-on:change="handleSettingChange"
                     aria-label="Select AI difficulty level">
-                    <option v-for="ai in availableAIs" :value="ai">[[ai]]</option>
+                    <option v-for="ai in availableAIs" :value="ai">[[ ai ]]</option>
                 </select>
             </div>
         </form>

@@ -904,6 +904,17 @@ class JaiPasVu {
             const event = isVOn ? attr.name.split(':')[1] : attr.name.slice(1);
             const expression = attr.value;
 
+            if (event === 'click') {
+                const handleKeyPress = (e) => {
+                    if (e.key === 'Enter') {
+                        handler(e);
+                    }
+                };
+                el.addEventListener('keydown', handleKeyPress);
+                if (!el.__v_on_handlers) el.__v_on_handlers = {};
+                el.__v_on_handlers['keydown'] = handleKeyPress;
+            }
+
             // Remove old listener if exists
             if (el.__v_on_handlers && el.__v_on_handlers[event]) {
                 el.removeEventListener(event, el.__v_on_handlers[event]);

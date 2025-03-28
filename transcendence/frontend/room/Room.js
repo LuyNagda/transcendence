@@ -194,7 +194,7 @@ export default class Room {
 
 	_getRoomMode() {
 		const roomState = store.getState('room');
-		return roomState?.mode || RoomModes.CLASSIC;
+		return roomState?.mode || RoomModes.LOCAL;
 	}
 
 	_getAvailableSlots() {
