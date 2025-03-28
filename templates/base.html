@@ -22,12 +22,6 @@
         {% endblock %}
     </main>
 
-    {% block footer %}
-    {% if not request.htmx %}
-    {% include "footer.html" %}
-    {% endif %}
-    {% endblock %}
-
 	{% if not request.htmx %}
 		<script type="module" src="{% static 'main.js' %}"></script>
 	{% endif %}
