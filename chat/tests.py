@@ -100,14 +100,17 @@ class ChatConsumerTestCase(TransactionTestCase):
         )
 
         try:
-            sender_comm = await self.connect_and_send('chat_message', {
-                'message': 'Hello!',
-                'recipient_id': test_recipient.id
-            }, user=test_sender)
-            
             recipient_comm = await self.create_communicator(test_recipient)
             await recipient_comm.connect()
 
+            sender_comm = await self.connect_and_send('chat_message', {
+                'message': {
+                    'content': 'Hello!',
+                    'type': 'text'
+                },
+                'recipient_id': test_recipient.id
+            }, user=test_sender)
+            
             response = await recipient_comm.receive_json_from()
             while response.get('type') == 'status_update':
                 response = await recipient_comm.receive_json_from()
@@ -150,11 +153,15 @@ class ChatConsumerTestCase(TransactionTestCase):
                 user=blocking_user, blocked_user=blocked_sender)
 
             communicator = await self.connect_and_send('chat_message', {
-                'message': 'Blocked message',
+                'message': {
+                    'content': 'Blocked message',
+                    'type': 'text'
+                },
                 'recipient_id': blocking_user.id
             }, user=blocked_sender)
             
             response = await communicator.receive_json_from()
+            self.assertEqual(response.get('type'), 'error')
             self.assertEqual(response.get('error'), 'Message blocked: User is blocked')
             await communicator.disconnect()
 
@@ -248,11 +255,14 @@ class ChatConsumerTestCase(TransactionTestCase):
             'recipient_id': self.other_user.id
         })
         response = await communicator.receive_json_from()
-        self.assertIn('error', response)
+        self.assertEqual(response.get('type'), 'error')
+        self.assertEqual(
+            response.get('message'),
+            'An error occurred while processing your request'
+        )
         await communicator.disconnect()
 
-    async def test_unauthorized_access(self):
-        # Test accessing a protected route without authentication
+    async def test_unauthorized_access(self):        # Test accessing a protected route without authentication
         application = AuthMiddlewareStack(URLRouter([path("ws/chat/", ChatConsumer.as_asgi())]))
         communicator = WebsocketCommunicator(application, "/ws/chat/")
         connected, _ = await communicator.connect()

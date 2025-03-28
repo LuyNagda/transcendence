@@ -12,10 +12,19 @@
             <div class="col d-flex flex-column justify-content-center align-items-start me-4">
                 <h1 class="h1 fw-bold">42Pong</h1>
                 <h3 class="h3">Experience the iconic Pong Game</h3>
-                <button class="btn btn-primary btn-lg my-3" hx-get="{% url 'pong' %}" hx-target="#content"
-                    hx-swap="outerHTML" hx-push-url="true" aria-label="Start the Pong Game">
-                    Start
-                </button>
+                <div class="container x-auto my-4">
+                    {% if room == 'created' %}
+                    <button id="enter-room-btn" hx-get="{% url 'pong_room' room_id=room_id %}" hx-target="#content"
+                        hx-swap="outerHTML" hx-push-url="true" class="btn btn-primary" aria-label="Enter game room">
+                        Enter Room
+                    </button>
+                    {% else %}
+                    <button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#content" hx-swap="outerHTML"
+                        class="btn btn-primary" aria-label="Create new game room">
+                        Start a Game
+                    </button>
+                    {% endif %}
+                </div>
             </div>
             <div class="d-flex flex-column justify-content-center col ms-4">
                 <video autoplay muted loop id="pong_gameplay" alt="Pong Gameplay Video" class="rounded"

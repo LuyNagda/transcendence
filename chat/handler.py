@@ -1,13 +1,13 @@
 import json
 import logging
 from typing import Dict, Any, Optional, Callable, Awaitable, TypedDict, Union, List
+from django.contrib.auth.models import AbstractUser
 from django.db import models
 from channels.db import database_sync_to_async
 from django.core.exceptions import ObjectDoesNotExist
 from django.contrib.auth import get_user_model
 from .models import ChatMessage, BlockedUser
 from pong.models import PongRoom
-import uuid
 
 User = get_user_model()
 
@@ -102,7 +102,7 @@ class ChatHandler:
             return False
 
     @database_sync_to_async
-    def get_user(self, username: Optional[str] = None, id: Optional[int] = None) -> User:
+    def get_user(self, username: Optional[str] = None, id: Optional[int] = None) -> AbstractUser:
         if username:
             return User.objects.get(username=username)
         elif id:
@@ -111,23 +111,23 @@ class ChatHandler:
             raise ValueError('No username or id provided')
 
     @database_sync_to_async
-    def already_friends(self, current_user: User, friend: User) -> bool:
+    def already_friends(self, current_user: AbstractUser, friend: AbstractUser) -> bool:
         return current_user.friends.filter(id=friend.id).exists()
         
     @database_sync_to_async
-    def is_pending(self, current_user: User, friend: User) -> bool:
+    def is_pending(self, current_user: AbstractUser, friend: AbstractUser) -> bool:
         return current_user.friendrequests.filter(id=friend.id).exists()
 
     @database_sync_to_async
-    def already_pending(self, current_user: User, friend: User) -> bool:
+    def already_pending(self, current_user: AbstractUser, friend: AbstractUser) -> bool:
         return friend.friendrequests.filter(id=current_user.id).exists()
 
     @database_sync_to_async
-    def already_crossing(self, current_user: User, friend: User) -> bool:
+    def already_crossing(self, current_user: AbstractUser, friend: AbstractUser) -> bool:
         return current_user.friendrequests.filter(id=friend.id).exists()
 
     @database_sync_to_async
-    def add_friend(self, current_user: User, friend: User) -> None:
+    def add_friend(self, current_user: AbstractUser, friend: AbstractUser) -> None:
         current_user.friends.add(friend)
         friend.friends.add(current_user)
         friend.friendrequests.remove(current_user)
@@ -136,13 +136,13 @@ class ChatHandler:
         current_user.save()
 
     @database_sync_to_async
-    def remove_friend(self, current_user: User, friend: User) -> None:
+    def remove_friend(self, current_user: AbstractUser, friend: AbstractUser) -> None:
         current_user.friends.remove(friend)
         friend.friends.remove(current_user)
         friend.save()
         current_user.save()
 
-    async def refresh_friends(self, friend: User) -> None:
+    async def refresh_friends(self, friend: AbstractUser) -> None:
         await self.consumer.channel_layer.group_send(
         f"chat_{friend.id}",
             {
@@ -152,14 +152,14 @@ class ChatHandler:
         )
 
     @database_sync_to_async
-    def delete_friend_request(self, current_user: User, friend: User) -> None:
+    def delete_friend_request(self, current_user: AbstractUser, friend: AbstractUser) -> None:
         friend.friendrequests.remove(current_user)
         current_user.friendrequests.remove(friend)
         friend.save()
         current_user.save()
 
     @database_sync_to_async
-    def send_friend_request(self, current_user: User, friend: User) -> None:
+    def send_friend_request(self, current_user: AbstractUser, friend: AbstractUser) -> None:
         friend.friendrequests.add(current_user)
 
     async def handle_friend_request(self, data: Dict[str, Any]) -> None:
@@ -258,7 +258,7 @@ class ChatHandler:
 
         try:
             if await self.is_blocked(recipient_id):
-                await self.send_response('chat_message', success=False, error='Message blocked: User is blocked')
+                await self.send_response('error', success=False, error='Message blocked: User is blocked')
                 return
 
             saved_message = await self.save_message(message, recipient_id)
@@ -521,7 +521,7 @@ class ChatHandler:
         return room.owner.id
 
     @database_sync_to_async
-    def get_pending_requests(self, user: User) -> List[Dict[str, Any]]:
+    def get_pending_requests(self, user: AbstractUser) -> List[Dict[str, Any]]:
         return list(user.friendrequests.all().values(
             'id',
             'username',
