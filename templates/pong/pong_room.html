@@ -38,6 +38,15 @@
 			Dashboard
 		</button>
     </div>
+	<div v-if="error" :class="'alert alert-' + errorType + ' mt-3'" role="alert" aria-live="assertive">
+		<div class="d-flex align-items-center">
+			<i class="fas fa-exclamation-circle me-2"></i>
+			<div>
+				<span v-text="errorMessage"></span>
+				<small v-if="error.timestamp" class="d-block text-muted mt-1" v-text="formatErrorTime"></small>
+			</div>
+		</div>
+	</div>
 </div>
 
 <style>

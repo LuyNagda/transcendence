@@ -35,7 +35,7 @@ export const initialUIState = {
 	modals: {},
 	toasts: [],
 	offcanvas: {},
-	theme: getFromStorage(STORAGE_KEYS.THEME, UI_THEME.LIGHT),
+	theme: getFromStorage(STORAGE_KEYS.THEME, UI_THEME.DARK),
 	fontSize: getFromStorage(STORAGE_KEYS.FONT_SIZE, UI_FONT_SIZE.SMALL)
 };
 

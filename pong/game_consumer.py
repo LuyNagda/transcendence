@@ -404,11 +404,11 @@ class PongGameConsumer(AsyncWebsocketConsumer):
         self.game.refresh_from_db()  # Actualise l'état depuis la base
         if self.game.status == 'ongoing':
             self.game.status = 'finished'
-            max_score = 21
+            min_score = -1
             if self.is_host:
-                self.game.player2_score = max_score
+                self.game.player1_score = min_score
             else:
-                self.game.player1_score = max_score
+                self.game.player2_score = min_score
             self.game.finished_at = timezone.now()
             self.game.save()
             if self.game.room:

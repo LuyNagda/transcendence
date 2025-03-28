@@ -4,7 +4,7 @@
     <div class="offcanvas offcanvas-start" tabindex="-1" id="chatCanvas"
         aria-labelledby="chatCanvasLabel">
         <div class="offcanvas-header">
-            <h4 id="chatCanvasLabel" class="h4 offcanvas-title">Chat</h4>
+            <h4 id="chatCanvasLabel" class="h4 fw-bold offcanvas-title">Chat</h4>
 			<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
         </div>
         <div class="row offcanvas-body ps-4">
@@ -98,99 +98,4 @@
     </div>
 </div>
 
-<style>
-    .chat-bubble-container {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        max-height: 60vh;
-        overflow-y: auto;
-    }
-
-    .chat-bubble {
-        min-width: 25%;
-        max-width: 70%;
-        padding: 10px 15px;
-        border-radius: 20px;
-        position: relative;
-        color: white;
-        word-wrap: break-word;
-    }
-
-    .chat-bubble .message-header {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-        margin-bottom: 5px;
-        padding-bottom: 3px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .chat-bubble .sender-name {
-		padding-right: 10px;
-        font-weight: bold;
-        font-size: 0.9em;
-    }
-
-    .chat-bubble.sent {
-        align-self: flex-end;
-        background-color: #007bff;
-    }
-
-    .chat-bubble.received {
-        align-self: flex-start;
-        background-color: #6c757d;
-    }
-
-    .chat-bubble p {
-        margin: 5px 0;
-    }
-
-    .chat-bubble small {
-        font-size: 0.75em;
-        opacity: 0.7;
-    }
-
-    .user-chat-item {
-        cursor: pointer;
-        border-radius: 8px;
-        margin-bottom: 4px;
-        transition: background-color 0.2s ease;
-    }
-
-    .user-chat-item:hover {
-        background-color: var(--bs-light-bg-subtle);
-    }
-
-    .user-chat-item.active {
-        background-color: var(--bs-light-bg-subtle);
-    }
-
-    .user-chat-item.blocked {
-        opacity: 0.7;
-    }
-
-    #chatCanvas {
-        min-width: 350px !important;
-		border-radius: 0 2% 2% 0;
-	}
-
-    @media (min-width: 100px) and (max-width: 899px) {
-        #chatCanvas {
-            width: 100%;
-        }
-    }
-
-    @media (min-width: 900px) and (max-width: 1199px) {
-        #chatCanvas {
-            width: 75%;
-        }
-    }
-
-    @media (min-width: 1200px) {
-        #chatCanvas {
-            width: 50%;
-        }
-    }
-</style>
 {% endblock content %}

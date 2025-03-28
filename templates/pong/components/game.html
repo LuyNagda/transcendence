@@ -26,84 +26,10 @@
 </div>
 
 <style>
-    /* Game container styles */
-    #game-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 100%;
-        margin: 20px 0;
-        border-radius: 10px;
-        overflow: hidden;
-        flex-direction: column;
-        position: relative;
-    }
-
-    /* Arcade cabinet styling */
-    .arcade-cabinet {
-        background-color: #111;
-        border-radius: 20px;
-        padding: 20px;
-        box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
-        max-width: 100%;
-        box-sizing: border-box;
-    }
-
-    /* Screen container */
-    .screen {
-        background-color: #000;
-        border: 10px solid #444;
-        border-radius: 20px;
-        overflow: hidden;
-    }
-
-    /* Canvas element */
-    canvas {
-        display: block;
-        width: 100%;
-        height: auto;
-        image-rendering: pixelated;
-        image-rendering: crisp-edges;
-    }
-
-    /* Font for score display */
     @font-face {
-        font-family: 'PongScore';
-        src: url('{% static "fonts/pong-score.ttf" %}');
-    }
-    
-    .paddle-control {
-        width: 70px;
-        height: 70px;
-        border-radius: 50%;
-        background-color: rgba(255, 255, 255, 0.2);
-        border: 2px solid #444;
-        color: white;
-        font-size: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        user-select: none;
-        touch-action: manipulation;
-    }
-
-    .paddle-control:active {
-        background-color: rgba(255, 255, 255, 0.4);
-        transform: scale(0.95);
-    }
-    
-    /* Hide mobile controls by default */
-    #mobile-controls {
-        display: none;
-    }
-
-    /* Only show mobile controls on touch devices/small screens */
-    @media (hover: none), (max-width: 768px) {
-        #mobile-controls {
-            display: flex;
-        }
-    }
+		font-family: 'PongScore';
+		src: url('{% static "fonts/pong-score.ttf" %}');
+	}
 </style>
 
 <script>
