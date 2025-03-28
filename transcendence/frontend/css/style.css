@@ -2,6 +2,18 @@ body {
 	--bs-body-font-family: 'PongRetro', 'VT323', monospace;
 }
 
+[data-bs-theme=dark] :focus {
+	border-color: #00ff00;
+	outline: 2px solid #00ff00;
+	outline-offset: 2px;
+  }
+
+[data-bs-theme=high-contrast] :focus {
+	border-color: #ffff00;
+	outline: 2px solid #ffff00;
+	outline-offset: 2px;
+  }
+
 [data-bs-theme=dark] {
 	--bs-body-bg: #001a00 !important;
 	--bs-body-color: #00ff00;
