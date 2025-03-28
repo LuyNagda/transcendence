@@ -286,7 +286,7 @@ export default class Room {
 	_handleGameEnded(data) {
 		logger.info('[Room] Game ended:', data);
 		this._updateRoomState({ state: RoomStates.LOBBY });
-		this._gameManager.handleGameEnded(data);
+		// this._gameManager.handleGameEnded(data);
 	}
 
 	_handleGameFailure(error) {

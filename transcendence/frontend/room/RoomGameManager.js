@@ -113,6 +113,10 @@ export class RoomGameManager {
 				this.handleGameFailure(error);
 			});
 
+			this._gameInstance.eventEmitter.on("networkDisconnect", () => {
+				this.handleGameEnded();
+			});
+
 			this._gameInProgress = true;
 
 			logger.info('[RoomGameManager] Game initialized successfully, gameOptions:', gameOptions);
