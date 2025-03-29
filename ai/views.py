@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from pathlib import Path
 
 # Constants for parameter validation
 MIN_GENERATIONS = 1
@@ -31,7 +32,7 @@ def send_ai_to_front(request, ai_name):
             raise ValueError("Invalid AI name. Only alphanumeric characters are allowed.")
 
         # Use Path or os.path to create a proper file path
-        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
+        save_file = Path(settings.STATICFILES_DIRS[0]) / 'saved_ai' / ai_name
     
         # Open and load the JSON file
         with open(save_file, 'r') as load_file:
@@ -45,7 +46,7 @@ def send_ai_to_front(request, ai_name):
     
     except FileNotFoundError:
         # If file not found, load Marvin
-        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai/Marvin'
+        save_file = Path(settings.STATICFILES_DIRS[0]) / 'saved_ai/Marvin'
         with open(save_file, 'r') as load_file:
             default_Marvin = json.load(load_file)
 
