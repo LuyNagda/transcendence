@@ -27,12 +27,19 @@ def profile(request):
         field_value = request.POST.get("value")
 
         try:
+            if field_name == "username":
+                return JsonResponse({"success": False, "error": "Username cannot be changed."}, status=400)
             if field_name == "email":
                 if User.objects.filter(email=field_value).exclude(username=user.username).exists():
                     return JsonResponse({"success": False, "error": "Email is already in use."}, status=400)
                 user.email = field_value
 
             elif field_name == "nick_name":
+                if not field_value:
+                    return JsonResponse({"success": False, "error": "Nickname cannot be empty."}, status=400)
+                if len(field_value) > 10:
+                    errorMsg = "Ensure this value has at most 10 characters (it has {}).".format(len(field_value))
+                    return JsonResponse({"success": False, "error": errorMsg}, status=400)
                 user.nick_name = field_value
 
             elif field_name == "date_of_birth":

@@ -35,27 +35,28 @@ class HomeViewsTest(TestCase):
 
     def test_profile_view_post_nickname_update(self):
         self.login(username='testuser', password='testpassword')
-        response = self.client.post(reverse('profile'), {'name': 'testuser', 'email': 'testing@test.com', 'nick_name': 'newnick'})
+        response = self.client.post(reverse('profile'), {'field': 'nick_name', 'value': 'newnick'})
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.nick_name, 'newnick')
-        self.assertEqual(self.user.username, 'testuser')
-        self.assertEqual(self.user.email, 'testing@test.com')
 
     def test_profile_view_post_nickname_update_more_than_10_chars(self):
         self.login(username='testuser', password='testpassword')
-        response = self.client.post(reverse('profile'), {'nick_name': 'updatednick'})
-        self.assertEqual(response.status_code, 200)
+        response = self.client.post(reverse('profile'), {'field': 'nick_name', 'value': 'updatednick'})
+        self.assertEqual(response.status_code, 400)
         self.user.refresh_from_db()
-        self.assertContains(response, 'Ensure this value has at most 10 characters (it has 11).')
+        json_response = response.json()
+        self.assertEqual(json_response['success'], False)
+        self.assertEqual(json_response['error'], 'Ensure this value has at most 10 characters (it has 11).')
 
     def test_profile_view_post_invalid_nickname(self):
         self.login(username='testuser', password='testpassword')
-        response = self.client.post(reverse('profile'), {'nick_name': ''})  # Empty nick_name
-        self.assertEqual(response.status_code, 200)
+        response = self.client.post(reverse('profile'), {'field': 'nick_name', 'value': ''})
+        self.assertEqual(response.status_code, 400)
         self.user.refresh_from_db()
-        self.assertNotEqual(self.user.nick_name, '')
-        self.assertEqual(self.user.nick_name, 'testnick')  # Should remain unchanged
+        json_response = response.json()
+        self.assertEqual(json_response['success'], False)
+        self.assertEqual(json_response['error'], 'Nickname cannot be empty.')
 
     def test_enable_2fa_view(self):
         self.login(username='testuser', password='testpassword')
