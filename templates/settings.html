@@ -5,8 +5,11 @@
 {% block content %}
 
 {% block navbar %}{% include "ui.html" %}{% endblock %}
-
-<div class="container x-auto my-4" id="settings" role="region" aria-labelledby="settingsHeading">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<div class="container x-auto my-4" id="settings" role="region"
+	aria-labelledby="settingsHeading">
 	<h1 class="h1 fw-bold mb-1" id="settings-heading">Settings</h1>
 	<div class="d-flex m-0 pt-3">
 		<div class="setting-module rounded bg-dark-subtle p-3 me-4">
@@ -14,13 +17,17 @@
 			<ul class="m-0 p-0" style="list-style-type: none;">
 				{% if user.password is not None %}
 				<li>
-					<button class="btn btn-primary" href="#" hx-get="{% url 'change-password' %}" hx-target="#content"
-						hx-swap="outerHTML" hx-push-url="true" aria-label="Change Password">Change Password</button>
+					<button class="btn btn-primary" href="#"
+						hx-get="{% url 'change-password' %}" hx-target="#content"
+						hx-swap="outerHTML" hx-push-url="true" aria-label="Change Password">Change
+						Password</button>
 				</li>
 				{% else %}
 				<li>
-					<button class="btn btn-primary" href="#" hx-get="{% url 'set-password' %}" hx-target="#content"
-						hx-swap="outerHTML" hx-push-url="true" aria-label="Set Password">Set Password</button>
+					<button class="btn btn-primary" href="#" hx-get="{% url 'set-password' %}"
+						hx-target="#content"
+						hx-swap="outerHTML" hx-push-url="true" aria-label="Set Password">Set
+						Password</button>
 				</li>
 				{% endif %}
 			</ul>
@@ -28,21 +35,68 @@
 		<div class="setting-module rounded bg-dark-subtle p-3">
 			<h3 class="h3 mb-3">2FA</h3>
 			<div class="d-flex justify-center">
-				<form id="2fa-form" hx-post="{% url 'enable-2fa' %}" hx-target="#settings">
-					{% csrf_token %}
-					<div class="me-2 d-flex align-items-center gap-2">
-						<button type="submit" class="btn {% if user.twofa %}btn-danger{% else %}btn-success{% endif %}"
-							aria-label="Toggle Two-Factor Authentication">
-							{% if user.twofa %}
-							Disable
-							{% else %}
-							Enable
-							{% endif %}
-						</button>
-					</div>
-				</form>
+				<div class="me-2 d-flex align-items-center gap-2">
+					<button id="2fa-button"
+						class="btn {% if user.twofa %}btn-success{% else %}btn-danger{% endif %}"
+						aria-label="Toggle Two-Factor Authentication">
+						{% if user.twofa %}
+						Enabled	
+						{% else %}
+						Disabled
+						{% endif %}
+					</button>
+				</div>
 			</div>
 		</div>
 	</div>
 </div>
+<script>
+    function setupTwoFaButton() {
+        console.log("setupTwoFaButton called");
+
+        const twoFaButton = document.getElementById("2fa-button");
+        if (!twoFaButton) {
+            console.log("2FA button not found");
+            return;
+        }
+
+        twoFaButton.replaceWith(twoFaButton.cloneNode(true));
+        const newTwoFaButton = document.getElementById("2fa-button");
+
+        newTwoFaButton.addEventListener("click", function () {
+            console.log("2FA button clicked");
+
+            fetch("{% url 'enable-2fa' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/json",
+                },
+                credentials: "same-origin",
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Response received:", data);
+
+                newTwoFaButton.classList.toggle("btn-success", data.twofa);
+                newTwoFaButton.classList.toggle("btn-danger", !data.twofa);
+                newTwoFaButton.textContent = data.twofa ? "Enabled" : "Disabled";
+            })
+            .catch(error => console.error("Error:", error));
+        });
+
+        console.log("Event listener attached to 2FA button");
+    }
+
+    document.body.addEventListener("htmx:afterSwap", function (event) {
+        console.log("HTMX content swapped - Reattaching event listeners");
+        setupTwoFaButton();
+    });
+
+
+if (window.location.href.includes("settings")) {
+	console.log("Page loaded from cache - Reattaching event listeners");
+	setupTwoFaButton();
+}
+</script>
 {% endblock %}
