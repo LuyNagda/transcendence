@@ -4,7 +4,6 @@ from authentication.models import User
 from django.contrib.auth.hashers import make_password
 from unittest.mock import patch, mock_open, MagicMock
 import json
-from pathlib import Path
 
 class SendAiToFrontTest(TestCase):
     def setUp(self):
@@ -74,3 +73,262 @@ class SendAiToFrontTest(TestCase):
         self.assertEqual(response.context['user'], self.user)
         self.assertIsNotNone(response.context['access_token'])
         self.assertIsNotNone(response.context['refresh_token'])
+
+
+    def test_training_view_insufficient_cpu(self):
+        """Test training view with insufficient CPU."""
+        self.login(username='testuser', password='testpassword')
+        
+        # Mocking the multiprocessing.cpu_count() to return an insufficient number
+        with patch('multiprocessing.cpu_count', return_value=1):
+            valid_data = {
+                'ai_name': 'testAi',
+                'nb_generation': 10,
+                'nb_species': 50,
+                'time_limit': 5,
+                'max_score': 50
+            }
+            
+            response = self.client.post(
+                reverse('training_with_name'),
+                data=json.dumps(valid_data),
+                content_type='application/json'
+            )
+            self.assertEqual(response.status_code, 400)
+
+    def test_training_view_empty_body(self):
+        """Test training view with empty request body."""
+        self.login(username='testuser', password='testpassword')
+        
+        response = self.client.post(
+            reverse('training_with_name'),
+            data='',
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 400)
+
+    def test_training_view_invalid_ai_name(self):
+        """Test training view with invalid AI name."""
+        self.login(username='testuser', password='testpassword')
+        
+        with patch('multiprocessing.cpu_count', return_value=4):
+            # Test non-alphanumeric name
+            invalid_data = {
+                'ai_name': 'Test AI!',
+                'nb_generation': 10,
+                'nb_species': 50,
+                'time_limit': 5,
+                'max_score': 50
+            }
+            
+            response = self.client.post(
+                reverse('training_with_name'),
+                data=json.dumps(invalid_data),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
+
+    def test_training_view_restricted_name(self):
+        """Test training view with restricted name 'Marvin'."""
+        self.login(username='testuser', password='testpassword')
+        
+        with patch('multiprocessing.cpu_count', return_value=4):
+            restricted_data = {
+                'ai_name': 'Marvin',
+                'nb_generation': 10,
+                'nb_species': 50,
+                'time_limit': 5,
+                'max_score': 50
+            }
+            
+            response = self.client.post(
+                reverse('training_with_name'),
+                data=json.dumps(restricted_data),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 403)
+
+    def test_training_view_invalid_parameters(self):
+        """Test training view with invalid parameters."""
+        self.login(username='testuser', password='testpassword')
+        
+        with patch('multiprocessing.cpu_count', return_value=4):
+            # Test with out-of-range generation value
+            with patch('ai.views.MIN_GENERATIONS', 1), \
+                patch('ai.views.MAX_GENERATIONS', 100):
+                
+                invalid_data = {
+                    'ai_name': 'testAi',
+                    'nb_generation': 101,  # Beyond max
+                    'nb_species': 50,
+                    'time_limit': 5,
+                    'max_score': 50
+                }
+                
+                response = self.client.post(
+                    reverse('training_with_name'),
+                    data=json.dumps(invalid_data),
+                    content_type='application/json'
+                )
+                
+                self.assertEqual(response.status_code, 400)
+            
+            with patch('ai.views.MIN_GENERATIONS', 1), \
+                patch('ai.views.MAX_GENERATIONS', 100):
+                
+                invalid_data = {
+                    'ai_name': 'testAi',
+                    'nb_generation': 0,  # Beyond min
+                    'nb_species': 50,
+                    'time_limit': 5,
+                    'max_score': 50
+                }
+                
+                response = self.client.post(
+                    reverse('training_with_name'),
+                    data=json.dumps(invalid_data),
+                    content_type='application/json'
+                )
+                
+                self.assertEqual(response.status_code, 400)
+
+            with patch('ai.views.MIN_SPECIES', 50), \
+                patch('ai.views.MAX_SPECIES', 100):
+                
+                invalid_data = {
+                    'ai_name': 'testAi',
+                    'nb_generation': 1,
+                    'nb_species': 101,  # Beyond max
+                    'time_limit': 5,
+                    'max_score': 50
+                }
+                
+                response = self.client.post(
+                    reverse('training_with_name'),
+                    data=json.dumps(invalid_data),
+                    content_type='application/json'
+                )
+                
+                self.assertEqual(response.status_code, 400)
+            
+            with patch('ai.views.MIN_SPECIES', 50), \
+                patch('ai.views.MAX_SPECIES', 100):
+                
+                invalid_data = {
+                    'ai_name': 'testAi',
+                    'nb_generation': 1,
+                    'nb_species': 49,  # Beyond min
+                    'time_limit': 5,
+                    'max_score': 50
+                }
+                
+                response = self.client.post(
+                    reverse('training_with_name'),
+                    data=json.dumps(invalid_data),
+                    content_type='application/json'
+                )
+                
+                self.assertEqual(response.status_code, 400)
+
+            with patch('ai.views.MIN_TIME_LIMIT', 5), \
+                patch('ai.views.MAX_TIME_LIMIT', 60):
+                
+                invalid_data = {
+                    'ai_name': 'testAi',
+                    'nb_generation': 1,
+                    'nb_species': 50,
+                    'time_limit': 61,  # Beyond max
+                    'max_score': 50
+                }
+                
+                response = self.client.post(
+                    reverse('training_with_name'),
+                    data=json.dumps(invalid_data),
+                    content_type='application/json'
+                )
+                
+                self.assertEqual(response.status_code, 400)
+            
+            with patch('ai.views.MIN_TIME_LIMIT', 5), \
+                patch('ai.views.MAX_TIME_LIMIT', 60):
+                
+                invalid_data = {
+                    'ai_name': 'testAi',
+                    'nb_generation': 1,
+                    'nb_species': 50,
+                    'time_limit': 4,  # Beyond min
+                    'max_score': 50
+                }
+                
+                response = self.client.post(
+                    reverse('training_with_name'),
+                    data=json.dumps(invalid_data),
+                    content_type='application/json'
+                )
+                
+                self.assertEqual(response.status_code, 400)
+
+            with patch('ai.views.MIN_MAX_SCORE', 50), \
+                patch('ai.views.MAX_MAX_SCORE', 500):
+                
+                invalid_data = {
+                    'ai_name': 'testAi',
+                    'nb_generation': 1,
+                    'nb_species': 50,
+                    'time_limit': 60,
+                    'max_score': 501  # Beyond max
+                }
+                
+                response = self.client.post(
+                    reverse('training_with_name'),
+                    data=json.dumps(invalid_data),
+                    content_type='application/json'
+                )
+                
+                self.assertEqual(response.status_code, 400)
+            
+            with patch('ai.views.MIN_MAX_SCORE', 50), \
+                patch('ai.views.MAX_MAX_SCORE', 500):
+                
+                invalid_data = {
+                    'ai_name': 'testAi',
+                    'nb_generation': 1,
+                    'nb_species': 50,
+                    'time_limit': 5,
+                    'max_score': 49  # Beyond min
+                }
+                
+                response = self.client.post(
+                    reverse('training_with_name'),
+                    data=json.dumps(invalid_data),
+                    content_type='application/json'
+                )
+                
+                self.assertEqual(response.status_code, 400)
+
+
+    def test_training_already_in_progress(self):
+        """Test training view when another training is already in progress."""
+        self.login(username='testuser', password='testpassword')
+        
+        with patch('multiprocessing.cpu_count', return_value=4), \
+            patch('ai.views.IN_TRAINING', True):
+            
+            valid_data = {
+                'ai_name': 'testAi',
+                'nb_generation': 1,
+                'nb_species': 50,
+                'time_limit': 5,
+                'max_score': 50
+            }
+            
+            response = self.client.post(
+                reverse('training_with_name'),
+                data=json.dumps(valid_data),
+                content_type='application/json'
+            )
+            
+            self.assertEqual(response.status_code, 400)
