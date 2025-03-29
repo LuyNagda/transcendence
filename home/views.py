@@ -11,66 +11,30 @@ from django.http import JsonResponse
 from django.db import models
 from django.shortcuts import get_object_or_404
 import logging
-from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
 
 logger = logging.getLogger(__name__)
 
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticatedWithCookie])
-@csrf_exempt
 def profile(request):
+    access_token = request.COOKIES.get('access_token')
+    refresh_token = request.COOKIES.get('refresh_token')
     user = request.user
+    if request.method == 'POST':
+        form = ProfileForm(request.POST, request.FILES, item_id=user.username)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Profile updated successfully.')
+            response = JsonResponse({'message': 'Profile updated successfully.', 'profile_picture_url': user.profile_picture.url if user.profile_picture else None})
+            response['HX-Location'] = '/profile'
+            return response
+        else:
+            messages.error(request, 'Profile not updated. Please correct the errors.')
+    else:
+        form = ProfileForm(item_id=user.username)
+    context = {'user': user, 'form': form, 'access_token': access_token, 'refresh_token': refresh_token}
+    return render(request, 'profile.html', context)
 
-    if request.method == "POST":
-        field_name = request.POST.get("field")
-        field_value = request.POST.get("value")
-
-        try:
-            if field_name == "username":
-                return JsonResponse({"success": False, "error": "Username cannot be changed."}, status=400)
-            if field_name == "email":
-                if User.objects.filter(email=field_value).exclude(username=user.username).exists():
-                    return JsonResponse({"success": False, "error": "Email is already in use."}, status=400)
-                user.email = field_value
-
-            elif field_name == "nick_name":
-                if not field_value:
-                    return JsonResponse({"success": False, "error": "Nickname cannot be empty."}, status=400)
-                if len(field_value) > 10:
-                    errorMsg = "Ensure this value has at most 10 characters (it has {}).".format(len(field_value))
-                    return JsonResponse({"success": False, "error": errorMsg}, status=400)
-                user.nick_name = field_value
-
-            elif field_name == "date_of_birth":
-                try:
-                    dob = timezone.datetime.strptime(field_value, "%Y-%m-%d").date()
-                    if dob > timezone.now().date():
-                        return JsonResponse({"success": False, "error": "Date of birth cannot be in the future."}, status=400)
-                    if dob > timezone.now().date() - timezone.timedelta(days=365 * 16):
-                        return JsonResponse({"success": False, "error": "You must be at least 16 years old."}, status=400)
-                    user.date_of_birth = dob
-                except ValueError:
-                    return JsonResponse({"success": False, "error": "Invalid date format."}, status=400)
-
-            elif "profile_picture" in request.FILES:
-                profile_picture = request.FILES["profile_picture"]
-                if profile_picture.size > 512 * 1024:  # 512 KB limit
-                    return JsonResponse({"success": False, "error": "Profile picture size cannot exceed 512 KB."}, status=400)
-                user.profile_picture = profile_picture
-
-            user.save()
-
-            return JsonResponse({
-                "success": True,
-                "message": "Profile updated successfully.",
-                "profile_picture_url": user.profile_picture.url if user.profile_picture else ""
-            })
-
-        except Exception as e:
-            return JsonResponse({"success": False, "error": str(e)}, status=400)
-
-    return render(request, "profile.html", {"user": user, "form": ProfileForm(item_id=user.username)})
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
