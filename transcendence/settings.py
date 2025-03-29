@@ -72,6 +72,7 @@ MIDDLEWARE = [
     'django_htmx.middleware.HtmxMiddleware',
     'authentication.middleware.RedirectOn401Middleware',
     'authentication.middleware.HtmxUserMiddleware',
+    'authentication.middleware.Handle404Middleware',
 ]
 
 ROOT_URLCONF = 'transcendence.urls'

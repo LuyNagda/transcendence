@@ -9,7 +9,7 @@ from asgiref.sync import sync_to_async
 from channels.middleware import BaseMiddleware
 from channels.exceptions import StopConsumer
 from django.http import JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
 
 log = logging.getLogger(__name__)
 
@@ -188,3 +188,16 @@ class WebSocketNotFoundMiddleware(BaseMiddleware):
                     raise  # Re-raise if it's a different ValueError
         else:
             return await super().__call__(scope, receive, send)
+        
+class Handle404Middleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        
+        # Check if response status is 404
+        if response.status_code == 404:
+            return render(request, '404.html', status=404)
+
+        return response
