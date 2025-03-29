@@ -186,16 +186,31 @@ class WebSocketNotFoundMiddleware(BaseMiddleware):
                     raise  # Re-raise if it's a different ValueError
         else:
             return await super().__call__(scope, receive, send)
-        
-class Handle404Middleware:
+    
+class Handle4xxMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
         response = self.get_response(request)
         
-        # Check if response status is 404
-        if response.status_code == 404:
-            return render(request, '404.html', status=404)
+        if 400 <= response.status_code < 500:
+            default_messages = {
+                400: "Bad Request - The request was invalid or cannot be served",
+                401: "Unauthorized - Authentication is required",
+                403: "Forbidden - You don't have permission to access this resource",
+                404: "Page Not Found - The requested resource could not be found",
+                405: "Method Not Allowed",
+                415: "Unsupported Media Type",
+                429: "Too Many Requests",
+            }
+            
+            error_message = default_messages.get(response.status_code, "An error occurred")
+            status_code = response.status_code
+            
+            return render(request, '4xx.html', {
+                'error_message': error_message,
+                'status_code': status_code
+            }, status=status_code)
 
         return response
