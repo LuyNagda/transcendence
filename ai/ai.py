@@ -1,5 +1,6 @@
 import os, json, multiprocessing, logging
-import numpy as np
+import cupy as np
+
 from ai.gamesimulation import train_normal
 from ai.misc.backup import backup_file
 
@@ -22,6 +23,8 @@ class Layer_Dense:
         self.biases = np.random.randn(1, n_neurons) * 0.1
         
     def forward(self, inputs):
+        if isinstance(inputs, list):
+            inputs = np.array(inputs)
         # Output are calculate by multiplying each input with theirs weight and then adding the biaises
         self.output = np.dot(inputs, self.weights) + self.biases
         return self.output
@@ -57,12 +60,12 @@ class Neuron_Network:
         """Copy constructor to create a new instance with the same weights and biases."""
         new_network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
         
-        new_network.layer1.weights = self.layer1.weights.copy()
-        new_network.layer1.biases = self.layer1.biases.copy()
-        new_network.layer2.weights = self.layer2.weights.copy()
-        new_network.layer2.biases = self.layer2.biases.copy()
-        new_network.layer3.weights = self.layer3.weights.copy()
-        new_network.layer3.biases = self.layer3.biases.copy()
+        new_network.layer1.weights = np.copy(self.layer1.weights)
+        new_network.layer1.biases = np.copy(self.layer1.biases)
+        new_network.layer2.weights = np.copy(self.layer2.weights)
+        new_network.layer2.biases = np.copy(self.layer2.biases)
+        new_network.layer3.weights = np.copy(self.layer3.weights)
+        new_network.layer3.biases = np.copy(self.layer3.biases)
         
         new_network.ai_score = self.ai_score
         new_network.sample_gen = self.sample_gen
@@ -82,10 +85,10 @@ class Neuron_Network:
         ball_relative_y = ball.center_y / height
         paddle_relative_y = paddle_y / height
 
-        X = [ball_relative_x, ball_relative_y, ball.dx, ball.dy, paddle_relative_y]
+        X = np.array([ball_relative_x, ball_relative_y, ball.dx, ball.dy, paddle_relative_y])
         response = self.forward(X)
-
-        return np.argmax(response)
+        
+        return np.argmax(response).item()
     
     def __lt__(self, other):
         return ((self.ai_score) < (other.ai_score))
@@ -96,16 +99,16 @@ class Neuron_Network:
     def to_dict(self):
         return {
             "layer1": {
-                "weights" : self.layer1.weights.tolist(),
-                "biases": self.layer1.biases.tolist()
+                "weights" : np.asnumpy(self.layer1.weights).tolist(),
+                "biases": np.asnumpy(self.layer1.biases).tolist()
             },
             "layer2": {
-                "weights" : self.layer2.weights.tolist(),
-                "biases": self.layer2.biases.tolist()
+                "weights" : np.asnumpy(self.layer2.weights).tolist(),
+                "biases": np.asnumpy(self.layer2.biases).tolist()
             },
             "layer3": {
-                "weights" : self.layer3.weights.tolist(),
-                "biases": self.layer3.biases.tolist()
+                "weights" : np.asnumpy(self.layer3.weights).tolist(),
+                "biases": np.asnumpy(self.layer3.biases).tolist()
             }
         }
     
@@ -218,7 +221,8 @@ def Crossover_mutation(Ai_Sample, nb_species):
     # Crossover & Mutation
     while (len(Ai_Sample) < nb_species - 5):
         # Select 2 parent randomly from the 5 best performing AI and instance a child
-        parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
+        parent_indices = np.random.choice(5, 2, replace=False)
+        parent1, parent2 = Ai_Sample[parent_indices[0]], Ai_Sample[parent_indices[1]]
         child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
 
         # Crossover for both weights and biases
@@ -313,7 +317,7 @@ def train_ai(save_file, training_params):
         training_args = [(Ai_Sample[i], i, time_limit, max_score) for i in range(nb_species)]
 
         # Use half of available CPU cores
-        nb_core = max(1, multiprocessing.cpu_count() - 1)
+        nb_core = max(1, multiprocessing.cpu_count() - 2)
         with multiprocessing.Pool(processes=(nb_core)) as pool:
             training_results = pool.map(train_species_wrapper, training_args)
 

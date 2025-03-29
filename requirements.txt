@@ -13,3 +13,4 @@ djangorestframework-simplejwt
 requests
 bugsnag
 numpy
+cupy
