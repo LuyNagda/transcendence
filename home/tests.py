@@ -58,6 +58,17 @@ class HomeViewsTest(TestCase):
         self.assertEqual(json_response['success'], False)
         self.assertEqual(json_response['error'], 'Nickname cannot be empty.')
 
+    def test_profile_view_post_email_update(self):
+        self.login(username='testuser', password='testpassword')
+        response = self.client.post(
+            reverse('profile'),
+            {'field': 'email', 'value': 'testing@test.com'}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'testuser')
+        self.assertEqual(self.user.email, 'testing@test.com')
+
     def test_enable_2fa_view(self):
         self.login(username='testuser', password='testpassword')
         response = self.client.post(reverse('enable-2fa'))
