@@ -71,6 +71,52 @@ class HomeViewsTest(TestCase):
         self.assertEqual(self.user.username, 'testuser')
         self.assertEqual(self.user.email, 'testing@test.com')
 
+    def test_profile_view_post_invalid_email(self):
+        self.login(username='testuser', password='testpassword')
+        response = self.client.post(
+            reverse('profile'),
+            {'email' : 'testing@test.com',
+             'name' : 'testuser',
+             'nick_name' : 'testnick'}
+        ) # Valide email
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'testuser')
+        self.assertEqual(self.user.email, 'testing@test.com')
+
+        response = self.client.post(
+            reverse('profile'),
+            {'email' : 'testingtest.com',
+             'name' : 'testuser',
+             'nick_name' : 'testnick'}
+        ) # Invalide email
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'testuser')
+        self.assertEqual(self.user.email, 'testing@test.com')
+
+        response = self.client.post(
+            reverse('profile'),
+            {'email' : 'testing@test',
+             'name' : 'testuser',
+             'nick_name' : 'testnick'}
+        ) # Invalide email
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'testuser')
+        self.assertEqual(self.user.email, 'testing@test.com')
+
+        response = self.client.post(
+            reverse('profile'),
+            {'email' : '@test.com',
+             'name' : 'testuser',
+             'nick_name' : 'testnick'}
+        ) # Invalide email
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.username, 'testuser')
+        self.assertEqual(self.user.email, 'testing@test.com')
+
     def test_enable_2fa_view(self):
         self.login(username='testuser', password='testpassword')
         response = self.client.post(reverse('enable-2fa'))
