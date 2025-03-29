@@ -35,3 +35,42 @@ class SendAiToFrontTest(TestCase):
         response = self.client.get(reverse('send_ai_with_name', kwargs={'ai_name': 'testAi'}))
         self.assertEqual(response.status_code, 200)
         self.assertJSONEqual(response.content, {"ai_name": "testAi"})
+
+
+    def test_ai_manager_view_authenticated(self):
+        """Test that authenticated users can access the AI manager view."""
+        self.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('ai-manager'))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'ai-manager.html')
+
+    def test_ai_manager_view_unauthenticated(self):
+        """Test that unauthenticated users cannot access the AI manager view."""
+        # Logout first
+        self.client.logout()
+        # Clear cookies
+        self.client.cookies.clear()
+        
+        response = self.client.get(reverse('ai-manager'))
+        self.assertNotEqual(response.status_code, 200)
+
+    def test_ai_manager_view_no_cookies(self):
+        """Test AI manager view with missing cookies."""
+        # Login first
+        self.login(username='testuser', password='testpassword')
+        
+        # Clear cookies after login
+        self.client.cookies.clear()
+        
+        response = self.client.get(reverse('ai-manager'))
+        self.assertEqual(response.status_code, 302)
+
+    def test_ai_manager_context_data(self):
+        """Test that the AI manager view contains the correct context data."""
+        self.login(username='testuser', password='testpassword')
+        response = self.client.get(reverse('ai-manager'))
+        
+        # Check that context contains necessary items
+        self.assertEqual(response.context['user'], self.user)
+        self.assertIsNotNone(response.context['access_token'])
+        self.assertIsNotNone(response.context['refresh_token'])
