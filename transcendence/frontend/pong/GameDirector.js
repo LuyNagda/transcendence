@@ -354,6 +354,9 @@ export default class GameDirector {
 		});
 
 		this.eventEmitter.on('playerInput', ({ player, input }) => {
+			const physicsSystem = this.components.get('state');
+			if (physicsSystem)
+				physicsSystem._handlePlayerInput({ player, input });
 			if (this.isLocalGame) return;
 			const networkSystem = this.components.get('networkSystem');
 			if (networkSystem && networkSystem.checkConnection()
