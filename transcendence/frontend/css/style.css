@@ -173,7 +173,7 @@ body {
 	);
 	background-size: 100% 2px;
 	pointer-events: none;
-	animation: scan 1s linear infinite;
+	animation: scan 10s linear infinite;
 }
 
 @keyframes scan {
@@ -547,7 +547,6 @@ body {
 	position: relative;
 }
 
-/* Arcade cabinet styling */
 .arcade-cabinet {
 	background-color: #111;
 	border-radius: 20px;
@@ -557,7 +556,6 @@ body {
 	box-sizing: border-box;
 }
 
-/* Screen container */
 .screen {
 	background-color: #000;
 	border: 10px solid #444;
@@ -565,7 +563,6 @@ body {
 	overflow: hidden;
 }
 
-/* Canvas element */
 canvas {
 	display: block;
 	width: 100%;
@@ -595,12 +592,10 @@ canvas {
 	transform: scale(0.95);
 }
 
-/* Hide mobile controls by default */
 #mobile-controls {
 	display: none;
 }
 
-/* Only show mobile controls on touch devices/small screens */
 @media (hover: none), (max-width: 768px) {
 	#mobile-controls {
 		display: flex;

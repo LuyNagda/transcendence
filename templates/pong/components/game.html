@@ -5,7 +5,7 @@
         <div class="screen">
             <canvas width="858" height="525" id="game"></canvas>
 			<div v-if="state == 'LOBBY'" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; text-align: center;">
-                <p class="pending-text fs-1 fw-bolder">INSERT COIN</p>
+                <p class="pending-text fs-1 fw-bolder">INSERT_COIN</p>
             </div>
         </div>
     </div>
@@ -37,7 +37,7 @@
         const paddleUpBtn = document.getElementById('paddle-up');
         const paddleDownBtn = document.getElementById('paddle-down');
         
-        if (!paddleUpBtn || !paddleDownBtn) return; // Exit if elements aren't loaded yet
+        if (!paddleUpBtn || !paddleDownBtn) return;
         
         function simulateKey(key, type) {
             const event = new KeyboardEvent(type, {
