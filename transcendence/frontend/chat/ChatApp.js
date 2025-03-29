@@ -302,6 +302,7 @@ export default class ChatApp {
 				let modalTitle = document.getElementById("messageModalLabel");
 
 				if (data.success) {
+					this.refreshUserList();
 					modalTitle.textContent = "Friend Request";
 					modalMessage.innerHTML = data.data.message;
 				} else {
