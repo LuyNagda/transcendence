@@ -775,15 +775,22 @@ export default class ChatApp {
 	}
 
 	removeFriend() {
-		let userConfirmed = confirm("Are you sure you remove your friend?");
-		if (userConfirmed) {
+		// Show the Bootstrap modal
+		let modal = new bootstrap.Modal(document.getElementById('removeFriendModal'));
+		modal.show();
+
+		// Handle click event on the "Remove" button
+		document.getElementById('confirmRemoveFriend').onclick = () => {
 			const userId = store.getState('chat').selectedUser.id;
 			logger.debug('[ChatApp] Removing friend with ID:', userId);
 			this._sendMessage({
 				type: 'remove_friend',
 				friend_id: userId
 			});
-		}
+
+			// Hide the modal after confirming
+			modal.hide();
+		};
 	}
 
 	viewProfile() {

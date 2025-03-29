@@ -13,7 +13,6 @@
     </div>
 </div>
 
-
 <div class="modal fade" id="gameInviteModal" tabindex="-1" aria-labelledby="gameInviteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -27,6 +26,25 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Decline</button>
                 <button type="button" class="btn btn-primary" id="acceptGameInviteBtn">Accept</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Remove Friend Confirmation Modal -->
+<div class="modal fade" id="removeFriendModal" tabindex="-1" aria-labelledby="removeFriendModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="removeFriendModalLabel">Confirm Removal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to remove this friend?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmRemoveFriend">Remove</button>
             </div>
         </div>
     </div>
