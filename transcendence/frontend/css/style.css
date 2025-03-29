@@ -45,12 +45,24 @@ body {
 
 @keyframes glitch {
 	0% { transform: translate(0); }
-	20% { transform: translate(-2px, 2px); }
-	40% { transform: translate(-2px, -2px); }
-	60% { transform: translate(2px, 2px); }
-	80% { transform: translate(2px, -2px); }
-	100% { transform: translate(0); }
+	25% { transform: translate(-2px, 2px); }
+	50% { transform: translate(-2px, -2px); }
+	75% { transform: translate(2px, 2px); }
+	100% { transform: translate(2px, -2px); }
 }
+
+[data-bs-theme=dark] .btn-primary:active {
+	color: #ffffff;
+	background-color: #00000000;
+	border-color: #00ff00;
+}
+
+[data-bs-theme=high-contrast] .btn-primary:active {
+	color: #ffffff;
+	background-color: #00000000;
+	border-color: #ffff00;
+}
+
 
 
 [data-bs-theme=dark] .btn-primary,

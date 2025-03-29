@@ -9,18 +9,18 @@
 <div id="index" class="container d-flex align-items-center justify-content-center" style="min-height: calc(100vh - 128px);" role="main">
     <div class="my-0 w-100 pt-md-3 pt-1">
         <div class="d-flex flex-column flex-md-row justify-content-center align-items-center">
-            <div class="col d-flex flex-column justify-content-center align-items-start me-4">
+            <div class="col d-flex flex-column justify-content-center align-items-start me-4 mb-4">
                 <h1 class="h1 fw-bold">42Pong</h1>
                 <h3 class="h3">Experience the iconic Pong Game</h3>
 				{% if room == 'created' %}
 				<button id="enter-room-btn" hx-get="{% url 'pong_room' room_id=room_id %}" hx-target="#content"
-					hx-swap="outerHTML" hx-push-url="true" class="btn btn-primary" aria-label="Enter game room">
-					Enter Room
+					hx-swap="outerHTML" hx-push-url="true" class="btn btn-primary mt-2" aria-label="Enter game room">
+					Enter
 				</button>
 				{% else %}
 				<button id="create-room-btn" hx-post="{% url 'create_pong_room' %}" hx-target="#content" hx-swap="outerHTML"
-					class="btn btn-primary" aria-label="Create new game room">
-					Start a Game
+					class="btn btn-primary mt-2" aria-label="Create new game room">
+					Start
 				</button>
 				{% endif %}
             </div>
