@@ -20,6 +20,9 @@
         {% block chat %}
         {% include "chat.html" %}
         {% endblock %}
+        {% block modals %}
+        {% include "modals.html" %}
+        {% endblock %}
     </main>
 
 	{% if not request.htmx %}
@@ -27,5 +30,4 @@
 	{% endif %}
 
 </body>
-
 </html>

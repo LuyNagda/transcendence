@@ -7,6 +7,11 @@ import { connectionManager } from './networking/ConnectionManager.js';
 import { initializeAiManager, fetchTrainingStatus } from './pong/AiManager.js';
 import Room from './room/Room.js';
 import ChatApp from './chat/ChatApp.js';
+import { Modal } from 'bootstrap';
+
+// Attach to window for global access
+window.bootstrap = window.bootstrap || {};
+window.bootstrap.Modal = Modal;
 
 function loadAiManager() {
 	// First init when loading a room from the path

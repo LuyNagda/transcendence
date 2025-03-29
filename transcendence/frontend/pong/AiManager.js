@@ -88,7 +88,7 @@ function updateManagingLog(data) {
     }
 
     const managingLog = document.getElementById("managing-log");
-    
+
     if (!managingLog) {
         logger.warn('[AiManager] Managing log element not found. Cannot update log:', data.content);
         return;
@@ -110,7 +110,7 @@ async function fetchSavedAIs() {
 
     const dropdown = document.getElementById("saved-ai-dropdown");
     const managingLog = document.getElementById('managing-log');
-    
+
     if (!managingLog || !dropdown) {
         logger.warn('[AiManager] Dropdown &/or ManagingLog not found!');
         return
@@ -198,24 +198,40 @@ export async function initializeAiManager() {
     }
 
     initializeAiSocket();
-    
+
     // Initial fetch of saved AIs
     await fetchSavedAIs();
-    
+
     logger.info(`AiManager inatialized successfully`);
-    
+
     const trainButton = document.getElementById("train-ai-btn");
     trainButton.addEventListener("click", async () => {
         // Get and validate AI name
         const aiName = document.getElementById('ai_name').value.trim();
         if (!aiName) {
-            alert('AI Name is required.');
+            let modalMessage = document.getElementById("modalMessage");
+            let modalTitle = document.getElementById("messageModalLabel");
+
+            modalTitle.textContent = "Pong Game";
+            modalMessage.innerHTML = "AI Name is required.";
+
+            // Show the modal
+            let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+            messageModal.show();
             return;
         }
-        
+
         // Validate AI name format
         if (!/^[a-zA-Z0-9_-]+$/.test(aiName)) {
-            alert('AI Name can only contain letters, numbers, underscores, and hyphens.');
+            let modalMessage = document.getElementById("modalMessage");
+            let modalTitle = document.getElementById("messageModalLabel");
+
+            modalTitle.textContent = "AI Manager";
+            modalMessage.innerHTML = 'AI Name can only contain letters, numbers, underscores, and hyphens.';
+
+            // Show the modal
+            let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+            messageModal.show();
             return;
         }
 
@@ -223,7 +239,7 @@ export async function initializeAiManager() {
         managingLog.className = 'alert alert-info';
         managingLog.style.display = 'block';
 
-        
+
         // List of inputs and their limits
         const fields = [
             { id: 'nb_generation', min: 1, max: 10, name: "Number of Generations" },
@@ -231,12 +247,20 @@ export async function initializeAiManager() {
             { id: 'time_limit', min: 5, max: 60, name: "Simulated Time Limit" },
             { id: 'max_score', min: 50, max: 500, name: "Max Score" }
         ];
-        
+
         // Validate each field
         for (const { id, min, max, name } of fields) {
             const value = Number(document.getElementById(id).value);
             if (!Number.isFinite(value) || value < min || value > max) {
-                alert(`${name} must be between ${min} and ${max}.`);
+                let modalMessage = document.getElementById("modalMessage");
+                let modalTitle = document.getElementById("messageModalLabel");
+
+                modalTitle.textContent = "AI Manager";
+                modalMessage.innerHTML = `${name} must be a number between ${min} and ${max}.`;
+
+                // Show the modal
+                let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+                messageModal.show();
                 return;
             }
         }
@@ -253,7 +277,7 @@ export async function initializeAiManager() {
             nb_species: nbSpecies,
             time_limit: timeLimit,
             max_score: maxScore,
-        };    
+        };
 
         try {
             // Make the request
@@ -286,7 +310,15 @@ export async function initializeAiManager() {
     deleteButton.addEventListener("click", async () => {
         const selectedAI = dropdown.value;
         if (!selectedAI) {
-            alert("Please select an AI to delete!");
+            let modalMessage = document.getElementById("modalMessage");
+            let modalTitle = document.getElementById("messageModalLabel");
+
+            modalTitle.textContent = "Pong Game";
+            modalMessage.innerHTML = 'Please select an AI to delete!';
+
+            // Show the modal
+            let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+            messageModal.show();
             return;
         }
         managingLog.innerText = `Request for deleting AI '${selectedAI}'...`;

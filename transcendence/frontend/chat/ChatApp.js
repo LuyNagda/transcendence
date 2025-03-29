@@ -6,6 +6,12 @@ import { chatActions } from '../state/chatState.js';
 import { USER_STATUS } from '../state/userState.js';
 import { getCookie } from '../utils.js';
 import { uiActions } from '../state/uiState.js';
+import { Modal } from 'bootstrap';
+
+// Attach to window for global access
+window.bootstrap = window.bootstrap || {};
+window.bootstrap.Modal = Modal;
+
 export default class ChatApp {
 	static #instance = null;
     // Store reference to subscription removers
@@ -17,7 +23,7 @@ export default class ChatApp {
             ChatApp.#instance = new ChatApp();
             await ChatApp.#instance._setupConnection();
         }
-        
+
         // Create a single user subscription
         ChatApp.#userSubscription = store.subscribe('user', async (state) => {
             if (state.status === USER_STATUS.OFFLINE) {
@@ -33,7 +39,7 @@ export default class ChatApp {
             }
         });
 	}
-		
+
 	constructor() {
 		this._connection = null;
 		this._isChatOpen = false;
@@ -187,42 +193,47 @@ export default class ChatApp {
 			},
 
 			friend_request: (data) => {
+				let modalMessage = document.getElementById("modalMessage");
+				let modalTitle = document.getElementById("messageModalLabel");
+
 				if (data.success) {
-					// store.dispatch({
-					// 	domain: 'ui',
-					// 	type: actions.ui.SHOW_TOAST,
-					// 	payload: {
-					// 		id: `toast-${Date.now()}`,
-					// 		message: data.data.message,
-					// 		type: 'success'
-					// 	}
-					// });
-					alert(data.data.message);
+					modalTitle.textContent = "Friend Request";
+					modalMessage.innerHTML = data.data.message;
+				} else {
+					modalTitle.textContent = "Friend Request";
+					modalMessage.innerHTML = data.error;
 				}
-				else {
-					// store.dispatch({
-					// 	domain: 'ui',
-					// 	type: actions.ui.SHOW_TOAST,
-					// 	payload: {
-					// 		id: `toast-${Date.now()}`,
-					// 		message: data.error,
-					// 		type: 'error'
-					// 	}
-					// });
-					alert(data.error);
-				}
+
+				// Show the modal
+				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+				messageModal.show();
 			},
 
 			game_invitation: (data) => {
 				if (!data?.sender_id || !data?.room_id) return;
 
-				if (confirm(`You've been invited to play. Do you want to accept?`)) {
+				// Get modal elements
+				const modalElement = document.getElementById("gameInviteModal");
+				const acceptButton = document.getElementById("acceptGameInviteBtn");
+
+				if (!modalElement || !acceptButton) {
+					console.error("Game invitation modal elements not found!");
+					return;
+				}
+
+				// Show the Bootstrap modal
+				const gameInviteModal = new Modal(modalElement);
+				gameInviteModal.show();
+
+				// Handle accept button click
+				acceptButton.onclick = () => {
+					gameInviteModal.hide(); // Close modal
 					this._sendMessage({
 						type: 'accept_game_invitation',
 						sender_id: data.sender_id,
 						room_id: data.room_id
 					});
-				}
+				};
 			},
 
 			accept_game_invitation: (data) => {
@@ -231,7 +242,15 @@ export default class ChatApp {
 					const url = `/pong/room/${data.data.room_id}/`;
 					jaiPasVu.navigate(url);
 				} else {
-					alert(data.error || 'Failed to join game. Room might be full.');
+					let modalMessage = document.getElementById("modalMessage");
+					let modalTitle = document.getElementById("messageModalLabel");
+
+					modalTitle.textContent = "Game Invitation";
+					modalMessage.innerHTML = data.error || 'Failed to join game. Room might be full.';
+
+					// Show the modal
+					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+					messageModal.show();
 				}
 			},
 
@@ -257,7 +276,15 @@ export default class ChatApp {
 
 			error: (data) => {
 				logger.error('[ChatApp] Server error:', data.message);
-				alert(data.message || 'An error occurred');
+				let modalMessage = document.getElementById("modalMessage");
+					let modalTitle = document.getElementById("messageModalLabel");
+
+					modalTitle.textContent = "Error";
+					modalMessage.innerHTML = data.message || 'An error occurred';
+
+					// Show the modal
+					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+					messageModal.show();
 			},
 
 			load_friend_requests: (data) => {
@@ -271,31 +298,21 @@ export default class ChatApp {
 			},
 
 			friend_request_choice: (data) => {
+				let modalMessage = document.getElementById("modalMessage");
+				let modalTitle = document.getElementById("messageModalLabel");
+
 				if (data.success) {
-					this.refreshUserList();
-					// store.dispatch({
-					// 	domain: 'ui',
-					// 	type: actions.ui.SHOW_TOAST,
-					// 	payload: {
-					// 		id: `toast-${Date.now()}`,
-					// 		message: data.data.message,
-					// 		type: 'success'
-					// 	}
-					// });
-					alert(data.data.message);
+					modalTitle.textContent = "Friend Request";
+					modalMessage.innerHTML = data.data.message;
+				} else {
+					modalTitle.textContent = "Friend Request";
+					modalMessage.innerHTML = data.error;
 				}
-				else {
-					// store.dispatch({
-					// 	domain: 'ui',
-					// 	type: actions.ui.SHOW_TOAST,
-					// 	payload: {
-					// 		id: `toast-${Date.now()}`,
-					// 		message: data.error,
-					// 		type: 'error'
-					// 	}
-					// });
-					alert(data.error);
-				}
+
+				// Show the modal
+				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+				messageModal.show();
+
 				this._sendMessage({
 					type: 'load_friend_requests'
 				});
@@ -308,28 +325,17 @@ export default class ChatApp {
 						domain: 'chat',
 						type: chatActions.SET_SELECTED_USER,
 					});
-					// store.dispatch({
-					// 	domain: 'ui',
-					// 	type: actions.ui.SHOW_TOAST,
-					// 	payload: {
-					// 		id: `toast-${Date.now()}`,
-					// 		message: data.data.message,
-					// 		type: 'success'
-					// 	}
-					// });
-					// alert(data.data.message);
 				}
 				else {
-					// store.dispatch({
-					// 	domain: 'ui',
-					// 	type: actions.ui.SHOW_TOAST,
-					// 	payload: {
-					// 		id: `toast-${Date.now()}`,
-					// 		message: data.error,
-					// 		type: 'error'
-					// 	}
-					// });
-					alert(data.error);
+					let modalMessage = document.getElementById("modalMessage");
+					let modalTitle = document.getElementById("messageModalLabel");
+
+					modalTitle.textContent = "Friend Request";
+					modalMessage.innerHTML = data.error;
+
+					// Show the modal
+					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+					messageModal.show();
 				}
 			},
 
@@ -390,7 +396,15 @@ export default class ChatApp {
 		if (!currentUserId) return;
 
 		if (message.length > 300) {
-			alert(`Message too long (${message.length}/300 characters)`);
+			let modalMessage = document.getElementById("modalMessage");
+			let modalTitle = document.getElementById("messageModalLabel");
+
+			modalTitle.textContent = "Friend Request";
+			modalMessage.innerHTML = `Message too long (${message.length}/300 characters)`;
+
+			// Show the modal
+			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+			messageModal.show();
 			return;
 		}
 
@@ -556,7 +570,15 @@ export default class ChatApp {
 				recipient_id: userId,
 				game_id: 'pong' // TODO: send actual game id
 			});
-			alert('Game invitation sent!');
+			let modalMessage = document.getElementById("modalMessage");
+			let modalTitle = document.getElementById("messageModalLabel");
+
+			modalTitle.textContent = "Game Invitation Request";
+			modalMessage.innerHTML = 'Game invitation sent!';
+
+			// Show the modal
+			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+			messageModal.show();
 		} else if (isViewProfile) {
 			this._sendMessage({
 				type: 'get_profile',
@@ -618,7 +640,15 @@ export default class ChatApp {
 			})
 			.catch(error => {
 				logger.error(`[ChatApp] Error handling block action:`, error);
-				alert(`Failed to ${action} user. Please try again.`);
+				let modalMessage = document.getElementById("modalMessage");
+				let modalTitle = document.getElementById("messageModalLabel");
+
+				modalTitle.textContent = "Block User";
+				modalMessage.innerHTML = `Failed to ${action} user. Please try again.`;
+
+				// Show the modal
+				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+				messageModal.show();
 			});
 	}
 
@@ -717,7 +747,15 @@ export default class ChatApp {
 		const userId = store.getState('chat').selectedUser.id;
 		let roomState = store.getState('room');
 		if (!roomState.id) {
-			alert('No room found');
+			let modalMessage = document.getElementById("modalMessage");
+			let modalTitle = document.getElementById("messageModalLabel");
+
+			modalTitle.textContent = "Pong Game";
+			modalMessage.innerHTML = 'No room found';
+
+			// Show the modal
+			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+			messageModal.show();
 			return;
 		}
 		this._sendMessage({
@@ -725,7 +763,15 @@ export default class ChatApp {
 			recipient_id: userId,
 			room_id: roomState.id
 		});
-		alert('Game invitation sent!');
+		let modalMessage = document.getElementById("modalMessage");
+		let modalTitle = document.getElementById("messageModalLabel");
+
+		modalTitle.textContent = "Pong Game";
+		modalMessage.innerHTML = 'Game invitation sent!';
+
+		// Show the modal
+		let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+		messageModal.show();
 	}
 
 	removeFriend() {
