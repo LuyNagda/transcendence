@@ -1,6 +1,5 @@
 import logging, json
 from django.contrib.auth.models import AnonymousUser
-from django.contrib.auth import get_user_model
 from django.db import close_old_connections
 from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
@@ -10,10 +9,9 @@ from channels.middleware import BaseMiddleware
 from channels.exceptions import StopConsumer
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from authentication.models import User
 
 log = logging.getLogger(__name__)
-
-User = get_user_model()
 
 class JWTAuthMiddleware:
     """
