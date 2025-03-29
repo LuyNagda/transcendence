@@ -468,16 +468,13 @@ export class PongNetworkManager {
 						this._handleMessage({ type: 'physicsUpdate', state: data.state });
 					break;
 
-				// Handle paddle input via WebSocket if physics WebSocket mode is enabled
 				case 'paddle_move':
 				case 'paddle_stop':
-					if (this._useWebSocketForPhysics) {
-						const inputData = {
-							direction: data.direction || 0,
-							intensity: data.intensity || 1.0
-						};
-						this._eventEmitter.emit('remoteInput', inputData);
-					}
+					const inputData = {
+						direction: data.direction || 0,
+						intensity: data.intensity || 1.0
+					};
+					this._eventEmitter.emit('remoteInput', inputData);
 					break;
 
 				// Handle other message types normally
