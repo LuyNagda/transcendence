@@ -13,3 +13,5 @@ djangorestframework-simplejwt
 requests
 bugsnag
 numpy
+coverage
+django-coverage-plugin
