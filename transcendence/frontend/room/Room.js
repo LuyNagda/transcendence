@@ -7,7 +7,10 @@ import { createRoomGameManager } from './RoomGameManager.js';
 import { createRoomConnectionManager } from './RoomConnectionManager.js';
 import { GameRules } from '../pong/core/GameRules.js';
 import { AIService } from './AIService.js';
+import { Modal } from 'bootstrap';
 
+window.bootstrap = window.bootstrap || {};
+window.bootstrap.Modal = Modal;
 /**
  * Main Room class that coordinates between different managers
  */
@@ -651,6 +654,16 @@ export default class Room {
 				variant: data.message_type
 			}
 		});
+		if (data.message.includes("win the tournament"))
+		{
+			let modalMessage = document.getElementById("modalMessage");
+			let modalTitle = document.getElementById("messageModalLabel");
+
+			modalTitle.textContent = "Tournament";
+			modalMessage.innerHTML = data.message;
+			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+			messageModal.show();
+		}
 	}
 
 	destroy() {
