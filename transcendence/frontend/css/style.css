@@ -4,13 +4,13 @@ body {
 
 [data-bs-theme=dark] :focus {
 	border-color: #00ff00;
-	outline: 2px solid #00ff00;
+	outline: 2px solid #00ff0040;
 	outline-offset: 2px;
   }
 
 [data-bs-theme=high-contrast] :focus {
 	border-color: #ffff00;
-	outline: 2px solid #ffff00;
+	outline: 2px solid #ffff0040;
 	outline-offset: 2px;
   }
 

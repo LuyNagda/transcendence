@@ -26,6 +26,9 @@
 		</div>
 		{% endfor %}
 		<button class="btn btn-primary" type="submit" aria-label="Register account">Register</button>
+		<a href="https://api.intra.42.fr/oauth/authorize?client_id={{ ft_client_id }}&redirect_uri={{ ft_redirect_uri|urlencode }}&response_type=code" aria-label="Login with 42 API">
+			<button class="btn btn-secondary" type="button">Login with 42 API</button>
+		</a>
 	</form>
 </div>
 
