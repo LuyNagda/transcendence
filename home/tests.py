@@ -62,7 +62,9 @@ class HomeViewsTest(TestCase):
         self.login(username='testuser', password='testpassword')
         response = self.client.post(
             reverse('profile'),
-            {'field': 'email', 'value': 'testing@test.com'}
+            {'email' : 'testing@test.com',
+             'name' : 'testuser',
+             'nick_name' : 'testnick'}
         )
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
