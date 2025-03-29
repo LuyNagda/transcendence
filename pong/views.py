@@ -44,7 +44,7 @@ def create_pong_room(request):
         room = PongRoom.objects.create(
             room_id=room_id,
             owner=request.user,
-            mode=PongRoom.Mode.CLASSIC
+            mode=PongRoom.Mode.AI,
         )
         room.players.add(request.user)
         logger.info(f"Room created with ID {room_id} by user {request.user.username}")
@@ -103,7 +103,7 @@ def invite_friends(request, room_id):
         invitations_to_send = min(available_slots, len(friends))
         for friend in friends[:invitations_to_send]:
             room.pending_invitations.add(friend)
-        
+
         # Envoyer une mise à jour WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -130,12 +130,12 @@ def pong_room_state(request, room_id):
         room = get_object_or_404(PongRoom, room_id=room_id)
         room_data = room.serialize()
         room_data['currentUser'] = request.user.player_data
-        
+
         return render(request, 'pong/components/room_state.html', {
             'room_id': room_id,
             'pongRoom': json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting room state: {str(e)}")
         return JsonResponse({'error': 'Failed to get room state'}, status=500)
