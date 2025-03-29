@@ -4,6 +4,8 @@ from authentication.models import User
 from django.contrib.auth.hashers import make_password
 from unittest.mock import patch, mock_open, MagicMock
 import json
+from pathlib import Path
+
 
 class SendAiToFrontTest(TestCase):
     def setUp(self):
@@ -309,7 +311,6 @@ class SendAiToFrontTest(TestCase):
                 
                 self.assertEqual(response.status_code, 400)
 
-
     def test_training_already_in_progress(self):
         """Test training view when another training is already in progress."""
         self.login(username='testuser', password='testpassword')
@@ -332,3 +333,46 @@ class SendAiToFrontTest(TestCase):
             )
             
             self.assertEqual(response.status_code, 400)
+
+class ListSavedAiTest(TestCase):
+    def setUp(self):
+        """Setup test user and API client."""
+        self.client = Client()
+        self.user = User.objects.create_user(username="testuser", password="testpassword")
+        self.client.login(username="testuser", password="testpassword")
+        self.url = reverse("list_saved_ai")
+
+    def login(self, username, password):
+        response = self.client.post('/login', {'username': username, 'password': password})
+        self.assertEqual(response.status_code, 302)
+        access_token = response.cookies.get('access_token')
+        refresh_token = response.cookies.get('refresh_token')
+        self.assertIsNotNone(access_token)
+        self.assertIsNotNone(refresh_token)
+        self.client.cookies['access_token'] = access_token.value
+        self.client.cookies['refresh_token'] = refresh_token.value
+
+    @patch("os.path.exists", return_value=False)
+    def test_list_saved_ai_folder_not_exist(self, mock_exists):
+        """Test when the saved_ai folder does not exist."""
+        self.login(username='testuser', password='testpassword')
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 404)
+
+    @patch("os.path.exists", return_value=True)
+    @patch("os.listdir", side_effect=Exception("Unexpected error"))
+    def test_list_saved_ai_internal_error(self, mock_listdir, mock_exists):
+        """Test when an internal error occurs."""
+        self.login(username='testuser', password='testpassword')
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 500)
+
+    def test_list_saved_ai_unauthenticated(self):
+        """Test accessing the endpoint without authentication."""
+        self.login(username='testuser', password='testpassword')
+
+        self.client.logout()
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 302)
