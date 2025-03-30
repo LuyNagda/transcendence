@@ -197,6 +197,10 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
             ball.dx = abs(gameconfig.BALL_SPEED * math.cos(angle))
             ball.dy = gameconfig.BALL_SPEED * math.sin(angle)
 
+        # Add a proximity reward
+        if abs(rightPaddle.center_y - ball.center_y) < gameconfig.PADDLE_HEIGHT:
+            Ai_selected.ai_score += 0.001 
+
         # Ball collision with AI's paddles
         if collides(ball, rightPaddle):
             Ai_selected.ai_score += 1
@@ -206,6 +210,7 @@ def train_normal(Ai_selected, Ai_nb, time_limit, max_score):
         # Ball out of bounds
         if ball.right >= gameconfig.WIDTH:
             left_score += 1
+            Ai_selected.ai_score -= 0.1
             ball = reset_ball(ball)
 
         # End the game
