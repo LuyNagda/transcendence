@@ -400,7 +400,7 @@ class DeleteSavedAiTest(TestCase):
     @patch("django.conf.settings.STATICFILES_DIRS", new=[Path("/fake/static")])
     @patch("os.remove")
     @patch("os.path.exists", return_value=True)
-    def test_delete_saved_ai_success(self, mock_exists, mock_remove, mock_static_dirs, mock_channel_layer):
+    def test_delete_saved_ai_success(self, mock_exists, mock_remove, mock_channel_layer):
         """Test successful deletion of an AI file."""
         self.login(username='testuser', password='testpassword')
         mock_channel_layer.return_value = MagicMock()
@@ -410,9 +410,7 @@ class DeleteSavedAiTest(TestCase):
 
         mock_remove.assert_called_once()
 
-    @patch("os.path.exists", return_value=False)
-    @patch("django.conf.settings.STATICFILES_DIRS", new=[Path("/fake/static")])
-    def test_delete_saved_ai_not_found(self, mock_static_dirs, mock_exists):
+    def test_delete_saved_ai_not_found(self):
         """Test trying to delete a non-existing file."""
         self.login(username='testuser', password='testpassword')
 
