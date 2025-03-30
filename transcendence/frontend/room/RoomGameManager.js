@@ -58,6 +58,26 @@ export class RoomGameManager {
 		}
 	}
 
+	handleDscGameEnded(data) {
+		try {
+			this.cleanup();
+
+			let modalMessage = document.getElementById("modalMessage");
+			let modalTitle = document.getElementById("messageModalLabel");
+
+			modalTitle.textContent = "Player Disconnected";
+			modalMessage.innerHTML = `Your opponent disconnected and lost the game`;
+
+			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+			messageModal.show();
+			this._emit('game_ended', data);
+			logger.info('[RoomGameManager] Game ended successfully');
+		} catch (error) {
+			logger.error('[RoomGameManager] Error handling game end:', error);
+			this.handleGameFailure(error);
+		}
+	}
+
 	async prepareGame(roomState) {
 		try {
 			const container = document.querySelector('#game-container .screen');
@@ -115,6 +135,10 @@ export class RoomGameManager {
 
 			this._gameInstance.eventEmitter.on("networkDisconnect", () => {
 				this.handleGameEnded();
+			});
+
+			this._gameInstance.eventEmitter.on("networkPlayerDisconnect", () => {
+				this.handleDscGameEnded();
 			});
 
 			this._gameInProgress = true;

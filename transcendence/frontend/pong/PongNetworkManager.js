@@ -91,8 +91,7 @@ export class PongNetworkManager {
 				this._eventEmitter.emit('playerReady', message);
 			},
 			'playerDisconnected': (message) => {
-				this._eventEmitter.emit('playerDisconnected', message);
-				this._handleDisconnect();
+				this._handlePlayerDisconnect(message);
 			},
 		};
 
@@ -101,6 +100,7 @@ export class PongNetworkManager {
 		this._handleStateChange = this._handleStateChange.bind(this);
 		this._handleWebSocketMessage = this._handleWebSocketMessage.bind(this);
 		this._handleDisconnect = this._handleDisconnect.bind(this);
+		this._handlePlayerDisconnect = this._handlePlayerDisconnect.bind(this);
 
 		return true;
 	}
@@ -458,7 +458,7 @@ export class PongNetworkManager {
 		try {
 			switch (data.type) {
 				case 'player_disconnected':
-					this._handleDisconnect();
+					this._handlePlayerDisconnect();
 					break;
 
 				// Handle physics updates directly from WebSocket if enabled
@@ -525,6 +525,12 @@ export class PongNetworkManager {
 	_handleDisconnect() {
 		logger.warn('Connection lost, cleaning up');
 		this._eventEmitter.emit('networkDisconnect');
+		this._setConnectionState(ConnectionState.DISCONNECTED.name);
+	}
+
+	_handlePlayerDisconnect(message) {
+		logger.warn('Player disconnected:', message);
+		this._eventEmitter.emit('networkPlayerDisconnect', message);
 		this._setConnectionState(ConnectionState.DISCONNECTED.name);
 	}
 
@@ -636,4 +642,10 @@ export class PongNetworkManager {
 			logger.warn('Error during PongNetworkManager destroy:', error);
 		}
 	}
+
+	/**
+	 * Handle player disconnection
+	 * @private
+	 * @param {Object} message - The disconnection message
+	 */
 }
