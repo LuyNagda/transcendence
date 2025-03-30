@@ -458,8 +458,7 @@ export class PongNetworkManager {
 		try {
 			switch (data.type) {
 				case 'player_disconnected':
-					if (!this._gameFinished)
-						this._handleDisconnect();
+					this._handleDisconnect();
 					break;
 
 				// Handle physics updates directly from WebSocket if enabled
@@ -524,8 +523,6 @@ export class PongNetworkManager {
 	 * @private
 	 */
 	_handleDisconnect() {
-		if (this._gameFinished) return;
-
 		logger.warn('Connection lost, cleaning up');
 		this._eventEmitter.emit('networkDisconnect');
 		this._setConnectionState(ConnectionState.DISCONNECTED.name);
