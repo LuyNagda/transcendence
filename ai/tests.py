@@ -376,3 +376,80 @@ class ListSavedAiTest(TestCase):
         self.client.logout()
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, 302)
+
+
+class DeleteSavedAiTest(TestCase):
+    def setUp(self):
+        """Setup test user and API client."""
+        self.client = Client()
+        self.user = User.objects.create_user(username="testuser", password="testpassword")
+        self.client.force_login(self.user)  # Ensures authentication
+        self.url = reverse("delete_saved_ai")
+
+    def login(self, username, password):
+        response = self.client.post('/login', {'username': username, 'password': password})
+        self.assertEqual(response.status_code, 302)
+        access_token = response.cookies.get('access_token')
+        refresh_token = response.cookies.get('refresh_token')
+        self.assertIsNotNone(access_token)
+        self.assertIsNotNone(refresh_token)
+        self.client.cookies['access_token'] = access_token.value
+        self.client.cookies['refresh_token'] = refresh_token.value
+
+    @patch("channels.layers.get_channel_layer")
+    @patch("django.conf.settings.STATICFILES_DIRS", new=[Path("/fake/static")])
+    @patch("os.remove")
+    @patch("os.path.exists", return_value=True)
+    def test_delete_saved_ai_success(self, mock_exists, mock_remove, mock_static_dirs, mock_channel_layer):
+        """Test successful deletion of an AI file."""
+        self.login(username='testuser', password='testpassword')
+        mock_channel_layer.return_value = MagicMock()
+
+        response = self.client.post(self.url, data=json.dumps({"ai_name": "validAI"}), content_type="application/json")
+        self.assertEqual(response.status_code, 200)
+
+        mock_remove.assert_called_once()
+
+    @patch("os.path.exists", return_value=False)
+    @patch("django.conf.settings.STATICFILES_DIRS", new=[Path("/fake/static")])
+    def test_delete_saved_ai_not_found(self, mock_static_dirs, mock_exists):
+        """Test trying to delete a non-existing file."""
+        self.login(username='testuser', password='testpassword')
+
+        response = self.client.post(self.url, data=json.dumps({"ai_name": "missingAI"}), content_type="application/json")
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_saved_ai_invalid_name(self):
+        """Test invalid AI name (non-alphanumeric or too long)."""
+        self.login(username='testuser', password='testpassword')
+        response = self.client.post(self.url, data=json.dumps({"ai_name": "invalid@name"}), content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+        long_name = "A" * 101  # 101 characters
+        response = self.client.post(self.url, data=json.dumps({"ai_name": long_name}), content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_delete_saved_ai_forbidden_name(self):
+        """Test deletion of a restricted AI file (e.g., 'Marvin')."""
+        self.login(username='testuser', password='testpassword')
+        response = self.client.post(self.url, data=json.dumps({"ai_name": "Marvin"}), content_type="application/json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_delete_saved_ai_empty_body(self):
+        """Test when request body is empty."""
+        self.login(username='testuser', password='testpassword')
+        response = self.client.post(self.url, data={}, content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    def test_delete_saved_ai_invalid_json(self):
+        """Test when request body is not valid JSON."""
+        self.login(username='testuser', password='testpassword')
+        response = self.client.post(self.url, data="invalid_json", content_type="application/json")
+        self.assertEqual(response.status_code, 400)
+
+    @patch("os.path.exists", side_effect=Exception("Unexpected error"))
+    def test_delete_saved_ai_internal_error(self, mock_exists):
+        """Test handling of unexpected server errors."""
+        self.login(username='testuser', password='testpassword')
+        response = self.client.post(self.url, data=json.dumps({"ai_name": "validAI"}), content_type="application/json")
+        self.assertEqual(response.status_code, 500)
