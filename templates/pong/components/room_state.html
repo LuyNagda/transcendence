@@ -21,25 +21,6 @@
             </li>
         </ul>
 
-        <div id="pending-invitations" v-if="pendingInvitations && pendingInvitations.length > 0" aria-live="polite">
-            <h6 class="h6">Pending Invitations</h6>
-            <ul class="list-group mb-3">
-                <li v-for="invitation in pendingInvitations"
-                    class="list-group-item d-flex justify-content-between align-items-center" role="listitem"
-                    aria-label="Pending invitation for [[invitation.username]]">
-                    <span>[[invitation.username]]</span>
-                    <div>
-                        <span class="badge bg-warning rounded-pill me-2" aria-label="Invitation pending">Pending</span>
-                        <button v-if="[[isOwner]]" class="btn btn-danger btn-sm"
-                            v-on:click="cancelInvitation([[invitation.id]])"
-                            aria-label="Cancel invitation for [[invitation.username]]">
-                            Cancel
-                        </button>
-                    </div>
-                </li>
-            </ul>
-        </div>
-
         <p v-if="players.length < maxPlayers" class="card-text" aria-live="polite">
             Available slots: <span v-text="maxPlayers - players.length"></span>
         </p>

@@ -48,12 +48,29 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 self.channel_name
             )
 
-            # Add user to room if not already present
             success, message, error_code = await self.add_user_to_room()
             if not success:
                 logger.error(f"Failed to add user to room: {message} - room_id: {self.room_id}", extra={
                     'user_id': self.user.id
                 })
+				
+                # await self.update_room()
+
+                # user_group = f"user_{self.user.id}"
+                # await self.channel_layer.group_add(
+                #     user_group,
+                #     self.channel_name
+                # )
+
+                # await self.channel_layer.group_send(
+                #     f'user_{self.user.id}',
+                #     {
+                #         'type': 'room_info',
+                #         'message': message,
+                #         'message_type': 'info',
+                #         'timestamp': timezone.now().isoformat()
+                #     })
+                
                 await self.send(text_data=json.dumps({
                     'type': 'error',
                     'code': error_code,
@@ -73,7 +90,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             # Send initial room state
             await self.update_room()
 
-            # Ajouter l'utilisateur à son groupe personnel
             user_group = f"user_{self.user.id}"
             await self.channel_layer.group_add(
                 user_group,
@@ -108,7 +124,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             if hasattr(self, 'room_group_name') and hasattr(self, 'channel_name'):
                 await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
-            # Retirer l'utilisateur de son groupe personnel
             user_group = f"user_{self.user.id}"
             await self.channel_layer.group_discard(
                 user_group,
@@ -245,7 +260,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     response = {'id': message_id, 'status': 'error', 'error': {'code': 4002, 'message': 'Only room owner can start game'}}
                 else:
                     games = await self.create_game()
-                    if not games:  # Gestion du cas où aucun jeu n'est créé
+                    if not games:
                         response = {'id': message_id, 'status': 'error', 'message': 'Failed to create game'}
                     else:
                         for game in games:
@@ -259,11 +274,10 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 logger.warning(f"Unknown action received: {action}")
                 response = {'id': message_id, 'status': 'error', 'message': f'Unknown action: {action}'}
 
-            # Envoi des réponses
             if responses:
                 for r in responses:
                     await self.send(text_data=json.dumps(r))
-            elif response:  # Vérification que response est initialisée
+            elif response:
                 await self.send(text_data=json.dumps(response))
             else:
                 logger.warning("Aucune réponse générée pour l'action")
@@ -420,7 +434,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
     async def create_game(self):
         """Creates a new game for the room"""
         try:
-            # Créer le tournoi pour tous les modes
             tournament = await self.get_tournament()
             
             if self.room.mode == 'TOURNAMENT' and not tournament:
@@ -462,7 +475,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             )
             for game in games:
 
-                # Message pour le joueur 1
                 await self.channel_layer.group_send(
                     f"user_{game.player1.id}",
                     {
@@ -473,7 +485,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-                # Message pour le joueur 2 (si existe et n'est pas une IA ou un guest)
                 if game.player2 and not game.player2_is_ai and not game.player2_is_guest:
                     await self.channel_layer.group_send(
                         f"user_{game.player2.id}",
@@ -555,11 +566,9 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         try:
             games = []
             
-            # Vérifier l'existence du tournoi avant d'y accéder
             tournament = getattr(self.room, 'tournament', None)
             eliminated_players = list(tournament.eliminated.all()) if tournament else []
             
-            # Utiliser tous les joueurs si pas de tournoi
             player_pairs = self.pair_players(
                 list(self.room.players.all()), 
                 eliminated_players
@@ -577,7 +586,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             logger.info(f"Generated Pairs : {[[p.id for p in pair if p] for pair in player_pairs]}")
             
             for pair in player_pairs:
-                if len(pair) >= 1:  # Vérifie qu'il y a au moins un joueur valide
+                if len(pair) >= 1:
                     games.append(PongGame.objects.create(
                         room=self.room,
                         player1=pair[0],
@@ -785,7 +794,15 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         """
         try:
             if self.room.mode == "TOURNAMENT":
-                await self.add_eliminated_player(event['loser'])            
+                await self.add_eliminated_player(event['loser']) 
+            if not await self.is_room_owner():
+                await self.send(text_data=json.dumps({
+                    'type': 'game_finished',
+                    'winner_id': event['winner_id'],
+                    'final_score': event['final_score']
+                }))
+                return                
+           
 
             if self.room.state != 'LOBBY' and await self.all_game_finished():
 
@@ -973,11 +990,9 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         if not active_players:
             return []
         
-        # Cas d'un seul joueur
         if len(active_players) == 1:
             return [[active_players[0]]]
         
-        # Gestion des nombres impairs > 1
         max_index = len(active_players) - 1 if len(active_players) % 2 != 0 else len(active_players)
         
         pairs = [
@@ -992,17 +1007,14 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
     def get_tournament(self):
         """Create or get existing tournament linked to the room"""
         try:
-            # Vérifie si un tournoi existe déjà pour cette salle
             if hasattr(self.room, 'tournament') and self.room.tournament:
                 return self.room.tournament
             
-            # Crée un nouveau tournoi seulement si aucun n'existe
             tournament = Tournament.objects.create(
                 name=f"Tournament {self.room.room_id}",
                 pong_room=self.room,
                 status='ONGOING'
             )
-            # Met à jour la référence du tournoi dans la salle
             self.room.tournament = tournament
             self.room.save()
             return tournament
