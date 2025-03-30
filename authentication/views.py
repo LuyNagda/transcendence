@@ -55,32 +55,42 @@ def already_logged_in(request):
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def register(request):
-	if already_logged_in(request):
-		return already_logged_in(request)
-	if request.method == 'POST':
-		form = CustomUserCreationForm(request.POST)
-		if form.is_valid():
-			user = form.save()
-			user.is_42_user = False
-			user.save()
-			logger.info(f"New user registered: {user.username}", extra={'user_id': user.id})
-			messages.success(request, 'Registration successful. You can now log in.')
-			response = JsonResponse({"message": "Registration successful."}, status=status.HTTP_200_OK)
-			response['HX-Location'] = '/login'
-			return response
-		else:
-			logger.warning(f"Failed registration attempt: {form.errors}")
-			return render(request, 'register.html', {'form': form})
-	else:
-		form = CustomUserCreationForm()
-	response = render(request, 'register.html', {'form': form})
-	return response
+    if already_logged_in(request):
+        return already_logged_in(request)
+    context = {
+        'ft_client_id': settings.FT_CLIENT_ID,
+        'ft_redirect_uri': settings.FT_REDIRECT_URI,
+    }
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            user.is_42_user = False
+            user.save()
+            logger.info(f"New user registered: {user.username}", extra={'user_id': user.id})
+            messages.success(request, 'Registration successful. You can now log in.')
+            response = JsonResponse({"message": "Registration successful."}, status=status.HTTP_200_OK)
+            response['HX-Location'] = '/login'
+            return response
+        else:
+            logger.warning(f"Failed registration attempt: {form.errors}")
+            context['form'] = form
+            return render(request, 'register.html', context)
+    else:
+        form = CustomUserCreationForm()
+    context['form'] = form
+    response = render(request, 'register.html', context)
+    return response
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
 def login_view(request):
     if already_logged_in(request):
         return already_logged_in(request)
+    context = {
+        'ft_client_id': settings.FT_CLIENT_ID,
+        'ft_redirect_uri': settings.FT_REDIRECT_URI,
+    }
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
@@ -90,7 +100,8 @@ def login_view(request):
             if user is not None and user.password is None:
                 logger.warning(f"Login attempt with unset password for user: {username}", extra={'user_id': user.id})
                 messages.error(request, 'Invalid username or password.')
-                return render(request, 'login.html', {'form': form})
+                context['form'] = form
+                return render(request, 'login.html', context)
             user = authenticate(request, username=username, password=password)
             if user is not None and user.check_password(password):
                 if user.twofa == True:
@@ -107,7 +118,7 @@ def login_view(request):
                 refresh = RefreshToken.for_user(user)
                 access_token = str(refresh.access_token)
                 refresh_token = str(refresh)
-                
+
                 # Rotate the CSRF token
                 rotate_token(request)
                 if request.headers.get('HX-Request') == 'true':
@@ -122,17 +133,16 @@ def login_view(request):
             else:
                 logger.warning(f"Failed login attempt for user: {username}")
                 messages.error(request, 'Invalid username or password.')
-                return render(request, 'login.html', {'form': form})
+                context['form'] = form
+                return render(request, 'login.html', context)
         else:
             logger.warning("Invalid form submission during login")
             messages.error(request, 'Invalid form submission.')
+            context['form'] = form
+            return render(request, 'login.html', context)
     else:
         form = LoginForm()
-    context = {
-        'ft_client_id': settings.FT_CLIENT_ID,
-        'ft_redirect_uri': settings.FT_REDIRECT_URI,
-        'form': form,
-    }
+    context['form'] = form
     return render(request, 'login.html', context)
 
 @api_view(['GET'])

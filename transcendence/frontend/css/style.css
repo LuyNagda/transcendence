@@ -2,6 +2,62 @@ body {
 	--bs-body-font-family: 'PongRetro', 'VT323', monospace;
 }
 
+[data-bs-theme=dark] {
+
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
+  }
+  
+::-webkit-scrollbar-track {
+	background: #000000;
+	border-radius: 0px;
+  }
+  
+::-webkit-scrollbar-thumb {
+	background: #00ff00;
+	border-radius: 0px;
+  }
+  
+::-webkit-scrollbar-thumb:hover {
+	background: #00aa00;
+  }
+
+}
+
+[data-bs-theme=high-contrast] {
+
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px; 
+	}
+	
+::-webkit-scrollbar-track {
+	background: #000000;
+	border-radius: 0px;
+	}
+	
+::-webkit-scrollbar-thumb {
+	background: #ffff00;
+	border-radius: 0px;
+	}
+	
+::-webkit-scrollbar-thumb:hover {
+	background: #aaaa00;
+	}
+	
+}
+
+[data-bs-theme=dark] {
+    scrollbar-width: auto;
+    scrollbar-color: #00ff00 #000000;
+}
+
+[data-bs-theme=high-contrast] {
+    scrollbar-width: auto;
+    scrollbar-color: #ffff00 #000000;
+}
+  
 [data-bs-theme=dark] :focus {
 	border-color: #00ff00;
 	outline: 2px solid #00ff0040;
@@ -197,6 +253,11 @@ body {
 	background-color: #000000 !important;
 	border-bottom: 1px solid #00ff00;
 	box-shadow: 0 0 10px #00ff0040;
+}
+
+[data-bs-theme=high-contrast] .navbar {
+	background-color: #000000 !important;
+	border-bottom: 1px solid #ffff00;
 }
 
 [data-bs-theme=dark] .form-range::-webkit-slider-thumb {
@@ -637,7 +698,7 @@ canvas {
 	display: none;
 }
 
-@media (hover: none), (max-width: 768px) {
+@media (max-width: 1024px) and (hover: none), (max-width: 768px) {
 	#mobile-controls {
 		display: flex;
 	}
