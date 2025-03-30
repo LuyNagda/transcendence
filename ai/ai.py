@@ -6,9 +6,11 @@ from ai.misc.backup import backup_file
 logger = logging.getLogger(__name__)
 
 NB_INPUTS = 5
-NB_NEURONS_LAYER1 = 6
-NB_NEURONS_LAYER2 = 6
-NB_NEURONS_LAYER3 = 3
+NB_NEURONS_LAYER1 = 12
+NB_NEURONS_LAYER2 = 12
+NB_NEURONS_LAYER3 = 12
+NB_NEURONS_LAYER4 = 12
+NB_NEURONS_LAYER5 = 3
 
 WEIGHT_MUTATION_RATE = 0.1
 BIAS_MUTATION_RATE = 0.05
@@ -43,13 +45,17 @@ class Activation_SoftMax:
         return self.output
 
 class Neuron_Network:
-    def __init__(self, nb_inputs, nb_layer1_neurons, nb_layer2_neurons, nb_layer3_neurons):
+    def __init__(self, nb_inputs, nb_layer1_neurons, nb_layer2_neurons, nb_layer3_neurons, nb_layer4_neurons, nb_layer5_neurons):
         self.layer1 = Layer_Dense(nb_inputs, nb_layer1_neurons)
         self.activation1 = Activation_ReLU()
         self.layer2 = Layer_Dense(nb_layer1_neurons, nb_layer2_neurons)
         self.activation2 = Activation_ReLU()
         self.layer3 = Layer_Dense(nb_layer2_neurons, nb_layer3_neurons)
-        self.activation3 = Activation_SoftMax()
+        self.activation3 = Activation_ReLU()
+        self.layer4 = Layer_Dense(nb_layer3_neurons, nb_layer4_neurons)
+        self.activation4 = Activation_ReLU()
+        self.layer5 = Layer_Dense(nb_layer4_neurons, nb_layer5_neurons)
+        self.activation5 = Activation_SoftMax()
         self.ai_score = 0
         self.sample_gen = 0
 
@@ -63,6 +69,10 @@ class Neuron_Network:
         new_network.layer2.biases = self.layer2.biases.copy()
         new_network.layer3.weights = self.layer3.weights.copy()
         new_network.layer3.biases = self.layer3.biases.copy()
+        new_network.layer4.weights = self.layer4.weights.copy()
+        new_network.layer4.biases = self.layer4.biases.copy()
+        new_network.layer5.weights = self.layer5.weights.copy()
+        new_network.layer5.biases = self.layer5.biases.copy()
         
         new_network.ai_score = self.ai_score
         new_network.sample_gen = self.sample_gen
@@ -75,6 +85,10 @@ class Neuron_Network:
         self.output = self.activation2.forward(self.output)
         self.output = self.layer3.forward(self.output)
         self.output = self.activation3.forward(self.output)
+        self.output = self.layer4.forward(self.output)
+        self.output = self.activation4.forward(self.output)
+        self.output = self.layer5.forward(self.output)
+        self.output = self.activation5.forward(self.output)
         return self.output
     
     def decision(self, paddle_y, ball, height, width):
@@ -106,6 +120,14 @@ class Neuron_Network:
             "layer3": {
                 "weights" : self.layer3.weights.tolist(),
                 "biases": self.layer3.biases.tolist()
+            },
+            "layer4": {
+                "weights" : self.layer4.weights.tolist(),
+                "biases": self.layer4.biases.tolist()
+            },
+            "layer5": {
+                "weights" : self.layer5.weights.tolist(),
+                "biases": self.layer5.biases.tolist()
             }
         }
     
@@ -119,6 +141,10 @@ class Neuron_Network:
         self.layer2.biases = np.array(data["layer2"]["biases"])
         self.layer3.weights = np.array(data["layer3"]["weights"])
         self.layer3.biases = np.array(data["layer3"]["biases"])
+        self.layer4.weights = np.array(data["layer4"]["weights"])
+        self.layer4.biases = np.array(data["layer4"]["biases"])
+        self.layer5.weights = np.array(data["layer5"]["weights"])
+        self.layer5.biases = np.array(data["layer5"]["biases"])
 
 def Init_Ai(save_file, nb_species):
     Ai_Sample = []
@@ -130,7 +156,7 @@ def Init_Ai(save_file, nb_species):
             
             while len(Ai_Sample) < nb_species and ai_data_list:
                 Saved_Ai_dict = ai_data_list.pop(0)
-                network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
+                network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3, NB_NEURONS_LAYER4, NB_NEURONS_LAYER5)
                 network.load_from_dict(Saved_Ai_dict)
                 Ai_Sample.append(network)
 
@@ -140,7 +166,7 @@ def Init_Ai(save_file, nb_species):
         # Add random AIs to reach 'nb_species'
         remaining = nb_species - len(Ai_Sample)
         for i in range(remaining):
-            random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
+            random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3, NB_NEURONS_LAYER4, NB_NEURONS_LAYER5)
             Ai_Sample.append(random_ai)
         
         print(f"AIs from {save_file} successfully loaded")
@@ -148,7 +174,7 @@ def Init_Ai(save_file, nb_species):
     else:
         # Create 'nb_species' random AIs
         for i in range(nb_species):
-            random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
+            random_ai = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3, NB_NEURONS_LAYER4, NB_NEURONS_LAYER5)
             Ai_Sample.append(random_ai)
         
         print(f"Random AIs successfully loaded")
@@ -219,7 +245,7 @@ def Crossover_mutation(Ai_Sample, nb_species):
     while (len(Ai_Sample) < nb_species - 5):
         # Select 2 parent randomly from the 5 best performing AI and instance a child
         parent1, parent2 = np.random.choice(Ai_Sample[:5], 2, replace=False)
-        child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
+        child = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3, NB_NEURONS_LAYER4, NB_NEURONS_LAYER5)
 
         # Crossover for both weights and biases
         child.layer1.weights = (parent1.layer1.weights + parent2.layer1.weights) / 2
@@ -292,6 +318,8 @@ def train_ai(save_file, training_params):
     max_score = training_params.get('max_score')
 
     for j in range(nb_generation):
+        bestAi = -42
+        bestScore = -42
         log_header = ""
         log_header += (
             f"\n        ========== Generation #{j} ===========\n"
@@ -323,6 +351,11 @@ def train_ai(save_file, training_params):
             log_score += training_log + "\n"
             Ai_Sample[Ai_nb].ai_score = point
 
+            if point > bestScore:
+                bestScore = point
+                bestAi = Ai_nb
+
+        print(f'\nBest Ai of the generation {j}: AI{bestAi} with {bestScore} points')
         Save_Best_Ai(Ai_Sample, save_file)
         backup_file(save_file, j + 1)
         log += log_score
@@ -335,7 +368,7 @@ def load_Ai(save_file):
         ai_dict = json.load(imp)
 
         # Create a new Neuron_Network instance
-        network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3)
+        network = Neuron_Network(NB_INPUTS, NB_NEURONS_LAYER1, NB_NEURONS_LAYER2, NB_NEURONS_LAYER3, NB_NEURONS_LAYER4, NB_NEURONS_LAYER5)
         
         # Load the network data from the saved Ai dictionary
         network.load_from_dict(ai_dict)

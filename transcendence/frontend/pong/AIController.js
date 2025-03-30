@@ -112,9 +112,13 @@ export class AIController {
         this.layer1 = null;
         this.layer2 = null;
         this.layer3 = null;
+        this.layer4 = null;
+        this.layer5 = null;
         this.activation1 = null;
         this.activation2 = null;
         this.activation3 = null;
+        this.activation4 = null;
+        this.activation5 = null;
         this.aiBall = null;
         this.lastBallUpdate = 0;
     }
@@ -129,7 +133,9 @@ export class AIController {
             const setup = await response.json();
             if (!setup || !setup.layer1 || !setup.layer1.weights
                 || !setup.layer2 || !setup.layer2.weights
-                || !setup.layer3 || !setup.layer3.weights) {
+                || !setup.layer3 || !setup.layer3.weights
+                || !setup.layer4 || !setup.layer4.weights
+                || !setup.layer5 || !setup.layer5.weights) {
                 throw new Error('Invalid AI data structure received from server');
             }
 
@@ -148,15 +154,29 @@ export class AIController {
                     weights: setup.layer3.weights,
                     biases: setup.layer3.biases,
                     shape: `${setup.layer3.weights.length}x${setup.layer3.weights[0].length}`
+                },
+                layer4: {
+                    weights: setup.layer4.weights,
+                    biases: setup.layer4.biases,
+                    shape: `${setup.layer4.weights.length}x${setup.layer4.weights[0].length}`
+                },
+                layer5: {
+                    weights: setup.layer5.weights,
+                    biases: setup.layer5.biases,
+                    shape: `${setup.layer5.weights.length}x${setup.layer5.weights[0].length}`
                 }
             });
 
             this.layer1 = new Layer_Dense(setup.layer1.weights, setup.layer1.biases);
             this.layer2 = new Layer_Dense(setup.layer2.weights, setup.layer2.biases);
             this.layer3 = new Layer_Dense(setup.layer3.weights, setup.layer3.biases);
+            this.layer4 = new Layer_Dense(setup.layer4.weights, setup.layer4.biases);
+            this.layer5 = new Layer_Dense(setup.layer5.weights, setup.layer5.biases);
             this.activation1 = new Activation_ReLU();
             this.activation2 = new Activation_ReLU();
             this.activation3 = new Activation_SoftMax();
+            this.activation4 = new Activation_SoftMax();
+            this.activation5 = new Activation_SoftMax();
 
             logger.info('AIController initialization completed successfully');
         }
@@ -167,7 +187,7 @@ export class AIController {
     }
 
     decision(gameState) {
-        if (!this.layer1 || !this.layer2 || !this.layer3) {
+        if (!this.layer1 || !this.layer2 || !this.layer3 || !this.layer4 || !this.layer5) {
             logger.error('Neural network layers not initialized');
             return 1; // Default to staying still
         }
@@ -213,6 +233,10 @@ export class AIController {
         output = this.activation2.forward(output);
         output = this.layer3.forward(output);
         output = this.activation3.forward(output);
+        output = this.layer4.forward(output);
+        output = this.activation4.forward(output);
+        output = this.layer5.forward(output);
+        output = this.activation5.forward(output);
         return output;
     }
 
@@ -228,6 +252,14 @@ export class AIController {
                 biases: this.layer2.biases
             },
             layer3: {
+                weights: this.layer3.weights,
+                biases: this.layer3.biases
+            },
+            layer4: {
+                weights: this.layer3.weights,
+                biases: this.layer3.biases
+            },
+            layer5: {
                 weights: this.layer3.weights,
                 biases: this.layer3.biases
             },
