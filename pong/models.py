@@ -106,22 +106,14 @@ class PongRoom(models.Model):
                 raise ValueError(f"Invalid mode: {self.mode}")
             
             if not self.settings:
-                if self.mode == self.Mode.AI:
-                    self.settings = {
-                        'ballSpeed': 4,
-                        'paddleSpeed': 4,
-                        'paddleSize': 5,
-                        'maxScore': 11,
-                        'aiDifficulty': 'Marvin'
-                    }
-                else:
-                    self.settings = {
-                        'ballSpeed': 5,
-                        'paddleSpeed': 5,
-                        'paddleSize': 5,
-                        'maxScore': 11,
-                        'aiDifficulty': 'Marvin'
-                    }
+                self.settings = {
+                    'ballSpeed': 5,
+                    'paddleSpeed': 5,
+                    'paddleSize': 5,
+                    'maxScore': 11,
+                    'aiDifficulty': 'Marvin'
+                }
+
         super().save(*args, **kwargs)
 
     def serialize(self):
