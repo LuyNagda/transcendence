@@ -254,11 +254,17 @@ def Crossover_mutation(Ai_Sample, nb_species):
         child.layer2.biases = (parent1.layer2.biases + parent2.layer2.biases) / 2
         child.layer3.weights = (parent1.layer3.weights + parent2.layer3.weights) / 2
         child.layer3.biases = (parent1.layer3.biases + parent2.layer3.biases) / 2
+        child.layer4.weights = (parent1.layer4.weights + parent2.layer4.weights) / 2
+        child.layer4.biases = (parent1.layer4.biases + parent2.layer4.biases) / 2
+        child.layer5.weights = (parent1.layer5.weights + parent2.layer5.weights) / 2
+        child.layer5.biases = (parent1.layer5.biases + parent2.layer5.biases) / 2
 
         # Mutate for both weights and biases
         child.layer1 = apply_mutation(child.layer1)
         child.layer2 = apply_mutation(child.layer2)
         child.layer3 = apply_mutation(child.layer3)
+        child.layer4 = apply_mutation(child.layer4)
+        child.layer5 = apply_mutation(child.layer5)
 
         # Add this mutated child to the AI's list
         Ai_Sample.append(child)
