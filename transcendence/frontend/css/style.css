@@ -227,6 +227,47 @@ body {
 	background: #ffff00;
 }
 
+[data-bs-theme=dark] .chat-bubble-container::-webkit-scrollbar,
+[data-bs-theme=dark] .chat-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+[data-bs-theme=dark] .chat-bubble-container::-webkit-scrollbar-track,
+[data-bs-theme=dark] .chat-list::-webkit-scrollbar-track {
+  background: #001100;
+}
+
+[data-bs-theme=dark] .chat-bubble-container::-webkit-scrollbar-thumb,
+[data-bs-theme=dark] .chat-list::-webkit-scrollbar-thumb {
+  background: #00ff00;
+  border-radius: 6px;
+}
+
+[data-bs-theme=dark] .chat-bubble-container::-webkit-scrollbar-thumb:hover,
+[data-bs-theme=dark] .chat-list::-webkit-scrollbar-thumb:hover {
+  background: #00cc00;
+}
+
+[data-bs-theme=high-contrast] .chat-bubble-container::-webkit-scrollbar,
+[data-bs-theme=high-contrast] .chat-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+[data-bs-theme=high-contrast] .chat-bubble-container::-webkit-scrollbar-track,
+[data-bs-theme=high-contrast] .chat-list::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+[data-bs-theme=high-contrast] .chat-bubble-container::-webkit-scrollbar-thumb,
+[data-bs-theme=high-contrast] .chat-list::-webkit-scrollbar-thumb {
+  background: #ffff00;
+  border-radius: 6px;
+}
+
+[data-bs-theme=high-contrast] .chat-bubble-container::-webkit-scrollbar-thumb:hover,
+[data-bs-theme=high-contrast] .chat-list::-webkit-scrollbar-thumb:hover {
+  background: #cccc00;
+}
 
 [data-bs-theme=high-contrast] {
 	--bs-body-color: #ffff00 !important;
