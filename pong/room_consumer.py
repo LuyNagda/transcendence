@@ -51,19 +51,36 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             # Add user to room if not already present
             success, message, error_code = await self.add_user_to_room()
             if not success:
+                user_group = f"user_{self.user.id}"
+                await self.channel_layer.group_add(
+                    user_group,
+                    self.channel_name
+                )
+                
+                await self.channel_layer.group_send(
+                    f"user_{self.user.id}",
+                    {
+                        'type': 'room_info',
+                        'message': f'{message}',
+                        'message_type': 'info',
+                        'timestamp': timezone.now().isoformat()
+                    }
+                )
+                
                 logger.error(f"Failed to add user to room: {message} - room_id: {self.room_id}", extra={
                     'user_id': self.user.id
                 })
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'code': error_code,
-                    'message': message
-                }))
+                # TODO LALA
+                # await self.send(text_data=json.dumps({
+                #     'type': 'error',
+                #     'code': error_code,
+                #     'message': message
+                # }))
                 await self.channel_layer.group_discard(
                     self.room_group_name,
                     self.channel_name
                 )
-                await self.close(code=error_code)
+                # await self.close(code=error_code)
                 return
 
             logger.info(f"Room WebSocket connection accepted for user {self.user.name} in room {self.room_id}", extra={
