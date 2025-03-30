@@ -363,6 +363,10 @@ export default class ChatApp {
 		} else {
 			logger.debug(`[ChatApp] Unhandled message type:`, data.type);
 		}
+		const messageHistory = document.querySelector("#message-history");
+        if (messageHistory) {
+            messageHistory.scrollTo({ top: messageHistory.scrollHeight, behavior: 'smooth' });
+        }
 	}
 
 	_sendMessage(message) {
@@ -552,6 +556,10 @@ export default class ChatApp {
 						messages
 					}
 				});
+				const messageHistory = document.querySelector("#message-history");
+				if (messageHistory) {
+					messageHistory.scrollTo({ top: messageHistory.scrollHeight, behavior: 'smooth' });
+				}
 			})
 			.catch(error => {
 				logger.error(`[ChatApp] Error loading message history:`, error);

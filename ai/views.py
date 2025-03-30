@@ -140,7 +140,7 @@ def training(request):
         )
 
         # Create the full path
-        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
+        save_file = Path(settings.STATICFILES_DIRS[0]) / 'saved_ai' / ai_name
 
         def train_and_release():
             global IN_TRAINING
@@ -185,7 +185,7 @@ def list_saved_ai(request):
     View to list all saved AI files in the './saved_ai' directory.
     """
 
-    folder_path = settings.STATICFILES_DIRS[0] / 'saved_ai'
+    folder_path = Path(settings.STATICFILES_DIRS[0]) / 'saved_ai'
     try:
         # Check if the folder exists
         if not os.path.exists(folder_path):
@@ -217,7 +217,7 @@ def delete_saved_ai(request):
         if ai_name in invalid_ai:
             raise PermissionError(f"The file '{ai_name}' cannot be removed")        
 
-        save_file = settings.STATICFILES_DIRS[0] / 'saved_ai' / ai_name
+        save_file = Path(settings.STATICFILES_DIRS[0]) / 'saved_ai' / ai_name
 
         if os.path.exists(save_file):
             os.remove(save_file)
