@@ -559,7 +559,7 @@ export default class ChatApp {
 				const messageHistory = document.querySelector("#message-history");
 				if (messageHistory) {
 					messageHistory.scrollTo({ top: messageHistory.scrollHeight, behavior: 'smooth' });
-        }
+				}
 			})
 			.catch(error => {
 				logger.error(`[ChatApp] Error loading message history:`, error);
