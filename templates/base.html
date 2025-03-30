@@ -8,7 +8,7 @@
     <title>{% block title %}Transcendence{% endblock %}</title>
     <link rel="icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
     <link href="{% static 'vendor.css' %}" rel="stylesheet">
-    <link href="{% static 'high-contrast.css' %}" rel="stylesheet">
+    <link href="{% static 'style.css' %}" rel="stylesheet">
 </head>
 
 <body class="d-flex flex-column min-vh-100" data-config-id="app-config" aria-label="Main application content">
@@ -20,17 +20,14 @@
         {% block chat %}
         {% include "chat.html" %}
         {% endblock %}
+        {% block modals %}
+        {% include "modals.html" %}
+        {% endblock %}
     </main>
 
-    {% block footer %}
-    {% if not request.htmx %}
-    {% include "footer.html" %}
-    {% endif %}
-    {% endblock %}
+	{% if not request.htmx %}
+		<script type="module" src="{% static 'main.js' %}"></script>
+	{% endif %}
+
 </body>
-
-{% if not request.htmx %}
-<script type="module" src="{% static 'main.js' %}"></script>
-{% endif %}
-
 </html>

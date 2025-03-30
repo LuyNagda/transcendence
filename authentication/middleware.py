@@ -1,6 +1,5 @@
 import logging, json
 from django.contrib.auth.models import AnonymousUser
-from django.contrib.auth import get_user_model
 from django.db import close_old_connections
 from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
@@ -9,11 +8,10 @@ from asgiref.sync import sync_to_async
 from channels.middleware import BaseMiddleware
 from channels.exceptions import StopConsumer
 from django.http import JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, render
+from authentication.models import User
 
 log = logging.getLogger(__name__)
-
-User = get_user_model()
 
 class JWTAuthMiddleware:
     """
@@ -188,3 +186,31 @@ class WebSocketNotFoundMiddleware(BaseMiddleware):
                     raise  # Re-raise if it's a different ValueError
         else:
             return await super().__call__(scope, receive, send)
+    
+class Handle4xxMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        
+        if 400 <= response.status_code < 500:
+            default_messages = {
+                400: "Bad Request - The request was invalid or cannot be served",
+                401: "Unauthorized - Authentication is required",
+                403: "Forbidden - You don't have permission to access this resource",
+                404: "Page Not Found - The requested resource could not be found",
+                405: "Method Not Allowed",
+                415: "Unsupported Media Type",
+                429: "Too Many Requests",
+            }
+            
+            error_message = default_messages.get(response.status_code, "An error occurred")
+            status_code = response.status_code
+            
+            return render(request, '4xx.html', {
+                'error_message': error_message,
+                'status_code': status_code
+            }, status=status_code)
+
+        return response

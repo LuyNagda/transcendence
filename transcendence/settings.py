@@ -33,6 +33,8 @@ SECRET_KEY = 'django-insecure-zw-ma$(zm6#8=njdjxk+@gd32fa&fd$-&tjxv-m#upwl(gt&ay
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env.bool('DEBUG')
 
+DOMAIN=env('DOMAIN', default='localhost')
+
 LOG_LEVEL = env('LOG_LEVEL', default='DEBUG')
 
 LOGGING = get_logging_config(LOG_LEVEL)
@@ -70,6 +72,7 @@ MIDDLEWARE = [
     'django_htmx.middleware.HtmxMiddleware',
     'authentication.middleware.RedirectOn401Middleware',
     'authentication.middleware.HtmxUserMiddleware',
+    'authentication.middleware.Handle4xxMiddleware',
 ]
 
 ROOT_URLCONF = 'transcendence.urls'
@@ -101,12 +104,12 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'authentication.decorators.IsAuthenticatedWithCookie',
     ),
-    'EXCEPTION_HANDLER': 'transcendence.exceptions.custom_exception_handler',
+    # 'EXCEPTION_HANDLER': 'transcendence.exceptions.custom_exception_handler',
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
@@ -229,33 +232,28 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
 
 LOGIN_URL = '/login'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', env('DOMAIN')]
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', DOMAIN]
 CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
+    'https://localhost:8080',
+    'https://127.0.0.1:8080',
+    f'http://{DOMAIN}:8080',
+    f'https://{DOMAIN}:8443',
+    f'ws://{DOMAIN}:8443',
+    f'wss://{DOMAIN}:8443'
 ]
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-]
+CORS_ALLOWED_ORIGINS = CSRF_TRUSTED_ORIGINS
 
 if env('PROD', default='False') == 'True':
-    CSRF_TRUSTED_ORIGINS.append(f'https://{env("DOMAIN")}')
-    CSRF_TRUSTED_ORIGINS.append(f'ws://{env("DOMAIN")}')
-    CSRF_TRUSTED_ORIGINS.append(f'wss://{env("DOMAIN")}')
-    CORS_ALLOWED_ORIGINS.append(f'https://{env("DOMAIN")}')
-    CORS_ALLOWED_ORIGINS.append(f'ws://{env("DOMAIN")}')
-    CORS_ALLOWED_ORIGINS.append(f'wss://{env("DOMAIN")}')
+    CSRF_TRUSTED_ORIGINS.append(f'https://{DOMAIN}')
+    CSRF_TRUSTED_ORIGINS.append(f'ws://{DOMAIN}')
+    CSRF_TRUSTED_ORIGINS.append(f'wss://{DOMAIN}')
+    CORS_ALLOWED_ORIGINS.append(f'https://{DOMAIN}')
+    CORS_ALLOWED_ORIGINS.append(f'ws://{DOMAIN}')
+    CORS_ALLOWED_ORIGINS.append(f'wss://{DOMAIN}')
 
-CSRF_COOKIE_DOMAIN = env('DOMAIN')
+CSRF_COOKIE_DOMAIN = DOMAIN
 CORS_ALLOW_CREDENTIALS = True
 FT_CLIENT_ID = env('FT_CLIENT_ID')
 FT_CLIENT_SECRET = env('FT_CLIENT_SECRET')
 FT_REDIRECT_URI = env('FT_REDIRECT_URI')
-
-RTC_STUN_URL = env('RTC_STUN_URL')
-RTC_TURN_URL_1 = env('RTC_TURN_URL_1')
-RTC_TURN_URL_2 = env('RTC_TURN_URL_2')
-RTC_TURN_USERNAME = env('RTC_TURN_USERNAME')
-RTC_TURN_CREDENTIAL = env('RTC_TURN_CREDENTIAL')

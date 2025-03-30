@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Error {{ status_code }}{% endblock %}
+
+{% block content %}
+<div class="container x-auto my-5 text-center">
+    <h1 class="display-1 fw-bold">Error {{ status_code }}</h1>
+    
+    <div class="alert alert-danger m-5">
+        <p class="lead">{{ error_message }}</p>
+    </div>
+
+    <div class="mt-5">
+        <a href="{% url 'index' %}" class="btn btn-primary">
+            Index
+        </a>
+    </div>
+</div>
+{% endblock %} 

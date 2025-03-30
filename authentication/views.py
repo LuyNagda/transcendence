@@ -11,7 +11,9 @@ from django.shortcuts import render, redirect
 from .forms import CustomUserCreationForm, LoginForm, ForgotPasswordForm, ResetPasswordForm, OTPForm, TWOFAForm
 from django.contrib import messages
 from .models import User
+from jwt.exceptions import ExpiredSignatureError, DecodeError, InvalidTokenError
 from .utils import generate_otp
+from rest_framework_simplejwt.tokens import AccessToken
 from rest_framework.decorators import api_view, permission_classes
 from .decorators import IsAuthenticatedWithCookie
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -40,7 +42,6 @@ def already_logged_in(request):
 
 	users = User.objects.all()  
 	blocked_users = request.user.blocked_users.all() if hasattr(request.user, 'blocked_users') else []
-	login(request, User.objects.get(username=user))
 	context = {
 	'user': User.objects.get(username=user),
 	'access_token': access_token,
@@ -123,7 +124,7 @@ def login_view(request):
                 messages.error(request, 'Invalid username or password.')
                 return render(request, 'login.html', {'form': form})
         else:
-            logger.warning("Invalid form submission during login", extra={'user_id': user.id})
+            logger.warning("Invalid form submission during login")
             messages.error(request, 'Invalid form submission.')
     else:
         form = LoginForm()
@@ -194,54 +195,62 @@ def logout_view(request):
 def forgot_password(request):
     uid = request.GET.get('uid')
     token = request.GET.get('token')
-    if uid and token:
-        # Handle password reset logic
-        try:
-            pk_uid = force_str(urlsafe_base64_decode(uid))
-            user = User.objects.get(pk=pk_uid)
-            if default_token_generator.check_token(user, token):
-                if request.method == 'POST':
-                    form = ResetPasswordForm(user, request.POST)
-                    if form.is_valid():
-                        form.save()
-                        return render(request, 'login.html', {'form': LoginForm()})
+    try:
+        if uid and token:
+            # Handle password reset logic
+            try:
+                pk_uid = force_str(urlsafe_base64_decode(uid))
+                user = User.objects.get(pk=pk_uid)
+                if default_token_generator.check_token(user, token):
+                    if request.method == 'POST':
+                        form = ResetPasswordForm(user, request.POST)
+                        if form.is_valid():
+                            form.save()
+                            if request.headers.get('HX-Request') == 'true':
+                                response = JsonResponse({"message": "Password change successful."}, status=status.HTTP_200_OK)
+                                response['HX-Location'] = '/login'
+                            else:
+                                response = redirect('/login')
+                            return response
+                    else:
+                        form = ResetPasswordForm(user)
+                    return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token})
                 else:
-                    form = ResetPasswordForm(user)
-                return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token})
-            else:
-                messages.error(request, 'Invalid token.')
+                    messages.error(request, 'Invalid token.')
+                    return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token, 'messages': messages})
+            except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+                messages.error(request, 'Invalid password reset link')
                 return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token, 'messages': messages})
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            messages.error(request, 'Invalid password reset link')
-            return render(request, 'password-reset-confirm.html', {'form': form, 'uid': uid, 'token': token, 'messages': messages})
-    if request.method == 'POST':
-        form = ForgotPasswordForm(request.POST)
-        if form.is_valid():
-            email = form.cleaned_data['email']
-            users = User.objects.filter(email=email)
-            if users.exists():
-                for user in users:
-                    token = default_token_generator.make_token(user)
-                    uid = urlsafe_base64_encode(force_bytes(user.pk))
-                    site_name = get_current_site(request).name
-                    domain = 'localhost:8000'
-                    protocol = 'http'
-                    subject = render_to_string('password-reset-subject.txt', {'site_name': site_name})
-                    message = render_to_string('password-reset-email.html', {
-                        'user': user,
-                        'protocol': protocol,
-                        'domain': domain,
-                        'uid': uid,
-                        'token': token,
-                    })
-                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
-            else:
-                messages.error(request, 'No user with this email address.')
+        if request.method == 'POST':
+            form = ForgotPasswordForm(request.POST)
+            if form.is_valid():
+                email = form.cleaned_data['email']
+                users = User.objects.filter(email=email)
+                if users.exists():
+                    for user in users:
+                        token = default_token_generator.make_token(user)
+                        uid = urlsafe_base64_encode(force_bytes(user.pk))
+                        site_name = get_current_site(request).name
+                        domain = f'{settings.DOMAIN}:8443'
+                        protocol = 'https'
+                        subject = render_to_string('password-reset-subject.txt', {'site_name': site_name})
+                        message = render_to_string('password-reset-email.html', {
+                            'user': user,
+                            'protocol': protocol,
+                            'domain': domain,
+                            'uid': uid,
+                            'token': token,
+                        })
+                        send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+                else:
+                    messages.error(request, 'No user with this email address.')
 
-            return render(request, 'password-reset-done.html')
-    else:
-        form = ForgotPasswordForm()
-    return render(request, 'forgot-password.html', {'form': form})
+                return render(request, 'password-reset-done.html')
+        else:
+            form = ForgotPasswordForm()
+        return render(request, 'forgot-password.html', {'form': form})
+    except:
+        return render(request, 'forgot-password.html', {'form': ForgotPasswordForm()})
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])
@@ -282,7 +291,6 @@ def otp(request):
                 user = User.objects.get(otp=otp)
                 user.otp = None
                 user.save()
-                login(request, user)
                 refresh = RefreshToken.for_user(user)
                 access_token = str(refresh.access_token)
                 refresh_token = str(refresh)
@@ -309,6 +317,8 @@ def authenticate_api(request, access_token):
     if response.status_code == 200:
         user_data = response.json()
         username = user_data['login'] + '_42'
+        logger.info(f'LALALA {user_data}')
+        nickname = user_data['first_name']
         if username in User.objects.values_list('username', flat=True):
             if User.objects.get(username=username).is_42_user:
                 user = User.objects.get(username=username)
@@ -316,10 +326,26 @@ def authenticate_api(request, access_token):
                 messages.error(request, 'User already exists.')
                 return None
         elif username not in User.objects.values_list('username', flat=True):
-            user, created = User.objects.create(username=username, email=user_data['email'], is_42_user=True)
+            user, created = User.objects.get_or_create(username=username, email=user_data['email'], nick_name=nickname, is_42_user=True)
         return user
     messages.error(request, 'Invalid access token.')
     return None
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def check_user(request):
+    token = request.COOKIES.get('access_token')
+    if not token:
+        return JsonResponse({"id": None, "isAuthenticated": False}, status=status.HTTP_200_OK)
+    try:
+        # Validate the token
+        access_token = AccessToken(token)
+        user_id = access_token['user_id']
+        user = User.objects.get(id=user_id)
+        return JsonResponse({"id": user.id, "isAuthenticated": True}, status=status.HTTP_200_OK)
+    except (ExpiredSignatureError, DecodeError, InvalidTokenError, User.DoesNotExist):
+        return JsonResponse({"id": None, "isAuthenticated": False}, status=status.HTTP_200_OK)
+
 
 @api_view(['GET', 'POST'])
 @permission_classes([AllowAny])

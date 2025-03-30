@@ -17,6 +17,13 @@ class CustomUserCreationForm(forms.ModelForm):
         model = CustomUser
         fields = ('username', 'email', 'nick_name', 'password1', 'password2')
 
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        # Only accept letters and numbers
+        if not username.isalnum():
+            raise forms.ValidationError('Username cannot have any symbols.')
+        return username
+
     def clean_email(self):
         email = self.cleaned_data.get('email')
         if User.objects.filter(email=email).exists():

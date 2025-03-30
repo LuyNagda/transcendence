@@ -59,13 +59,6 @@ export class GameRules {
 		paddleSpeed: 6
 	};
 
-	static DEFAULT_RANKED_SETTINGS = {
-		...GameRules.DEFAULT_SETTINGS,
-		maxScore: 11,
-		ballSpeed: 6,
-		paddleSize: 4,
-	};
-
 	/**
 	 * Calculate actual paddle height based on paddleSize setting
 	 * The formula is: BASE_HEIGHT + (paddleSize * 4)

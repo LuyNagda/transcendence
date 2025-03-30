@@ -57,10 +57,10 @@
 		</span>
 	</a>
 </li>
-<li class="nav-item dropdown d-flex justify-content-center" role="navigation">
+<li class="nav-item dropdown d-flex justify-content-center me-4" role="navigation">
 	<a class="nav-link dropdown-toggle" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown"
 		aria-expanded="false" aria-label="User Profile" style="--bs-dropdown-toggle-icon: none;">
-		<img src="{{ user.profile_picture.url }}" class="rounded-circle" style="max-width: 30px;"
+		<img src="{{ user.profile_picture.url }}" class="rounded-circle" style="width: 30px; height: 30px; object-fit: cover;"
 			alt="User Profile Picture">
 	</a>
 	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
@@ -89,8 +89,5 @@
 		</li>
 	</ul>
 </li>
-
-
-{% block modal %}{% include "modal.html" %}{% endblock %}
 
 {% endblock %}

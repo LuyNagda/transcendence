@@ -9,7 +9,6 @@ from channels.layers import get_channel_layer
 from rest_framework.decorators import api_view, permission_classes
 from authentication.decorators import IsAuthenticatedWithCookie
 from .models import PongGame, PongRoom
-from utils.htmx import with_state_update
 from rest_framework.response import Response
 from django.urls import reverse
 
@@ -17,13 +16,6 @@ User = get_user_model()
 
 # Configure the logger
 logger = logging.getLogger(__name__)
-
-DEFAULT_RANKED_SETTINGS = {
-    'ballSpeed': 6,
-    'paddleSpeed': 6,
-    'paddleSize': 5,
-    'maxScore': 11,
-}
 
 def validate_settings(settings):
     """Validate game settings and return sanitized values"""
@@ -33,18 +25,6 @@ def validate_settings(settings):
     validated['paddleSize'] = max(1, min(10, int(settings.get('paddleSize', 5))))
     validated['maxScore'] = max(1, min(21, int(settings.get('maxScore', 11))))
     return validated
-
-@api_view(['GET'])
-@permission_classes([IsAuthenticatedWithCookie])
-def pong_view(request):
-    access_token = request.COOKIES.get('access_token')
-    refresh_token = request.COOKIES.get('refresh_token')
-    users = User.objects.exclude(email=request.user.email)
-    return render(request, 'pong/pong.html', {
-        'users': users,
-        'access_token': access_token, 
-        'refresh_token': refresh_token
-    })
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -64,11 +44,11 @@ def create_pong_room(request):
         room = PongRoom.objects.create(
             room_id=room_id,
             owner=request.user,
-            mode=PongRoom.Mode.CLASSIC
+            mode=PongRoom.Mode.AI,
         )
         room.players.add(request.user)
         logger.info(f"Room created with ID {room_id} by user {request.user.username}")
-        return render(request, 'pong/pong.html', {'room_id': room_id, 'room': 'created'})
+        return render(request, 'index.html', {'room_id': room_id, 'room': 'created'})
     except Exception as e:
         logger.error(f"Error creating room for user {request.user.username} : {str(e)}")
         return JsonResponse({'status': 'error'})
@@ -123,7 +103,7 @@ def invite_friends(request, room_id):
         invitations_to_send = min(available_slots, len(friends))
         for friend in friends[:invitations_to_send]:
             room.pending_invitations.add(friend)
-        
+
         # Envoyer une mise à jour WebSocket
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -141,7 +121,7 @@ def get_max_players_for_mode(mode):
     elif mode == 'AI' or mode == 'LOCAL':
         return 1
     else:
-        return 2  # For CLASSIC and RANKED modes
+        return 2  # For CLASSIC modes
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticatedWithCookie])
@@ -150,16 +130,12 @@ def pong_room_state(request, room_id):
         room = get_object_or_404(PongRoom, room_id=room_id)
         room_data = room.serialize()
         room_data['currentUser'] = request.user.player_data
-        
-        # Create response with room state in HX-Trigger
-        response = render(request, 'pong/components/room_state.html', {
+
+        return render(request, 'pong/components/room_state.html', {
             'room_id': room_id,
             'pongRoom': json.dumps(room_data, cls=DjangoJSONEncoder, separators=(',', ':'))
         })
-        
-        # Add state update using the new mechanism
-        return with_state_update(response, 'room', room_data)
-        
+
     except Exception as e:
         logger.error(f"Error getting room state: {str(e)}")
         return JsonResponse({'error': 'Failed to get room state'}, status=500)

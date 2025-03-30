@@ -27,11 +27,6 @@ services:
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
       - DEBUG=${DEBUG}
       - DOMAIN=${DOMAIN}
-      - RTC_STUN_URL=${RTC_STUN_URL}
-      - RTC_TURN_URL_1=${RTC_TURN_URL_1}
-      - RTC_TURN_URL_2=${RTC_TURN_URL_2}
-      - RTC_TURN_USERNAME=${RTC_TURN_USERNAME}
-      - RTC_TURN_CREDENTIAL=${RTC_TURN_CREDENTIAL}
     develop:
       watch:
         - action: rebuild
@@ -57,6 +52,7 @@ services:
     image: nginx
     ports:
       - "8080:80"
+      - "8443:443"
     depends_on:
       transcendence:
         condition: service_healthy
@@ -64,6 +60,7 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
       - static:/var/www/static
       - media:/var/www/media
+      - ssl_certs:/etc/nginx/ssl
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.transcendence.rule=Host(`${DOMAIN}`)"
@@ -129,15 +126,6 @@ services:
       - "1025:1025"
     networks:
       - app
-    profiles:
-      - dev
-
-  coturn:
-    image: coturn/coturn
-    network_mode: host
-    volumes:
-      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
-    command: [ "-c", "/etc/coturn/turnserver.conf" ]
     profiles:
       - dev
 

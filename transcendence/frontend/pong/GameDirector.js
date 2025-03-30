@@ -14,13 +14,11 @@ export default class GameDirector {
 	 * @param {Object} options - Configuration options
 	 * @param {string} options.gameId - The ID of the game
 	 * @param {boolean} options.isHost - Whether this client is the host
-	 * @param {boolean} options.useWebGL - Whether to use WebGL for rendering
 	 * @param {Object} options.settings - Game settings
 	 */
 	constructor(options) {
 		this.gameId = options.gameId;
 		this.isHost = options.isHost || false;
-		this.useWebGL = options.useWebGL !== undefined ? options.useWebGL : true;
 		this.eventEmitter = new EventEmitter();
 		this.components = new Map();
 		this.gameFinished = false;
@@ -87,10 +85,8 @@ export default class GameDirector {
 			this._registerComponent('renderSystem', new RenderSystem(
 				this.eventEmitter,
 				canvas,
-				this.useWebGL,
 				this.isHost,
 				this.isLocalGame
-				// this.isAigame
 			));
 
 			this._setupEventHandlers();
@@ -358,6 +354,9 @@ export default class GameDirector {
 		});
 
 		this.eventEmitter.on('playerInput', ({ player, input }) => {
+			const physicsSystem = this.components.get('state');
+			if (physicsSystem)
+				physicsSystem._handlePlayerInput({ player, input });
 			if (this.isLocalGame) return;
 			const networkSystem = this.components.get('networkSystem');
 			if (networkSystem && networkSystem.checkConnection()

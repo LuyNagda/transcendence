@@ -7,7 +7,7 @@
 {% block navbar %}{% include "ui.html" %}{% endblock %}
 
 <div class="container my-4" id="training-form" aria-labelledby="training-heading">
-    <h1 id="training-heading" class="text-center mb-4">Manage the AI for Pong</h1>
+    <h1 id="training-heading" class="h1 fw-bold text-center mb-4">Manage the AI for Pong</h1>
 
     <!-- Grid Layout -->
     <div class="row">
@@ -30,14 +30,14 @@
                         value="50">
                 </div>
                 <div class="mb-2">
-                    <label for="time_limit">Simulated time Limit (10-120 minutes)</label>
-                    <input type="number" id="time_limit" name="time_limit" class="form-control" min="10" max="120"
-                        value="10">
+                    <label for="time_limit">Simulated time Limit (5-60 minutes)</label>
+                    <input type="number" id="time_limit" name="time_limit" class="form-control" min="5" max="60"
+                        value="5">
                 </div>
                 <div class="mb-2">
-                    <label for="max_score">Max Score (100-1000)</label>
-                    <input type="number" id="max_score" name="max_score" class="form-control" min="100" max="1000"
-                        value="100">
+                    <label for="max_score">Max Score (50-500)</label>
+                    <input type="number" id="max_score" name="max_score" class="form-control" min="50" max="500"
+                        value="50">
                 </div>
                 <button type="button" class="btn btn-primary w-100 mb-3" id="train-ai-btn" aria-label="Start AI Training">Start Training</button>
                 <div class="form-floating mb-2">
@@ -53,8 +53,8 @@
         <!-- Right Column: Training Log -->
         <div class="col-md-8">
             <div id="managing-log" class="alert alert-info" role="status" aria-live="polite" aria-atomic="true">
-                Press the button to start training the AI or delete a saved AI.
-                Logs will appear here.
+                AI manager's log:
+                
             </div>
         </div>
     </div>

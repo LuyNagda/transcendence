@@ -7,7 +7,10 @@ import { createRoomGameManager } from './RoomGameManager.js';
 import { createRoomConnectionManager } from './RoomConnectionManager.js';
 import { GameRules } from '../pong/core/GameRules.js';
 import { AIService } from './AIService.js';
+import { Modal } from 'bootstrap';
 
+window.bootstrap = window.bootstrap || {};
+window.bootstrap.Modal = Modal;
 /**
  * Main Room class that coordinates between different managers
  */
@@ -43,6 +46,13 @@ export default class Room {
 					payload: null
 				});
 
+				// Destroy existing instance if it exists
+				if (Room._instance) {
+					Room._instance.destroy();
+					Room._instance = null;
+				}
+
+				// Create new instance and initialize
 				Room._instance = new Room(roomId);
 				Room._instance._initializeRoomApp();
 			} else {
@@ -50,6 +60,32 @@ export default class Room {
 					Room._instance.destroy();
 					Room._instance = null;
 				}
+			}
+		});
+
+		// Add handler for history pop state
+		window.addEventListener('popstate', (event) => {
+			const path = window.location.pathname;
+			logger.info('[Room] popstate event detected:', path);
+			if (path.includes('/pong/room/')) {
+				const roomId = path.replace('/pong/room/', '').replace('/', '');
+
+				// Clear any existing room state before initialization
+				store.dispatch({
+					domain: 'room',
+					type: actions.room.CLEAR_ROOM,
+					payload: null
+				});
+
+				// Destroy existing instance if it exists
+				if (Room._instance) {
+					Room._instance.destroy();
+					Room._instance = null;
+				}
+
+				// Create new instance and initialize
+				Room._instance = new Room(roomId);
+				Room._instance._initializeRoomApp();
 			}
 		});
 	}
@@ -161,7 +197,7 @@ export default class Room {
 
 	_getRoomMode() {
 		const roomState = store.getState('room');
-		return roomState?.mode || RoomModes.CLASSIC;
+		return roomState?.mode || RoomModes.LOCAL;
 	}
 
 	_getAvailableSlots() {
@@ -189,12 +225,6 @@ export default class Room {
 			}
 		};
 
-		// Add WebRTC configuration if needed
-		if (config.enableGameConnection) {
-			config.rtcConfig = {
-			};
-		}
-
 		return config;
 	}
 
@@ -205,7 +235,6 @@ export default class Room {
 		this._uiManager.setKickPlayerHandler((playerId) => this.kickPlayer(playerId));
 		this._uiManager.setCancelInvitationHandler((invitationId) => this.cancelInvitation(invitationId));
 		this._uiManager.setModeChangeHandler((event) => this.handleModeChange(event));
-		this._uiManager.setWebGLToggleHandler((useWebGL) => this.handleWebGLToggle(useWebGL));
 
 		// Set up game event handlers
 		this._gameManager.on('game_failure', (error) => {
@@ -625,19 +654,16 @@ export default class Room {
 				variant: data.message_type
 			}
 		});
-	}
+		if (data.message.includes("win the tournament"))
+		{
+			let modalMessage = document.getElementById("modalMessage");
+			let modalTitle = document.getElementById("messageModalLabel");
 
-	handleWebGLToggle(useWebGL) {
-		logger.info('[Room] Handling WebGL toggle:', useWebGL);
-
-		if (this._gameManager)
-			this._gameManager.setUseWebGL(useWebGL);
-
-		store.dispatch({
-			domain: 'room',
-			type: actions.room.TOGGLE_WEBGL,
-			payload: { useWebGL }
-		});
+			modalTitle.textContent = "Tournament";
+			modalMessage.innerHTML = data.message;
+			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+			messageModal.show();
+		}
 	}
 
 	destroy() {

@@ -466,7 +466,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     f"user_{game.player1.id}",
                     {
                         'type': 'room_info',
-                        'message': f'Match starting against {game.player2.nick_name if game.player2 else "AI"}' if self.room.mode == "TOURNAMENT" else f'Match starting against {game.player2.username if game.player2 else "AI"}',
+                        'message': f'Round starting against {game.player2.nick_name if game.player2 else "AI"}' if self.room.mode == "TOURNAMENT" else f'Match starting against {"Guest" if game.player2_is_guest else (game.player2.username if game.player2 else "AI")}',
                         'message_type': 'info',
                         'timestamp': timezone.now().isoformat()
                     }
@@ -649,11 +649,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                         'paddleSpeed': 4,
                         'maxScore': 11,
                     } if value == 'AI' else {
-                        'ballSpeed': 6,
-                        'paddleSpeed': 6,
-                        'maxScore': 11,
-                        'aiDifficulty': 'Marvin'
-                    } if value == 'RANKED' else {
                         'ballSpeed': 5,
                         'paddleSpeed': 5,
                         'maxScore': 11,

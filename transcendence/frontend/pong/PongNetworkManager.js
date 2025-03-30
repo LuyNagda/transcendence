@@ -40,7 +40,8 @@ export class PongNetworkManager {
 			'update_scores': 'scoreUpdate',
 			'game_complete': 'gameComplete',
 			'player_ready': 'playerReady',
-			'player_disconnected': 'playerDisconnected'
+			'player_disconnected': 'playerDisconnected',
+			'physics_update': 'physicsUpdate'
 		};
 
 		this._messageHandlers = {
@@ -99,7 +100,6 @@ export class PongNetworkManager {
 		this._handleMessage = this._handleMessage.bind(this);
 		this._handleStateChange = this._handleStateChange.bind(this);
 		this._handleWebSocketMessage = this._handleWebSocketMessage.bind(this);
-		this._handleGameMessage = this._handleGameMessage.bind(this);
 		this._handleDisconnect = this._handleDisconnect.bind(this);
 
 		return true;
@@ -131,15 +131,6 @@ export class PongNetworkManager {
 				}
 			};
 
-			if (!this._isLocalGame) {
-				connections.gameplay = {
-					type: 'webrtc',
-					config: {
-						isHost: this._isHost
-					}
-				};
-			}
-
 			this._connections = connectionManager.createConnectionGroup(this._connectionGroupName, connections);
 
 			// Set up WebSocket handlers
@@ -152,42 +143,7 @@ export class PongNetworkManager {
 			// Connect to signaling server
 			await signalingConnection.connect();
 			this._setConnectionState(ConnectionState.SIGNALING.name);
-
-			// For local games, we're connected after WebSocket is established
-			if (this._isLocalGame)
-				this._setConnectionState(ConnectionState.CONNECTED.name);
-
-			// Set up and connect WebRTC for non-local multiplayer games
-			if (!this._isLocalGame) {
-				const gameplayConnection = this._connections.get('gameplay');
-				gameplayConnection.on('message', this._handleGameMessage);
-				gameplayConnection.on('stateChange', this._handleStateChange);
-				gameplayConnection.on('close', this._handleDisconnect);
-				gameplayConnection.on('error', (error) => this._handleError(error));
-
-				// Set up ICE-related event handlers
-				gameplayConnection.on('iceTimeout', () => {
-					logger.warn('ICE connection timeout detected');
-					this._eventEmitter.emit('networkWarning', {
-						type: 'iceTimeout',
-						message: 'Connection taking longer than expected'
-					});
-				});
-
-				gameplayConnection.on('iceConnectionStateChange', (state) => {
-					logger.debug(`ICE connection state: ${state}`);
-					if (state === 'failed') {
-						this._eventEmitter.emit('networkWarning', {
-							type: 'iceFailed',
-							message: 'Connection failed, attempting recovery'
-						});
-					}
-				});
-
-				// Connect WebRTC for gameplay
-				await gameplayConnection.connect();
-			}
-
+			this._setConnectionState(ConnectionState.CONNECTED.name);
 			this._processMessageQueue();
 			return true;
 		} catch (error) {
@@ -231,16 +187,6 @@ export class PongNetworkManager {
 			return false;
 		}
 
-		// Try to send via WebRTC for non-reliable messages
-		if (!reliable && this._connections) {
-			const gameplayConnection = this._connections.get('gameplay');
-			if (gameplayConnection && gameplayConnection.state.canSend) {
-				gameplayConnection.send(messageWithTimestamp);
-				return true;
-			}
-		}
-
-		// Fall back to WebSocket for reliable messages or if WebRTC is not available
 		if (this._connections) {
 			const signalingConnection = this._connections.get('signaling');
 			if (signalingConnection && signalingConnection.state.canSend) {
@@ -264,10 +210,16 @@ export class PongNetworkManager {
 	 * @returns {boolean} - Whether the state was sent
 	 */
 	sendPhysicsUpdate(state) {
-		return this.sendGameMessage({
-			type: 'physicsUpdate',
-			state
-		}, false);
+		if (!this._isLocalGame) {
+			const signalingConnection = this._connections?.get('signaling');
+			if (signalingConnection && signalingConnection.state.canSend) {
+				return signalingConnection.send({
+					type: 'physics_update',
+					state
+				});
+			}
+			return false;
+		}
 	}
 
 	/**
@@ -277,6 +229,18 @@ export class PongNetworkManager {
 	 * @returns {boolean} - Whether the input was sent
 	 */
 	sendPaddleInput(direction, intensity = 1.0) {
+		if (!this._isLocalGame) {
+			const signalingConnection = this._connections?.get('signaling');
+			if (signalingConnection && signalingConnection.state.canSend) {
+				return signalingConnection.send({
+					type: direction === 0 ? 'paddle_stop' : 'paddle_move',
+					direction: direction,
+					intensity: intensity
+				});
+			}
+			return false;
+		}
+
 		return this.sendGameMessage({
 			type: direction === 0 ? 'paddleStop' : 'paddleMove',
 			direction: direction,
@@ -293,40 +257,43 @@ export class PongNetworkManager {
 		if (!this._connections) return false;
 
 		try {
-			// Only send full game state via WebRTC in multiplayer games
-			if (!this._isLocalGame) {
-				const gameplayConnection = this._connections.get('gameplay');
-				if (gameplayConnection && gameplayConnection.state.canSend) {
-					gameplayConnection.send({
-						type: 'gameState',
-						state: {
-							ball: {
-								x: state.ball.x,
-								y: state.ball.y,
-								dx: state.ball.dx,
-								dy: state.ball.dy,
-								width: state.ball.width,
-								height: state.ball.height,
-							},
-							leftPaddle: {
-								x: state.leftPaddle.x,
-								y: state.leftPaddle.y,
-								width: state.leftPaddle.width,
-								height: state.leftPaddle.height,
-								dy: state.leftPaddle.dy
-							},
-							rightPaddle: {
-								x: state.rightPaddle.x,
-								y: state.rightPaddle.y,
-								width: state.rightPaddle.width,
-								height: state.rightPaddle.height,
-								dy: state.rightPaddle.dy
-							}
-						}
-					});
-				}
+			const connectionType = !this._isLocalGame ? 'signaling' : 'gameplay';
+			const connection = this._connections.get(connectionType);
+
+			if (connection && connection.state.canSend) {
+				const messageType = !this._isLocalGame ? 'game_state' : 'gameState';
+				const messageState = {
+					ball: {
+						x: state.ball.x,
+						y: state.ball.y,
+						dx: state.ball.dx,
+						dy: state.ball.dy,
+						width: state.ball.width,
+						height: state.ball.height,
+					},
+					leftPaddle: {
+						x: state.leftPaddle.x,
+						y: state.leftPaddle.y,
+						width: state.leftPaddle.width,
+						height: state.leftPaddle.height,
+						dy: state.leftPaddle.dy
+					},
+					rightPaddle: {
+						x: state.rightPaddle.x,
+						y: state.rightPaddle.y,
+						width: state.rightPaddle.width,
+						height: state.rightPaddle.height,
+						dy: state.rightPaddle.dy
+					}
+				};
+
+				connection.send({
+					type: messageType,
+					state: messageState
+				});
+				return true;
 			}
-			return true;
+			return false;
 		} catch (error) {
 			logger.error('Failed to send game state:', error);
 			return false;
@@ -490,35 +457,33 @@ export class PongNetworkManager {
 	_handleWebSocketMessage(data) {
 		try {
 			switch (data.type) {
-				case 'webrtc_signal':
-					if (!this._isLocalGame)
-						connectionManager.handleWebRTCSignal(this._connectionGroupName, data.signal);
-					break;
-
 				case 'player_disconnected':
 					if (!this._gameFinished)
 						this._handleDisconnect();
 					break;
 
+				// Handle physics updates directly from WebSocket if enabled
+				case 'physics_update':
+					if (data.state)
+						this._handleMessage({ type: 'physicsUpdate', state: data.state });
+					break;
+
+				case 'paddle_move':
+				case 'paddle_stop':
+					const inputData = {
+						direction: data.direction || 0,
+						intensity: data.intensity || 1.0
+					};
+					this._eventEmitter.emit('remoteInput', inputData);
+					break;
+
+				// Handle other message types normally
 				default:
-					// Use the unified message handler for all other message types
 					this._handleMessage(data);
+					break;
 			}
 		} catch (error) {
 			logger.error('Error handling WebSocket message:', error);
-		}
-	}
-
-	/**
-	 * Handle WebRTC game messages
-	 * @private
-	 * @param {Object} data - The message
-	 */
-	_handleGameMessage(data) {
-		try {
-			this._handleMessage(data);
-		} catch (error) {
-			logger.error('Error handling game message:', error);
 		}
 	}
 
@@ -530,7 +495,7 @@ export class PongNetworkManager {
 	_handleStateChange(state) {
 		logger.info(`Connection state changed: ${state.name}`);
 
-		// For local games, we only need the WebSocket connection
+		// For local games or WebSocket physics mode, we only need the WebSocket connection
 		if (this._isLocalGame) {
 			const signalingConnection = this._connections?.get('signaling');
 			if (signalingConnection && signalingConnection.state.name === 'connected') {
@@ -540,23 +505,6 @@ export class PongNetworkManager {
 				this._setConnectionState(ConnectionState.ERROR.name);
 			}
 			return;
-		}
-
-		// For multiplayer games, check both connections
-		if (this._connections) {
-			const signalingConnection = this._connections.get('signaling');
-			const gameplayConnection = this._connections.get('gameplay');
-
-			if (signalingConnection.state.name === 'connected') {
-				if (gameplayConnection.state.name === 'connected') {
-					this._setConnectionState(ConnectionState.CONNECTED.name);
-					this._processMessageQueue();
-				} else if (this._connectionState !== ConnectionState.SIGNALING.name) {
-					this._setConnectionState(ConnectionState.SIGNALING.name);
-				}
-			} else if (signalingConnection.state.name === 'error' || gameplayConnection.state.name === 'error') {
-				this._setConnectionState(ConnectionState.ERROR.name);
-			}
 		}
 	}
 
@@ -671,20 +619,10 @@ export class PongNetworkManager {
 	 */
 	checkConnection() {
 		if (!this._connections) return false;
-
 		const signalingConnection = this._connections.get('signaling');
-		if (!signalingConnection || signalingConnection.state.name !== 'connected') {
+		if (!signalingConnection || signalingConnection.state.name !== 'connected')
 			return false;
-		}
-
-		// For local games, we only need the WebSocket connection
-		if (this._isLocalGame) {
-			return true;
-		}
-
-		// For multiplayer games, check both connections
-		const gameplayConnection = this._connections.get('gameplay');
-		return gameplayConnection && gameplayConnection.state.name === 'connected';
+		return true;
 	}
 
 	destroy() {

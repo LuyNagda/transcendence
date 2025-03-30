@@ -1,5 +1,4 @@
 import logger from '../../logger.js';
-import { WebGLRenderer } from './WebGLRenderer.js';
 import { Canvas2DRenderer } from './CanvasRenderer.js';
 import { store } from '../../state/store.js';
 
@@ -8,14 +7,12 @@ export class RenderSystem {
 	 * Creates a new RenderSystem instance
 	 * @param {EventEmitter} eventEmitter - The event emitter for communication
 	 * @param {HTMLCanvasElement} canvas - The canvas element for rendering
-	 * @param {boolean} useWebGL - Whether to use WebGL for rendering
 	 * @param {boolean} isHost - Whether this client is the host
 	 * @param {boolean} isLocalGame - Whether this is a local game against AI
 	 */
-	constructor(eventEmitter, canvas, useWebGL = true, isHost = true, isLocalGame = false) {
+	constructor(eventEmitter, canvas, isHost = true, isLocalGame = false) {
 		this.eventEmitter = eventEmitter;
 		this.canvas = canvas;
-		this.useWebGL = useWebGL;
 		this.renderer = null;
 		this.physicsState = null;
 		this.gameMetadata = null;
@@ -42,9 +39,7 @@ export class RenderSystem {
 		logger.info('Initializing render system');
 
 		try {
-			this.renderer = this.useWebGL
-				? new WebGLRenderer(this.canvas)
-				: new Canvas2DRenderer(this.canvas);
+			this.renderer = new Canvas2DRenderer(this.canvas);
 
 			const initialized = this.renderer.initialize();
 			if (!initialized) {
@@ -199,45 +194,6 @@ export class RenderSystem {
 
 		// Schedule next frame
 		this.animationFrameId = requestAnimationFrame(this.render);
-	}
-
-	/**
-	 * Switch renderer type
-	 * @param {boolean} useWebGL - Whether to use WebGL
-	 */
-	switchRenderer(useWebGL) {
-		this.useWebGL = useWebGL;
-
-		// Clean up current renderer
-		if (this.renderer) {
-			this.renderer.destroy();
-		}
-
-		try {
-			this.renderer = this.useWebGL
-				? new WebGLRenderer(this.canvas)
-				: new Canvas2DRenderer(this.canvas);
-
-			const initialized = this.renderer.initialize();
-
-			if (!initialized && this.useWebGL) {
-				logger.warn('WebGL renderer initialization failed, falling back to Canvas2D');
-				this.useWebGL = false;
-				this.renderer = new Canvas2DRenderer(this.canvas);
-				this.renderer.initialize();
-			}
-
-			logger.info(`Using ${this.useWebGL ? 'WebGL' : 'Canvas2D'} renderer`);
-		} catch (error) {
-			logger.error('Error switching renderer:', error);
-
-			if (this.useWebGL) {
-				logger.warn('Falling back to Canvas2D renderer after error');
-				this.useWebGL = false;
-				this.renderer = new Canvas2DRenderer(this.canvas);
-				this.renderer.initialize();
-			}
-		}
 	}
 
 	/**

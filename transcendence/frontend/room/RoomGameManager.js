@@ -63,12 +63,16 @@ export class RoomGameManager {
 			const container = document.querySelector('#game-container .screen');
 			if (!container)
 				throw new Error('Game container not found');
-			const canvas = container.querySelector('#game');
-			if (!canvas)
-				throw new Error('Game canvas not found');
 
+			const existingCanvas = container.querySelector('#game');
+			if (existingCanvas)
+				existingCanvas.remove();
+
+			const canvas = document.createElement('canvas');
+			canvas.id = 'game';
 			canvas.width = GameRules.CANVAS_WIDTH;
 			canvas.height = GameRules.CANVAS_HEIGHT;
+			container.appendChild(canvas);
 
 			logger.info('[RoomGameManager] Game canvas prepared for initialization');
 			return true;
@@ -80,6 +84,8 @@ export class RoomGameManager {
 
 	async _initializeGame(gameId, isHost) {
 		try {
+			await this.prepareGame();
+
 			const container = document.querySelector('#game-container .screen');
 			if (!container)
 				throw new Error('Game container not found');
@@ -94,7 +100,6 @@ export class RoomGameManager {
 			const gameOptions = {
 				gameId: gameId,
 				isHost: roomState.mode === 'AI' || roomState.mode === 'LOCAL' ? true : isHost,
-				useWebGL: roomState.useWebGL,
 				settings: roomState.settings
 			};
 
@@ -146,6 +151,20 @@ export class RoomGameManager {
 			this._gameInstance = null;
 		}
 		this._gameInProgress = false;
+
+		try {
+			const canvas = document.querySelector('#game-container .screen #game');
+			if (canvas) {
+				const ctx = canvas.getContext('2d');
+				if (ctx) {
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+					ctx.fillStyle = '#000';
+					ctx.fillRect(0, 0, canvas.width, canvas.height);
+				}
+			}
+		} catch (e) {
+			logger.warn('[RoomGameManager] Error resetting canvas:', e);
+		}
 
 		store.dispatch([{
 			domain: 'game',

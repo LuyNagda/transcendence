@@ -1,11 +1,11 @@
 DB_NAME=transcendence
 DB_USER=marvin
-DB_PASSWORD=marvin
+DB_PASSWORD=
 
 EMAIL_HOST=mailhog
 EMAIL_PORT=1025
 EMAIL_HOST_USER=marvin@42lyon.fr
-EMAIL_HOST_PASSWORD=marvin
+EMAIL_HOST_PASSWORD=
 DEFAULT_FROM_EMAIL=marvin@42lyon.fr
 EMAIL_USE_TLS=False
 
@@ -17,11 +17,4 @@ DOMAIN=localhost
 
 FT_CLIENT_ID=
 FT_CLIENT_SECRET=
-FT_REDIRECT_URI=
-
-# WebRTC Configuration
-RTC_STUN_URL=stun:127.0.0.1:3478
-RTC_TURN_URL_1=turn:127.0.0.1:3478
-RTC_TURN_URL_2=turn:127.0.0.1:5349
-RTC_TURN_USERNAME=transcendence
-RTC_TURN_CREDENTIAL=transcendence123
+FT_REDIRECT_URI=https://localhost:8080/callback

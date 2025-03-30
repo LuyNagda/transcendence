@@ -15,7 +15,6 @@ describe('Pong Room Templates', () => {
 			'pong_room': fs.readFileSync(path.join(TEMPLATES_DIR, 'pong/pong_room.html'), 'utf8'),
 			'room_state': fs.readFileSync(path.join(TEMPLATES_DIR, 'pong/components/room_state.html'), 'utf8'),
 			'game_settings': fs.readFileSync(path.join(TEMPLATES_DIR, 'pong/components/game_settings.html'), 'utf8'),
-			'mode_selection': fs.readFileSync(path.join(TEMPLATES_DIR, 'pong/components/mode_selection.html'), 'utf8'),
 			'game': fs.readFileSync(path.join(TEMPLATES_DIR, 'pong/components/game.html'), 'utf8')
 		};
 

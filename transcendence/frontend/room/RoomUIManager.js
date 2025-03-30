@@ -20,25 +20,6 @@ export class RoomUIManager {
 		// Bind methods to preserve context
 		this.handleSettingChange = this.handleSettingChange.bind(this);
 		this.handleModeChange = this.handleModeChange.bind(this);
-		this.handleWebGLToggle = this.handleWebGLToggle.bind(this);
-	}
-
-
-	handleWebGLToggle(event) {
-		const useWebGL = event.target.checked;
-		logger.info('[RoomUIManager] WebGL toggle changed:', useWebGL);
-
-		store.dispatch({
-			domain: 'room',
-			type: actions.room.TOGGLE_WEBGL,
-			payload: { useWebGL }
-		});
-
-		// If game is in progress, update the renderer
-		const roomState = store.getState('room');
-		if (roomState.state === RoomStates.PLAYING && this._gameManager) {
-			this._callHandler('webglToggle', useWebGL);
-		}
 	}
 
 	_initializeReactiveState() {
@@ -86,14 +67,6 @@ export class RoomUIManager {
 				}
 				logger.debug('Handling mode change:', event.target.value);
 				this._callHandler('modeChange', event);
-			},
-			handleWebGLToggle: (event) => {
-				if (!event || !event.target) {
-					logger.error('Invalid WebGL toggle event:', event);
-					return;
-				}
-				logger.debug('Handling WebGL toggle:', event.target.checked);
-				this.handleWebGLToggle(event);
 			},
 			getProgressBarStyle: (value, settingType) => {
 				const getColorForPaddleSettings = (value) => {
@@ -233,10 +206,6 @@ export class RoomUIManager {
 
 	setModeChangeHandler(handler) {
 		this._eventHandlers.set('modeChange', handler);
-	}
-
-	setWebGLToggleHandler(handler) {
-		this._eventHandlers.set('webglToggle', handler);
 	}
 
 	_callHandler(handlerName, ...args) {

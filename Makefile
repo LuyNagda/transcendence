@@ -6,7 +6,7 @@
 #    By: agaley <agaley@student.42lyon.fr>          +#+  +:+       +#+         #
 #                                                 +#+#+#+#+#+   +#+            #
 #    Created: 2023/12/15 15:51:13 by agaley            #+#    #+#              #
-#    Updated: 2025/03/17 12:04:42 by agaley           ###   ########.fr        #
+#    Updated: 2025/03/29 12:41:03 by agaley           ###   ########lyon.fr    #
 #                                                                              #
 # **************************************************************************** #
 
@@ -23,27 +23,46 @@ export NGINX_PORT_1 ?= 8000
 export NGINX_PORT_2 ?= 8001
 export PORT ?= 8080
 
+# Required environment variables
+REQUIRED_ENV_VARS = DB_NAME DB_USER DB_PASSWORD EMAIL_HOST EMAIL_PORT \
+    EMAIL_HOST_USER EMAIL_HOST_PASSWORD DEFAULT_FROM_EMAIL EMAIL_USE_TLS \
+    DEBUG LOG_LEVEL PROD DOMAIN FT_CLIENT_ID FT_CLIENT_SECRET FT_REDIRECT_URI
+
 SRC_ENV = set -a; source $(ENV_FILE); set +a;
 
 VENV = .venv
 PYTHON = $(VENV)/bin/python
 PIP = $(VENV)/bin/pip
 
-all:
+all: check-env
 	$(SRC_ENV) docker compose --profile dev up --build
 
 $(NAME):
 
-run: daemon
+run: check-env daemon
 	@make logs
 
-daemon:
+daemon: check-env
 	pnpm run build && \
 	$(SRC_ENV) docker compose --profile prod up --build -d
 
-dev:
+dev: check-env
 	pnpm run dev & \
 	$(SRC_ENV) docker compose --profile dev up --build --watch
+
+# Check if all required environment variables are set in .env
+check-env:
+	@if [ ! -f "$(ENV_FILE)" ]; then \
+		echo "Error: .env file not found!"; \
+		exit 1; \
+	fi; \
+	for var in $(REQUIRED_ENV_VARS); do \
+		if ! grep -qE "^$$var=" $(ENV_FILE); then \
+			echo "Error: Missing required environment variable: $$var"; \
+			exit 1; \
+		fi; \
+	done; \
+	echo "✅ All required environment variables are set."
 
 $(VENV)/bin/activate: requirements.txt
 	python3 -m venv $(VENV)
@@ -58,7 +77,7 @@ makemigrations:
 makemigrations-%:
 	$(call run_migrations,$*)
 
-migrate:
+migrate: check-env
 	$(SRC_ENV) docker compose run --rm transcendence python manage.py migrate
 	$(SRC_ENV) docker compose down
 
@@ -79,13 +98,9 @@ stop:
 test: stop
 	$(SRC_ENV) docker compose --profile dev up --build transcendence-test
 
-siege: stop daemon
-	$(MAKE) wait-for-healthy
-	echo "init" > siege.log
-	docker compose up siege
-	# make logs
-	@make clean
-	cat siege.log
+coverage: stop
+	$(SRC_ENV) docker compose run --rm -v $(PWD)/htmlcov:/app/htmlcov transcendence sh -c "coverage run manage.py test || true && coverage report && coverage html"
+	@echo "Coverage report generated in ./htmlcov/index.html"
 
 docker-stop:
 	$(SRC_ENV) docker compose down
@@ -106,16 +121,8 @@ debug_re: fclean debug
 
 .PHONY: all clean fclean re debug debug_re
 .PHONY: env test run daemon dev logs stop
-.PHONY: docker-stop docker-fclean run_tests
+.PHONY: docker-stop docker-fclean run_tests coverage
 .PHONY: makemigrations makemigrations-% migrate db-update
-
-define wait-for-healthy
-	$(SRC_ENV) \
-	while [ "$$(docker inspect --format='{{.State.Health.Status}}' $$container_id)" != "healthy" ]; do \
-		echo "Waiting for container $$container_id to become healthy..."; \
-		sleep 1; \
-	done
-endef
 
 define run_migrations
 	$(SRC_ENV) \

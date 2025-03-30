@@ -6,7 +6,6 @@ import GameDirector from './GameDirector.js';
  * @param {Object} options - Configuration options
  * @param {string} options.gameId - The ID of the game
  * @param {boolean} options.isHost - Whether this client is the host
- * @param {boolean} options.useWebGL - Whether to use WebGL for rendering
  * @param {Object} options.settings - Game settings
  * @param {HTMLCanvasElement} canvas - The canvas element for rendering
  * @returns {Promise<GameDirector>} - The game director instance

@@ -38,7 +38,6 @@ class PongRoom(models.Model):
         AI = 'AI', 'AI Mode'
         LOCAL = 'LOCAL', 'Local Mode'
         CLASSIC = 'CLASSIC', 'Classic Mode'
-        RANKED = 'RANKED', 'Ranked Mode'
         TOURNAMENT = 'TOURNAMENT', 'Tournament Mode'
 
     class State(models.TextChoices):
@@ -94,7 +93,6 @@ class PongRoom(models.Model):
             (self.player_count == 1 and self.mode == self.Mode.AI) or
             (self.player_count == 1 and self.mode == self.Mode.LOCAL) or
             (self.player_count == 2 and self.mode == self.Mode.CLASSIC) or
-            (self.player_count == 2 and self.mode == self.Mode.RANKED) or
             (self.player_count >= 3 and self.mode == self.Mode.TOURNAMENT)
         )
 
@@ -113,14 +111,6 @@ class PongRoom(models.Model):
                         'ballSpeed': 4,
                         'paddleSpeed': 4,
                         'paddleSize': 5,
-                        'maxScore': 11,
-                        'aiDifficulty': 'Marvin'
-                    }
-                elif self.mode == self.Mode.RANKED:
-                    self.settings = {
-                        'ballSpeed': 6,
-                        'paddleSpeed': 6,
-                        'paddleSize': 4,
                         'maxScore': 11,
                         'aiDifficulty': 'Marvin'
                     }

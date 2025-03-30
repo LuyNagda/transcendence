@@ -33,11 +33,15 @@ function initializeAiSocket() {
         } else if (data.type === 'ai_modified') {
             logger.info('[AiManager] ai_modified message received')
             fetchSavedAIs()
+        } else if (data.type === 'ai_training_log') {
+            logger.info("[AI Training Log]:", data.content);
+            updateManagingLog(data)
         }
     });
 
     aiConnectionGroup.get('main').on('close', () => {
-        logger.info('[AiManager] AI WebSocket connection closed');
+        logger.warn('[AiManager] WebSocket disconnected, retrying...');
+        setTimeout(() => connectionManager.connectGroup('ai'), 5000);
     });
 
     aiConnectionGroup.get('main').on('error', (error) => {
@@ -45,16 +49,6 @@ function initializeAiSocket() {
     });
 
     connectionManager.connectGroup('ai');
-}
-
-function sendTrainingStatusToServer(isTrainingInProgress) {
-    const aiConnection = connectionManager.getConnection('ai:main');
-    if (aiConnection && aiConnection.state.canSend) {
-        const messageType = isTrainingInProgress ? 'ai_training_started' : 'ai_training_ended';
-        aiConnection.send({ type: messageType });
-    } else {
-        logger.warn('[AiManager] Cannot send training status - WebSocket not ready');
-    }
 }
 
 // Function to handle training button state
@@ -85,21 +79,29 @@ store.subscribe('ai', (aiState) => {
     updateTrainingButtonState(isTrainingInProgress);
 });
 
-// Dispatch actions when training starts and ends
-function startTraining() {
-    store.dispatch({
-        domain: 'ai',
-        type: aiActions.START_TRAINING
-    });
-    sendTrainingStatusToServer(true);
-}
+// Append log to the UI
+function updateManagingLog(data) {
+    // Check if data and data.content exist
+    if (!data || !data.content) {
+        logger.warn('[AiManager] Invalid log data received');
+        return;
+    }
 
-function endTraining() {
-    store.dispatch({
-        domain: 'ai',
-        type: aiActions.END_TRAINING
-    });
-    sendTrainingStatusToServer(false);
+    const managingLog = document.getElementById("managing-log");
+
+    if (!managingLog) {
+        logger.warn('[AiManager] Managing log element not found. Cannot update log:', data.content);
+        return;
+    }
+
+    // Ensure the log is visible
+    managingLog.style.display = 'block';
+
+    // If the log message indicates the start of training, clear the log
+    if (data.content.startsWith("Start of ")) {
+        managingLog.innerText = "AI manager's log:\n"; // Clear previous logs
+    }
+    managingLog.innerText += data.content + "\n";
 }
 
 // Fetch saved AIs and populate the dropdown
@@ -108,6 +110,12 @@ async function fetchSavedAIs() {
 
     const dropdown = document.getElementById("saved-ai-dropdown");
     const managingLog = document.getElementById('managing-log');
+
+    if (!managingLog || !dropdown) {
+        logger.warn('[AiManager] Dropdown &/or ManagingLog not found!');
+        return
+    }
+
     managingLog.style.display = 'block';
 
     try {
@@ -184,33 +192,80 @@ export async function initializeAiManager() {
     glob_aiIsInit = true;
     logger.info(`Initialization of AiManager...`);
     const managingLog = document.getElementById('managing-log');
-    managingLog.style.display = 'block';
+
+    if (managingLog) {
+        managingLog.style.display = 'block';
+    }
 
     initializeAiSocket();
-    
+
     // Initial fetch of saved AIs
     await fetchSavedAIs();
-    
+
     logger.info(`AiManager inatialized successfully`);
-    
+
     const trainButton = document.getElementById("train-ai-btn");
     trainButton.addEventListener("click", async () => {
-        startTraining();
-
         // Get and validate AI name
         const aiName = document.getElementById('ai_name').value.trim();
         if (!aiName) {
-            alert('AI Name is required.');
+            let modalMessage = document.getElementById("modalMessage");
+            let modalTitle = document.getElementById("messageModalLabel");
+
+            modalTitle.textContent = "Pong Game";
+            modalMessage.innerHTML = "AI Name is required.";
+
+            // Show the modal
+            let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+            messageModal.show();
             return;
         }
 
         // Validate AI name format
         if (!/^[a-zA-Z0-9_-]+$/.test(aiName)) {
-            alert('AI Name can only contain letters, numbers, underscores, and hyphens.');
+            let modalMessage = document.getElementById("modalMessage");
+            let modalTitle = document.getElementById("messageModalLabel");
+
+            modalTitle.textContent = "AI Manager";
+            modalMessage.innerHTML = 'AI Name can only contain letters, numbers, underscores, and hyphens.';
+
+            // Show the modal
+            let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+            messageModal.show();
             return;
         }
 
-        // Get and validate other parameters
+        // Show loading state
+        managingLog.className = 'alert alert-info';
+        managingLog.style.display = 'block';
+
+
+        // List of inputs and their limits
+        const fields = [
+            { id: 'nb_generation', min: 1, max: 10, name: "Number of Generations" },
+            { id: 'nb_species', min: 50, max: 100, name: "Number of Species" },
+            { id: 'time_limit', min: 5, max: 60, name: "Simulated Time Limit" },
+            { id: 'max_score', min: 50, max: 500, name: "Max Score" }
+        ];
+
+        // Validate each field
+        for (const { id, min, max, name } of fields) {
+            const value = Number(document.getElementById(id).value);
+            if (!Number.isFinite(value) || value < min || value > max) {
+                let modalMessage = document.getElementById("modalMessage");
+                let modalTitle = document.getElementById("messageModalLabel");
+
+                modalTitle.textContent = "AI Manager";
+                modalMessage.innerHTML = `${name} must be a number between ${min} and ${max}.`;
+
+                // Show the modal
+                let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+                messageModal.show();
+                return;
+            }
+        }
+
+        // Get other parameters
         const nbGeneration = document.getElementById('nb_generation').value;
         const nbSpecies = document.getElementById('nb_species').value;
         const timeLimit = document.getElementById('time_limit').value;
@@ -224,25 +279,11 @@ export async function initializeAiManager() {
             max_score: maxScore,
         };
 
-        // Get CSRF token
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        if (!csrfToken) {
-            managingLog.className = 'alert alert-danger';
-            managingLog.innerText = 'CSRF token not found. Make sure {% csrf_token %} is included in your template.';
-            return;
-        }
-
-        // Show loading state
-        managingLog.className = 'alert alert-info';
-        managingLog.style.display = 'block';
-        managingLog.innerText = `Starting training for AI '${aiName}'...`;
-
         try {
             // Make the request
             const response = await fetch(`/ai/train/`, {
                 method: 'POST',
                 headers: {
-                    'X-CSRFToken': csrfToken,
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
                 },
@@ -256,16 +297,10 @@ export async function initializeAiManager() {
                 throw new Error(data.error || 'Training failed');
             }
 
-            // Update the log on success
-            managingLog.className = 'alert alert-success';
-            managingLog.innerText = data.log || 'Training completed successfully.';
-
         } catch (error) {
             // Update the log on error
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error: ${error.message}`;
-        } finally {
-            endTraining();
         }
     });
 
@@ -275,7 +310,15 @@ export async function initializeAiManager() {
     deleteButton.addEventListener("click", async () => {
         const selectedAI = dropdown.value;
         if (!selectedAI) {
-            alert("Please select an AI to delete!");
+            let modalMessage = document.getElementById("modalMessage");
+            let modalTitle = document.getElementById("messageModalLabel");
+
+            modalTitle.textContent = "Pong Game";
+            modalMessage.innerHTML = 'Please select an AI to delete!';
+
+            // Show the modal
+            let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+            messageModal.show();
             return;
         }
         managingLog.innerText = `Request for deleting AI '${selectedAI}'...`;
@@ -305,7 +348,6 @@ export async function initializeAiManager() {
             // Update the log on error
             managingLog.className = 'alert alert-danger';
             managingLog.innerText = `Error deleting AI: ${error.message}`;
-        } finally {
         }
     });
 }

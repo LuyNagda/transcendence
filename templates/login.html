@@ -8,7 +8,7 @@
 {% block navbar %}{% include "navbar-login.html" %}{% endblock %}
 
 <div class="container x-auto my-4" id="login-form" role="region" aria-labelledby="login-form-heading">
-	<h1 id="login-form-heading">Login</h1>
+	<h1 class="h1 fw-bold" id="login-form-heading">Login</h1>
 	<form method="post" hx-post="{% url 'login' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="/index" enctype="multipart/form-data" aria-labelledby="login-form-heading">
 		{% csrf_token %}
 		{% for field in form %}
@@ -18,8 +18,8 @@
 		</div>
 		{% endfor %}
 		<button class="btn btn-primary" type="submit" aria-label="Login">Login</button>
-		<a href="https://api.intra.42.fr/oauth/authorize?client_id={{ ft_client_id }}&redirect_uri={{ ft_redirect_uri|urlencode }}&response_type=code" aria-label="Login with 42 API">
-			<button class="btn btn-secondary" type="button">Login with 42 API</button>
+		<a class="btn btn-secondary" type="button" href="https://api.intra.42.fr/oauth/authorize?client_id={{ ft_client_id }}&redirect_uri={{ ft_redirect_uri|urlencode }}&response_type=code" aria-label="Login with 42 API">
+			Login with 42 API
 		</a>
 		<button class="btn btn-danger" type="button" hx-get="{% url 'forgot-password' %}" hx-target="#content" hx-swap="outerHTML" hx-push-url="true" aria-label="Forgot Password">Forgot Password</button>
 	</form>

@@ -1,204 +1,120 @@
 {% load static %}
 {% block content %}
 <div id="chat-app" data-domain="chat" aria-label="Chat application">
-    <div class="offcanvas offcanvas-start" data-bs-backdrop="static" tabindex="-1" id="chatCanvas"
-        aria-labelledby="chatCanvasLabel">
-        <div class="offcanvas-header">
-            <h4 id="chatCanvasLabel" class="offcanvas-title">Chat</h4>
-            <span id="unreadBadge" class="mb-2 ms-2 p-1 badge rounded-pill bg-danger"
-                :style="{ display: unreadCount > 0 ? 'inline' : 'none' }" aria-live="polite" aria-label="Unread messages count">
-                [[ unreadCount ]]
-                <span class="visually-hidden">Unread messages</span>
-            </span>
-			<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
-        </div>
-        <div class="row offcanvas-body">
-            <div class="col-4 user-list" role="navigation" aria-labelledby="userListHeading">
-                <ul class="rounded bg-dark-subtle m-0 p-2" style="list-style-type: none;" aria-label="User list">
-					<li class="d-flex align-items-center justify-content-center">
-						<div class="input-group mb-2">
-							<input id="friend-input" type="text" class="form-control" v-model="friendInput" placeholder="Add Friend" aria-label="Input field to add a friend">
-							<button class="btn btn-success d-flex align-items-center justify-content-center py-0" type="button" id="button-addon2" v-on:click="handleFormSubmitFriendRequest"
-								aria-label="Send friend request">
-								<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-plus-fill" viewBox="0 0 16 16">
-									<path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/>
-									<path fill-rule="evenodd" d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5"/>
-								</svg>
-							</button>
-						</div>
+	<div class="offcanvas offcanvas-start" tabindex="-1" id="chatCanvas"
+		aria-labelledby="chatCanvasLabel">
+		<div class="offcanvas-header">
+			<h4 id="chatCanvasLabel" class="h4 fw-bold offcanvas-title">Chat</h4>
+			<button type="button" class="btn-close" data-bs-dismiss="offcanvas"
+				aria-label="Close chat"></button>
+		</div>
+		<div class="row offcanvas-body ps-4">
+			<div class="chat-list rounded bg-dark-subtle col-4 user-list py-3" role="navigation"
+				aria-labelledby="userListHeading">
+				<div class="input-group mb-2">
+					<input id="friend-input" type="text" class="form-control"
+						v-model="friendInput" placeholder="Add Friend"
+						aria-label="Input field to add a friend">
+					<button
+						class="btn btn-success d-flex align-items-center justify-content-center py-0"
+						type="button" id="button-addon2"
+						v-on:click="handleFormSubmitFriendRequest"
+						aria-label="Send friend request">
+						<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+							fill="currentColor" class="bi bi-person-plus-fill" viewBox="0 0 16 16">
+							<path
+								d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
+							<path fill-rule="evenodd"
+								d="M13.5 5a.5.5 0 0 1 .5.5V7h1.5a.5.5 0 0 1 0 1H14v1.5a.5.5 0 0 1-1 0V8h-1.5a.5.5 0 0 1 0-1H13V5.5a.5.5 0 0 1 .5-.5" />
+						</svg>
+					</button>
+				</div>
+				<ul aria-label="User Item" class="list-group ps-0">
+					<li tabindex="0" class="list-group-item d-flex align-items-center p-2"
+						v-on:click="selectUser([[ user.id ]])"
+						aria-label="Select user to chat with" v-for="user in users">
+						<img :src="user.profile_picture" class="rounded-circle me-2"
+							style="width: 25px; height: 25px; object-fit: cover;"
+							alt="User profile picture">
+						<span class="user-name flex-grow-1" aria-live="polite">[[ user.username ]]</span>
+						<span class="status-icon" aria-live="polite">[[ user.statusIcon ]]</span>
 					</li>
-                    <li v-for="user in users" aria-label="User item">
-                        <div class="d-flex align-items-center p-2" v-on:click="selectUser([[ user.id ]])"
-                            role="button" aria-label="Select user to chat with">
-                            <img :src="user.profile_picture" class="rounded-circle me-2" style="max-width: 25px;" 
-                                alt="User profile picture">
-                            <span class="user-name flex-grow-1" aria-live="polite">[[ user.username ]]</span>
-                            <span class="status-icon" aria-live="polite">[[ user.statusIcon ]]</span>
-                        </div>
-                    </li>
-                </ul>
-            </div>
-            <div v-if="selectedUser" class="col-8 chat-messages" role="region" aria-labelledby="chatHeading">
-				<div class="rounded p-3 mb-2 d-flex justify-content-between align-items-center" 
-				     v-if="selectedUser" 
-				     style="background-color: var(--bs-dark-bg-subtle);" 
-				     aria-label="Selected user information">
+				</ul>
+			</div>
+			<div v-if="selectedUser" class="col-8 chat-messages" role="region"
+				aria-labelledby="chatHeading">
+				<div class="chat-info rounded p-3 mb-2 d-flex bg-dark-subtle justify-content-between align-items-center"
+					v-if="selectedUser"
+					aria-label="Selected user information">
 					<div class="d-flex flex-column align-items-center ms-4">
-						<img :src="selectedUser.profile_picture" class="rounded-circle" style="max-width: 100px; min-width: 100px;">
-						<p class="h4 mb-0" v-text="selectedUser.username"></p>
+						<img :src="selectedUser.profile_picture" class="rounded-circle"
+							style="width: 100px; height: 100px; object-fit: cover;">
+						<p class="h4 mb-0 fw-bold" v-text="selectedUser.username"></p>
 					</div>
 					<div class="d-flex flex-column text-start me-4">
-						<p class="mb-1">Match: [[ selectedUser.total_games ]]</p>
-						<p class="mb-1">Win: [[ selectedUser.total_wins ]]</p>
-						<p class="mb-1">Lose: [[ selectedUser.total_losses ]]</p>
-						<p class="mb-1">Winrate: [[ selectedUser.winrate ]]%</p>
-					</div>	
+						<p class="mb-1" v-text="'Match: ' + selectedUser.total_games"></p>
+						<p class="mb-1" v-text="'Win: ' + selectedUser.total_wins"></p>
+						<p class="mb-1" v-text="'Lose: ' + selectedUser.total_losses"></p>
+						<p class="mb-1" v-text="'Winrate ' + selectedUser.winrate + ' %'"></p>
+					</div>
 				</div>
-                <div class="rounded p-3 chat-bubble-container" style="background-color: var(--bs-dark-bg-subtle);"
-                    id="message-history" aria-live="polite" aria-label="Chat message history">
-                    <div v-for="message in messages"
-                        :class="message.sender === currentUserId ? 'chat-bubble sent' : 'chat-bubble received'"
-                        aria-label="Chat message">
-                        <div class="message-header">
-                            <span class="sender-name">[[ message.sender === currentUserId ? 'You' : getUserName(message.sender) ]]</span>
-                            <small>[[ formatTimestamp(message.timestamp) ]]</small>
-                        </div>
-                        <span class="message-content">[[ message.content ]]</span>
-                    </div>
-                </div>
-                <div id="chat-form-div">
-                    <div id="chat-form" class="d-flex mt-2"
-                        aria-labelledby="chatHeading">
-                        <h4 id="chatFormHeading" class="visually-hidden">Chat Form</h4>
-                        <input type="text" class="form-control me-1" id="chat-message-input"
+				<div class="rounded p-3 chat-bubble-container bg-dark-subtle"
+					id="message-history" aria-live="polite" aria-label="Chat message history">
+					<div v-for="message in messages"
+						:class="message.sender === currentUserId ? 'chat-bubble sent' : 'chat-bubble received'"
+						aria-label="Chat message">
+						<div class="message-header">
+							<span class="sender-name">[[ message.sender === currentUserId ? 'You' : getUserName(message.sender) ]]</span>
+							<small>[[ formatTimestamp(message.timestamp) ]]</small>
+						</div>
+						<span class="message-content">[[ message.content ]]</span>
+					</div>
+				</div>
+				<div id="chat-form-div">
+					<div id="chat-form" class="d-flex mt-2"
+						aria-labelledby="chatHeading">
+						<h4 id="chatFormHeading" class="h4 visually-hidden">Chat Form</h4>
+						<input type="text" class="form-control me-1" id="chat-message-input"
 							v-model="messageInput"
-                            :disabled="selectedUser && selectedUser.blocked"
-                            :placeholder="selectedUser && selectedUser.blocked ? 'You have blocked this user' : 'Type your message...'"
-                            aria-label="Message input">
-                        <button class="btn btn-primary d-flex justify-content-center align-items-center" v-on:click="handleFormSubmit"
-                            id="message-send-button" :disabled="selectedUser && selectedUser.blocked"
-                            aria-label="Send message">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
-                                class="bi bi-send" viewBox="0 0 16 16">
-                                <path
-                                    d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z" />
-                            </svg>
-                        </button>
-                    </div>
-                    <div class="mt-2">
-                        <span v-if="!selectedUser.blocked" aria-label="Block user">
-                            <button class="btn btn-danger" aria-label="Block user" id="block-user-button"
-                                v-on:click="blockUser">Block</button>
-                        </span>
-                        <span v-else>
-                            <button class="btn btn-danger" aria-label="Unblock selected user" id="unblock-user-button"
-                                v-on:click="unblockUser"
-                                >Unblock</button>
-                        </span>
-						<button class="btn btn-warning" aria-label="Remove friend" id="remove-friend-button"
-                            v-on:click="removeFriend">Remove Friend</button>
-                        <button class="btn btn-success" aria-label="Invite selected user to Pong" id="invite-to-game-button"
-                            v-on:click="inviteToGame"
-                            >Invite</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+							maxlength="300"
+							:disabled="selectedUser && selectedUser.blocked"
+							:placeholder="selectedUser && selectedUser.blocked ? 'You have blocked this user' : 'Type your message...'"
+							aria-label="Message input">
+						<button
+							class="btn btn-primary d-flex justify-content-center align-items-center"
+							v-on:click="handleFormSubmit"
+							id="message-send-button" :disabled="selectedUser && selectedUser.blocked"
+							aria-label="Send message">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+								fill="currentColor"
+								class="bi bi-send" viewBox="0 0 16 16">
+								<path
+									d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576zm6.787-8.201L1.591 6.602l4.339 2.76z" />
+							</svg>
+						</button>
+					</div>
+					<div class="mt-2 d-flex justify-content-between">
+						<span v-if="!selectedUser.blocked" aria-label="Block user">
+							<button class="btn btn-danger" aria-label="Block user"
+								id="block-user-button"
+								v-on:click="blockUser">Block</button>
+						</span>
+						<span v-else>
+							<button class="btn btn-danger" aria-label="Unblock selected user"
+								id="unblock-user-button"
+								v-on:click="unblockUser">Unblock</button>
+						</span>
+						<button class="btn btn-warning" aria-label="Remove friend"
+							id="remove-friend-button"
+							v-on:click="removeFriend">Remove</button>
+						<button class="btn btn-success" aria-label="Invite selected user to Pong"
+							id="invite-to-game-button"
+							v-on:click="inviteToGame">Invite</button>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
 </div>
 
-<style>
-    .chat-bubble-container {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        max-height: 60vh;
-        overflow-y: auto;
-    }
-
-    .chat-bubble {
-        min-width: 25%;
-        max-width: 70%;
-        padding: 10px 15px;
-        border-radius: 20px;
-        position: relative;
-        color: white;
-        word-wrap: break-word;
-    }
-
-    .chat-bubble .message-header {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.3);
-        margin-bottom: 5px;
-        padding-bottom: 3px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-
-    .chat-bubble .sender-name {
-		padding-right: 10px;
-        font-weight: bold;
-        font-size: 0.9em;
-    }
-
-    .chat-bubble.sent {
-        align-self: flex-end;
-        background-color: #007bff;
-    }
-
-    .chat-bubble.received {
-        align-self: flex-start;
-        background-color: #6c757d;
-    }
-
-    .chat-bubble p {
-        margin: 5px 0;
-    }
-
-    .chat-bubble small {
-        font-size: 0.75em;
-        opacity: 0.7;
-    }
-
-    .user-chat-item {
-        cursor: pointer;
-        border-radius: 8px;
-        margin-bottom: 4px;
-        transition: background-color 0.2s ease;
-    }
-
-    .user-chat-item:hover {
-        background-color: var(--bs-light-bg-subtle);
-    }
-
-    .user-chat-item.active {
-        background-color: var(--bs-light-bg-subtle);
-    }
-
-    .user-chat-item.blocked {
-        opacity: 0.7;
-    }
-
-    #chatCanvas {
-        min-width: 700px !important;
-    }
-
-    @media (min-width: 100px) and (max-width: 899px) {
-        #chatCanvas {
-            width: 100%;
-        }
-    }
-
-    @media (min-width: 900px) and (max-width: 1199px) {
-        #chatCanvas {
-            width: 75%;
-        }
-    }
-
-    @media (min-width: 1200px) {
-        #chatCanvas {
-            width: 50%;
-        }
-    }
-</style>
 {% endblock content %}

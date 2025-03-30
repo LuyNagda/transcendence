@@ -9,7 +9,6 @@ export const roomActions = {
 	LEAVE_ROOM: 'LEAVE_ROOM',
 	UPDATE_ROOM: 'UPDATE_ROOM',
 	UPDATE_ROOM_SETTINGS: 'UPDATE_ROOM_SETTINGS',
-	TOGGLE_WEBGL: 'TOGGLE_WEBGL',
 	CLEAR_ROOM: 'CLEAR_ROOM',
 	SET_ERROR: 'SET_ERROR',
 	CLEAR_ERROR: 'CLEAR_ERROR'
@@ -19,7 +18,6 @@ export const RoomModes = {
 	AI: 'AI',
 	LOCAL: 'LOCAL',
 	CLASSIC: 'CLASSIC',
-	RANKED: 'RANKED',
 	TOURNAMENT: 'TOURNAMENT'
 };
 
@@ -28,7 +26,6 @@ export const initialRoomState = {
 	error: null,
 	isPrivate: false,
 	isHost: false,
-	useWebGL: false,
 	mode: RoomModes.AI,
 	state: RoomStates.LOBBY,
 	canStartGame: false,
@@ -47,8 +44,6 @@ export const roomValidators = {
 	isPrivate: (value) => typeof value === 'boolean',
 	isHost: (value) => typeof value === 'boolean',
 	canStartGame: (value) => typeof value === 'boolean',
-	// currentGameId: (value) => typeof value === 'number',
-	useWebGL: (value) => typeof value === 'boolean',
 	mode: (value) => Object.values(RoomModes).includes(value),
 	state: (value) => Object.values(RoomStates).includes(value),
 	players: (value) => Array.isArray(value),
@@ -120,11 +115,6 @@ export const roomReducers = {
 		...state,
 		...payload,
 		lastUpdate: Date.now()
-	}),
-
-	[roomActions.TOGGLE_WEBGL]: (state, payload) => ({
-		...state,
-		useWebGL: payload.useWebGL
 	}),
 
 	[roomActions.CLEAR_ROOM]: () => initialRoomState,

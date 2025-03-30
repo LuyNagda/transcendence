@@ -5,13 +5,11 @@
 {% block content %}
 
 {% block navbar %}{% include "ui.html" %}{% endblock %}
-<style>
-    
-</style>
+
 <div id="demo" class="container x-auto my-4">
     &nbsp; &nbsp;
-    <h1>Games History</h1>
-	<h3>Played: {{ total_games }} | Wins: {{ wins }} | Losses: {{ losses }} | Winrate: {{ winrate }} %</h3>
+    <h1 class="h1 fw-bold">Games History</h1>
+	<h3 class="h3">Played: {{ total_games }} | Wins: {{ wins }} | Losses: {{ losses }} | Winrate: {{ winrate }} %</h3>
     <div>
 		<table id="table" class="table" aria-label="Games history table">
 			<thead>
@@ -39,16 +37,16 @@
 				</td>
 				<td>
 					{% if games.player1 != request.user %}
-						{{ games.player2_score }}
+						{% if games.player2_score == -1 %}DC{% else %}{{ games.player2_score }}{% endif %}
 					{% else %}
-						{{ games.player1_score }}
+						{% if games.player1_score == -1 %}DC{% else %}{{ games.player1_score }}{% endif %}
 					{% endif %}
 				</td>
 				<td>
 					{% if games.player1 != request.user %}
-						{{ games.player1_score }}
+						{% if games.player1_score == -1 %}DC{% else %}{{ games.player1_score }}{% endif %}
 					{% else %}
-						{{ games.player2_score }}
+						{% if games.player2_score == -1 %}DC{% else %}{{ games.player2_score }}{% endif %}
 					{% endif %}
 				</td>
 				<td>{{ games.created_at|date:"M. d, Y, H:i" }}</td>

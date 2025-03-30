@@ -2,6 +2,19 @@
 
 <div id="game-settings" class="card mb-4" v-if="!error">
     <div class="card-body">
+		<div v-if="owner.id === currentUser.id && state === 'LOBBY'" class="form-group mb-3" role="group"
+            aria-labelledby="game-mode-label">
+            <label for="game-mode" id="game-mode-label" class="form-label">Game Mode</label>
+            <select id="game-mode" name="mode" class="form-select" v-model="mode" v-on:change="handleModeChange"
+                aria-labelledby="game-mode-label" aria-describedby="game-mode-description"
+                :disabled="owner.id !== currentUser.id" role="combobox" aria-haspopup="listbox">
+                <option value="AI" role="option">AI Mode</option>
+                <option value="LOCAL" role="option">Local Mode</option>
+                <option value="CLASSIC" role="option">Classic Mode</option>
+                <option value="TOURNAMENT" role="option">Tournament Mode</option>
+            </select>
+
+        </div>
         <!-- Settings form for room owner -->
         <form id="settings-form" v-if="isOwner && isLobbyState">
             <!-- Paddle Speed -->
@@ -47,7 +60,6 @@
                     v-on:change="handleSettingChange" aria-label="Select points required to win the game">
                     <option value="5">5 Points</option>
                     <option value="11">11 Points</option>
-                    <option value="21">21 Points</option>
                 </select>
             </div>
 
@@ -57,7 +69,7 @@
                 <select class="form-select" id="aiDifficulty" data-setting="aiDifficulty"
                     v-model="settings.aiDifficulty" v-on:change="handleSettingChange"
                     aria-label="Select AI difficulty level">
-                    <option v-for="ai in availableAIs" :value="ai">[[ai]]</option>
+                    <option v-for="ai in availableAIs" :value="ai">[[ ai ]]</option>
                 </select>
             </div>
         </form>

@@ -105,6 +105,11 @@ export const htmxPlugin = {
 			app.emit('htmx:pushedIntoHistory', event.detail.path);
 		});
 
+		window.addEventListener('popstate', async () => {
+			app.scheduleUpdate('chat');
+			app.scheduleUpdate('ui');
+		});
+
 		document.body.addEventListener('htmx:beforeRequest', (event) => {
 			// const target = event.detail.elt;
 
@@ -122,6 +127,20 @@ export const htmxPlugin = {
 
 			app.emit('htmx:beforeSwap', event);
 		});
+
+		if (window.location.pathname.includes('/index')) {
+			const response = fetch('/check-user', {
+				method: 'GET',
+			})
+				.then(response => response.json())
+				.then(data => {
+					store.dispatch({
+						domain: 'user',
+						type: 'UPDATE_FROM_SERVER',
+						payload: data
+					});
+				})
+		}
 
 		document.body.addEventListener('htmx:afterSwap', (event) => {
 			logger.info('[HTMXPlugin] afterSwap event:', event);
