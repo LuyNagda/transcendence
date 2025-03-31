@@ -43,7 +43,7 @@ export class SettingsManager {
 		const ballSpeed = this.getBallSpeed();
 		const angle = (Math.random() * 2 - 1) * Math.PI / 4; // Random angle between -45 and 45 degrees
 		return {
-			dx: ballSpeed * (Math.random() > 0.5 ? 1 : -1) * Math.cos(angle),
+			dx: ballSpeed * Math.cos(angle),
 			dy: ballSpeed * Math.sin(angle)
 		};
 	}

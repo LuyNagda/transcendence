@@ -378,7 +378,7 @@ export class PongPhysics {
       });
 
       const initialVelocity = this.settingsManager.getInitialBallVelocity();
-      ball.dx = initialVelocity.dx;
+      ball.dx = initialVelocity.dx * (this.physicsState.lastScorer == 'right' ? 1 : -1)
       ball.dy = initialVelocity.dy;
 
       logger.info('Ball launched with velocity:', {
