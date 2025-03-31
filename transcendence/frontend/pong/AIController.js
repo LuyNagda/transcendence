@@ -117,12 +117,16 @@ export class AIController {
         this.activation3 = null;
         this.aiBall = null;
         this.lastBallUpdate = 0;
+        this.isAlgoAI = false;
     }
 
     async init(difficulty) {
         try {
             logger.info(`Initializing AI with difficulty: ${difficulty}`);
             // Update the URL format to match the backend endpoint
+            this.isAlgoAI = difficulty === 'MAX' ? true : false;
+            if (this.isAlgoAI) return;
+
             const response = await fetch(`/ai/get-ai/${difficulty}`);
             if (!response.ok)
                 throw new Error(`Failed to fetch AI data: ${response.status}`);
@@ -175,18 +179,48 @@ export class AIController {
     }
 
     decision(gameState) {
-        if (!this.layer1 || !this.layer2 || !this.layer3) {
-            logger.error('Neural network layers not initialized');
-            return 1; // Default to staying still
-        }
-
-        const currentTime = Date.now();
-        const timeLastUpdate = currentTime - this.lastBallUpdate;
+		const currentTime = Date.now();
+		const timeLastUpdate = currentTime - this.lastBallUpdate;
 
         // Update the ai's ball every second (1000ms)
         if (this.lastBallUpdate == 0 || timeLastUpdate >= 1000) {
             this.lastBallUpdate = currentTime;
             this.aiBall = { ...gameState.ball }; // Create a copy of the ball state
+        }
+        
+
+        if (this.isAlgoAI)
+            return this.algoDecision(gameState);
+        else
+            return this.neuralDecision(gameState);
+    }
+
+    algoDecision(gameState) {
+        const paddle = gameState.rightPaddle;
+
+		// Calculate paddle center
+		const paddleCenter = paddle.y;
+
+		// Only move if the ball is moving towards the AI paddle
+		if (this.aiBall.dx > 0) {
+			// Predict the future position of the aiBall
+			const timeToReachPaddle = (paddle.x - this.aiBall.x) / this.aiBall.dx;
+            const randomFactor = (Math.random() - 0.5) * 4 * GameRules.BASE_PADDLE_HEIGHT;
+			const predictedY = this.aiBall.y + this.aiBall.dy * timeToReachPaddle + randomFactor;
+
+			// Determine direction to move based on predicted aiBall position
+			if (predictedY < paddleCenter - GameRules.BASE_PADDLE_HEIGHT / 2)
+				return 0; // Move up
+			else if (predictedY > paddleCenter + GameRules.BASE_PADDLE_HEIGHT / 2)
+				return 2; // Move down
+		}
+        return 1;
+    }
+
+    neuralDecision(gameState) {
+        if (!this.layer1 || !this.layer2 || !this.layer3) {
+            logger.error('Neural network layers not initialized');
+            return 1; // Default to staying still
         }
 
         try {
