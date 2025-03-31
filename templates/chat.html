@@ -29,7 +29,7 @@
 					</button>
 				</div>
 				<ul aria-label="User Item" class="list-group ps-0">
-					<li tabindex="0" class="list-group-item d-flex align-items-center p-2"
+					<button tabindex="0" class="list-group-item d-flex align-items-center text-start p-2"
 						v-on:click="selectUser([[ user.id ]])"
 						aria-label="Select user to chat with" v-for="user in users">
 						<img :src="user.profile_picture" class="rounded-circle me-2"
@@ -37,7 +37,7 @@
 							alt="User profile picture">
 						<span class="user-name flex-grow-1" aria-live="polite">[[ user.username ]]</span>
 						<span class="status-icon" aria-live="polite">[[ user.statusIcon ]]</span>
-					</li>
+					</button>
 				</ul>
 			</div>
 			<div v-if="selectedUser" class="col-8 chat-messages" role="region"

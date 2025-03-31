@@ -51,9 +51,13 @@ def get_blocked_users(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticatedWithCookie])
 def block_user(request, user_id):
-    if BlockedUser.objects.filter(user=request.user, blocked_user_id=user_id).exists():
+    # Use get_or_create to ensure atomicity
+    _, created = BlockedUser.objects.get_or_create(
+        user=request.user,
+        blocked_user_id=user_id
+    )
+    if not created:
         return JsonResponse({'success': False, 'error': 'User already blocked'})
-    BlockedUser.objects.create(user=request.user, blocked_user_id=user_id)
     return JsonResponse({'success': True})
 
 @api_view(['DELETE'])

@@ -204,7 +204,10 @@ export default class ChatApp {
 					modalMessage.innerHTML = data.error;
 				}
 
-				// Show the modal
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
+
 				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 				messageModal.show();
 			},
@@ -248,7 +251,10 @@ export default class ChatApp {
 					modalTitle.textContent = "Game Invitation";
 					modalMessage.innerHTML = data.error || 'Failed to join game. Room might be full.';
 
-					// Show the modal
+					if (document.querySelector('.modal-backdrop')) {
+						document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+					}
+
 					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 					messageModal.show();
 				}
@@ -282,7 +288,10 @@ export default class ChatApp {
 					modalTitle.textContent = "Error";
 					modalMessage.innerHTML = data.message || 'An error occurred';
 
-					// Show the modal
+					if (document.querySelector('.modal-backdrop')) {
+						document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+					}
+
 					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 					messageModal.show();
 			},
@@ -323,7 +332,10 @@ export default class ChatApp {
 					modalTitle.textContent = "Friend Request";
 					modalMessage.innerHTML = data.error;
 
-					// Show the modal
+					if (document.querySelector('.modal-backdrop')) {
+						document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+					}
+
 					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 					messageModal.show();
 				}
@@ -396,7 +408,10 @@ export default class ChatApp {
 			modalTitle.textContent = "Friend Request";
 			modalMessage.innerHTML = `Message too long (${message.length}/300 characters)`;
 
-			// Show the modal
+			if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+
 			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 			messageModal.show();
 			return;
@@ -574,7 +589,10 @@ export default class ChatApp {
 			modalTitle.textContent = "Game Invitation Request";
 			modalMessage.innerHTML = 'Game invitation sent!';
 
-			// Show the modal
+			if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+
 			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 			messageModal.show();
 		} else if (isViewProfile) {
@@ -644,7 +662,10 @@ export default class ChatApp {
 				modalTitle.textContent = "Block User";
 				modalMessage.innerHTML = `Failed to ${action} user. Please try again.`;
 
-				// Show the modal
+				if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+
 				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 				messageModal.show();
 			});
@@ -751,7 +772,10 @@ export default class ChatApp {
 			modalTitle.textContent = "Pong Game";
 			modalMessage.innerHTML = 'No room found';
 
-			// Show the modal
+			if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+
 			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 			messageModal.show();
 			return;
@@ -767,7 +791,10 @@ export default class ChatApp {
 		modalTitle.textContent = "Pong Game";
 		modalMessage.innerHTML = 'Game invitation sent!';
 
-		// Show the modal
+		if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+			
 		let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 		messageModal.show();
 	}
