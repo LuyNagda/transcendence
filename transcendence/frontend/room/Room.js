@@ -410,8 +410,6 @@ export default class Room {
 	_handleRoomError(error) {
 		// Only handle error if we haven't already been destroyed
 		if (!this._isDestroyed) {
-			this._isDestroyed = true;  // Mark as destroyed first to prevent further error handling
-
 			// Set error in store first
 			store.dispatch({
 				domain: 'room',
@@ -423,30 +421,42 @@ export default class Room {
 				}
 			});
 
-			// Clean up managers in specific order
-			if (this._gameManager) {
-				this._gameManager.destroy();
-				this._gameManager = null;
-			}
-			if (this._uiManager) {
-				this._uiManager.destroy();
-				this._uiManager = null;
-			}
-			if (this._connectionManager) {
-				this._connectionManager.destroy();
-				this._connectionManager = null;
-			}
+			// Don't clean up immediately to allow the error to be displayed
+			setTimeout(() => {
+				// Check if we've already been destroyed
+				if (this._isDestroyed) return;
 
-			// Clear room state last
-			store.dispatch({
-				domain: 'room',
-				type: actions.room.CLEAR_ROOM,
-				payload: {
-					userId: this._currentUser?.id,
-					roomId: this._roomId
+				this._isDestroyed = true;  // Mark as destroyed to prevent further error handling
+
+				// Clean up managers in specific order
+				if (this._gameManager) {
+					this._gameManager.destroy();
+					this._gameManager = null;
 				}
-			});
-			logger.info('[Room] Error handling and cleanup completed');
+				if (this._uiManager) {
+					this._uiManager.destroy();
+					this._uiManager = null;
+				}
+				if (this._connectionManager) {
+					this._connectionManager.destroy();
+					this._connectionManager = null;
+				}
+
+				// Clear room state last
+				store.dispatch({
+					domain: 'room',
+					type: actions.room.CLEAR_ROOM,
+					payload: {
+						userId: this._currentUser?.id,
+						roomId: this._roomId
+					}
+				});
+				logger.info('[Room] Delayed error handling and cleanup completed');
+			}, 5000); // 5 second delay to ensure error is displayed
+
+			// Mark as destroyed for code outside the timeout
+			this._isDestroyed = true;
+			logger.info('[Room] Error state set, cleanup scheduled');
 		}
 	}
 
@@ -653,8 +663,7 @@ export default class Room {
 				variant: data.message_type
 			}
 		});
-		if (data.message.includes("win the tournament"))
-		{
+		if (data.message.includes("win the tournament")) {
 			let modalMessage = document.getElementById("modalMessage");
 			let modalTitle = document.getElementById("messageModalLabel");
 

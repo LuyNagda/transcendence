@@ -194,7 +194,7 @@ export class RoomConnectionManager {
 			return;
 		}
 
-		if (!this._isInitialized) {
+		if (this._isInitialized) {
 			let errorMessage;
 			let errorCode = event.code;
 			switch (event.code) {
@@ -302,6 +302,22 @@ export class RoomConnectionManager {
 	 * Disconnects from the room
 	 */
 	disconnect() {
+		const roomState = store.getState('room');
+
+		// If there's an error, delay disconnection to allow the error to be displayed
+		if (roomState && roomState.error && this._connections) {
+			logger.debug('[RoomConnectionManager] Error present, delaying disconnection to ensure error display:', roomState.error);
+			setTimeout(() => {
+				if (this._connections) {
+					connectionManager.disconnectGroup(this._groupName);
+				}
+				this._isInitialized = false;
+				this._hasError = true;
+				logger.debug('[RoomConnectionManager] Delayed disconnection completed');
+			}, 5000); // 5 second delay to match other components
+			return;
+		}
+
 		if (this._connections) {
 			connectionManager.disconnectGroup(this._groupName);
 		}
@@ -412,6 +428,22 @@ export class RoomConnectionManager {
 	 * Cleans up all connections and resources
 	 */
 	destroy() {
+		const roomState = store.getState('room');
+		// If there's an error, delay destruction to allow error to be displayed
+		if (roomState && roomState.error) {
+			logger.debug('[RoomConnectionManager] Error present, delaying destruction to ensure error display:', roomState.error);
+			setTimeout(() => {
+				this.disconnect();
+				if (this._connections) {
+					connectionManager.removeConnectionGroup(this._groupName);
+					this._connections = null;
+				}
+				this._mainConnection = null;
+				logger.debug('[RoomConnectionManager] Delayed destruction completed');
+			}, 5000); // 5 second delay to match other components
+			return;
+		}
+
 		this.disconnect();
 		if (this._connections) {
 			connectionManager.removeConnectionGroup(this._groupName);

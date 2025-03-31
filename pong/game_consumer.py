@@ -6,6 +6,7 @@ from channels.db import database_sync_to_async
 from contextlib import asynccontextmanager
 from django.contrib.auth import get_user_model
 from .models import PongGame
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -240,8 +241,9 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         {
                             'type': 'game_finished',
                             'winner_id': self.game.player1.id if player1_score > player2_score else self.game.player2.id if self.game.player2 else None,
-							'loser': self.game.player1 if player1_score < player2_score else self.game.player2 if self.game.player2 else None,
-                            'final_score': f"{player1_score}-{player2_score}"
+                            'loser': self.game.player1 if player1_score < player2_score else self.game.player2 if self.game.player2 else None,
+                            'final_score': f"{player1_score}-{player2_score}",
+                            'is_disconnection': False
                         }
                     )
             else:
@@ -315,14 +317,33 @@ class PongGameConsumer(AsyncWebsocketConsumer):
                         }
                     )
                     
-                    # Ne mettre à jour que si le jeu est toujours en cours
-                    current_status = await self.get_current_game_status()
-                    if current_status == 'ongoing':
-                        await self.update_game_on_disconnect()
+                    try:
+                        # Ne mettre à jour que si le jeu est toujours en cours
+                        current_status = await self.get_current_game_status()
+                        if current_status == 'ongoing':
+                            await self.update_game_on_disconnect()
+                            game_info = await self.get_game_info_for_disconnect()
+                            if game_info['has_room'] and game_info['room_id']:
+                                room_group_name = f'pong_room_{game_info["room_id"]}'
+                                
+                                await self.channel_layer.group_send(
+                                    room_group_name,
+                                    {
+                                        'type': 'game_finished',
+                                        'winner_id': game_info['winner_id'],
+                                        'loser': game_info['loser_id'],  # Pass just the ID instead of the object
+                                        'final_score': f"{game_info['player1_score']}-{game_info['player2_score']}",
+                                        'is_disconnection': True
+                                    }
+                                )
+                    except Exception as inner_e:
+                        logger.error(f"[Game {self.game_id}] Error updating game state on disconnect: {str(inner_e)}", extra={
+                            'user_id': getattr(self.user, 'id', None)
+                        })
 
             except Exception as e:
                 logger.error(f"[Game {self.game_id}] Error during disconnect cleanup - error: {str(e)}, traceback: {traceback.format_exc()}", extra={
-                    'user_id': self.user.id
+                    'user_id': getattr(self.user, 'id', None)
                 })
 
     @database_sync_to_async
@@ -371,7 +392,7 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             self.game.status = status
             if status == 'finished':
                 self.game.finished_at = timezone.now()
-                # Update room state to LOBBY when game finishes
+                # Update room state to LOBBY when game finishes normally
                 if self.game.room:
                     self.game.room.state = 'LOBBY'
                     self.game.room.save()
@@ -401,19 +422,22 @@ class PongGameConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def update_game_on_disconnect(self):
         """Handles game state updates on player disconnection"""
-        self.game.refresh_from_db()  # Actualise l'état depuis la base
-        if self.game.status == 'ongoing':
-            self.game.status = 'finished'
-            min_score = -1
-            if self.is_host:
-                self.game.player1_score = min_score
-            else:
-                self.game.player2_score = min_score
-            self.game.finished_at = timezone.now()
-            self.game.save()
-            if self.game.room:
-                self.game.room.state = 'LOBBY'
-                self.game.room.save()
+        with transaction.atomic():
+            self.game.refresh_from_db()  # Actualise l'état depuis la base
+            if self.game.status == 'ongoing':
+                self.game.status = 'finished'
+                min_score = -1
+                if self.is_host:
+                    self.game.player1_score = min_score
+                else:
+                    self.game.player2_score = min_score
+                self.game.finished_at = timezone.now()
+                
+                self.game.save()
+                
+                if self.game.room:
+                    self.game.room.state = 'LOBBY'
+                    self.game.room.save()
 
     async def player_disconnected(self, event):
         """Broadcasts player disconnection to remaining clients"""
@@ -440,3 +464,31 @@ class PongGameConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error handling player_ready event: {str(e)}", extra={
                 'user_id': self.user.id
             })
+
+    @database_sync_to_async
+    def get_game_info_for_disconnect(self):
+        """Safely retrieves game and room info for disconnect event"""
+        self.game.refresh_from_db()
+        
+        player1_score = getattr(self.game, 'player1_score', 0)
+        player2_score = getattr(self.game, 'player2_score', 0)
+        has_room = hasattr(self.game, 'room') and self.game.room is not None
+        room_id = self.game.room.room_id if has_room else None
+        player1_id = self.game.player1.id if self.game.player1 else None
+        player2_id = self.game.player2.id if self.game.player2 else None
+        
+        if not self.is_host:
+            winner_id = player1_id
+            loser_id = player2_id
+        else:
+            winner_id = player2_id
+            loser_id = player1_id
+        
+        return {
+            'winner_id': winner_id,
+            'loser_id': loser_id,
+            'player1_score': player1_score,
+            'player2_score': player2_score,
+            'has_room': has_room,
+            'room_id': room_id
+        }

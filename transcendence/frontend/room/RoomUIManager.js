@@ -146,6 +146,13 @@ export class RoomUIManager {
 				const message = state.error.message || 'An unknown error occurred';
 				return `${code}: ${message}`;
 			},
+			errorCode: function () {
+				return state.error?.code || '';
+			},
+			error: function () {
+				// Return error object for direct access in template
+				return state.error || null;
+			},
 			errorType: function () {
 				if (!state.error) return 'danger';
 				const code = state.error.code;
@@ -271,6 +278,21 @@ export class RoomUIManager {
 
 	destroy() {
 		logger.info('[RoomUIManager] Destroying UI manager');
+
+		const roomState = store.getState('room');
+		if (roomState && roomState.error) {
+			logger.debug('[RoomUIManager] Error present, delaying destruction to ensure display:', roomState.error);
+			// Don't clean up event handlers immediately to allow error to be displayed
+			setTimeout(() => {
+				this._eventHandlers.clear();
+				if (this._settingChangeTimeout) {
+					clearTimeout(this._settingChangeTimeout);
+					this._settingChangeTimeout = null;
+				}
+				logger.debug('[RoomUIManager] Delayed cleanup completed');
+			}, 5000); // 5 second delay to match Room.js
+			return;
+		}
 
 		// Clean up event handlers
 		this._eventHandlers.clear();

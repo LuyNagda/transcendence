@@ -80,6 +80,16 @@ export class RoomGameManager {
 
 			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 			messageModal.show();
+			store.dispatch({
+				domain: 'room',
+				type: actions.room.UPDATE_ROOM,
+				payload: {
+					state: 'LOBBY',
+					error: {
+						message: 'Player disconnected'
+					}
+				}
+			});
 			this._emit('game_ended', data);
 			logger.info('[RoomGameManager] Game ended successfully');
 		} catch (error) {

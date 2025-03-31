@@ -6,6 +6,7 @@ from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from .models import PongRoom, PongGame, Tournament
 from django.utils import timezone
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -102,8 +103,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         try:
             if hasattr(self, 'room'):
                 await self.remove_user_from_room()
-                if hasattr(self, 'room_group_name'):
-                    await self.update_room()
             if hasattr(self, 'room_group_name') and hasattr(self, 'channel_name'):
                 await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
@@ -409,6 +408,13 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             return
         
         room_state = event['room_state']
+        
+        # Skip sending PLAYING state updates to clients that have disconnected from games
+        # This prevents unwanted state transitions in the client
+        if room_state.get('state') == 'PLAYING' and hasattr(self, '_game_disconnected'):
+            logger.info(f"Skipping PLAYING state update to game-disconnected client - room_id: {self.room_id}, user_id: {getattr(self.user, 'id', None)}")
+            return
+        
         await self.send(text_data=json.dumps({
             'type': 'room_update',
             'room_state': room_state
@@ -770,25 +776,67 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
 
         return None
 
+    @database_sync_to_async
+    def handle_player_disconnection(self, player_id):
+        """
+        Handle specific database operations when a player disconnects from a game.
+        This is a separate method to ensure all database operations are atomic and don't trigger unwanted events.
+        """
+        with transaction.atomic():
+            # Just log the disconnection without updating room state
+            # This prevents triggering unwanted room updates
+            logger.info(f"Player {player_id} disconnected from game in room {self.room_id}")
+            # We intentionally don't update any room state here
+            # The frontend will handle the disconnection logic
+            return True
+
     async def game_finished(self, event):
         """
         Handle game finished event and update room state
         """
         try:
-            if self.room.mode == "TOURNAMENT":
-                await self.add_eliminated_player(event['loser']) 
+            is_disconnection = event.get('is_disconnection', False)
+            # Handle loser which could be an ID (from disconnect) or an object
+            loser = event.get('loser')
+            if loser and not isinstance(loser, int) and hasattr(loser, 'id'):
+                # It's an object, proceed normally
+                if self.room.mode == "TOURNAMENT":
+                    await self.add_eliminated_player(loser)
+            elif loser and isinstance(loser, int):
+                # It's an ID, get the user object first
+                if self.room.mode == "TOURNAMENT":
+                    user = await self.get_user_by_id(loser)
+                    if user:
+                        await self.add_eliminated_player(user)
+            
             if not await self.is_room_owner():
+                if is_disconnection:
+                    self._game_disconnected = True
+                    
                 await self.send(text_data=json.dumps({
                     'type': 'game_finished',
                     'winner_id': event['winner_id'],
-                    'final_score': event['final_score']
+                    'final_score': event['final_score'],
+                    'is_disconnection': is_disconnection
                 }))
                 return                
            
+            if is_disconnection:
+                logger.info(f"Skipping room updates for disconnection event - room_id: {self.room_id}")
+                self._game_disconnected = True
+                if 'winner_id' in event:
+                    await self.handle_player_disconnection(event['winner_id'])
+                await self.send(text_data=json.dumps({
+                    'type': 'game_finished',
+                    'winner_id': event['winner_id'],
+                    'final_score': event['final_score'],
+                    'is_disconnection': True
+                }))
+                return
 
-            if self.room.state != 'LOBBY' and await self.all_game_finished():
-
-                await self.update_room_property('state', 'LOBBY')
+            if not is_disconnection:
+                if self.room.state != 'LOBBY':
+                    await self.update_room_property('state', 'LOBBY')
                 
                 if self.room.mode == "TOURNAMENT":
                     winner = await self.tournament_finished()
@@ -826,12 +874,13 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 'final_score': event['final_score']
             }))
 
-            await self.update_room()
+            # if not is_disconnection:
+            #     await self.update_room()
             
         except Exception as e:
             logger.error(f"Error handling game finished event: {str(e)}", extra={
                 'user_id': getattr(self.user, 'id', None)
-            }) 
+            })
 
     @database_sync_to_async
     def is_room_owner(self):
@@ -1051,3 +1100,12 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     await self.close()
         except Exception as e:
             logger.error(f"Error handling player kicked - room_id: {self.room_id}, player_id: {player_id}, error: {str(e)}")
+
+    @database_sync_to_async
+    def get_user_by_id(self, user_id):
+        """Get a user object by its ID"""
+        try:
+            return User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            logger.error(f"User with ID {user_id} not found")
+            return None
