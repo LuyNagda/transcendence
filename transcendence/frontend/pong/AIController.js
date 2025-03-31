@@ -186,6 +186,7 @@ export class AIController {
         if (this.lastBallUpdate == 0 || timeLastUpdate >= 1000) {
             this.lastBallUpdate = currentTime;
             this.aiBall = { ...gameState.ball }; // Create a copy of the ball state
+            logger.info("Aiball was updated")
         }
         
 
@@ -205,7 +206,7 @@ export class AIController {
 		if (this.aiBall.dx > 0) {
 			// Predict the future position of the aiBall
 			const timeToReachPaddle = (paddle.x - this.aiBall.x) / this.aiBall.dx;
-            const randomFactor = (Math.random() - 0.5) * 4 * GameRules.BASE_PADDLE_HEIGHT;
+            const randomFactor = (Math.random() - 0.5) * 2 * GameRules.BASE_PADDLE_HEIGHT;
 			const predictedY = this.aiBall.y + this.aiBall.dy * timeToReachPaddle + randomFactor;
 
 			// Determine direction to move based on predicted aiBall position
