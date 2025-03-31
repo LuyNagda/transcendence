@@ -49,13 +49,13 @@ def calculate_rankings(tournament: Tournament) -> List[Tuple[User, dict]]:
         return sorted_rankings
     
 def total_games_played(player):
-    return PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player1=player).count() + PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player2=player).count()
+    return PongGame.objects.filter(player1=player).count() + PongGame.objects.filter(player2=player).count()
 
 def total_wins(player):
-    return PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player1=player, player1_score__gt=F('player2_score')).count() + PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player2=player, player2_score__gt=F('player1_score')).count()
+    return PongGame.objects.filter(player1=player, player1_score__gt=F('player2_score')).count() + PongGame.objects.filter(player2=player, player2_score__gt=F('player1_score')).count()
 
 def total_losses(player):
-    return PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player1=player, player1_score__lt=F('player2_score')).count() + PongGame.objects.exclude(room__mode=PongRoom.Mode.TOURNAMENT).filter(player2=player, player2_score__lt=F('player1_score')).count()
+    return PongGame.objects.filter(player1=player, player1_score__lt=F('player2_score')).count() + PongGame.objects.filter(player2=player, player2_score__lt=F('player1_score')).count()
 
 def total_tournies_played(player):
     return Tournament.objects.filter(status=Tournament.Status.FINISHED).filter(pong_room__players=player).count()
