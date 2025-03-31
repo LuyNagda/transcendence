@@ -106,6 +106,14 @@ export const htmxPlugin = {
 		});
 
 		window.addEventListener('popstate', async () => {
+			const offcanvasElement = document.getElementById('chatCanvas');
+			if (offcanvasElement) {
+				offcanvasElement.classList.remove('show');
+				offcanvasElement.classList.add('hide');
+			}
+			document.querySelectorAll('.offcanvas-backdrop').forEach(backdrop => {
+				backdrop.remove();
+			});
 			app.scheduleUpdate('chat');
 			app.scheduleUpdate('ui');
 		});

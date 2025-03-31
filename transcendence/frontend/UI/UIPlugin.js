@@ -182,7 +182,7 @@ export const uiPlugin = {
 		// Subscribe to specific UI state changes
 		store.subscribe('ui.modal', this._handleModalStateChange.bind(this));
 		store.subscribe('ui.toast', this._handleToastStateChange.bind(this));
-		store.subscribe('ui.offcanvas', this._handleOffcanvasStateChange.bind(this));
+		// store.subscribe('ui.offcanvas', this._handleOffcanvasStateChange.bind(this));
 		// store.subscribe('ui.friendRequests', this._handleFriendRequestStateChange.bind(this));
 	},
 
