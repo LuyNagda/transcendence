@@ -1,39 +1,144 @@
-<div id="room-state" class="card">
+<div id="room-state" class="arcade-room-state">
     <div class="card-body" id="room-state-description">
-        <h6 class="h6">Players (<span v-text="players.length" aria-live="polite"></span> /
+        <h6 class="arcade-heading">Players (<span v-text="players.length" aria-live="polite"></span> /
             <span v-text="maxPlayers" aria-live="polite"></span>)
         </h6>
 
-        <ul class="list-group mb-3" role="list" aria-labelledby="players-list-heading" v-if="players.length > 0">
-            <li v-for="player in players" class="list-group-item d-flex justify-content-between align-items-center"
+        <ul class="list-group arcade-list mb-3" role="list" aria-labelledby="players-list-heading"
+            v-if="players.length > 0">
+            <li v-for="player in players"
+                class="list-group-item arcade-list-item d-flex justify-content-between align-items-center"
                 role="listitem" aria-label="Player [[player.username]]">
-                <span>[[player.username]]</span>
+                <span class="player-name">[[player.username]]</span>
                 <div>
-                    <span v-if="[[player.isOwner]]" class="badge bg-info rounded-pill me-2"
+                    <span v-if="[[player.isOwner]]" class="badge bg-warning rounded-pill me-2"
                         aria-label="Room owner">Owner</span>
-                    <span v-if="[[player.id === currentUser.id]]" class="badge bg-primary rounded-pill me-2"
+                    <span v-if="[[player.id === currentUser.id]]" class="badge bg-success rounded-pill me-2"
                         aria-label="Your player">You</span>
                 </div>
             </li>
-            <li v-if="[[!players.length]]" class="list-group-item" aria-live="polite"
+            <li v-if="[[!players.length]]" class="list-group-item arcade-list-item" aria-live="polite"
                 aria-label="No players in the room">
                 No players in the room yet.
             </li>
         </ul>
-
-        <p v-if="players.length < maxPlayers" class="card-text" aria-live="polite">
-            Available slots: <span v-text="maxPlayers - players.length"></span>
-        </p>
-
-        <p v-else-if="players.length === maxPlayers && availableSlots <= 0" class="card-text text-warning"
-            aria-live="polite">
-            <i class="fas fa-circle-exclamation me-2"></i>
-            Room is full
-        </p>
-
-        <p v-else class="card-text text-danger" aria-live="polite">
-            <i class="fas fa-triangle-exclamation me-2"></i>
-            Room is overfull - some players must leave
-        </p>
     </div>
 </div>
+
+<style>
+    /* Room state styling from global CSS */
+    #room-state {
+        background-color: transparent !important;
+        border: none;
+        color: #ffcc00;
+    }
+
+    #room-state .card-body {
+        padding: 0.5rem;
+    }
+
+    #room-state h6 {
+        color: #ffcc00;
+        font-family: 'PongRetro', 'VT323', monospace;
+        font-size: 1.2rem;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+
+    .arcade-panel-interior .progress {
+        background-color: #333;
+        border: 1px solid #ffcc00;
+    }
+
+    .arcade-panel-interior .progress-bar {
+        background-color: #ffcc00;
+        color: #000;
+    }
+
+    .arcade-panel-interior .list-group-item {
+        background-color: #222;
+        color: #ffcc00;
+        border: 1px solid #ffcc00;
+        margin-bottom: 3px;
+    }
+
+    .arcade-panel-interior .badge {
+        color: #000;
+    }
+
+    .arcade-panel-interior .text-muted {
+        color: #ffcc00 !important;
+        opacity: 0.8;
+    }
+
+    .arcade-room-state {
+        margin-bottom: 20px;
+    }
+
+    .arcade-heading {
+        color: #ffcc00;
+        font-family: 'PongRetro', 'VT323', monospace;
+        font-size: 1.2rem;
+        text-transform: uppercase;
+        border-bottom: 2px solid #ffcc00;
+        padding-bottom: 5px;
+        margin-bottom: 15px;
+        font-weight: bold;
+        text-shadow: 0 0 5px rgba(255, 204, 0, 0.5);
+    }
+
+    .arcade-list {
+        background-color: transparent;
+    }
+
+    .arcade-list-item {
+        background-color: rgba(0, 0, 0, 0.3);
+        color: #ffcc00;
+        border: 1px solid #ffcc00;
+        margin-bottom: 3px;
+        border-radius: 5px;
+    }
+
+    .player-name {
+        font-family: 'PongRetro', 'VT323', monospace;
+        font-size: 1.1rem;
+    }
+
+    .arcade-message {
+        color: #ffcc00;
+        font-family: 'PongRetro', 'VT323', monospace;
+        padding: 5px 10px;
+        border-radius: 5px;
+        background-color: rgba(0, 0, 0, 0.3);
+        border: 1px solid #ffcc00;
+    }
+
+    .arcade-message.warning {
+        background-color: rgba(255, 204, 0, 0.2);
+        border-color: #ffcc00;
+    }
+
+    .arcade-message.danger {
+        background-color: rgba(255, 69, 0, 0.2);
+        border-color: #ff4500;
+    }
+
+    .arcade-alert {
+        background-color: rgba(255, 69, 0, 0.2);
+        border: 1px solid #ff4500;
+        color: #ffcc00;
+    }
+
+    .arcade-btn-small {
+        background-color: transparent;
+        border: 1px solid #ff4500;
+        color: #ff4500;
+        font-family: 'PongRetro', 'VT323', monospace;
+        padding: 2px 5px;
+        font-size: 0.8rem;
+    }
+
+    .arcade-btn-small:hover {
+        background-color: rgba(255, 69, 0, 0.2);
+    }
+</style>

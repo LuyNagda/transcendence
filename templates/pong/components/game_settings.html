@@ -1,124 +1,222 @@
 {% load static %}
 
-<div id="game-settings" class="card mb-4" v-if="!error">
+<div id="game-settings" class="arcade-settings-module" v-if="!error">
     <div class="card-body">
-		<div v-if="owner.id === currentUser.id && state === 'LOBBY'" class="form-group mb-3" role="group"
-            aria-labelledby="game-mode-label">
-            <label for="game-mode" id="game-mode-label" class="form-label">Game Mode</label>
-            <select id="game-mode" name="mode" class="form-select" v-model="mode" v-on:change="handleModeChange"
-                aria-labelledby="game-mode-label" aria-describedby="game-mode-description"
-                :disabled="owner.id !== currentUser.id" role="combobox" aria-haspopup="listbox">
-                <option value="AI" role="option">AI Mode</option>
-                <option value="LOCAL" role="option">Local Mode</option>
-                <option value="CLASSIC" role="option">Classic Mode</option>
-                <option value="TOURNAMENT" role="option">Tournament Mode</option>
-            </select>
-
-        </div>
         <!-- Settings form for room owner -->
         <form id="settings-form" v-if="isOwner && isLobbyState">
-            <!-- Paddle Speed -->
-            <div class="mb-3">
-                <label for="paddleSpeed" class="form-label">Paddle Speed</label>
-                <input type="range" class="form-range" id="paddleSpeed" min="1" max="10" step="1"
-                    data-setting="paddleSpeed" v-model="settings.paddleSpeed" v-on:change="handleSettingChange"
-                    aria-label="Adjust paddle speed from slow to fast">
-                <div class="d-flex justify-content-between">
-                    <span>Slow</span>
-                    <span>Fast</span>
+            <div class="row">
+                <!-- Paddle Speed -->
+                <div class="col-md-3 col-sm-6 mb-3 setting-module">
+                    <label for="paddleSpeed" class="form-label">Paddle Speed</label>
+                    <input type="range" class="form-range arcade-range" id="paddleSpeed" min="1" max="10" step="1"
+                        data-setting="paddleSpeed" v-model="settings.paddleSpeed" v-on:change="handleSettingChange"
+                        aria-label="Adjust paddle speed from slow to fast">
+                    <div class="d-flex justify-content-between slider-labels">
+                        <span>Slow</span>
+                        <span>Fast</span>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Ball Speed -->
-            <div class="mb-3">
-                <label for="ballSpeed" class="form-label">Ball Speed</label>
-                <input type="range" class="form-range" id="ballSpeed" min="1" max="10" step="1" data-setting="ballSpeed"
-                    v-model="settings.ballSpeed" v-on:change="handleSettingChange"
-                    aria-label="Adjust ball speed from slow to fast">
-                <div class="d-flex justify-content-between">
-                    <span>Slow</span>
-                    <span>Fast</span>
+                <!-- Ball Speed -->
+                <div class="col-md-3 col-sm-6 mb-3 setting-module">
+                    <label for="ballSpeed" class="form-label">Ball Speed</label>
+                    <input type="range" class="form-range arcade-range" id="ballSpeed" min="1" max="10" step="1"
+                        data-setting="ballSpeed" v-model="settings.ballSpeed" v-on:change="handleSettingChange"
+                        aria-label="Adjust ball speed from slow to fast">
+                    <div class="d-flex justify-content-between slider-labels">
+                        <span>Slow</span>
+                        <span>Fast</span>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Paddle Size -->
-            <div class="mb-3">
-                <label for="paddleSize" class="form-label">Paddle Size</label>
-                <input type="range" class="form-range" id="paddleSize" min="1" max="10" step="1"
-                    data-setting="paddleSize" v-model="settings.paddleSize" v-on:change="handleSettingChange"
-                    aria-label="Adjust paddle size from small to large">
-                <div class="d-flex justify-content-between">
-                    <span>Small</span>
-                    <span>Large</span>
+                <!-- Paddle Size -->
+                <div class="col-md-3 col-sm-6 mb-3 setting-module">
+                    <label for="paddleSize" class="form-label">Paddle Size</label>
+                    <input type="range" class="form-range arcade-range" id="paddleSize" min="1" max="10" step="1"
+                        data-setting="paddleSize" v-model="settings.paddleSize" v-on:change="handleSettingChange"
+                        aria-label="Adjust paddle size from small to large">
+                    <div class="d-flex justify-content-between slider-labels">
+                        <span>Small</span>
+                        <span>Large</span>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Max Score -->
-            <div class="mb-3">
-                <label for="maxScore" class="form-label">Points to Win</label>
-                <select class="form-select" id="maxScore" data-setting="maxScore" v-model="settings.maxScore"
-                    v-on:change="handleSettingChange" aria-label="Select points required to win the game">
-                    <option value="5">5 Points</option>
-                    <option value="11">11 Points</option>
-                </select>
-            </div>
-
-            <!-- AI Difficulty (only shown in AI mode) -->
-            <div class="mb-3" v-if="mode === 'AI'">
-                <label for="aiDifficulty" class="form-label">AI Model</label>
-                <select class="form-select" id="aiDifficulty" data-setting="aiDifficulty"
-                    v-model="settings.aiDifficulty" v-on:change="handleSettingChange"
-                    aria-label="Select AI difficulty level">
-                    <option v-for="ai in availableAIs" :value="ai">[[ ai ]]</option>
-                </select>
+                <!-- Max Score -->
+                <div class="col-md-3 col-sm-6 mb-3 setting-module">
+                    <label for="maxScore" class="form-label">Points to Win</label>
+                    <select class="form-select arcade-select" id="maxScore" data-setting="maxScore"
+                        v-model="settings.maxScore" v-on:change="handleSettingChange"
+                        aria-label="Select points required to win the game">
+                        <option value="5">5 Points</option>
+                        <option value="11">11 Points</option>
+                    </select>
+                </div>
             </div>
         </form>
 
         <!-- Read-only settings display -->
         <div v-else>
-            <div class="mb-3" role="status" aria-live="polite">
-                <div class="text-muted mb-1">Paddle Speed</div>
-                <div class="progress">
-                    <div class="progress-bar" role="progressbar" v-text="settings.paddleSpeed + '/10'"
-                        v-bind:style="getProgressBarStyle(settings.paddleSpeed, 'paddleSpeed')"
-                        :aria-valuenow="settings.paddleSpeed" aria-valuemin="1" aria-valuemax="10">
+            <div class="row">
+                <div class="col-md-3 mb-3 setting-module" role="status" aria-live="polite">
+                    <div class="setting-label mb-1">Paddle Speed</div>
+                    <div class="arcade-progress">
+                        <div class="arcade-progress-bar" role="progressbar" v-text="settings.paddleSpeed + '/10'"
+                            v-bind:style="getProgressBarStyle(settings.paddleSpeed, 'paddleSpeed')"
+                            :aria-valuenow="settings.paddleSpeed" aria-valuemin="1" aria-valuemax="10">
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="mb-3" role="status" aria-live="polite">
-                <div class="text-muted mb-1">Ball Speed</div>
-                <div class="progress">
-                    <div class="progress-bar" role="progressbar" v-text="settings.ballSpeed + '/10'"
-                        v-bind:style="getProgressBarStyle(settings.ballSpeed, 'ballSpeed')"
-                        :aria-valuenow="settings.ballSpeed" aria-valuemin="1" aria-valuemax="10">
+                <div class="col-md-3 mb-3 setting-module" role="status" aria-live="polite">
+                    <div class="setting-label mb-1">Ball Speed</div>
+                    <div class="arcade-progress">
+                        <div class="arcade-progress-bar" role="progressbar" v-text="settings.ballSpeed + '/10'"
+                            v-bind:style="getProgressBarStyle(settings.ballSpeed, 'ballSpeed')"
+                            :aria-valuenow="settings.ballSpeed" aria-valuemin="1" aria-valuemax="10">
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="mb-3" role="status" aria-live="polite">
-                <div class="text-muted mb-1">Paddle Size</div>
-                <div class="progress">
-                    <div class="progress-bar" role="progressbar" v-text="settings.paddleSize + '/10'"
-                        v-bind:style="getProgressBarStyle(settings.paddleSize, 'paddleSize')"
-                        :aria-valuenow="settings.paddleSize" aria-valuemin="1" aria-valuemax="10">
+                <div class="col-md-3 mb-3 setting-module" role="status" aria-live="polite">
+                    <div class="setting-label mb-1">Paddle Size</div>
+                    <div class="arcade-progress">
+                        <div class="arcade-progress-bar" role="progressbar" v-text="settings.paddleSize + '/10'"
+                            v-bind:style="getProgressBarStyle(settings.paddleSize, 'paddleSize')"
+                            :aria-valuenow="settings.paddleSize" aria-valuemin="1" aria-valuemax="10">
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <div class="d-flex justify-content-between mb-3">
-                <div>
-                    <div class="text-muted mb-1">Points to Win</div>
-                    <p class="mb-0 fs-5">
-                        <span v-text="settings.maxScore"></span> Points
-                    </p>
-                </div>
-
-                <div v-if="mode === 'AI'">
-                    <div class="text-muted mb-1">AI Model</div>
-                    <p class="mb-0 fs-5" v-text="settings.aiDifficulty"></p>
+                <div class="col-md-3 mb-3 setting-module">
+                    <div>
+                        <div class="setting-label mb-1">Points to Win</div>
+                        <p class="mb-0 fs-5 arcade-value">
+                            <span v-text="settings.maxScore"></span> Points
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    .arcade-settings-module {
+        margin-top: 20px;
+    }
+
+    .setting-module {
+        background-color: rgba(0, 0, 0, 0.3);
+        border: 1px solid #ffcc00;
+        border-radius: 5px;
+        padding: 10px;
+        margin-bottom: 15px;
+    }
+
+    .setting-label {
+        color: #ffcc00;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+    }
+
+    .arcade-select {
+        background-color: #222;
+        color: #ffcc00;
+        border: 2px solid #ffcc00;
+        border-radius: 4px;
+    }
+
+    .arcade-select option {
+        background-color: #222;
+        color: #ffcc00;
+    }
+
+    .arcade-range::-webkit-slider-thumb {
+        background-color: #ffcc00;
+    }
+
+    .arcade-range::-moz-range-thumb {
+        background-color: #ffcc00;
+    }
+
+    .arcade-progress {
+        height: 20px;
+        background-color: #222;
+        border-radius: 4px;
+        border: 1px solid #ffcc00;
+        overflow: hidden;
+    }
+
+    .arcade-progress-bar {
+        height: 100%;
+        background-color: #ffcc00;
+        color: #000;
+        text-align: center;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .slider-labels {
+        color: #ffcc00;
+        font-size: 0.8rem;
+        margin-top: 5px;
+    }
+
+    .arcade-value {
+        color: #ffcc00;
+        font-weight: bold;
+    }
+
+    /* Game settings styling from global CSS */
+    #game-settings {
+        background-color: transparent !important;
+        border: none;
+        color: #ffcc00;
+    }
+
+    #game-settings .card-body {
+        padding: 0.5rem;
+    }
+
+    #game-settings label {
+        color: #ffcc00;
+        font-family: 'PongRetro', 'VT323', monospace;
+        font-size: 1.2rem;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+    }
+
+    #game-settings .form-range,
+    #game-settings .form-select {
+        background-color: #222;
+        border: 2px solid #ffcc00;
+    }
+
+    /* Form range styling for different themes */
+    [data-bs-theme=dark] .form-range::-webkit-slider-thumb {
+        background: #00ff00;
+    }
+
+    [data-bs-theme=dark] .form-range::-moz-range-thumb {
+        background: #00ff00;
+    }
+
+    [data-bs-theme=dark] .form-range::-ms-thumb {
+        background: #00ff00;
+    }
+
+    [data-bs-theme='high-contrast'] .form-range::-webkit-slider-thumb {
+        background: #ffff00;
+    }
+
+    [data-bs-theme='high-contrast'] .form-range::-moz-range-thumb {
+        background: #ffff00;
+    }
+
+    [data-bs-theme='high-contrast'] .form-range::-ms-thumb {
+        background: #ffff00;
+    }
+</style>

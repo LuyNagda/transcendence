@@ -6,65 +6,382 @@
 
 {% block navbar %}{% include "ui.html" %}{% endblock %}
 
-<div id="pong-room" class="container d-flex flex-column align-items-center justify-content-center" 
-     style="min-height: calc(100vh - 128px);" 
-     data-domain="room" 
-     aria-label="Pong game room">
+<div id="pong-room" class="container d-flex flex-column align-items-center justify-content-center" data-domain="room"
+	aria-label="Pong game room">
 	<div class="w-100 d-flex justify-content-center">
-		<div class="offcanvas offcanvas-end" tabindex="-1" id="room-status" aria-label="Room status information">
-			<div class="offcanvas-header">
-				<button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close chat"></button>
-			</div>
-			<div class="offcanvas-body">
-				<div id="room-state" class="mb-4" aria-label="Room status information">
-					{% include "pong/components/room_state.html" %}
+		<div class="arcade-machine-container">
+			<div class="arcade-side-panel left-panel">
+				<div class="arcade-panel-interior">
+					<div id="room-state" class="mb-4" aria-label="Room status information">
+						{% include "pong/components/room_state.html" %}
+					</div>
 				</div>
-				{% include "pong/components/game_settings.html" %}
 			</div>
-		</div>
-		<div id="dynamic-content" class="text-center" aria-live="polite">
-			{% include "pong/components/game.html" %}
-		</div>
-	</div>
-	<div class="card-footer d-flex flex-row justify-content-around flex-nowrap gap-2 w-100">
-		<button id="leaveGameBtn" class="btn btn-danger flex-shrink-0" hx-get="{% url 'index' %}" hx-target="#content"
-			hx-swap="outerHTML" hx-push-url="true" aria-label="Leave the game">
-			Leave
-		</button>
-		<button id="startGameBtn" v-if="canStartGame && owner.id === currentUser.id" v-on:click="startGame" type="button"
-			class="btn btn-lg btn-primary flex-shrink-0" aria-label="Start the game">
-			<span>Start</span>
-		</button>
-		<button id="startGameBtn" v-else v-on:click="startGame" type="button"
-			class="btn btn-lg btn-primary-disabled disabled flex-shrink-0" aria-label="Start the game">
-			<span>Start</span>
-		</button>
-		<button class="btn btn-lg btn-secondary" data-bs-toggle="offcanvas" href="#room-status" role="button" aria-controls="Room Status Offcanvas Button">
-			Dashboard
-		</button>
-	</div>
-	<div v-if="error" :class="'alert alert-' + errorType + ' mt-3 flex-nowrap gap-2 w-100'" role="alert" aria-live="assertive">
-		<div class="d-flex align-items-center">
-			<i class="fas fa-exclamation-circle me-2"></i>
-			<div>
-				<span v-text="errorMessage"></span>
-				<small v-if="error.timestamp" class="d-block text-muted mt-1" v-text="formatErrorTime"></small>
+
+			<div class="arcade-main-section">
+				<div id="dynamic-content" class="text-center" aria-live="polite">
+					{% include "pong/components/game.html" %}
+					{% include "pong/components/game_settings.html" %}
+				</div>
+			</div>
+
+			<div class="arcade-side-panel right-panel">
+				<div class="arcade-panel-interior">
+					<div v-if="owner.id === currentUser.id && state === 'LOBBY'" class="form-group mb-3" role="group"
+						aria-labelledby="game-mode-label">
+						<label for="game-mode" id="game-mode-label" class="form-label">Game Mode</label>
+						<select id="game-mode" name="mode" class="form-select arcade-select" v-model="mode"
+							v-on:change="handleModeChange" aria-labelledby="game-mode-label"
+							aria-describedby="game-mode-description" :disabled="owner.id !== currentUser.id"
+							role="combobox" aria-haspopup="listbox">
+							<option value="AI" role="option">AI Mode</option>
+							<option value="LOCAL" role="option">Local Mode</option>
+							<option value="CLASSIC" role="option">Classic Mode</option>
+							<option value="TOURNAMENT" role="option">Tournament Mode</option>
+						</select>
+					</div>
+
+					<!-- AI Difficulty (only shown in AI mode) -->
+					<div v-if="mode === 'AI'">
+						<div class="row" v-if="isOwner && isLobbyState">
+							<div class="col-md-12 mb-3 setting-module">
+								<label for="aiDifficulty" class="form-label">AI Model</label>
+								<select class="form-select arcade-select" id="aiDifficulty" data-setting="aiDifficulty"
+									v-model="settings.aiDifficulty" v-on:change="handleSettingChange"
+									aria-label="Select AI difficulty level">
+									<option v-for="ai in availableAIs" :value="ai">[[ai]]</option>
+								</select>
+							</div>
+						</div>
+
+						<div v-else>
+							<div class="setting-label mb-1">AI Model</div>
+							<p class="mb-0 fs-5 arcade-value" v-text="settings.aiDifficulty"></p>
+						</div>
+					</div>
+
+					<div id="room-state" class="mb-4" aria-label="Room status information">
+						<p v-if="players.length < maxPlayers" class="arcade-message" aria-live="polite">
+							Available slots: <span v-text="maxPlayers - players.length"></span>
+						</p>
+
+						<p v-else-if="players.length === maxPlayers && availableSlots <= 0"
+							class="arcade-message warning" aria-live="polite">
+							<i class="fas fa-circle-exclamation me-2"></i>
+							Room is full
+						</p>
+
+						<p v-else class="arcade-message danger" aria-live="polite">
+							<i class="fas fa-triangle-exclamation me-2"></i>
+							Room is overfull - some players must leave
+						</p>
+
+						<div v-if="error" :class="'alert arcade-alert mt-3'" role="alert" aria-live="assertive">
+							<div class="d-flex align-items-center">
+								<i class="fas fa-exclamation-circle me-2"></i>
+								<div>
+									<span v-text="errorMessage"></span>
+									<small v-if="error.timestamp" class="d-block text-muted mt-1"
+										v-text="formatErrorTime"></small>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
 </div>
 
 <style>
-    @media (max-width: 768px) {
-        main {
-            flex-direction: column;
-        }
+	/* Arcade machine container layout */
+	.arcade-machine-container {
+		display: flex;
+		justify-content: center;
+		align-items: flex-start;
+		gap: 20px;
+		width: 100%;
+		max-width: 1400px;
+	}
 
-        div {
-            margin-right: 0 !important;
-            margin-bottom: 2rem;
-        }
-    }
+	.arcade-main-section {
+		flex: 1;
+		max-width: 860px;
+	}
+
+	.arcade-side-panel {
+		width: 300px;
+		height: 100%;
+		background-color: #ffcc00;
+		/* Atari yellow */
+		border-radius: 10px;
+		border: 8px solid #3a2513;
+		/* Darker wood trim */
+		box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
+		position: relative;
+		overflow: hidden;
+	}
+
+	.arcade-side-panel::before {
+		content: "CONTROL PANEL";
+		position: absolute;
+		top: -15px;
+		left: 0;
+		right: 0;
+		text-align: center;
+		font-size: 1.2rem;
+		font-weight: bold;
+		background-color: #ffcc00;
+		/* Atari yellow */
+		padding: 30px 5px;
+		border-radius: 5px 5px 0 0;
+		color: #000;
+		font-family: 'PongRetro', 'VT323', monospace;
+		border: 2px solid #3a2513;
+		/* Darker wood trim */
+		letter-spacing: 2px;
+		transform: translateY(-50%);
+		width: 80%;
+		margin: 0 auto;
+		box-shadow: 0 -5px 10px rgba(0, 0, 0, 0.3);
+	}
+
+	.arcade-panel-interior {
+		background-color: #000;
+		border: 15px solid #ffcc00;
+		/* Atari yellow border */
+		height: calc(100% - 30px);
+		margin: 15px;
+		border-radius: 8px;
+		padding: 15px;
+		overflow-y: auto;
+		max-height: 90vh;
+	}
+
+	/* Styling for the game settings card to match retro arcade look */
+	#game-settings,
+	#room-state {
+		background-color: transparent !important;
+		border: none;
+		color: #ffcc00;
+	}
+
+	#game-settings .card-body,
+	#room-state .card-body {
+		padding: 0.5rem;
+	}
+
+	#game-settings label,
+	#room-state h6 {
+		color: #ffcc00;
+		font-family: 'PongRetro', 'VT323', monospace;
+		font-size: 1.2rem;
+		text-transform: uppercase;
+		margin-bottom: 0.5rem;
+	}
+
+	#game-settings .form-range,
+	#game-settings .form-select {
+		background-color: #222;
+		border: 2px solid #ffcc00;
+	}
+
+	.arcade-panel-interior .progress {
+		background-color: #333;
+		border: 1px solid #ffcc00;
+	}
+
+	.arcade-panel-interior .progress-bar {
+		background-color: #ffcc00;
+		color: #000;
+	}
+
+	.arcade-panel-interior .list-group-item {
+		background-color: #222;
+		color: #ffcc00;
+		border: 1px solid #ffcc00;
+		margin-bottom: 3px;
+	}
+
+	.arcade-panel-interior .badge {
+		color: #000;
+	}
+
+	.arcade-panel-interior .text-muted {
+		color: #ffcc00 !important;
+		opacity: 0.8;
+	}
+
+	/* Game Buttons in control panel styling */
+	.game-buttons {
+		display: flex;
+		gap: 15px;
+		justify-content: center;
+	}
+
+	/* Responsive layout for arcade machine */
+	@media (max-width: 1200px) {
+		.arcade-machine-container {
+			flex-direction: column;
+			align-items: center;
+		}
+
+		.arcade-main-section {
+			order: 1;
+			max-width: 100%;
+			width: 100%;
+		}
+
+		.arcade-side-panel {
+			order: 2;
+			width: 100%;
+			max-width: 860px;
+			height: auto;
+		}
+
+		/* Transition to side-by-side panels below 1200px */
+		.arcade-side-panel.left-panel {
+			order: 2;
+			width: calc(50% - 10px);
+			margin-right: 10px;
+		}
+
+		.arcade-side-panel.right-panel {
+			order: 3;
+			width: calc(50% - 10px);
+			margin-left: 10px;
+		}
+	}
+
+	/* Side panels in a row on medium screens */
+	@media (min-width: 769px) and (max-width: 1200px) {
+		.arcade-machine-container {
+			flex-flow: row wrap;
+		}
+
+		.arcade-main-section {
+			flex: 0 0 100%;
+		}
+
+		.arcade-side-panel {
+			flex: 0 0 calc(50% - 20px);
+		}
+	}
+
+	/* Stack everything on mobile */
+	@media (max-width: 768px) {
+		.arcade-machine-container {
+			flex-direction: column;
+		}
+
+		.arcade-main-section {
+			order: 1;
+			width: 100%;
+		}
+
+		.arcade-side-panel.left-panel {
+			order: 2;
+			width: 100%;
+			margin: 20px 0 10px 0;
+			display: block;
+		}
+
+		.arcade-side-panel.right-panel {
+			order: 3;
+			width: 100%;
+			margin: 10px 0 20px 0;
+			display: block;
+		}
+	}
+
+	/* Additional arcade button styling from style.css */
+	.arcade-button {
+		background-color: #d7d7d7;
+		color: #000;
+		border-radius: 50%;
+		width: 40px;
+		height: 40px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		font-weight: bold;
+		text-transform: uppercase;
+		font-size: 0.9rem;
+		box-shadow: 0 4px 0 #898989, 0 5px 5px rgba(0, 0, 0, 0.3);
+		cursor: pointer;
+		transition: all 0.1s;
+		border: 2px solid #898989;
+		font-family: sans-serif;
+	}
+
+	.arcade-button:active {
+		transform: translateY(4px);
+		box-shadow: 0 0 0 #898989, 0 1px 3px rgba(0, 0, 0, 0.2);
+	}
+
+	.arcade-button.red {
+		background-color: #ff4136;
+		border-color: #dc3545;
+		box-shadow: 0 4px 0 #dc3545, 0 5px 5px rgba(0, 0, 0, 0.3);
+	}
+
+	.arcade-button.red:active {
+		box-shadow: 0 0 0 #dc3545, 0 1px 3px rgba(0, 0, 0, 0.2);
+	}
+
+	.arcade-button.green {
+		background-color: #2ecc40;
+		border-color: #28a745;
+		box-shadow: 0 4px 0 #28a745, 0 5px 5px rgba(0, 0, 0, 0.3);
+	}
+
+	.arcade-button.green:active {
+		box-shadow: 0 0 0 #28a745, 0 1px 3px rgba(0, 0, 0, 0.2);
+	}
+
+	.arcade-button.blue {
+		background-color: #0074d9;
+		border-color: #0056b3;
+		box-shadow: 0 4px 0 #0056b3, 0 5px 5px rgba(0, 0, 0, 0.3);
+	}
+
+	.arcade-button.blue:active {
+		box-shadow: 0 0 0 #0056b3, 0 1px 3px rgba(0, 0, 0, 0.2);
+	}
+
+	/* Button explanation - shown on hover */
+	.arcade-button::after {
+		position: absolute;
+		background-color: rgba(0, 0, 0, 0.8);
+		color: #fff;
+		padding: 5px 10px;
+		border-radius: 4px;
+		font-size: 12px;
+		bottom: 100%;
+		left: 50%;
+		transform: translateX(-50%);
+		white-space: nowrap;
+		pointer-events: none;
+		opacity: 0;
+		transition: opacity 0.2s;
+		z-index: 10;
+	}
+
+	.arcade-button.red::after {
+		content: "Leave Game";
+	}
+
+	.arcade-button.green::after {
+		content: "Start Game";
+	}
+
+	.arcade-button.blue::after {
+		content: "Settings";
+	}
+
+	.arcade-button:hover::after {
+		opacity: 1;
+	}
 </style>
 
 {% endblock %}

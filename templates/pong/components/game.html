@@ -4,21 +4,47 @@
     <div class="arcade-cabinet">
         <div class="screen">
             <canvas width="858" height="525" id="game"></canvas>
-			<div v-if="state == 'LOBBY'" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; text-align: center;">
-                <p class="pending-text fs-1 fw-bolder">INSERT_COIN</p>
+            <div v-if="state == 'LOBBY'"
+                style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; text-align: center;">
+                <p class="pending-text fs-1 fw-bolder" v-if="error.message && error.message != 'Round Started'">
+                    [[error.message]]</p>
+                <p class="pending-text fs-1 fw-bolder" v-else>INSERT_COIN</p>
+            </div>
+        </div>
+
+        <!-- Control panel with player controls -->
+        <div class=" control-panel">
+            <div class="rotary-control" id="player1-control">
+                <div class="control-knob" id="player1-knob"></div>
+                <div class="control-label">PLAYER 1</div>
+            </div>
+
+            <div class="game-buttons">
+                <button id="leaveGameBtn" class="arcade-button red" hx-get="{% url 'index' %}" hx-target="#content"
+                    hx-swap="outerHTML" hx-push-url="true" aria-label="Leave the game">OUT</button>
+
+                <button id="startGameBtn" v-if="canStartGame && owner.id === currentUser.id" v-on:click="startGame"
+                    class="arcade-button green" aria-label="Start the game">GO</button>
+            </div>
+
+            <div class="rotary-control" id="player2-control">
+                <div class="control-knob" id="player2-knob"></div>
+                <div class="control-label">PLAYER 2</div>
             </div>
         </div>
     </div>
-    
-    <!-- Mobile controls -->
-    <div id="mobile-controls" class="justify-content-around my-2 w-100">
+
+    <!-- Mobile controls - hidden by default, shown on mobile -->
+    <div id="mobile-controls" class="justify-content-around my-2 w-100" style="display: none;">
         <button id="paddle-up" class="paddle-control" aria-label="Move paddle up">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="18 15 12 9 6 15"></polyline>
             </svg>
         </button>
         <button id="paddle-down" class="paddle-control" aria-label="Move paddle down">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
         </button>
@@ -27,18 +53,345 @@
 
 <style>
     @font-face {
-		font-family: 'PongScore';
-		src: url('{% static "fonts/pong-score.ttf" %}');
-	}
+        font-family: 'PongScore';
+        src: url('{% static "fonts/pong-score.ttf" %}');
+    }
+
+    /* Canvas element styling */
+    canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+    }
+
+    /* Game container styling */
+    #game-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        padding: 30px 0;
+        border-radius: 10px;
+        overflow: hidden;
+        flex-direction: column;
+        position: relative;
+    }
+
+    /* Updated Arcade cabinet styling to match original Pong machine */
+    .arcade-cabinet {
+        background-color: #6b4226;
+        /* Wood-like brown color */
+        border-radius: 10px;
+        padding: 25px 30px 70px 30px;
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+        max-width: 100%;
+        box-sizing: border-box;
+        position: relative;
+        border: 8px solid #3a2513;
+        /* Darker wood trim */
+        overflow: visible;
+    }
+
+    .arcade-cabinet::before {
+        content: "PONG";
+        position: absolute;
+        top: -15px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 2.5rem;
+        font-weight: bold;
+        background-color: #ffcc00;
+        /* Atari yellow */
+        padding: 5px 20px;
+        border-radius: 5px 5px 0 0;
+        color: #000;
+        font-family: 'PongRetro', 'VT323', monospace;
+        border: 2px solid #3a2513;
+        /* Darker wood trim */
+        letter-spacing: 4px;
+        transform: translateY(-50%);
+        width: 80%;
+        margin: 0 auto;
+        box-shadow: 0 -5px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .screen {
+        background-color: #000;
+        border: 15px solid #ffcc00;
+        /* Atari yellow border */
+        border-radius: 10px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Control panel styling to match original Pong machine */
+    .control-panel {
+        position: absolute;
+        bottom: -40px;
+        left: 0;
+        right: 0;
+        background-color: #ffcc00;
+        /* Atari yellow */
+        padding: 10px 15px;
+        display: flex;
+        justify-content: space-between;
+        border-radius: 0 0 8px 8px;
+        border: 2px solid #3a2513;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Arcade button styling */
+    .arcade-button {
+        background-color: #d7d7d7;
+        color: #000;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        box-shadow: 0 4px 0 #898989, 0 5px 5px rgba(0, 0, 0, 0.3);
+        cursor: pointer;
+        transition: all 0.1s;
+        border: 2px solid #898989;
+        font-family: sans-serif;
+    }
+
+    .arcade-button:active {
+        transform: translateY(4px);
+        box-shadow: 0 0 0 #898989, 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .arcade-button.red {
+        background-color: #ff4136;
+        border-color: #dc3545;
+        box-shadow: 0 4px 0 #dc3545, 0 5px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    .arcade-button.red:active {
+        box-shadow: 0 0 0 #dc3545, 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .arcade-button.green {
+        background-color: #2ecc40;
+        border-color: #28a745;
+        box-shadow: 0 4px 0 #28a745, 0 5px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    .arcade-button.green:active {
+        box-shadow: 0 0 0 #28a745, 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .arcade-button.blue {
+        background-color: #0074d9;
+        border-color: #0056b3;
+        box-shadow: 0 4px 0 #0056b3, 0 5px 5px rgba(0, 0, 0, 0.3);
+    }
+
+    .arcade-button.blue:active {
+        box-shadow: 0 0 0 #0056b3, 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Game Buttons in control panel styling */
+    .game-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+    }
+
+    /* Paddle control styling */
+    .paddle-control {
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.2);
+        border: 2px solid #444;
+        color: white;
+        font-size: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        user-select: none;
+        touch-action: manipulation;
+    }
+
+    .paddle-control:active {
+        background-color: rgba(255, 255, 255, 0.4);
+        transform: scale(0.95);
+    }
+
+    /* Rotary control styling for player paddles */
+    .rotary-control {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .control-knob {
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #f5f5f5, #c3c3c3);
+        border-radius: 50%;
+        border: 3px solid #8a8a8a;
+        box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+        position: relative;
+        cursor: pointer;
+        transition: transform 0.1s ease;
+    }
+
+    .control-knob::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 3px;
+        height: 20px;
+        background-color: #333;
+        transform: translate(-50%, -50%);
+        transform-origin: center bottom;
+    }
+
+    .control-label {
+        margin-top: 5px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: #000;
+        text-transform: uppercase;
+    }
+
+    /* Button explanation - shown on hover */
+    .arcade-button::after {
+        position: absolute;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.2s;
+        z-index: 10;
+    }
+
+    .arcade-button.red::after {
+        content: "Leave Game";
+    }
+
+    .arcade-button.green::after {
+        content: "Start Game";
+    }
+
+    .arcade-button.blue::after {
+        content: "Settings";
+    }
+
+    .arcade-button:hover::after {
+        opacity: 1;
+    }
+
+    /* Media queries for responsive design */
+    @media (max-width: 768px) {
+        .arcade-cabinet {
+            padding: 20px 20px 60px 20px;
+        }
+
+        .arcade-cabinet::before {
+            font-size: 1.8rem;
+        }
+
+        .control-panel {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .rotary-control {
+            margin: 0 10px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .arcade-cabinet {
+            padding: 15px 15px 50px 15px;
+        }
+
+        .arcade-cabinet::before {
+            font-size: 1.5rem;
+            width: 90%;
+        }
+
+        .rotary-control {
+            margin: 0 5px;
+        }
+
+        .control-knob {
+            width: 40px;
+            height: 40px;
+        }
+    }
+
+    /* Only show mobile controls on touch devices/small screens */
+    @media (hover: none),
+    (max-width: 768px) {
+        #mobile-controls {
+            display: flex !important;
+        }
+    }
+
+    /* For pending text styling */
+    .pending-text {
+        color: #ffcc00;
+        text-shadow: 2px 2px #005500, -2px -2px #00ff00;
+        animation: glitch 1s infinite;
+        position: relative;
+    }
+
+    @keyframes glitch {
+        0% {
+            transform: translate(0);
+        }
+
+        20% {
+            transform: translate(-2px, 2px);
+        }
+
+        40% {
+            transform: translate(-2px, -2px);
+        }
+
+        60% {
+            transform: translate(2px, 2px);
+        }
+
+        80% {
+            transform: translate(2px, -2px);
+        }
+
+        100% {
+            transform: translate(0);
+        }
+    }
 </style>
 
 <script>
     function initMobileControls() {
         const paddleUpBtn = document.getElementById('paddle-up');
         const paddleDownBtn = document.getElementById('paddle-down');
-        
+
         if (!paddleUpBtn || !paddleDownBtn) return;
-        
+
         function simulateKey(key, type) {
             const event = new KeyboardEvent(type, {
                 key: key,
@@ -48,58 +401,173 @@
             });
             window.dispatchEvent(event);
         }
-        
+
         ['touchstart', 'mousedown'].forEach(evt => {
-            paddleUpBtn.addEventListener(evt, function(e) {
+            paddleUpBtn.addEventListener(evt, function (e) {
                 e.preventDefault();
                 simulateKey('w', 'keydown');
             });
         });
-        
+
         ['touchend', 'mouseup'].forEach(evt => {
-            paddleUpBtn.addEventListener(evt, function(e) {
+            paddleUpBtn.addEventListener(evt, function (e) {
                 e.preventDefault();
                 simulateKey('w', 'keyup');
             });
         });
-        
+
         ['touchstart', 'mousedown'].forEach(evt => {
-            paddleDownBtn.addEventListener(evt, function(e) {
+            paddleDownBtn.addEventListener(evt, function (e) {
                 e.preventDefault();
                 simulateKey('s', 'keydown');
             });
         });
-        
+
         ['touchend', 'mouseup'].forEach(evt => {
-            paddleDownBtn.addEventListener(evt, function(e) {
+            paddleDownBtn.addEventListener(evt, function (e) {
                 e.preventDefault();
                 simulateKey('s', 'keyup');
             });
         });
-        
+
         ['touchcancel'].forEach(evt => {
-            paddleUpBtn.addEventListener(evt, function(e) {
+            paddleUpBtn.addEventListener(evt, function (e) {
                 simulateKey('w', 'keyup');
             });
-            
-            paddleDownBtn.addEventListener(evt, function(e) {
+
+            paddleDownBtn.addEventListener(evt, function (e) {
                 simulateKey('s', 'keyup');
             });
         });
-        
+
         ['touchend', 'touchcancel'].forEach(evt => {
-            document.addEventListener(evt, function() {
+            document.addEventListener(evt, function () {
                 simulateKey('w', 'keyup');
                 simulateKey('s', 'keyup');
             });
         });
     }
 
-    document.addEventListener('DOMContentLoaded', initMobileControls);
-    
-    document.addEventListener('htmx:afterSwap', initMobileControls);
-    
-    document.addEventListener('htmx:afterRequest', initMobileControls);
-    
-    window.addEventListener('load', initMobileControls);
+    // Rotary control knob interaction
+    function initRotaryControls() {
+        const player1Knob = document.getElementById('player1-knob');
+        const player2Knob = document.getElementById('player2-knob');
+
+        if (!player1Knob || !player2Knob) return;
+
+        let isDragging = false;
+        let currentKnob = null;
+        let startY = 0;
+        let currentRotation = 0;
+
+        function handleKnobMouseDown(e, knob, upKey, downKey) {
+            isDragging = true;
+            currentKnob = knob;
+            startY = e.clientY || (e.touches && e.touches[0].clientY);
+            currentRotation = 0;
+
+            // Determine which keys to simulate based on which knob
+            currentKnob.upKey = upKey;
+            currentKnob.downKey = downKey;
+
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('touchmove', handleMouseMove, { passive: false });
+            document.addEventListener('mouseup', handleMouseUp);
+            document.addEventListener('touchend', handleMouseUp);
+
+            e.preventDefault();
+        }
+
+        function handleMouseMove(e) {
+            if (!isDragging) return;
+
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            const deltaY = startY - clientY;
+
+            // Calculate rotation based on vertical movement
+            const newRotation = deltaY;
+
+            // Determine direction
+            if (newRotation > currentRotation + 5) {
+                // Moving up
+                simulateKey(currentKnob.upKey, 'keydown');
+                simulateKey(currentKnob.downKey, 'keyup');
+                currentRotation = newRotation;
+            } else if (newRotation < currentRotation - 5) {
+                // Moving down
+                simulateKey(currentKnob.downKey, 'keydown');
+                simulateKey(currentKnob.upKey, 'keyup');
+                currentRotation = newRotation;
+            }
+
+            // Apply visual rotation (limited range)
+            const rotationAmount = Math.max(-45, Math.min(45, deltaY / 2));
+            currentKnob.style.transform = `rotate(${rotationAmount}deg)`;
+
+            e.preventDefault();
+        }
+
+        function handleMouseUp() {
+            if (!isDragging) return;
+
+            // Reset all key states on release
+            if (currentKnob) {
+                simulateKey(currentKnob.upKey, 'keyup');
+                simulateKey(currentKnob.downKey, 'keyup');
+                currentKnob.style.transform = 'rotate(0deg)';
+            }
+
+            isDragging = false;
+            currentKnob = null;
+
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('touchmove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            document.removeEventListener('touchend', handleMouseUp);
+        }
+
+        function simulateKey(key, type) {
+            let keyCode = '';
+            if (key === 'w') keyCode = 'KeyW';
+            else if (key === 's') keyCode = 'KeyS';
+            else if (key === 'ArrowUp') keyCode = 'ArrowUp';
+            else if (key === 'ArrowDown') keyCode = 'ArrowDown';
+
+            const event = new KeyboardEvent(type, {
+                key: key,
+                code: keyCode,
+                bubbles: true,
+                cancelable: true
+            });
+            window.dispatchEvent(event);
+        }
+
+        // Player 1 uses W/S
+        player1Knob.addEventListener('mousedown', (e) => handleKnobMouseDown(e, player1Knob, 'w', 's'));
+        player1Knob.addEventListener('touchstart', (e) => handleKnobMouseDown(e, player1Knob, 'w', 's'));
+
+        // Player 2 uses Arrow Up/Down
+        player2Knob.addEventListener('mousedown', (e) => handleKnobMouseDown(e, player2Knob, 'ArrowUp', 'ArrowDown'));
+        player2Knob.addEventListener('touchstart', (e) => handleKnobMouseDown(e, player2Knob, 'ArrowUp', 'ArrowDown'));
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        initMobileControls();
+        initRotaryControls();
+    });
+
+    document.addEventListener('htmx:afterSwap', function () {
+        initMobileControls();
+        initRotaryControls();
+    });
+
+    document.addEventListener('htmx:afterRequest', function () {
+        initMobileControls();
+        initRotaryControls();
+    });
+
+    window.addEventListener('load', function () {
+        initMobileControls();
+        initRotaryControls();
+    });
 </script>
