@@ -215,7 +215,10 @@ export async function initializeAiManager() {
             modalTitle.textContent = "Pong Game";
             modalMessage.innerHTML = "AI Name is required.";
 
-            // Show the modal
+            if (document.querySelector('.modal-backdrop')) {
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            }
+
             let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
             messageModal.show();
             return;
@@ -229,7 +232,10 @@ export async function initializeAiManager() {
             modalTitle.textContent = "AI Manager";
             modalMessage.innerHTML = 'AI Name can only contain letters, numbers, underscores, and hyphens.';
 
-            // Show the modal
+            if (document.querySelector('.modal-backdrop')) {
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            }
+
             let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
             messageModal.show();
             return;
@@ -257,6 +263,10 @@ export async function initializeAiManager() {
 
                 modalTitle.textContent = "AI Manager";
                 modalMessage.innerHTML = `${name} must be a number between ${min} and ${max}.`;
+
+                if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
 
                 // Show the modal
                 let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
@@ -316,7 +326,10 @@ export async function initializeAiManager() {
             modalTitle.textContent = "Pong Game";
             modalMessage.innerHTML = 'Please select an AI to delete!';
 
-            // Show the modal
+            if (document.querySelector('.modal-backdrop')) {
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            }
+
             let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
             messageModal.show();
             return;

@@ -193,6 +193,7 @@ export default class ChatApp {
 			},
 
 			friend_request: (data) => {
+
 				let modalMessage = document.getElementById("modalMessage");
 				let modalTitle = document.getElementById("messageModalLabel");
 
@@ -202,6 +203,10 @@ export default class ChatApp {
 				} else {
 					modalTitle.textContent = "Friend Request";
 					modalMessage.innerHTML = data.error;
+				}
+
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
 				}
 
 				// Show the modal
@@ -248,6 +253,10 @@ export default class ChatApp {
 					modalTitle.textContent = "Game Invitation";
 					modalMessage.innerHTML = data.error || 'Failed to join game. Room might be full.';
 
+					if (document.querySelector('.modal-backdrop')) {
+						document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+					}
+
 					// Show the modal
 					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 					messageModal.show();
@@ -276,15 +285,19 @@ export default class ChatApp {
 
 			error: (data) => {
 				logger.error('[ChatApp] Server error:', data.message);
+
 				let modalMessage = document.getElementById("modalMessage");
-					let modalTitle = document.getElementById("messageModalLabel");
+				let modalTitle = document.getElementById("messageModalLabel");
 
-					modalTitle.textContent = "Error";
-					modalMessage.innerHTML = data.message || 'An error occurred';
+				modalTitle.textContent = "Error";
+				modalMessage.innerHTML = data.message || 'An error occurred';
 
-					// Show the modal
-					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
-					messageModal.show();
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
+
+				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+				messageModal.show();
 			},
 
 			load_friend_requests: (data) => {
@@ -305,9 +318,10 @@ export default class ChatApp {
 					this.refreshUserList();
 					modalTitle.textContent = "Friend Request";
 					modalMessage.innerHTML = data.data.message;
-				} else {
-					modalTitle.textContent = "Friend Request";
-					modalMessage.innerHTML = data.error;
+				}
+
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
 				}
 
 				// Show the modal
@@ -333,6 +347,10 @@ export default class ChatApp {
 
 					modalTitle.textContent = "Friend Request";
 					modalMessage.innerHTML = data.error;
+
+					if (document.querySelector('.modal-backdrop')) {
+						document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+					}
 
 					// Show the modal
 					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
@@ -407,6 +425,10 @@ export default class ChatApp {
 			modalTitle.textContent = "Friend Request";
 			modalMessage.innerHTML = `Message too long (${message.length}/300 characters)`;
 
+			if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+
 			// Show the modal
 			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 			messageModal.show();
@@ -429,7 +451,11 @@ export default class ChatApp {
                 let modalTitle = document.getElementById("messageModalLabel");
                 modalTitle.textContent = "Blocked User";
                 modalMessage.innerHTML = `You cannot send messages to this user.`;
-                // Show the modal
+
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
+
                 let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
                 messageModal.show();
                 return;
@@ -601,7 +627,7 @@ export default class ChatApp {
 			this._sendMessage({
 				type: 'game_invitation',
 				recipient_id: userId,
-				game_id: 'pong' // TODO: send actual game id
+				game_id: 'pong'
 			});
 			let modalMessage = document.getElementById("modalMessage");
 			let modalTitle = document.getElementById("messageModalLabel");
@@ -609,7 +635,10 @@ export default class ChatApp {
 			modalTitle.textContent = "Game Invitation Request";
 			modalMessage.innerHTML = 'Game invitation sent!';
 
-			// Show the modal
+			if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+
 			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 			messageModal.show();
 		} else if (isViewProfile) {
@@ -679,7 +708,10 @@ export default class ChatApp {
 				modalTitle.textContent = "Block User";
 				modalMessage.innerHTML = `Failed to ${action} user. Please try again.`;
 
-				// Show the modal
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
+
 				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 				messageModal.show();
 			});
@@ -786,7 +818,10 @@ export default class ChatApp {
 			modalTitle.textContent = "Pong Game";
 			modalMessage.innerHTML = 'No room found';
 
-			// Show the modal
+			if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+
 			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 			messageModal.show();
 			return;
@@ -802,12 +837,18 @@ export default class ChatApp {
 		modalTitle.textContent = "Pong Game";
 		modalMessage.innerHTML = 'Game invitation sent!';
 
-		// Show the modal
+		if (document.querySelector('.modal-backdrop')) {
+			document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+		}
+
 		let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 		messageModal.show();
 	}
 
 	removeFriend() {
+		if (document.querySelector('.modal-backdrop')) {
+			document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+		}
 		// Show the Bootstrap modal
 		let modal = new bootstrap.Modal(document.getElementById('removeFriendModal'));
 		modal.show();
