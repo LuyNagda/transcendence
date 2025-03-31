@@ -19,7 +19,7 @@
 
             <div class="game-buttons">
                 <button id="leaveGameBtn" class="arcade-button red" hx-get="{% url 'index' %}" hx-target="#content"
-                    hx-swap="outerHTML" hx-push-url="true" aria-label="Leave the game">OUT</button>
+                    hx-swap="outerHTML" hx-push-url="true" aria-label="Leave the game" v-if="state == 'LOBBY'">OUT</button>
 
                 <button id="startGameBtn" v-if="canStartGame && owner.id === currentUser.id && state == 'LOBBY'" v-on:click="startGame"
                     class="arcade-button green" aria-label="Start the game">GO</button>
