@@ -54,23 +54,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     'user_id': self.user.id
                 })
 				
-                # await self.update_room()
-
-                # user_group = f"user_{self.user.id}"
-                # await self.channel_layer.group_add(
-                #     user_group,
-                #     self.channel_name
-                # )
-
-                # await self.channel_layer.group_send(
-                #     f'user_{self.user.id}',
-                #     {
-                #         'type': 'room_info',
-                #         'message': message,
-                #         'message_type': 'info',
-                #         'timestamp': timezone.now().isoformat()
-                #     })
-                
                 await self.send(text_data=json.dumps({
                     'type': 'error',
                     'code': error_code,
