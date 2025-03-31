@@ -8,4 +8,5 @@ urlpatterns = [
     path('unblock/<int:user_id>/', views.unblock_user, name='unblock_user'),
     path('users/', views.get_users, name='get_users'),
     path('blacklist/', views.get_blocked_users, name='get_blocked_users'),
+    path('find-blocked-users/<int:user_id>/', views.find_blocked_users, name='find_blocked_users'),
 ]

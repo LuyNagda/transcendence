@@ -81,3 +81,12 @@ def get_users(request):
         user_list.append(user_data)
 
     return JsonResponse(user_list, safe=False)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticatedWithCookie])
+def find_blocked_users(request, user_id):
+    blocked_users = BlockedUser.objects.filter(user_id=user_id).values_list('blocked_user_id', flat=True)
+    if request.user.id in list(blocked_users):
+        return JsonResponse({'blocked': True})
+    else:
+        return JsonResponse({'blocked': False})
