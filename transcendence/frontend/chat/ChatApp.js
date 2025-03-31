@@ -307,14 +307,25 @@ export default class ChatApp {
 			},
 
 			friend_request_choice: (data) => {
+				let modalMessage = document.getElementById("modalMessage");
+				let modalTitle = document.getElementById("messageModalLabel");
+
 				if (data.success) {
 					this.refreshUserList();
+					modalTitle.textContent = "Friend Request";
+					modalMessage.innerHTML = data.data.message;
+				} else {
+					modalTitle.textContent = "Friend Request";
+					modalMessage.innerHTML = data.error;
+				}
 
-					this._sendMessage({
-						type: 'load_friend_requests'
-					});
-				} 
+				// Show the modal
+				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+				messageModal.show();
 
+				this._sendMessage({
+					type: 'load_friend_requests'
+				});
 			},
 
 			remove_friend: (data) => {
@@ -800,12 +811,22 @@ export default class ChatApp {
 	}
 
 	removeFriend() {
-		const userId = store.getState('chat').selectedUser.id;
-		logger.debug('[ChatApp] Removing friend with ID:', userId);
-		this._sendMessage({
-			type: 'remove_friend',
-			friend_id: userId
-		});
+		// Show the Bootstrap modal
+		let modal = new bootstrap.Modal(document.getElementById('removeFriendModal'));
+		modal.show();
+
+		// Handle click event on the "Remove" button
+		document.getElementById('confirmRemoveFriend').onclick = () => {
+			const userId = store.getState('chat').selectedUser.id;
+			logger.debug('[ChatApp] Removing friend with ID:', userId);
+			this._sendMessage({
+				type: 'remove_friend',
+				friend_id: userId
+			});
+
+			// Hide the modal after confirming
+			modal.hide();
+		};
 	}
 
 	viewProfile() {
