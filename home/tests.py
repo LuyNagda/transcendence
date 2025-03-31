@@ -35,7 +35,7 @@ class HomeViewsTest(TestCase):
 
     def test_profile_view_post_nickname_update(self):
         self.login(username='testuser', password='testpassword')
-        response = self.client.post(reverse('profile'), {'nick_name': 'newnick'})
+        response = self.client.post(reverse('profile'), {'name': 'testuser', 'email': 'test@test.com', 'nick_name': 'newnick'})
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertEqual(self.user.nick_name, 'newnick')
@@ -45,18 +45,14 @@ class HomeViewsTest(TestCase):
         response = self.client.post(reverse('profile'), {'nick_name' : 'updatednick'})
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
-        json_response = response.json()
-        self.assertEqual(json_response['success'], False)
-        self.assertEqual(json_response['error'], 'Ensure this value has at most 10 characters (it has 11).')
+        self.assertContains(response, 'Ensure this value has at most 10 characters (it has 11).')
 
     def test_profile_view_post_invalid_nickname(self):
         self.login(username='testuser', password='testpassword')
-        response = self.client.post(reverse('profile'), {'nick_name' : ''})
+        response = self.client.post(reverse('profile'), {'name': 'testuser', 'nick_name' : '', 'email': 'test@test.com'})
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
-        json_response = response.json()
-        self.assertEqual(json_response['success'], False)
-        self.assertEqual(json_response['error'], 'Nickname cannot be empty.')
+        self.assertContains(response, 'This field is required.')
 
     def test_profile_view_post_email_update(self):
         self.login(username='testuser', password='testpassword')
@@ -143,8 +139,7 @@ class HomeViewsTest(TestCase):
             'new_password2': 'newsecurepassword'
         })
         self.assertEqual(response.status_code, 200)
-        messages = [m.message for m in get_messages(response.wsgi_request)]
-        self.assertIn('Password changed failed.', messages)
+        self.assertContains(response, 'Your old password was entered incorrectly. Please enter it again.')
 
     def test_change_invalid_newpassword_view_post(self):
         self.login(username='testuser', password='testpassword')
@@ -154,8 +149,7 @@ class HomeViewsTest(TestCase):
             'new_password2': 'newsecurepassword2'
         })
         self.assertEqual(response.status_code, 200)
-        messages = [m.message for m in get_messages(response.wsgi_request)]
-        self.assertIn('Password changed failed.', messages)
+        self.assertContains(response, u"The two password fields didn’t match.")
 
     def test_games_history_view(self):
         self.login(username='testuser', password='testpassword')
