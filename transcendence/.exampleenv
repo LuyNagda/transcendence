@@ -9,7 +9,7 @@ EMAIL_HOST_PASSWORD=
 DEFAULT_FROM_EMAIL=marvin@42lyon.fr
 EMAIL_USE_TLS=False
 
-DEBUG=True
+DEBUG=False
 LOG_LEVEL=DEBUG
 PROD=False
 
@@ -17,4 +17,4 @@ DOMAIN=localhost
 
 FT_CLIENT_ID=
 FT_CLIENT_SECRET=
-FT_REDIRECT_URI=https://localhost:8080/callback
+FT_REDIRECT_URI=https://localhost:8443/callback
