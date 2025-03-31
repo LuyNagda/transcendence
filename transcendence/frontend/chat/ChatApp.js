@@ -428,6 +428,30 @@ export default class ChatApp {
 			return;
 		}
 
+        fetch(`/chat/find-blocked-users/${selectedUser.id}/`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            logger.warn('[ChatApp] Blacklisted users:', data);
+            const blocked = data['blocked'];
+            logger.warn('[ChatApp] Blocked:', blocked);
+            if (blocked) {
+                let modalMessage = document.getElementById("modalMessage");
+                let modalTitle = document.getElementById("messageModalLabel");
+                modalTitle.textContent = "Blocked User";
+                modalMessage.innerHTML = `You cannot send messages to this user.`;
+                // Show the modal
+                let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+                messageModal.show();
+                return;
+            }
+        })
+        .catch(error => console.error('Error:', error));
+
 		const messageId = ++this._lastMessageId;
 		const timestamp = Date.now();
 
