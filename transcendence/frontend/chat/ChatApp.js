@@ -319,7 +319,10 @@ export default class ChatApp {
 					modalMessage.innerHTML = data.error;
 				}
 
-				// Show the modal
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
+
 				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 				messageModal.show();
 
@@ -811,6 +814,9 @@ export default class ChatApp {
 	}
 
 	removeFriend() {
+		if (document.querySelector('.modal-backdrop')) {
+			document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+		}
 		// Show the Bootstrap modal
 		let modal = new bootstrap.Modal(document.getElementById('removeFriendModal'));
 		modal.show();
@@ -823,9 +829,6 @@ export default class ChatApp {
 				type: 'remove_friend',
 				friend_id: userId
 			});
-
-			// Hide the modal after confirming
-			modal.hide();
 		};
 	}
 
