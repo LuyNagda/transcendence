@@ -6,9 +6,7 @@
             <canvas width="858" height="525" id="game"></canvas>
             <div v-if="state == 'LOBBY'"
                 style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 100; text-align: center;">
-                <p class="pending-text fs-1 fw-bolder" v-if="error.message && error.message != 'Round Started'">
-                    [[error.message]]</p>
-                <p class="pending-text fs-1 fw-bolder" v-else>INSERT_COIN</p>
+                <p class="pending-text fs-1 fw-bolder" v-if="state == 'LOBBY'">INSERT_COIN</p>
             </div>
         </div>
 
@@ -23,7 +21,7 @@
                 <button id="leaveGameBtn" class="arcade-button red" hx-get="{% url 'index' %}" hx-target="#content"
                     hx-swap="outerHTML" hx-push-url="true" aria-label="Leave the game">OUT</button>
 
-                <button id="startGameBtn" v-if="canStartGame && owner.id === currentUser.id" v-on:click="startGame"
+                <button id="startGameBtn" v-if="canStartGame && owner.id === currentUser.id && state == 'LOBBY'" v-on:click="startGame"
                     class="arcade-button green" aria-label="Start the game">GO</button>
             </div>
 
@@ -34,8 +32,7 @@
         </div>
     </div>
 
-    <!-- Mobile controls - hidden by default, shown on mobile -->
-    <div id="mobile-controls" class="justify-content-around my-2 w-100" style="display: none;">
+    <div id="mobile-controls" class="justify-content-around my-5 w-100" style="display: none;">
         <button id="paddle-up" class="paddle-control" aria-label="Move paddle up">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -342,7 +339,6 @@
         }
     }
 
-    /* Only show mobile controls on touch devices/small screens */
     @media (hover: none),
     (max-width: 768px) {
         #mobile-controls {

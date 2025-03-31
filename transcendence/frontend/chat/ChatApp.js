@@ -215,7 +215,6 @@ export default class ChatApp {
 			game_invitation: (data) => {
 				if (!data?.sender_id || !data?.room_id) return;
 
-				// Get modal elements
 				const modalElement = document.getElementById("gameInviteModal");
 				const acceptButton = document.getElementById("acceptGameInviteBtn");
 
@@ -224,13 +223,11 @@ export default class ChatApp {
 					return;
 				}
 
-				// Show the Bootstrap modal
 				const gameInviteModal = new Modal(modalElement);
 				gameInviteModal.show();
 
-				// Handle accept button click
 				acceptButton.onclick = () => {
-					gameInviteModal.hide(); // Close modal
+					gameInviteModal.hide();
 					this._sendMessage({
 						type: 'accept_game_invitation',
 						sender_id: data.sender_id,
@@ -829,6 +826,7 @@ export default class ChatApp {
 				type: 'remove_friend',
 				friend_id: userId
 			});
+			modal.hide();
 		};
 	}
 

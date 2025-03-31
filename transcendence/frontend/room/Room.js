@@ -282,7 +282,6 @@ export default class Room {
 	// Event handlers
 	_handleGameStarted(data) {
 		logger.info('[Room] Game started:', data);
-		this._updateRoomState({ state: RoomStates.PLAYING, canStartGame: false });
 		this._gameManager.handleGameStarted(data);
 	}
 

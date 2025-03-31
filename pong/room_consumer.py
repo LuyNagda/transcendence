@@ -579,7 +579,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 return []
             
             if len(player_pairs[0]) == 1 and len(player_pairs) == 1 and self.room.mode == 'TOURNAMENT':
-                logger.info(f"{player_pairs[0][0].nick_name} win the tournament")
                 self.room.tournament.eliminated.clear()
                 return []
 

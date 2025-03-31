@@ -1,6 +1,7 @@
 import logger from '../logger.js';
 import { GameRules } from '../pong/core/GameRules.js';
 import { store, actions } from '../state/store.js';
+import { RoomStates } from '../state/roomState.js';
 import { createPongGame } from '../pong/createPongGame.js';
 
 /**
@@ -13,6 +14,7 @@ export class RoomGameManager {
 		this._gameInProgress = false;
 		this._gameInstance = null;
 		this._eventHandlers = new Map();
+		this._receivedRecentlyStartGame = false;
 	}
 
 	isGameInProgress() {
@@ -66,7 +68,7 @@ export class RoomGameManager {
 			let modalTitle = document.getElementById("messageModalLabel");
 
 			modalTitle.textContent = "Player Disconnected";
-			modalMessage.innerHTML = `Your opponent disconnected and lost the game`;
+			modalMessage.innerHTML = `Your opponent disconnected and lost the game, if the host disconnected, you should leave`;
 
 			if (document.querySelector('.modal-backdrop')) {
 				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());

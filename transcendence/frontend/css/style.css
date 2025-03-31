@@ -66,8 +66,9 @@ body {
 
 [data-bs-theme=high-contrast] :focus {
 	border-color: #ffff00;
-	outline: 2px solid #ffff0040;
-	outline-offset: 2px;
+	border-width: 4px;
+	outline: 4px solid #000000;
+	outline-offset: 4px;
   }
 
 [data-bs-theme=dark] {
