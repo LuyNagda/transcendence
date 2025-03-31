@@ -43,7 +43,7 @@ export class GameRules {
 		},
 		aiDifficulty: {
 			type: 'string',
-			default: 'Marvin',
+			default: 'MAX',
 			optional: true
 		}
 	};

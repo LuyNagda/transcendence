@@ -111,7 +111,7 @@ class PongRoom(models.Model):
                     'paddleSpeed': 5,
                     'paddleSize': 5,
                     'maxScore': 11,
-                    'aiDifficulty': 'Marvin'
+                    'aiDifficulty': 'MAX'
                 }
 
         super().save(*args, **kwargs)

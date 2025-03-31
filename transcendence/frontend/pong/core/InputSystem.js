@@ -408,41 +408,6 @@ export class AIInput {
 		} catch (error) {
 			logger.error('Error in AI decision making:', error);
 			// Fall back to simple prediction on error
-			this.makeSimplePrediction(physicsState);
-		}
-	}
-
-	/**
-	 * Simple prediction fallback if neural network fails
-	 * @param {Object} physicsState - The current physics state
-	 */
-	makeSimplePrediction(physicsState) {
-		const ball = physicsState.ball;
-		const paddle = physicsState.rightPaddle; // Assuming AI controls right paddle
-
-		// Calculate paddle center
-		const paddleCenter = paddle.y;
-
-		// Only move if the ball is moving towards the AI paddle
-		if (ball.dx > 0) {
-			// Determine direction to move based on ball position
-			let direction = 0;
-
-			if (ball.y < paddleCenter - 10) {
-				direction = -1; // Move up
-			} else if (ball.y > paddleCenter + 10) {
-				direction = 1; // Move down
-			}
-
-			// Only send update if prediction changes
-			if (direction !== this.lastPrediction.direction) {
-				this.lastPrediction = { direction, intensity: 1.0 };
-				this.callback(this.lastPrediction);
-			}
-		} else if (this.lastPrediction.direction !== 0) {
-			// Stop paddle when ball is moving away
-			this.lastPrediction = { direction: 0, intensity: 0 };
-			this.callback(this.lastPrediction);
 		}
 	}
 

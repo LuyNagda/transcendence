@@ -27,6 +27,8 @@ IN_TRAINING = False
 @permission_classes([IsAuthenticatedWithCookie])
 def send_ai_to_front(request, ai_name):
     try:
+        if ai_name == 'MAX':
+            raise FileNotFoundError
         # Validate the ai_name
         if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
             raise ValueError("Invalid AI name. Only alphanumeric characters are allowed.")
@@ -100,6 +102,8 @@ def training(request):
         ai_name = data.get('ai_name')
         if ai_name == 'Marvin':
             raise PermissionError("Marvin: Access denied. Not that it matters... Nothing ever does.")
+        if ai_name == 'MAX':
+            raise PermissionError("MAX: Access denied.")
         if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
             raise ValueError("Invalid AI name. Only alphanumeric characters are allowed and a maximun of 100 characters")
         
@@ -213,7 +217,7 @@ def delete_saved_ai(request):
         if not ai_name or not isinstance(ai_name, str) or not ai_name.isalnum() or len(ai_name) > 100:
             raise ValueError("Invalid AI name. Only alphanumeric characters are allowed and a maximun of 100 characters")
 
-        invalid_ai = ["Marvin"]
+        invalid_ai = ["Marvin", "MAX"]
         if ai_name in invalid_ai:
             raise PermissionError(f"The file '{ai_name}' cannot be removed")        
 
