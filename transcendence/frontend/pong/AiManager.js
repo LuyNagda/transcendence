@@ -216,8 +216,8 @@ export async function initializeAiManager() {
             modalMessage.innerHTML = "AI Name is required.";
 
             if (document.querySelector('.modal-backdrop')) {
-				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-			}
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            }
 
             let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
             messageModal.show();
@@ -233,8 +233,8 @@ export async function initializeAiManager() {
             modalMessage.innerHTML = 'AI Name can only contain letters, numbers, underscores, and hyphens.';
 
             if (document.querySelector('.modal-backdrop')) {
-				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-			}
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            }
 
             let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
             messageModal.show();
@@ -265,9 +265,10 @@ export async function initializeAiManager() {
                 modalMessage.innerHTML = `${name} must be a number between ${min} and ${max}.`;
 
                 if (document.querySelector('.modal-backdrop')) {
-				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-			}
+                    document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                }
 
+                // Show the modal
                 let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
                 messageModal.show();
                 return;
@@ -326,9 +327,9 @@ export async function initializeAiManager() {
             modalMessage.innerHTML = 'Please select an AI to delete!';
 
             if (document.querySelector('.modal-backdrop')) {
-				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-			}
-            
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+            }
+
             let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
             messageModal.show();
             return;

@@ -14,30 +14,30 @@ window.bootstrap.Modal = Modal;
 
 export default class ChatApp {
 	static #instance = null;
-    // Store reference to subscription removers
-    static #userSubscription = null;
+	// Store reference to subscription removers
+	static #userSubscription = null;
 
 	static async initialize() {
 		// Set up initial instance if user is online
-        if (store.getState('user').status === USER_STATUS.ONLINE) {
-            ChatApp.#instance = new ChatApp();
-            await ChatApp.#instance._setupConnection();
-        }
+		if (store.getState('user').status === USER_STATUS.ONLINE) {
+			ChatApp.#instance = new ChatApp();
+			await ChatApp.#instance._setupConnection();
+		}
 
-        // Create a single user subscription
-        ChatApp.#userSubscription = store.subscribe('user', async (state) => {
-            if (state.status === USER_STATUS.OFFLINE) {
-                if (ChatApp.#instance) {
-                    ChatApp.#instance.destroy();
-                    ChatApp.#instance = null;
-                }
-            } else if (state.status === USER_STATUS.ONLINE) {
-                if (!ChatApp.#instance) {
-                    ChatApp.#instance = new ChatApp();
-                    await ChatApp.#instance._setupConnection();
-                }
-            }
-        });
+		// Create a single user subscription
+		ChatApp.#userSubscription = store.subscribe('user', async (state) => {
+			if (state.status === USER_STATUS.OFFLINE) {
+				if (ChatApp.#instance) {
+					ChatApp.#instance.destroy();
+					ChatApp.#instance = null;
+				}
+			} else if (state.status === USER_STATUS.ONLINE) {
+				if (!ChatApp.#instance) {
+					ChatApp.#instance = new ChatApp();
+					await ChatApp.#instance._setupConnection();
+				}
+			}
+		});
 	}
 
 	constructor() {
@@ -193,6 +193,7 @@ export default class ChatApp {
 			},
 
 			friend_request: (data) => {
+
 				let modalMessage = document.getElementById("modalMessage");
 				let modalTitle = document.getElementById("messageModalLabel");
 
@@ -279,18 +280,19 @@ export default class ChatApp {
 
 			error: (data) => {
 				logger.error('[ChatApp] Server error:', data.message);
+
 				let modalMessage = document.getElementById("modalMessage");
-					let modalTitle = document.getElementById("messageModalLabel");
+				let modalTitle = document.getElementById("messageModalLabel");
 
-					modalTitle.textContent = "Error";
-					modalMessage.innerHTML = data.message || 'An error occurred';
+				modalTitle.textContent = "Error";
+				modalMessage.innerHTML = data.message || 'An error occurred';
 
-					if (document.querySelector('.modal-backdrop')) {
-						document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-					}
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
 
-					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
-					messageModal.show();
+				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+				messageModal.show();
 			},
 
 			load_friend_requests: (data) => {
@@ -311,9 +313,10 @@ export default class ChatApp {
 					this.refreshUserList();
 					modalTitle.textContent = "Friend Request";
 					modalMessage.innerHTML = data.data.message;
-				} else {
-					modalTitle.textContent = "Friend Request";
-					modalMessage.innerHTML = data.error;
+				}
+
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
 				}
 
 				if (document.querySelector('.modal-backdrop')) {
@@ -376,9 +379,9 @@ export default class ChatApp {
 			logger.debug(`[ChatApp] Unhandled message type:`, data.type);
 		}
 		const messageHistory = document.querySelector("#message-history");
-        if (messageHistory) {
-            messageHistory.scrollTo({ top: messageHistory.scrollHeight, behavior: 'smooth' });
-        }
+		if (messageHistory) {
+			messageHistory.scrollTo({ top: messageHistory.scrollHeight, behavior: 'smooth' });
+		}
 	}
 
 	_sendMessage(message) {
@@ -428,29 +431,33 @@ export default class ChatApp {
 			return;
 		}
 
-        fetch(`/chat/find-blocked-users/${selectedUser.id}/`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            logger.warn('[ChatApp] Blacklisted users:', data);
-            const blocked = data['blocked'];
-            logger.warn('[ChatApp] Blocked:', blocked);
-            if (blocked) {
-                let modalMessage = document.getElementById("modalMessage");
-                let modalTitle = document.getElementById("messageModalLabel");
-                modalTitle.textContent = "Blocked User";
-                modalMessage.innerHTML = `You cannot send messages to this user.`;
-                // Show the modal
-                let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
-                messageModal.show();
-                return;
-            }
-        })
-        .catch(error => console.error('Error:', error));
+		fetch(`/chat/find-blocked-users/${selectedUser.id}/`, {
+			method: 'GET',
+			headers: {
+				'Content-Type': 'application/json'
+			}
+		})
+			.then(response => response.json())
+			.then(data => {
+				logger.warn('[ChatApp] Blacklisted users:', data);
+				const blocked = data['blocked'];
+				logger.warn('[ChatApp] Blocked:', blocked);
+				if (blocked) {
+					let modalMessage = document.getElementById("modalMessage");
+					let modalTitle = document.getElementById("messageModalLabel");
+					modalTitle.textContent = "Blocked User";
+					modalMessage.innerHTML = `You cannot send messages to this user.`;
+
+					if (document.querySelector('.modal-backdrop')) {
+						document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+					}
+
+					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+					messageModal.show();
+					return;
+				}
+			})
+			.catch(error => console.error('Error:', error));
 
 		const messageId = ++this._lastMessageId;
 		const timestamp = Date.now();
@@ -616,7 +623,7 @@ export default class ChatApp {
 			this._sendMessage({
 				type: 'game_invitation',
 				recipient_id: userId,
-				game_id: 'pong' // TODO: send actual game id
+				game_id: 'pong'
 			});
 			let modalMessage = document.getElementById("modalMessage");
 			let modalTitle = document.getElementById("messageModalLabel");
@@ -698,8 +705,8 @@ export default class ChatApp {
 				modalMessage.innerHTML = `Failed to ${action} user. Please try again.`;
 
 				if (document.querySelector('.modal-backdrop')) {
-				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-			}
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
 
 				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 				messageModal.show();
@@ -827,9 +834,9 @@ export default class ChatApp {
 		modalMessage.innerHTML = 'Game invitation sent!';
 
 		if (document.querySelector('.modal-backdrop')) {
-				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-			}
-			
+			document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+		}
+
 		let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 		messageModal.show();
 	}

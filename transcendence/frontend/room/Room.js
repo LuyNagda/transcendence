@@ -664,6 +664,11 @@ export default class Room {
 
 			modalTitle.textContent = "Tournament";
 			modalMessage.innerHTML = data.message;
+
+			if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+			
 			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 			messageModal.show();
 		}

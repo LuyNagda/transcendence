@@ -74,6 +74,10 @@ export class RoomGameManager {
 				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
 			}
 
+			if (document.querySelector('.modal-backdrop')) {
+				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+			}
+
 			let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 			messageModal.show();
 			this._emit('game_ended', data);
