@@ -78,7 +78,7 @@ def games_history(request):
     games_history = PongGame.objects.filter(
         models.Q(player1=player) | 
         models.Q(player2=player)
-	).order_by('-created_at')[:5]
+	).order_by('-created_at')
 
     # Dynamically creat a list with all of PongGame's attributes, and add the attribute 'player2_is_ai'
     games_history_list = []
