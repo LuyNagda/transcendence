@@ -68,7 +68,7 @@ export class RoomGameManager {
 			let modalTitle = document.getElementById("messageModalLabel");
 
 			modalTitle.textContent = "Player Disconnected";
-			modalMessage.innerHTML = `Your opponent disconnected and lost the game, if the host disconnected, you should leave`;
+			modalMessage.innerHTML = `Your opponent disconnected, if the host disconnected, you should leave`;
 
 			if (document.querySelector('.modal-backdrop')) {
 				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());

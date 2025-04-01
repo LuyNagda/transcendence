@@ -54,7 +54,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 logger.error(f"Failed to add user to room: {message} - room_id: {self.room_id}", extra={
                     'user_id': self.user.id
                 })
-				
+                
                 await self.send(text_data=json.dumps({
                     'type': 'error',
                     'code': error_code,
@@ -471,14 +471,15 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 }
             )
             for game in games:
-                player1_message = f'[Tournament] Match starting against {game.player2.nick_name if game.player2 else "AI"}' if self.room.mode == "TOURNAMENT" else f'[Tournament] Match starting against {"Guest" if game.player2_is_guest else (game.player2.username if game.player2 else "AI")}'
-                await self.send_chat_notification(game.player1.id, player1_message)
-                await self.create_chat_message(self.user, game.player1, player1_message)
+                player1_message = f'Match starting against {game.player2.nick_name if game.player2 else "AI"}' if self.room.mode == "TOURNAMENT" else f'Match starting against {"Guest" if game.player2_is_guest else (game.player2.username if game.player2 else "AI")}'
+                player2_message = f'Match starting against {game.player1.nick_name}' if game.room.mode == "TOURNAMENT" else f'Match starting against {game.player1.username}'
+                if self.room.mode == "TOURNAMENT":
+                    await self.send_chat_notification(game.player1.id, '[Tournament] ' + player1_message)
+                    await self.create_chat_message(self.user, game.player1, '[Tournament] ' + player1_message)
 
-                if game.player2 and not game.player2_is_guest:
-                    player2_message = f'[Tournament] Match starting against {game.player1.nick_name}' if game.room.mode == "TOURNAMENT" else f'[Tournament] Match starting against {game.player1.username}'
-                    await self.send_chat_notification(game.player2.id, player2_message)
-                    await self.create_chat_message(self.user, game.player2, player2_message)
+                    if game.player2 and not game.player2_is_guest:
+                        await self.send_chat_notification(game.player2.id, '[Tournament] ' + player2_message)
+                        await self.create_chat_message(self.user, game.player2, '[Tournament] ' + player2_message)
 
                 await self.channel_layer.group_send(
                     f"user_{game.player1.id}",
@@ -495,7 +496,7 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                         f"user_{game.player2.id}",
                         {
                             'type': 'room_info',
-                            'message': f'Match starting against {game.player1.nick_name}' if game.room.mode == "TOURNAMENT" else f'Match starting against {game.player1.username}',
+                            'message': player2_message,
                             'message_type': 'info',
                             'timestamp': timezone.now().isoformat()
                         }
