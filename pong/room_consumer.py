@@ -102,8 +102,6 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
         try:
             if hasattr(self, 'room'):
                 await self.remove_user_from_room()
-                if hasattr(self, 'room_group_name'):
-                    await self.update_room()
             if hasattr(self, 'room_group_name') and hasattr(self, 'channel_name'):
                 await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
@@ -336,30 +334,18 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                     })
                     return False, "Cannot join room: Game in progress", 4006
 
-                # Check if user has a pending invitation
                 if self.user in self.room.pending_invitations.all():
-                    # Remove from pending invitations
                     self.room.pending_invitations.remove(self.user)
-                    # Add to players
                     self.room.players.add(self.user)
                     logger.info(f"Invited user added to room - room_id: {self.room_id}", extra={
                         'user_id': self.user.id
                     })
                     return True, "Invited user added to room", None
 
-                # TODO: Implement is_private in model
-                # # If room is private and user has no invitation
-                # if self.user not in self.room.pending_invitations.all():
-                #     logger.error(f"Cannot add user to private room: No invitation - room_id: {self.room_id}", extra={
-                #         'user_id': self.user.id
-                #     })
-                #     return False, "Cannot join private room: No invitation", 4007
-
-                self.room.players.add(self.user)
-                logger.info(f"User added to room - room_id: {self.room_id}, current_players: {current_players + 1}, max_players: {max_players}", extra={
+                logger.warning(f"Cannot add user to room: User not invited in room - room_id: {self.room_id}", extra={
                     'user_id': self.user.id
                 })
-                return True, "User added to room", None
+                return False, "User not invited to room", 4007
             else:
                 logger.info(f"User already in room - room_id: {self.room_id}", extra={
                     'user_id': self.user.id

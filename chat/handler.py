@@ -421,10 +421,6 @@ class ChatHandler:
                     error=f'Room is full, already has maximum {max_players} player(s)')
                 return
 
-            # Remove from pending invitations
-            await self.remove_from_pending_invitations(room['room_id'])
-
-            # Send success response with room info
             await self.send_response('accept_game_invitation', success=True, data={'room_id': room['room_id']})
 
         except Exception as e:
