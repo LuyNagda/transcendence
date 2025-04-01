@@ -4,9 +4,13 @@
 <!-- Logged-in specific elements -->
 <li class="nav-item dropdown d-flex justify-content-center" role="navigation">
 	<a class="nav-link dropdown-toggle" href="#" role="button" id="friendRequests" data-bs-toggle="dropdown"
-		aria-expanded="false" v-on:click="loadFriendRequests" aria-label="Friend Requests" style="--bs-dropdown-toggle-icon: none;">
-		<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" class="bi bi-people" viewBox="0 0 16 16" aria-hidden="true">
-			<path d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/>        </svg>
+		aria-expanded="false" v-on:click="loadFriendRequests" aria-label="Friend Requests"
+		style="--bs-dropdown-toggle-icon: none;">
+		<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" fill="currentColor" class="bi bi-people"
+			viewBox="0 0 16 16" aria-hidden="true">
+			<path
+				d="M15 14s1 0 1-1-1-4-5-4-5 3-5 4 1 1 1 1zm-7.978-1L7 12.996c.001-.264.167-1.03.76-1.72C8.312 10.629 9.282 10 11 10c1.717 0 2.687.63 3.24 1.276.593.69.758 1.457.76 1.72l-.008.002-.014.002zM11 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4m3-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0M6.936 9.28a6 6 0 0 0-1.23-.247A7 7 0 0 0 5 9c-4 0-5 3-5 4q0 1 1 1h4.216A2.24 2.24 0 0 1 5 13c0-1.01.377-2.042 1.09-2.904.243-.294.526-.569.846-.816M4.92 10A5.5 5.5 0 0 0 4 13H1c0-.26.164-1.03.76-1.724.545-.636 1.492-1.256 3.16-1.275ZM1.5 5.5a3 3 0 1 1 6 0 3 3 0 0 1-6 0m3-2a2 2 0 1 0 0 4 2 2 0 0 0 0-4" />
+		</svg>
 		<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-primary friend-badge"
 			style="display: none;" aria-live="assertive">
 			0
@@ -17,25 +21,28 @@
 		<li v-if="friendRequests.length === 0" class="dropdown-item pe-none">
 			No Friend Requests
 		</li>
-		<li v-for="user in friendRequests" class="dropdown-item d-flex justify-content-between align-items-center pe-none">
+		<li v-for="user in friendRequests"
+			class="dropdown-item d-flex justify-content-between align-items-center pe-none">
 			<div class="d-flex align-items-center">
 				[[ user.username ]]
 			</div>
 			<div class="btn-group" role="group" aria-label="Friend request actions">
-				<a href="#" class="btn btn-success btn-sm d-flex align-items-center justify-content-center pe-auto" 
-				role="button" 
-				aria-label="Confirm friend request"
-				v-on:click="friendRequestChoice([[ user.id ]], 'accept')">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check" viewBox="0 0 16 16" aria-hidden="true">
-						<path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/>
+				<a href="#" class="btn btn-success btn-sm d-flex align-items-center justify-content-center pe-auto"
+					role="button" aria-label="Confirm friend request"
+					v-on:click="friendRequestChoice([[ user.id ]], 'accept')">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor"
+						class="bi bi-check" viewBox="0 0 16 16" aria-hidden="true">
+						<path
+							d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z" />
 					</svg>
 				</a>
-				<a href="#" class="btn btn-danger btn-sm d-flex align-items-center justify-content-center pe-auto" 
-				role="button" 
-				aria-label="Deny friend request"
-				v-on:click="friendRequestChoice([[ user.id ]], 'reject')">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x" viewBox="0 0 16 16" aria-hidden="true">
-						<path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708"/>
+				<a href="#" class="btn btn-danger btn-sm d-flex align-items-center justify-content-center pe-auto"
+					role="button" aria-label="Deny friend request"
+					v-on:click="friendRequestChoice([[ user.id ]], 'reject')">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-x"
+						viewBox="0 0 16 16" aria-hidden="true">
+						<path
+							d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708" />
 					</svg>
 				</a>
 			</div>
@@ -60,13 +67,13 @@
 <li class="nav-item dropdown d-flex justify-content-center me-4" role="navigation">
 	<a class="nav-link dropdown-toggle" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown"
 		aria-expanded="false" aria-label="User Profile" style="--bs-dropdown-toggle-icon: none;">
-		<img src="{{ user.profile_picture.url }}" class="rounded-circle" style="width: 30px; height: 30px; object-fit: cover;"
-			alt="User Profile Picture">
+		<img src="{{ user.profile_picture.url }}" class="rounded-circle"
+			style="width: 30px; height: 30px; object-fit: cover;" alt="User Profile Picture">
 	</a>
 	<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
 		<li>
-			<a class="dropdown-item" href="#" hx-get="{% url 'games-history' %}" hx-target="#content" hx-swap="outerHTML"
-				hx-push-url="true">Games history</a>
+			<a class="dropdown-item" href="#" hx-get="{% url 'games-history' %}" hx-target="#content"
+				hx-swap="outerHTML" hx-push-url="true">Games history</a>
 		</li>
 		<li>
 			<a class="dropdown-item" href="#" hx-get="{% url 'ai-manager' %}" hx-target="#content" hx-swap="outerHTML"

@@ -6,6 +6,7 @@ from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from .models import PongRoom, PongGame, Tournament
 from django.utils import timezone
+from chat.models import ChatMessage
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -400,6 +401,33 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
             'room_state': room_state
         }))
 
+    @database_sync_to_async
+    def create_chat_message(self, sender, recipient, content):
+        """Creates a chat message in the database"""
+        return ChatMessage.objects.create(
+            sender=sender,
+            recipient=recipient,
+            content=content
+        )
+    
+    async def send_chat_notification(self, user_id, message):
+        """Sends a chat notification to a user"""
+        message_obj = {
+            'id': 0,  # Updated by the db
+            'content': message,
+            'timestamp': int(timezone.now().timestamp() * 1000),
+            'type': 'system'
+        }
+        
+        await self.channel_layer.group_send(
+            f"chat_{user_id}",
+            {
+                'type': 'chat_message',
+                'message': message_obj,
+                'sender_id': self.user.id
+            }
+        )
+
     async def create_game(self):
         """Creates a new game for the room"""
         try:
@@ -443,12 +471,20 @@ class PongRoomConsumer(AsyncWebsocketConsumer):
                 }
             )
             for game in games:
+                player1_message = f'[Tournament] Match starting against {game.player2.nick_name if game.player2 else "AI"}' if self.room.mode == "TOURNAMENT" else f'[Tournament] Match starting against {"Guest" if game.player2_is_guest else (game.player2.username if game.player2 else "AI")}'
+                await self.send_chat_notification(game.player1.id, player1_message)
+                await self.create_chat_message(self.user, game.player1, player1_message)
+
+                if game.player2 and not game.player2_is_guest:
+                    player2_message = f'[Tournament] Match starting against {game.player1.nick_name}' if game.room.mode == "TOURNAMENT" else f'[Tournament] Match starting against {game.player1.username}'
+                    await self.send_chat_notification(game.player2.id, player2_message)
+                    await self.create_chat_message(self.user, game.player2, player2_message)
 
                 await self.channel_layer.group_send(
                     f"user_{game.player1.id}",
                     {
                         'type': 'room_info',
-                        'message': f'Round starting against {game.player2.nick_name if game.player2 else "AI"}' if self.room.mode == "TOURNAMENT" else f'Match starting against {"Guest" if game.player2_is_guest else (game.player2.username if game.player2 else "AI")}',
+                        'message': player1_message,
                         'message_type': 'info',
                         'timestamp': timezone.now().isoformat()
                     }

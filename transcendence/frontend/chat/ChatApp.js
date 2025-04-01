@@ -14,30 +14,35 @@ window.bootstrap.Modal = Modal;
 
 export default class ChatApp {
 	static #instance = null;
-    // Store reference to subscription removers
-    static #userSubscription = null;
+	// Store reference to subscription removers
+	static #userSubscription = null;
 
 	static async initialize() {
 		// Set up initial instance if user is online
-        if (store.getState('user').status === USER_STATUS.ONLINE) {
-            ChatApp.#instance = new ChatApp();
-            await ChatApp.#instance._setupConnection();
-        }
+		if (store.getState('user').status === USER_STATUS.ONLINE) {
+			ChatApp.#instance = new ChatApp();
+			await ChatApp.#instance._setupConnection();
 
-        // Create a single user subscription
-        ChatApp.#userSubscription = store.subscribe('user', async (state) => {
-            if (state.status === USER_STATUS.OFFLINE) {
-                if (ChatApp.#instance) {
-                    ChatApp.#instance.destroy();
-                    ChatApp.#instance = null;
-                }
-            } else if (state.status === USER_STATUS.ONLINE) {
-                if (!ChatApp.#instance) {
-                    ChatApp.#instance = new ChatApp();
-                    await ChatApp.#instance._setupConnection();
-                }
-            }
-        });
+			const chatState = store.getState('chat');
+			if (chatState) {
+				ChatApp.#instance._computeUnreadCount(chatState);
+			}
+		}
+
+		// Create a single user subscription
+		ChatApp.#userSubscription = store.subscribe('user', async (state) => {
+			if (state.status === USER_STATUS.OFFLINE) {
+				if (ChatApp.#instance) {
+					ChatApp.#instance.destroy();
+					ChatApp.#instance = null;
+				}
+			} else if (state.status === USER_STATUS.ONLINE) {
+				if (!ChatApp.#instance) {
+					ChatApp.#instance = new ChatApp();
+					await ChatApp.#instance._setupConnection();
+				}
+			}
+		});
 	}
 
 	constructor() {
@@ -45,6 +50,10 @@ export default class ChatApp {
 		this._isChatOpen = false;
 		this._lastMessageId = 0;
 		this._initializeState();
+
+		document.addEventListener('DOMContentLoaded', () => {
+			this._setupChatCanvasListeners();
+		});
 
 		logger.info('[ChatApp] ChatApp initialized');
 	}
@@ -109,8 +118,35 @@ export default class ChatApp {
 		});
 	}
 
+	_setupChatCanvasListeners() {
+		const chatState = store.getState('chat');
+		if (chatState) {
+			this._computeUnreadCount(chatState);
+		}
+
+		// Set up offcanvas event listeners
+		const chatCanvas = document.getElementById('chatCanvas');
+		if (chatCanvas) {
+			chatCanvas.addEventListener('shown.bs.offcanvas', () => {
+				this.setChatModalOpen(true);
+			});
+
+			chatCanvas.addEventListener('hidden.bs.offcanvas', () => {
+				this.setChatModalOpen(false);
+			});
+		}
+	}
+
 	_computeUnreadCount(state) {
-		return Object.values(state.unreadCounts).reduce((sum, count) => sum + count, 0);
+		const unreadCount = Object.values(state.unreadCounts).reduce((sum, count) => sum + count, 0);
+
+		const chatBadge = document.querySelector('.chat-badge');
+		if (chatBadge) {
+			chatBadge.textContent = unreadCount;
+			chatBadge.style.display = unreadCount > 0 ? 'block' : 'none';
+		}
+
+		return unreadCount;
 	}
 
 	_computeMessages(state) {
@@ -280,17 +316,17 @@ export default class ChatApp {
 			error: (data) => {
 				logger.error('[ChatApp] Server error:', data.message);
 				let modalMessage = document.getElementById("modalMessage");
-					let modalTitle = document.getElementById("messageModalLabel");
+				let modalTitle = document.getElementById("messageModalLabel");
 
-					modalTitle.textContent = "Error";
-					modalMessage.innerHTML = data.message || 'An error occurred';
+				modalTitle.textContent = "Error";
+				modalMessage.innerHTML = data.message || 'An error occurred';
 
-					if (document.querySelector('.modal-backdrop')) {
-						document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-					}
+				if (document.querySelector('.modal-backdrop')) {
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
 
-					let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
-					messageModal.show();
+				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
+				messageModal.show();
 			},
 
 			load_friend_requests: (data) => {
@@ -376,9 +412,9 @@ export default class ChatApp {
 			logger.debug(`[ChatApp] Unhandled message type:`, data.type);
 		}
 		const messageHistory = document.querySelector("#message-history");
-        if (messageHistory) {
-            messageHistory.scrollTo({ top: messageHistory.scrollHeight, behavior: 'smooth' });
-        }
+		if (messageHistory) {
+			messageHistory.scrollTo({ top: messageHistory.scrollHeight, behavior: 'smooth' });
+		}
 	}
 
 	_sendMessage(message) {
@@ -674,8 +710,8 @@ export default class ChatApp {
 				modalMessage.innerHTML = `Failed to ${action} user. Please try again.`;
 
 				if (document.querySelector('.modal-backdrop')) {
-				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-			}
+					document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+				}
 
 				let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 				messageModal.show();
@@ -691,6 +727,12 @@ export default class ChatApp {
 				domain: 'chat',
 				type: chatActions.CLEAR_UNREAD
 			});
+
+			const chatBadge = document.querySelector('.chat-badge');
+			if (chatBadge) {
+				chatBadge.textContent = 0;
+				chatBadge.style.display = 'none';
+			}
 		}
 	}
 
@@ -803,9 +845,9 @@ export default class ChatApp {
 		modalMessage.innerHTML = 'Game invitation sent!';
 
 		if (document.querySelector('.modal-backdrop')) {
-				document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-			}
-			
+			document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+		}
+
 		let messageModal = new bootstrap.Modal(document.getElementById("messageModal"));
 		messageModal.show();
 	}
@@ -840,6 +882,10 @@ export default class ChatApp {
 
 	formatTimestamp(timestamp) {
 		return new Date(timestamp).toLocaleTimeString();
+	}
+
+	static getInstance() {
+		return ChatApp.#instance;
 	}
 
 	static sendMessage(message) {

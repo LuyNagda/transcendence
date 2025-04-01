@@ -141,14 +141,24 @@ export const chatReducers = {
 		lastUpdate: Date.now()
 	}),
 
-	[chatActions.CLEAR_UNREAD]: (state, { friendId }) => ({
-		...state,
-		unreadCounts: {
-			...state.unreadCounts,
-			[friendId]: 0
-		},
-		lastUpdate: Date.now()
-	}),
+	[chatActions.CLEAR_UNREAD]: (state, payload = {}) => {
+		if (payload.friendId) {
+			return {
+				...state,
+				unreadCounts: {
+					...state.unreadCounts,
+					[payload.friendId]: 0
+				},
+				lastUpdate: Date.now()
+			};
+		} else {
+			return {
+				...state,
+				unreadCounts: {},
+				lastUpdate: Date.now()
+			};
+		}
+	},
 
 	[chatActions.FRIEND_REQUEST]: (state, payload) => ({
 		...state,
